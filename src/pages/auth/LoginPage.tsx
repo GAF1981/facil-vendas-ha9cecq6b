@@ -59,23 +59,29 @@ export default function LoginPage() {
       if (employee) {
         setEmployee(employee)
         const from = (location.state as any)?.from?.pathname || '/'
-        navigate(from, { replace: true })
+
         toast({
-          title: 'Bem-vindo de volta!',
-          description: `Olá, ${employee.nome_completo.split(' ')[0]}.`,
+          title: 'Login realizado com sucesso',
+          description: `Bem-vindo, ${employee.nome_completo.split(' ')[0]}!`,
+          className: 'bg-green-50 border-green-200 text-green-900',
         })
+
+        // Use replace to prevent going back to login
+        navigate(from, { replace: true })
       } else {
         toast({
-          title: 'Erro no login',
-          description: 'E-mail ou senha inválidos.',
+          title: 'Credenciais inválidas',
+          description: 'E-mail ou senha incorretos. Tente novamente.',
           variant: 'destructive',
         })
+        form.setValue('password', '')
       }
     } catch (error) {
       console.error(error)
       toast({
         title: 'Erro no sistema',
-        description: 'Ocorreu um erro ao tentar fazer login.',
+        description:
+          'Não foi possível conectar ao servidor. Verifique sua internet.',
         variant: 'destructive',
       })
     } finally {
@@ -85,13 +91,13 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/20 p-4">
-      <Card className="w-full max-w-md shadow-lg">
+      <Card className="w-full max-w-md shadow-lg border-t-4 border-t-primary">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold text-primary">
             FACIL VENDAS
           </CardTitle>
           <CardDescription>
-            Entre com suas credenciais de funcionário para acessar o sistema.
+            Entre com suas credenciais para acessar o sistema.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -109,6 +115,7 @@ export default function LoginPage() {
                         <Input
                           className="pl-9"
                           placeholder="nome@exemplo.com"
+                          autoComplete="email"
                           {...field}
                         />
                       </div>
@@ -130,6 +137,7 @@ export default function LoginPage() {
                           type="password"
                           className="pl-9"
                           placeholder="••••"
+                          autoComplete="current-password"
                           {...field}
                         />
                       </div>
@@ -139,14 +147,20 @@ export default function LoginPage() {
                 )}
               />
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Entrar
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Entrando...
+                  </>
+                ) : (
+                  'Entrar'
+                )}
               </Button>
             </form>
           </Form>
         </CardContent>
-        <CardFooter className="flex justify-center">
-          <p className="text-xs text-muted-foreground">
+        <CardFooter className="flex justify-center flex-col gap-2">
+          <p className="text-xs text-muted-foreground text-center">
             Acesso restrito a funcionários autorizados.
           </p>
         </CardFooter>

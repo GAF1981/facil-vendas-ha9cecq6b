@@ -7,7 +7,7 @@ export interface Employee {
   cpf: string | null
   email: string
   setor: string | null
-  senha: string
+  senha?: string // Optional because RPC login doesn't return it for security
   foto_url?: string | null
   created_at?: string
 }
