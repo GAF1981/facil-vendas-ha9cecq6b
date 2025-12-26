@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase/client'
-import { Product } from '@/types/product'
+import { Product, ProductInsert, ProductUpdate } from '@/types/product'
 
 export const productsService = {
   async getProducts(page = 1, pageSize = 20, search = '') {
@@ -13,18 +13,15 @@ export const productsService = {
       if (isNumeric) {
         const numValue = Number(searchTerm)
         // PostgreSQL integer max value is 2,147,483,647.
-        // If the number is larger (like a barcode), we shouldn't search in the integer CODIGO column
-        // to avoid "value out of range" errors, unless CODIGO is BigInt (but types say number).
-        // We assume CODIGO is standard integer (Serial).
         const isIntSafe = numValue <= 2147483647
 
         const conditions = []
         if (isIntSafe) {
           conditions.push(`CODIGO.eq.${searchTerm}`)
         }
-        // CÓDIGO BARRAS typically handles larger numbers (EAN-13), assuming it's BigInt or Numeric in DB
+        // CÓDIGO BARRAS typically handles larger numbers (EAN-13)
         conditions.push(`"CÓDIGO BARRAS".eq.${searchTerm}`)
-        // Always allow searching by name even if it looks like a number (e.g. "123" in "Product 123")
+        // Always allow searching by name even if it looks like a number
         conditions.push(`MERCADORIA.ilike.%${searchTerm}%`)
 
         query = query.or(conditions.join(','))
@@ -51,6 +48,17 @@ export const productsService = {
     }
   },
 
+  async getById(id: number) {
+    const { data, error } = await supabase
+      .from('PRODUTOS')
+      .select('*')
+      .eq('CODIGO', id)
+      .single()
+
+    if (error) throw error
+    return data as Product
+  },
+
   async getByBarcode(barcode: number) {
     const { data, error } = await supabase
       .from('PRODUTOS')
@@ -60,5 +68,34 @@ export const productsService = {
 
     if (error) return null
     return data as Product
+  },
+
+  async create(product: ProductInsert) {
+    const { data, error } = await supabase
+      .from('PRODUTOS')
+      .insert(product)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data as Product
+  },
+
+  async update(id: number, product: ProductUpdate) {
+    const { data, error } = await supabase
+      .from('PRODUTOS')
+      .update(product)
+      .eq('CODIGO', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data as Product
+  },
+
+  async delete(id: number) {
+    const { error } = await supabase.from('PRODUTOS').delete().eq('CODIGO', id)
+
+    if (error) throw error
   },
 }

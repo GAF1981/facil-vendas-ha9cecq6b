@@ -1,6 +1,9 @@
 import { Database } from '@/lib/supabase/types'
+import { z } from 'zod'
 
 export type Product = Database['public']['Tables']['PRODUTOS']['Row']
+export type ProductInsert = Database['public']['Tables']['PRODUTOS']['Insert']
+export type ProductUpdate = Database['public']['Tables']['PRODUTOS']['Update']
 
 // Helper to format price since it comes as string (likely formatted or raw number string)
 export const formatPrice = (price: string | null) => {
@@ -26,3 +29,23 @@ export const formatPrice = (price: string | null) => {
     currency: 'BRL',
   }).format(num)
 }
+
+// Zod Schema for validation
+export const productSchema = z.object({
+  CODIGO: z.coerce
+    .number({ required_error: 'Código é obrigatório' })
+    .min(1, 'Código deve ser maior que 0'),
+  'CÓDIGO BARRAS': z.coerce
+    .number()
+    .min(0, 'Código de barras inválido')
+    .optional()
+    .nullable(), // Although DB says number, it handles input
+  MERCADORIA: z.string().min(2, 'Nome da mercadoria é obrigatório'),
+  'DESCRIÇÃO RESUMIDA': z.string().optional().nullable(),
+  GRUPO: z.string().optional().nullable(),
+  PREÇO: z.string().optional().nullable(),
+  'PRODUTOS CONCATENADOS': z.string().optional().nullable(),
+  TIPO: z.string().optional().nullable(),
+})
+
+export type ProductFormData = z.infer<typeof productSchema>

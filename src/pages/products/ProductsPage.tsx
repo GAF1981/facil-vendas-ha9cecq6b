@@ -10,7 +10,10 @@ import {
   ChevronRight,
   PackageX,
   X,
+  Plus,
+  ArrowLeft,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { productsService } from '@/services/productsService'
 import { Product } from '@/types/product'
 import { BarcodeScannerDialog } from '@/components/products/BarcodeScannerDialog'
@@ -86,14 +89,31 @@ export default function ProductsPage() {
     <div className="space-y-6 animate-fade-in pb-10">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Button variant="ghost" size="sm" asChild className="-ml-2">
+              <Link
+                to="/dashboard"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <ArrowLeft className="mr-1 h-4 w-4" />
+                Menu Principal
+              </Link>
+            </Button>
+          </div>
           <h1 className="text-3xl font-bold tracking-tight">Produtos</h1>
           <p className="text-muted-foreground mt-1">
             Catálogo de produtos ({totalCount} registros)
           </p>
         </div>
+        <Button asChild>
+          <Link to="/produtos/novo">
+            <Plus className="mr-2 h-4 w-4" />
+            Novo Produto
+          </Link>
+        </Button>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -118,6 +138,7 @@ export default function ProductsPage() {
           variant="outline"
           onClick={() => setScannerOpen(true)}
           title="Escanear Código de Barras"
+          className="shrink-0"
         >
           <ScanBarcode className="h-4 w-4 sm:mr-2" />
           <span className="hidden sm:inline">Escanear</span>
@@ -139,12 +160,16 @@ export default function ProductsPage() {
           {/* Mobile View - Cards */}
           <div className="grid grid-cols-1 gap-4 sm:hidden">
             {products.map((product) => (
-              <ProductCardItem key={product.CODIGO} product={product} />
+              <ProductCardItem
+                key={product.CODIGO}
+                product={product}
+                onUpdate={fetchProducts}
+              />
             ))}
           </div>
 
           {/* Desktop View - Table */}
-          <ProductTable products={products} />
+          <ProductTable products={products} onUpdate={fetchProducts} />
 
           {/* Pagination */}
           <div className="flex items-center justify-between pt-4">
