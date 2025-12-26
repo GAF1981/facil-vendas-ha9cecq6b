@@ -14,6 +14,7 @@ export interface Employee {
 export type EmployeeInsert = Omit<Employee, 'id' | 'created_at'>
 export type EmployeeUpdate = Partial<EmployeeInsert>
 
+// Schema for employee form (management)
 export const employeeSchema = z.object({
   nome_completo: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
   apelido: z.string().optional().nullable(),
@@ -32,4 +33,14 @@ export const employeeSchema = z.object({
     .regex(/^\d+$/, 'A senha deve conter apenas números'),
 })
 
+// Schema for login
+export const loginSchema = z.object({
+  email: z.string().email('Insira um email válido'),
+  password: z
+    .string()
+    .length(4, 'A senha deve ter 4 dígitos')
+    .regex(/^\d+$/, 'A senha deve conter apenas números'),
+})
+
 export type EmployeeFormData = z.infer<typeof employeeSchema>
+export type LoginFormData = z.infer<typeof loginSchema>

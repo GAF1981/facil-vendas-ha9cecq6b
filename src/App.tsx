@@ -77,7 +77,6 @@ const App = () => (
               <Route path="/relatorio" element={<PlaceholderModule />} />
               <Route path="/pendencias" element={<PlaceholderModule />} />
 
-              {/* Keep legacy route just in case, or map to Recebimento */}
               <Route path="/vendas" element={<PlaceholderModule />} />
             </Route>
           </Route>

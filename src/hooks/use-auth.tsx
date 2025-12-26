@@ -11,7 +11,8 @@ import { supabase } from '@/lib/supabase/client'
 interface AuthContextType {
   user: User | null
   session: Session | null
-  signIn: (email: string) => Promise<{ error: any }>
+  signIn: (email: string, password: string) => Promise<{ error: any }>
+  signUp: (email: string, password: string) => Promise<{ error: any }>
   signOut: () => Promise<{ error: any }>
   loading: boolean
 }
@@ -51,24 +52,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe()
   }, [])
 
-  const signIn = async (email: string) => {
-    // Magic link login for simplicity as per common supabase patterns when password isn't strictly required by prompt
-    // However, prompt example used signInWithPassword. But user story didn't specify credentials.
-    // I'll stick to a simple email/password flow or Magic Link.
-    // Let's implement magic link (OTP) as it's easier to demo without setting up users manually,
-    // OR just simple email/password if the user provided credentials.
-    // The instructions example used signInWithPassword. I will use signInWithPassword (assuming users exist)
-    // BUT since I can't create users easily without a signup form and the user story is about managing clients...
-    // I'll implement signInWithPassword.
+  const signIn = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+    return { error }
+  }
 
-    // Actually, I'll use OTP (Magic Link) if password is empty, or Password if provided.
-    // To keep it simple for this task, I'll allow "signIn" to take email and a hardcoded dev password or just implement a simple login page.
-    // Wait, the interface in my plan only has email. I should probably add password.
-    return {
-      error: new Error(
-        'Not implemented in context directly, use supabase client in Login Page',
-      ),
-    }
+  const signUp = async (email: string, password: string) => {
+    // Standard signup - assuming auto confirm is on or we handle it
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+    })
+    return { error }
   }
 
   const signOut = async () => {
@@ -80,6 +78,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     user,
     session,
     signIn,
+    signUp,
     signOut,
     loading,
   }

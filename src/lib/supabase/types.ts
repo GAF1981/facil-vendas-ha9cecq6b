@@ -110,6 +110,7 @@ export type Database = {
           email: string
           id: number
           nome_completo: string
+          senha: string
           setor: string | null
         }
         Insert: {
@@ -119,6 +120,7 @@ export type Database = {
           email: string
           id?: number
           nome_completo: string
+          senha?: string
           setor?: string | null
         }
         Update: {
@@ -128,6 +130,7 @@ export type Database = {
           email?: string
           id?: number
           nome_completo?: string
+          senha?: string
           setor?: string | null
         }
         Relationships: []
