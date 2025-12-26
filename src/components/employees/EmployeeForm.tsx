@@ -10,6 +10,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import {
@@ -19,10 +20,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Image as ImageIcon } from 'lucide-react'
 import { maskCPF } from '@/lib/masks'
 import { employeesService } from '@/services/employeesService'
 import { useToast } from '@/hooks/use-toast'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
 interface EmployeeFormProps {
   initialData?: Employee
@@ -48,6 +50,7 @@ export function EmployeeForm({
           email: initialData.email,
           setor: initialData.setor || '',
           senha: initialData.senha || '0000',
+          foto_url: initialData.foto_url || '',
         }
       : {
           nome_completo: '',
@@ -56,8 +59,11 @@ export function EmployeeForm({
           email: '',
           setor: '',
           senha: '',
+          foto_url: '',
         },
   })
+
+  const watchPhotoUrl = form.watch('foto_url')
 
   const onSubmit = async (data: EmployeeFormData) => {
     setLoading(true)
@@ -93,126 +99,166 @@ export function EmployeeForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="nome_completo"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Nome Completo *</FormLabel>
-                <FormControl>
-                  <Input placeholder="Nome completo" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <div className="flex flex-col md:flex-row gap-6">
+          <div className="flex flex-col items-center space-y-4">
+            <Avatar className="h-32 w-32 border-2 border-muted">
+              <AvatarImage
+                src={watchPhotoUrl || undefined}
+                className="object-cover"
+              />
+              <AvatarFallback className="text-4xl bg-muted">
+                <ImageIcon className="h-12 w-12 text-muted-foreground/50" />
+              </AvatarFallback>
+            </Avatar>
+            <div className="text-sm text-muted-foreground text-center max-w-[200px]">
+              Preview da foto de perfil
+            </div>
+          </div>
 
-          <FormField
-            control={form.control}
-            name="apelido"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Apelido</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="Apelido"
-                    {...field}
-                    value={field.value || ''}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="cpf"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>CPF</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="000.000.000-00"
-                    {...field}
-                    value={field.value || ''}
-                    onChange={(e) => field.onChange(maskCPF(e.target.value))}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Email *</FormLabel>
-                <FormControl>
-                  <Input
-                    type="email"
-                    placeholder="email@empresa.com"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="setor"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Setor</FormLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  defaultValue={field.value || undefined}
-                >
+          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="nome_completo"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nome Completo *</FormLabel>
                   <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um setor" />
-                    </SelectTrigger>
+                    <Input placeholder="Nome completo" {...field} />
                   </FormControl>
-                  <SelectContent>
-                    <SelectItem value="Vendedor">Vendedor</SelectItem>
-                    <SelectItem value="Estoque">Estoque</SelectItem>
-                    <SelectItem value="Motoqueiro">Motoqueiro</SelectItem>
-                    <SelectItem value="Financeiro">Financeiro</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <FormField
-            control={form.control}
-            name="senha"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Senha (4 dígitos) *</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="0000"
-                    maxLength={4}
-                    inputMode="numeric"
-                    {...field}
-                    value={field.value || ''}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, '')
-                      field.onChange(value)
-                    }}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+            <FormField
+              control={form.control}
+              name="apelido"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Apelido</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Apelido"
+                      {...field}
+                      value={field.value || ''}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="cpf"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>CPF</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="000.000.000-00"
+                      {...field}
+                      value={field.value || ''}
+                      onChange={(e) => field.onChange(maskCPF(e.target.value))}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email *</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="email"
+                      placeholder="email@empresa.com"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="setor"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Setor</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value || undefined}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um setor" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Vendedor">Vendedor</SelectItem>
+                      <SelectItem value="Estoque">Estoque</SelectItem>
+                      <SelectItem value="Motoqueiro">Motoqueiro</SelectItem>
+                      <SelectItem value="Financeiro">Financeiro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="senha"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Senha (4 dígitos) *</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="0000"
+                      maxLength={4}
+                      inputMode="numeric"
+                      {...field}
+                      value={field.value || ''}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '')
+                        field.onChange(value)
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="md:col-span-2">
+              <FormField
+                control={form.control}
+                name="foto_url"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>URL da Foto</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="https://exemplo.com/foto.jpg"
+                        {...field}
+                        value={field.value || ''}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Cole o link direto da imagem de perfil.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
         </div>
 
         <div className="flex justify-end gap-2 pt-4">

@@ -39,6 +39,17 @@ export const employeesService = {
     return data as Employee
   },
 
+  async getByEmail(email: string) {
+    const { data, error } = await supabase
+      .from('FUNCIONARIOS')
+      .select('*')
+      .eq('email', email)
+      .single()
+
+    if (error) throw error
+    return data as Employee
+  },
+
   async create(employee: EmployeeInsert) {
     // Cast to any to avoid type errors with outdated generated Supabase types
     const { data, error } = await supabase

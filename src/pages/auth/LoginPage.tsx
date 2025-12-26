@@ -25,12 +25,14 @@ import {
 } from '@/components/ui/form'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2, Lock, Mail } from 'lucide-react'
+import { useUserStore } from '@/stores/useUserStore'
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const { signIn, signUp } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
+  const { setEmployee } = useUserStore()
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -58,8 +60,6 @@ export default function LoginPage() {
 
       if (signInError) {
         // If login fails, check if it's because user doesn't exist (Invalid login credentials)
-        // In a real production app, we might handle this differently, but for this task,
-        // we auto-provision the user in Supabase Auth if they exist in FUNCIONARIOS but not in Auth.
         if (
           signInError.message.includes('Invalid login credentials') ||
           signInError.message.includes('not found')
@@ -76,14 +76,9 @@ export default function LoginPage() {
             )
           }
 
-          // If signup successful, we are logged in automatically or need to sign in again
-          // signUp usually returns a session if auto-confirm is on, or we might need to sign in.
           // Let's try sign in again to be sure
           const { error: retryError } = await signIn(data.email, data.password)
           if (retryError) {
-            // Fallback: If password too short for Supabase (default 6), we might fail here if config wasn't changed.
-            // But if we reached here, signUp passed?
-            // If signUp failed due to password length, we would have caught it above.
             throw retryError
           }
         } else {
@@ -91,7 +86,9 @@ export default function LoginPage() {
         }
       }
 
-      // 3. Success
+      // 3. Success - Store employee data and redirect
+      setEmployee(employee)
+
       toast({
         title: 'Bem-vindo(a)',
         description: `Login realizado com sucesso. Olá, ${employee.nome_completo}!`,
@@ -101,7 +98,6 @@ export default function LoginPage() {
       console.error(error)
       let message = error.message || 'Ocorreu um erro ao tentar entrar.'
 
-      // Improve user feedback for common password length issues if config isn't tweaked
       if (message.includes('Password should be at least')) {
         message =
           'Erro de configuração: A senha no sistema Auth precisa ser maior (min 6). Contate o admin.'
@@ -139,7 +135,7 @@ export default function LoginPage() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>Usuário (Email)</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -161,7 +157,7 @@ export default function LoginPage() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Senha (PIN)</FormLabel>
+                    <FormLabel>Senha</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -195,7 +191,7 @@ export default function LoginPage() {
                     Autenticando...
                   </>
                 ) : (
-                  'Entrar no Sistema'
+                  'Entrar'
                 )}
               </Button>
             </form>

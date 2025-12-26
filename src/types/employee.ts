@@ -8,6 +8,7 @@ export interface Employee {
   email: string
   setor: string | null
   senha: string
+  foto_url?: string | null
   created_at?: string
 }
 
@@ -31,6 +32,12 @@ export const employeeSchema = z.object({
     .string()
     .length(4, 'A senha deve ter exatamente 4 dígitos')
     .regex(/^\d+$/, 'A senha deve conter apenas números'),
+  foto_url: z
+    .string()
+    .url('URL inválida')
+    .optional()
+    .nullable()
+    .or(z.literal('')),
 })
 
 // Schema for login
