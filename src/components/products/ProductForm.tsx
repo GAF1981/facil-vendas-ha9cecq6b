@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ProductFormData, productSchema, ProductRow } from '@/types/product'
@@ -54,6 +54,24 @@ export function ProductForm({
         },
   })
 
+  useEffect(() => {
+    if (!initialData) {
+      productsService
+        .getNextId()
+        .then((nextId) => {
+          form.setValue('CODIGO', nextId)
+        })
+        .catch((err) => {
+          console.error('Failed to fetch next ID', err)
+          toast({
+            title: 'Aviso',
+            description: 'Não foi possível gerar o próximo ID automaticamente.',
+            variant: 'destructive',
+          })
+        })
+    }
+  }, [initialData, form, toast])
+
   const onSubmit = async (data: ProductFormData) => {
     setLoading(true)
     try {
@@ -65,7 +83,13 @@ export function ProductForm({
           className: 'bg-green-50 border-green-200 text-green-900',
         })
       } else {
-        await productsService.create(data)
+        // We need to inject "ID PRODUTOS" as it is mandatory in DB and missing in form data
+        // We assume ID PRODUTOS should follow the CODIGO we generated
+        const payload = {
+          ...data,
+          'ID PRODUTOS': Number(data.CODIGO),
+        }
+        await productsService.create(payload)
         toast({
           title: 'Produto cadastrado',
           description: 'Novo produto adicionado com sucesso.',
@@ -102,7 +126,7 @@ export function ProductForm({
                     <FormControl>
                       <Input
                         type="number"
-                        placeholder="0"
+                        placeholder="Automático"
                         {...field}
                         disabled={!!initialData}
                       />

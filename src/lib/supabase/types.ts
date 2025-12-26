@@ -140,30 +140,36 @@ export type Database = {
       }
       PRODUTOS: {
         Row: {
-          CODIGO: number
-          'CÓDIGO BARRAS': number
+          CODIGO: number | null
+          'CÓDIGO BARRAS': string | null
           'DESCRIÇÃO RESUMIDA': string | null
           GRUPO: string | null
+          'ID PRODUTOS': number
+          MERCADORIA: string | null
           PREÇO: string | null
-          PRODUTOS: string | null
+          'PRODUTOS CONCATENADOS': string | null
           TIPO: string | null
         }
         Insert: {
-          CODIGO: number
-          'CÓDIGO BARRAS': number
+          CODIGO?: number | null
+          'CÓDIGO BARRAS'?: string | null
           'DESCRIÇÃO RESUMIDA'?: string | null
           GRUPO?: string | null
+          'ID PRODUTOS': number
+          MERCADORIA?: string | null
           PREÇO?: string | null
-          PRODUTOS?: string | null
+          'PRODUTOS CONCATENADOS'?: string | null
           TIPO?: string | null
         }
         Update: {
-          CODIGO?: number
-          'CÓDIGO BARRAS'?: number
+          CODIGO?: number | null
+          'CÓDIGO BARRAS'?: string | null
           'DESCRIÇÃO RESUMIDA'?: string | null
           GRUPO?: string | null
+          'ID PRODUTOS'?: number
+          MERCADORIA?: string | null
           PREÇO?: string | null
-          PRODUTOS?: string | null
+          'PRODUTOS CONCATENADOS'?: string | null
           TIPO?: string | null
         }
         Relationships: []

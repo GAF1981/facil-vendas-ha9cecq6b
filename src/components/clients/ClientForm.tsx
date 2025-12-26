@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ClientFormData, clientSchema, ClientRow } from '@/types/client'
@@ -77,6 +77,25 @@ export function ClientForm({
         },
   })
 
+  useEffect(() => {
+    if (!initialData) {
+      clientsService
+        .getNextCode()
+        .then((nextCode) => {
+          form.setValue('CODIGO', nextCode)
+        })
+        .catch((err) => {
+          console.error('Failed to fetch next code', err)
+          toast({
+            title: 'Aviso',
+            description:
+              'Não foi possível gerar o próximo código automaticamente.',
+            variant: 'destructive',
+          })
+        })
+    }
+  }, [initialData, form, toast])
+
   const onSubmit = async (data: ClientFormData) => {
     setLoading(true)
     try {
@@ -128,7 +147,7 @@ export function ClientForm({
                     <FormControl>
                       <Input
                         type="number"
-                        placeholder="Ex: 100"
+                        placeholder="Automático"
                         {...field}
                         disabled={!!initialData}
                       />

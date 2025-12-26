@@ -14,13 +14,10 @@ export const productsService = {
       const isNumber = !isNaN(Number(searchTerm)) && searchTerm !== ''
 
       if (isNumber) {
-        // Search by exact CODIGO or CÓDIGO BARRAS, or partial name in PRODUTOS column
-        // PRODUTOS column is the Product Name
         query = query.or(
           `CODIGO.eq.${searchTerm},"CÓDIGO BARRAS".eq.${searchTerm},PRODUTOS.ilike.%${searchTerm}%`,
         )
       } else {
-        // Search by partial name in PRODUTOS column
         query = query.ilike('PRODUTOS', `%${searchTerm}%`)
       }
     }
@@ -49,6 +46,21 @@ export const productsService = {
 
     if (error) throw error
     return data as ProductRow
+  },
+
+  async getNextId() {
+    // "ID PRODUTOS" needs to be quoted in the select string or handled carefully if it has spaces
+    const { data, error } = await supabase
+      .from('PRODUTOS')
+      .select('"ID PRODUTOS"')
+      .order('ID PRODUTOS', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (error && error.code !== 'PGRST116') throw error
+
+    const maxId = data ? data['ID PRODUTOS'] : 0
+    return maxId + 1
   },
 
   async create(product: ProductInsert) {

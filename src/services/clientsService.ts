@@ -12,17 +12,13 @@ export const clientsService = {
 
     if (search) {
       const searchTerm = search.trim()
-      // Check if search term is a valid number (and not empty string)
       const isNumber = !isNaN(Number(searchTerm)) && searchTerm !== ''
 
       if (isNumber) {
-        // If numeric, search match in CODIGO (exact) OR NOME CLIENTE (partial)
         query = query.or(
           `CODIGO.eq.${searchTerm},NOME CLIENTE.ilike.%${searchTerm}%`,
         )
       } else {
-        // If text, search match only in NOME CLIENTE (partial)
-        // Explicitly ignoring other fields like Address, CNPJ, etc.
         query = query.ilike('NOME CLIENTE', `%${searchTerm}%`)
       }
     }
@@ -62,6 +58,21 @@ export const clientsService = {
 
     if (error) throw error
     return data as ClientRow
+  },
+
+  async getNextCode() {
+    const { data, error } = await supabase
+      .from('CLIENTES')
+      .select('CODIGO')
+      .order('CODIGO', { ascending: false })
+      .limit(1)
+      .single()
+
+    // PGRST116 is the error code for "The result contains 0 rows" when using single()
+    if (error && error.code !== 'PGRST116') throw error
+
+    const maxCode = data?.CODIGO || 0
+    return maxCode + 1
   },
 
   async create(client: ClientInsert) {
