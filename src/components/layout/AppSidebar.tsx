@@ -11,7 +11,22 @@ import {
   SidebarRail,
   useSidebar,
 } from '@/components/ui/sidebar'
-import { LayoutDashboard, Users, ShoppingCart } from 'lucide-react'
+import {
+  LayoutDashboard,
+  Users,
+  Briefcase,
+  Package,
+  Scale,
+  PlusCircle,
+  ArrowDownCircle,
+  FileText,
+  Wallet,
+  CreditCard,
+  ClipboardList,
+  Map,
+  BarChart3,
+  AlertCircle,
+} from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 
 export function AppSidebar() {
@@ -30,9 +45,64 @@ export function AppSidebar() {
       icon: Users,
     },
     {
-      title: 'Vendas',
-      url: '/vendas',
-      icon: ShoppingCart,
+      title: 'Funcionários',
+      url: '/funcionarios',
+      icon: Briefcase,
+    },
+    {
+      title: 'Produtos',
+      url: '/produtos',
+      icon: Package,
+    },
+    {
+      title: 'Acerto',
+      url: '/acerto',
+      icon: Scale,
+    },
+    {
+      title: 'Complemento',
+      url: '/complemento',
+      icon: PlusCircle,
+    },
+    {
+      title: 'Recebimento',
+      url: '/recebimento',
+      icon: ArrowDownCircle,
+    },
+    {
+      title: 'Nota Fiscal',
+      url: '/nota-fiscal',
+      icon: FileText,
+    },
+    {
+      title: 'Caixa',
+      url: '/caixa',
+      icon: Wallet,
+    },
+    {
+      title: 'Cobrança',
+      url: '/cobranca',
+      icon: CreditCard,
+    },
+    {
+      title: 'Inventário',
+      url: '/inventario',
+      icon: ClipboardList,
+    },
+    {
+      title: 'Rota',
+      url: '/rota',
+      icon: Map,
+    },
+    {
+      title: 'Relatório',
+      url: '/relatorio',
+      icon: BarChart3,
+    },
+    {
+      title: 'Pendências',
+      url: '/pendencias',
+      icon: AlertCircle,
     },
   ]
 

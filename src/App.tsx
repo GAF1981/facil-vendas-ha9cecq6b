@@ -15,6 +15,7 @@ import NotFound from '@/pages/NotFound'
 import ClientsPage from '@/pages/clients/ClientsPage'
 import ClientFormPage from '@/pages/clients/ClientFormPage'
 import LoginPage from '@/pages/auth/LoginPage'
+import PlaceholderModule from '@/pages/PlaceholderModule'
 import { AuthProvider, useAuth } from '@/hooks/use-auth'
 import { Loader2 } from 'lucide-react'
 
@@ -56,14 +57,22 @@ const App = () => (
               <Route path="/clientes/novo" element={<ClientFormPage />} />
               <Route path="/clientes/:id" element={<ClientFormPage />} />
 
-              <Route
-                path="/vendas"
-                element={
-                  <div className="flex items-center justify-center h-[50vh] text-muted-foreground">
-                    Módulo de Vendas em desenvolvimento.
-                  </div>
-                }
-              />
+              {/* New Modules Routes */}
+              <Route path="/funcionarios" element={<PlaceholderModule />} />
+              <Route path="/produtos" element={<PlaceholderModule />} />
+              <Route path="/acerto" element={<PlaceholderModule />} />
+              <Route path="/complemento" element={<PlaceholderModule />} />
+              <Route path="/recebimento" element={<PlaceholderModule />} />
+              <Route path="/nota-fiscal" element={<PlaceholderModule />} />
+              <Route path="/caixa" element={<PlaceholderModule />} />
+              <Route path="/cobranca" element={<PlaceholderModule />} />
+              <Route path="/inventario" element={<PlaceholderModule />} />
+              <Route path="/rota" element={<PlaceholderModule />} />
+              <Route path="/relatorio" element={<PlaceholderModule />} />
+              <Route path="/pendencias" element={<PlaceholderModule />} />
+
+              {/* Keep legacy route just in case, or map to Recebimento */}
+              <Route path="/vendas" element={<PlaceholderModule />} />
             </Route>
           </Route>
 
