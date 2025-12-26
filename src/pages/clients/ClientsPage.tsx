@@ -2,7 +2,14 @@ import { useEffect, useState, useCallback } from 'react'
 import { ClientTable } from '@/components/clients/ClientTable'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Plus, Search, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
+import {
+  Plus,
+  Search,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  ArrowLeft,
+} from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { clientsService } from '@/services/clientsService'
@@ -64,6 +71,17 @@ const ClientsPage = () => {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Button variant="ghost" size="sm" asChild className="-ml-2">
+              <Link
+                to="/dashboard"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <ArrowLeft className="mr-1 h-4 w-4" />
+                Menu Principal
+              </Link>
+            </Button>
+          </div>
           <h1 className="text-3xl font-bold tracking-tight">Clientes</h1>
           <p className="text-muted-foreground mt-1">
             Gerencie sua base de clientes ({totalCount} registros).

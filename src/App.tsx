@@ -14,6 +14,8 @@ import DashboardPage from '@/pages/dashboard/DashboardPage'
 import NotFound from '@/pages/NotFound'
 import ClientsPage from '@/pages/clients/ClientsPage'
 import ClientFormPage from '@/pages/clients/ClientFormPage'
+import EmployeesPage from '@/pages/employees/EmployeesPage'
+import EmployeeFormPage from '@/pages/employees/EmployeeFormPage'
 import LoginPage from '@/pages/auth/LoginPage'
 import PlaceholderModule from '@/pages/PlaceholderModule'
 import { AuthProvider, useAuth } from '@/hooks/use-auth'
@@ -53,12 +55,16 @@ const App = () => (
             <Route element={<GlobalLayout />}>
               <Route path="/" element={<Index />} />
               <Route path="/dashboard" element={<DashboardPage />} />
+
               <Route path="/clientes" element={<ClientsPage />} />
               <Route path="/clientes/novo" element={<ClientFormPage />} />
               <Route path="/clientes/:id" element={<ClientFormPage />} />
 
+              <Route path="/funcionarios" element={<EmployeesPage />} />
+              <Route path="/funcionarios/novo" element={<EmployeeFormPage />} />
+              <Route path="/funcionarios/:id" element={<EmployeeFormPage />} />
+
               {/* New Modules Routes */}
-              <Route path="/funcionarios" element={<PlaceholderModule />} />
               <Route path="/produtos" element={<PlaceholderModule />} />
               <Route path="/acerto" element={<PlaceholderModule />} />
               <Route path="/complemento" element={<PlaceholderModule />} />

@@ -51,7 +51,7 @@ const ClientFormPage = () => {
         <Button
           variant="outline"
           size="icon"
-          onClick={() => navigate('/clientes')}
+          onClick={() => navigate('/dashboard')}
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
