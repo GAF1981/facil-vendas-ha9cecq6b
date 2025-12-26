@@ -11,20 +11,11 @@ export const productsService = {
       const isNumeric = /^\d+$/.test(searchTerm)
 
       if (isNumeric) {
-        const numValue = Number(searchTerm)
-        // PostgreSQL integer max value is 2,147,483,647.
-        const isIntSafe = numValue <= 2147483647
-
-        const conditions = []
-        if (isIntSafe) {
-          conditions.push(`CODIGO.eq.${searchTerm}`)
-        }
-        // CÓDIGO BARRAS typically handles larger numbers (EAN-13)
-        conditions.push(`"CÓDIGO BARRAS".eq.${searchTerm}`)
-        // Always allow searching by name even if it looks like a number
-        conditions.push(`PRODUTOS.ilike.%${searchTerm}%`)
-
-        query = query.or(conditions.join(','))
+        // If numeric, search in CODIGO, CÓDIGO BARRAS (exact) and PRODUTOS (partial)
+        // We use 'or' to combine conditions
+        query = query.or(
+          `CODIGO.eq.${searchTerm},"CÓDIGO BARRAS".eq.${searchTerm},PRODUTOS.ilike.%${searchTerm}%`,
+        )
       } else {
         // Text search: name or description
         query = query.or(
@@ -37,7 +28,7 @@ export const productsService = {
     const to = from + pageSize - 1
 
     const { data, error, count } = await query
-      .order('PRODUTOS', { ascending: true })
+      .order('CODIGO', { ascending: false })
       .range(from, to)
 
     if (error) throw error

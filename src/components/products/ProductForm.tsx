@@ -90,7 +90,7 @@ export function ProductForm({
           <h3 className="text-lg font-medium">Dados do Produto</h3>
           <Separator />
           <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-            <div className="md:col-span-2">
+            <div className="md:col-span-3">
               <FormField
                 control={form.control}
                 name="CODIGO"
@@ -132,7 +132,27 @@ export function ProductForm({
               />
             </div>
 
-            <div className="md:col-span-6">
+            <div className="md:col-span-5">
+              <FormField
+                control={form.control}
+                name="PREÇO"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Preço</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="R$ 0,00"
+                        {...field}
+                        value={field.value || ''}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="md:col-span-12">
               <FormField
                 control={form.control}
                 name="PRODUTOS"
@@ -208,27 +228,7 @@ export function ProductForm({
               />
             </div>
 
-            <div className="md:col-span-3">
-              <FormField
-                control={form.control}
-                name="PREÇO"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Preço</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="R$ 0,00"
-                        {...field}
-                        value={field.value || ''}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="md:col-span-9">
+            <div className="md:col-span-12">
               <FormField
                 control={form.control}
                 name="PRODUTOS CONCATENADOS"

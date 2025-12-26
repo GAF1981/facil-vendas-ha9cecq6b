@@ -1,25 +1,31 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import {
   Search,
   Loader2,
-  ScanBarcode,
   ChevronLeft,
   ChevronRight,
   PackageX,
-  X,
   Plus,
   ArrowLeft,
+  ScanBarcode,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { productsService } from '@/services/productsService'
 import { Product } from '@/types/product'
-import { BarcodeScannerDialog } from '@/components/products/BarcodeScannerDialog'
 import { ProductTable } from '@/components/products/ProductTable'
-import { ProductCardItem } from '@/components/products/ProductCardItem'
+import { ProductForm } from '@/components/products/ProductForm'
 import { useToast } from '@/hooks/use-toast'
+import { Card, CardContent } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
+import { BarcodeScannerDialog } from '@/components/products/BarcodeScannerDialog'
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
@@ -28,8 +34,12 @@ export default function ProductsPage() {
   const [page, setPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const [pageSize] = useState(20)
-  const [scannerOpen, setScannerOpen] = useState(false)
   const { toast } = useToast()
+
+  // Modal states
+  const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [scannerOpen, setScannerOpen] = useState(false)
 
   // Debounce search
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm)
@@ -79,10 +89,6 @@ export default function ProductsPage() {
     })
   }
 
-  const handleClearSearch = () => {
-    setSearchTerm('')
-  }
-
   const totalPages = Math.ceil(totalCount / pageSize)
 
   return (
@@ -105,51 +111,33 @@ export default function ProductsPage() {
             Catálogo de produtos ({totalCount} registros)
           </p>
         </div>
-        <Button asChild>
-          <Link to="/produtos/novo">
-            <Plus className="mr-2 h-4 w-4" />
-            Novo Produto
-          </Link>
+        <Button onClick={() => setIsCreateOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Novo Produto
         </Button>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por nome, código ou código de barras..."
-            className="pl-8 pr-8"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          {searchTerm && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-0 top-0 h-10 w-10 text-muted-foreground hover:text-foreground"
-              onClick={handleClearSearch}
-            >
-              <X className="h-4 w-4" />
-              <span className="sr-only">Limpar busca</span>
-            </Button>
-          )}
+      <div className="flex items-center bg-card p-4 rounded-lg border shadow-sm">
+        <div className="relative w-full max-w-sm flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por código, barras ou nome..."
+              className="pl-8"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setScannerOpen(true)}
+            title="Escanear"
+          >
+            <ScanBarcode className="h-4 w-4" />
+          </Button>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => setScannerOpen(true)}
-          title="Escanear Código de Barras"
-          className="shrink-0"
-        >
-          <ScanBarcode className="h-4 w-4 sm:mr-2" />
-          <span className="hidden sm:inline">Escanear</span>
-        </Button>
       </div>
-
-      <BarcodeScannerDialog
-        open={scannerOpen}
-        onOpenChange={setScannerOpen}
-        onScan={handleScan}
-      />
 
       {loading ? (
         <div className="flex justify-center py-12">
@@ -157,22 +145,13 @@ export default function ProductsPage() {
         </div>
       ) : products.length > 0 ? (
         <div className="space-y-4">
-          {/* Mobile View - Cards */}
-          <div className="grid grid-cols-1 gap-4 sm:hidden">
-            {products.map((product) => (
-              <ProductCardItem
-                key={product.CODIGO}
-                product={product}
-                onUpdate={fetchProducts}
-              />
-            ))}
-          </div>
+          <ProductTable
+            products={products}
+            onUpdate={fetchProducts}
+            onEdit={setEditingProduct}
+          />
 
-          {/* Desktop View - Table */}
-          <ProductTable products={products} onUpdate={fetchProducts} />
-
-          {/* Pagination */}
-          <div className="flex items-center justify-between pt-4">
+          <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
               Página {page} de {totalPages || 1}
             </p>
@@ -212,7 +191,7 @@ export default function ProductsPage() {
             {searchTerm && (
               <Button
                 variant="link"
-                onClick={handleClearSearch}
+                onClick={() => setSearchTerm('')}
                 className="mt-2"
               >
                 Limpar busca
@@ -221,6 +200,57 @@ export default function ProductsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Create Dialog */}
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Novo Produto</DialogTitle>
+            <DialogDescription>
+              Preencha os dados para cadastrar um novo produto.
+            </DialogDescription>
+          </DialogHeader>
+          <ProductForm
+            onSuccess={() => {
+              setIsCreateOpen(false)
+              fetchProducts()
+            }}
+            onCancel={() => setIsCreateOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog
+        open={!!editingProduct}
+        onOpenChange={(open) => !open && setEditingProduct(null)}
+      >
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Produto</DialogTitle>
+            <DialogDescription>
+              Atualize as informações do produto.
+            </DialogDescription>
+          </DialogHeader>
+          {editingProduct && (
+            <ProductForm
+              initialData={editingProduct}
+              onSuccess={() => {
+                setEditingProduct(null)
+                fetchProducts()
+              }}
+              onCancel={() => setEditingProduct(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Barcode Scanner */}
+      <BarcodeScannerDialog
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        onScan={handleScan}
+      />
     </div>
   )
 }

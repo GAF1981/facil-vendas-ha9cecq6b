@@ -6,7 +6,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
 import { Product, formatPrice } from '@/types/product'
 import {
   DropdownMenu,
@@ -18,7 +17,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { MoreHorizontal, Edit, Trash2 } from 'lucide-react'
-import { Link } from 'react-router-dom'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,10 +33,15 @@ import { useToast } from '@/hooks/use-toast'
 
 interface ProductTableProps {
   products: Product[]
-  onUpdate?: () => void
+  onUpdate: () => void
+  onEdit: (product: Product) => void
 }
 
-export function ProductTable({ products, onUpdate }: ProductTableProps) {
+export function ProductTable({
+  products,
+  onUpdate,
+  onEdit,
+}: ProductTableProps) {
   const { toast } = useToast()
   const [productToDelete, setProductToDelete] = useState<number | null>(null)
 
@@ -50,7 +53,7 @@ export function ProductTable({ products, onUpdate }: ProductTableProps) {
           title: 'Produto excluído',
           description: 'O produto foi removido com sucesso.',
         })
-        onUpdate?.()
+        onUpdate()
       } catch (error) {
         toast({
           title: 'Erro ao excluir',
@@ -65,15 +68,13 @@ export function ProductTable({ products, onUpdate }: ProductTableProps) {
 
   return (
     <>
-      <div className="hidden sm:block rounded-md border bg-card">
+      <div className="rounded-md border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="w-[80px]">Código</TableHead>
               <TableHead>Produto</TableHead>
-              <TableHead>Grupo</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Cód. Barras</TableHead>
+              <TableHead className="hidden md:table-cell">Grupo</TableHead>
               <TableHead className="text-right">Preço</TableHead>
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
@@ -88,24 +89,14 @@ export function ProductTable({ products, onUpdate }: ProductTableProps) {
                 <TableCell>
                   <div className="flex flex-col">
                     <span className="font-medium">{product.PRODUTOS}</span>
-                    {product['DESCRIÇÃO RESUMIDA'] && (
-                      <span className="text-xs text-muted-foreground">
-                        {product['DESCRIÇÃO RESUMIDA']}
-                      </span>
-                    )}
+                    <span className="text-xs text-muted-foreground md:hidden">
+                      {product.GRUPO || '-'}
+                    </span>
                   </div>
                 </TableCell>
-                <TableCell>{product.GRUPO || '-'}</TableCell>
-                <TableCell>
-                  {product.TIPO ? (
-                    <Badge variant="secondary" className="font-normal">
-                      {product.TIPO}
-                    </Badge>
-                  ) : (
-                    '-'
-                  )}
+                <TableCell className="hidden md:table-cell">
+                  {product.GRUPO || '-'}
                 </TableCell>
-                <TableCell>{product['CÓDIGO BARRAS'] || '-'}</TableCell>
                 <TableCell className="text-right font-bold">
                   {formatPrice(product.PREÇO)}
                 </TableCell>
@@ -119,10 +110,8 @@ export function ProductTable({ products, onUpdate }: ProductTableProps) {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                      <DropdownMenuItem asChild>
-                        <Link to={`/produtos/${product.CODIGO}`}>
-                          <Edit className="mr-2 h-4 w-4" /> Editar
-                        </Link>
+                      <DropdownMenuItem onClick={() => onEdit(product)}>
+                        <Edit className="mr-2 h-4 w-4" /> Editar
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
