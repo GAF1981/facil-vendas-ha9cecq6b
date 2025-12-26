@@ -15,12 +15,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { MoreHorizontal, Edit, Trash2, Eye } from 'lucide-react'
-import { Client } from '@/types/client'
+import { MoreHorizontal, Edit, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useToast } from '@/hooks/use-toast'
-import { useClientStore } from '@/stores/useClientStore'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,28 +27,38 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { useState } from 'react'
+import { ClientRow } from '@/types/client'
+import { clientsService } from '@/services/clientsService'
 
 interface ClientTableProps {
-  clients: Client[]
+  clients: ClientRow[]
+  onUpdate: () => void
 }
 
-export function ClientTable({ clients }: ClientTableProps) {
-  const { deleteClient } = useClientStore()
+export function ClientTable({ clients, onUpdate }: ClientTableProps) {
   const { toast } = useToast()
-  const [clientToDelete, setClientToDelete] = useState<string | null>(null)
+  const [clientToDelete, setClientToDelete] = useState<number | null>(null)
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (clientToDelete) {
-      deleteClient(clientToDelete)
-      toast({
-        title: 'Cliente excluído',
-        description: 'O cliente foi removido com sucesso.',
-        variant: 'destructive',
-      })
-      setClientToDelete(null)
+      try {
+        await clientsService.delete(clientToDelete)
+        toast({
+          title: 'Cliente excluído',
+          description: 'O cliente foi removido com sucesso.',
+        })
+        onUpdate()
+      } catch (error) {
+        toast({
+          title: 'Erro ao excluir',
+          description: 'Não foi possível excluir o cliente.',
+          variant: 'destructive',
+        })
+      } finally {
+        setClientToDelete(null)
+      }
     }
   }
 
@@ -61,50 +68,39 @@ export function ClientTable({ clients }: ClientTableProps) {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[80px]">Código</TableHead>
               <TableHead>Nome</TableHead>
-              <TableHead className="hidden md:table-cell">Documento</TableHead>
-              <TableHead className="hidden lg:table-cell">Email</TableHead>
+              <TableHead className="hidden md:table-cell">CPF/CNPJ</TableHead>
+              <TableHead className="hidden lg:table-cell">Cidade</TableHead>
               <TableHead className="hidden md:table-cell">Telefone</TableHead>
-              <TableHead>Status</TableHead>
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {clients.map((client) => (
               <TableRow
-                key={client.id}
+                key={client.CODIGO}
                 className="group hover:bg-muted/50 transition-colors"
               >
-                <TableCell className="font-medium">
+                <TableCell className="font-medium">{client.CODIGO}</TableCell>
+                <TableCell>
                   <div className="flex flex-col">
-                    <span>{client.name}</span>
-                    <span className="md:hidden text-xs text-muted-foreground">
-                      {client.document}
+                    <span className="font-medium">
+                      {client['NOME CLIENTE']}
+                    </span>
+                    <span className="text-xs text-muted-foreground md:hidden">
+                      {client.CNPJ || '-'}
                     </span>
                   </div>
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
-                  {client.document}
+                  {client.CNPJ || '-'}
                 </TableCell>
                 <TableCell className="hidden lg:table-cell">
-                  {client.email}
+                  {client.MUNICÍPIO || '-'}
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
-                  {client.phone}
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    variant={
-                      client.status === 'active' ? 'default' : 'secondary'
-                    }
-                    className={
-                      client.status === 'active'
-                        ? 'bg-green-500 hover:bg-green-600'
-                        : ''
-                    }
-                  >
-                    {client.status === 'active' ? 'Ativo' : 'Inativo'}
-                  </Badge>
+                  {client['FONE 1'] || client['FONE 2'] || '-'}
                 </TableCell>
                 <TableCell>
                   <DropdownMenu>
@@ -117,19 +113,14 @@ export function ClientTable({ clients }: ClientTableProps) {
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Ações</DropdownMenuLabel>
                       <DropdownMenuItem asChild>
-                        <Link to={`/clientes/${client.id}`}>
-                          <Eye className="mr-2 h-4 w-4" /> Ver detalhes
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link to={`/clientes/${client.id}?edit=true`}>
+                        <Link to={`/clientes/${client.CODIGO}`}>
                           <Edit className="mr-2 h-4 w-4" /> Editar
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         className="text-destructive focus:text-destructive"
-                        onSelect={() => setClientToDelete(client.id)}
+                        onSelect={() => setClientToDelete(client.CODIGO)}
                       >
                         <Trash2 className="mr-2 h-4 w-4" /> Excluir
                       </DropdownMenuItem>
@@ -151,7 +142,7 @@ export function ClientTable({ clients }: ClientTableProps) {
             <AlertDialogTitle>Tem certeza absoluta?</AlertDialogTitle>
             <AlertDialogDescription>
               Essa ação não pode ser desfeita. Isso excluirá permanentemente o
-              cliente e removerá seus dados de nossos servidores.
+              cliente.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -1,34 +1,48 @@
-import { useState } from 'react'
-import { useClientStore } from '@/stores/useClientStore'
+import { useEffect, useState } from 'react'
 import { ClientTable } from '@/components/clients/ClientTable'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Plus, Search, FilterX } from 'lucide-react'
+import { Plus, Search, Loader2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
+import { clientsService } from '@/services/clientsService'
+import { ClientRow } from '@/types/client'
+import { useToast } from '@/hooks/use-toast'
 
 const ClientsPage = () => {
-  const { clients } = useClientStore()
+  const [clients, setClients] = useState<ClientRow[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const { toast } = useToast()
+
+  const fetchClients = async () => {
+    setLoading(true)
+    try {
+      const data = await clientsService.getAll()
+      setClients(data)
+    } catch (error) {
+      toast({
+        title: 'Erro ao carregar clientes',
+        description: 'Verifique sua conexão e tente novamente.',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchClients()
+  }, [])
 
   const filteredClients = clients.filter((client) => {
-    const matchesSearch =
-      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.document.includes(searchTerm) ||
-      client.email.toLowerCase().includes(searchTerm.toLowerCase())
-
-    const matchesStatus =
-      statusFilter === 'all' || client.status === statusFilter
-
-    return matchesSearch && matchesStatus
+    const searchLower = searchTerm.toLowerCase()
+    return (
+      client['NOME CLIENTE']?.toLowerCase().includes(searchLower) ||
+      client['RAZÃO SOCIAL']?.toLowerCase().includes(searchLower) ||
+      client.CNPJ?.includes(searchTerm) ||
+      client.CODIGO.toString().includes(searchTerm)
+    )
   })
 
   return (
@@ -37,7 +51,7 @@ const ClientsPage = () => {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Clientes</h1>
           <p className="text-muted-foreground mt-1">
-            Gerencie sua base de clientes.
+            Gerencie sua base de clientes ({clients.length} total).
           </p>
         </div>
         <Button asChild>
@@ -48,45 +62,24 @@ const ClientsPage = () => {
         </Button>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 items-center bg-card p-4 rounded-lg border shadow-sm">
-        <div className="relative w-full sm:flex-1">
+      <div className="flex items-center bg-card p-4 rounded-lg border shadow-sm">
+        <div className="relative w-full max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por nome, documento ou email..."
+            placeholder="Buscar por nome, código ou documento..."
             className="pl-8"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <div className="w-full sm:w-[200px]">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os Status</SelectItem>
-              <SelectItem value="active">Ativo</SelectItem>
-              <SelectItem value="inactive">Inativo</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        {(searchTerm || statusFilter !== 'all') && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => {
-              setSearchTerm('')
-              setStatusFilter('all')
-            }}
-            title="Limpar filtros"
-          >
-            <FilterX className="h-4 w-4" />
-          </Button>
-        )}
       </div>
 
-      {filteredClients.length > 0 ? (
-        <ClientTable clients={filteredClients} />
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : filteredClients.length > 0 ? (
+        <ClientTable clients={filteredClients} onUpdate={fetchClients} />
       ) : (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
@@ -98,16 +91,6 @@ const ClientsPage = () => {
               Não encontramos resultados para sua busca. Tente ajustar os
               filtros ou cadastre um novo cliente.
             </p>
-            <Button
-              variant="outline"
-              className="mt-6"
-              onClick={() => {
-                setSearchTerm('')
-                setStatusFilter('all')
-              }}
-            >
-              Limpar Filtros
-            </Button>
           </CardContent>
         </Card>
       )}
