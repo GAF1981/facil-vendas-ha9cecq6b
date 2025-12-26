@@ -76,7 +76,7 @@ export function BarcodeScannerDialog({
     if (!videoRef.current || !scanning) return
 
     try {
-      // @ts-expect-error - BarcodeDetector is experimental
+      // @ts-expect-error - BarcodeDetector is experimental and might not be in TS definitions
       const barcodeDetector = new (window as any).BarcodeDetector({
         formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'qr_code'],
       })

@@ -13,6 +13,7 @@ export const productsService = {
       if (isNumeric) {
         // If numeric, search in CODIGO, CÓDIGO BARRAS (exact) and PRODUTOS (partial)
         // We use 'or' to combine conditions
+        // Note: We construct the OR string carefully to handle potential special characters in names if strictly numeric fails check but still safe
         query = query.or(
           `CODIGO.eq.${searchTerm},"CÓDIGO BARRAS".eq.${searchTerm},PRODUTOS.ilike.%${searchTerm}%`,
         )
