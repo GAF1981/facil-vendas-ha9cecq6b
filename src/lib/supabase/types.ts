@@ -25,6 +25,10 @@ export type Database = {
           'CONTATO 1': string | null
           'CONTATO 2': string | null
           Desconto: string | null
+          'DESCONTO ACESSORIO': string | null
+          'DESCONTO ACESSORIO CELULAR': string | null
+          'DESCONTO BRINQUEDO': string | null
+          'DESCONTO OUTROS': string | null
           EMAIL: string | null
           ENDEREÇO: string | null
           EXPOSITOR: string | null
@@ -49,6 +53,10 @@ export type Database = {
           'CONTATO 1'?: string | null
           'CONTATO 2'?: string | null
           Desconto?: string | null
+          'DESCONTO ACESSORIO'?: string | null
+          'DESCONTO ACESSORIO CELULAR'?: string | null
+          'DESCONTO BRINQUEDO'?: string | null
+          'DESCONTO OUTROS'?: string | null
           EMAIL?: string | null
           ENDEREÇO?: string | null
           EXPOSITOR?: string | null
@@ -73,6 +81,10 @@ export type Database = {
           'CONTATO 1'?: string | null
           'CONTATO 2'?: string | null
           Desconto?: string | null
+          'DESCONTO ACESSORIO'?: string | null
+          'DESCONTO ACESSORIO CELULAR'?: string | null
+          'DESCONTO BRINQUEDO'?: string | null
+          'DESCONTO OUTROS'?: string | null
           EMAIL?: string | null
           ENDEREÇO?: string | null
           EXPOSITOR?: string | null

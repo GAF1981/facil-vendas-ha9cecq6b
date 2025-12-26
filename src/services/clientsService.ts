@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase/client'
 import { ClientRow, ClientInsert, ClientUpdate } from '@/types/client'
 
 export const clientsService = {
-  // Now supports pagination and search
+  // Now supports pagination and search optimized for CODIGO and NOME CLIENTE
   async getClients(
     page: number = 1,
     pageSize: number = 20,
@@ -12,22 +12,18 @@ export const clientsService = {
 
     if (search) {
       const searchTerm = search.trim()
+      // Check if search term is a valid number (and not empty string)
       const isNumber = !isNaN(Number(searchTerm)) && searchTerm !== ''
 
-      // If search is numeric, it could be a CODIGO or partial text match in other fields
-      // If text, search only text fields
       if (isNumber) {
-        // Using raw PostgREST syntax for OR with mixed types can be tricky in the JS client helper
-        // But Supabase 'or' helper takes a string of comma-separated filters.
-        // We cast CODIGO to text implicitly in the backend query or we just check equality for exact match
-        // For strictness, if it's a number, we try exact match on ID OR partial on others.
+        // If numeric, search match in CODIGO (exact) OR NOME CLIENTE (partial)
         query = query.or(
-          `CODIGO.eq.${searchTerm},NOME CLIENTE.ilike.%${searchTerm}%,RAZÃO SOCIAL.ilike.%${searchTerm}%,CNPJ.ilike.%${searchTerm}%`,
+          `CODIGO.eq.${searchTerm},NOME CLIENTE.ilike.%${searchTerm}%`,
         )
       } else {
-        query = query.or(
-          `NOME CLIENTE.ilike.%${searchTerm}%,RAZÃO SOCIAL.ilike.%${searchTerm}%,CNPJ.ilike.%${searchTerm}%`,
-        )
+        // If text, search match only in NOME CLIENTE (partial)
+        // Explicitly ignoring other fields like Address, CNPJ, etc.
+        query = query.ilike('NOME CLIENTE', `%${searchTerm}%`)
       }
     }
 
@@ -47,12 +43,11 @@ export const clientsService = {
   },
 
   async getAll() {
-    // Legacy support if needed, but preferable to use getClients
     const { data, error } = await supabase
       .from('CLIENTES')
       .select('*')
       .order('CODIGO', { ascending: false })
-      .limit(1000) // Keep limit for safety on this deprecated method
+      .limit(1000)
 
     if (error) throw error
     return data as ClientRow[]
@@ -105,7 +100,6 @@ export const clientsService = {
 
     if (countError) throw countError
 
-    // Simple robust query for recent clients
     const { data: recentClients, error: listError } = await supabase
       .from('CLIENTES')
       .select('*')

@@ -8,11 +8,6 @@ import { Card, CardContent } from '@/components/ui/card'
 import { clientsService } from '@/services/clientsService'
 import { ClientRow } from '@/types/client'
 import { useToast } from '@/hooks/use-toast'
-import { useDebounce } from '@/hooks/use-debounce'
-
-// Simple debounce hook implementation inline if strictly no new files,
-// but I'll implement debounce logic manually to avoid creating a file just for a hook if not allowed or to save time.
-// Actually standard practice is to use a timer.
 
 const ClientsPage = () => {
   const [clients, setClients] = useState<ClientRow[]>([])
@@ -86,7 +81,7 @@ const ClientsPage = () => {
         <div className="relative w-full max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por código, nome ou documento..."
+            placeholder="Buscar por código ou nome..."
             className="pl-8"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
