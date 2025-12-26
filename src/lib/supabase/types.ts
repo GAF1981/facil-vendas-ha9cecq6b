@@ -102,6 +102,36 @@ export type Database = {
         }
         Relationships: []
       }
+      FUNCIONARIOS: {
+        Row: {
+          apelido: string | null
+          cpf: string | null
+          created_at: string
+          email: string
+          id: number
+          nome_completo: string
+          setor: string | null
+        }
+        Insert: {
+          apelido?: string | null
+          cpf?: string | null
+          created_at?: string
+          email: string
+          id?: number
+          nome_completo: string
+          setor?: string | null
+        }
+        Update: {
+          apelido?: string | null
+          cpf?: string | null
+          created_at?: string
+          email?: string
+          id?: number
+          nome_completo?: string
+          setor?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

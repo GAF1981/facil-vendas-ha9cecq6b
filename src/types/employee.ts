@@ -7,6 +7,7 @@ export interface Employee {
   cpf: string | null
   email: string
   setor: string | null
+  senha: string
   created_at?: string
 }
 
@@ -25,6 +26,10 @@ export const employeeSchema = z.object({
       message: 'O email deve conter o caractere @',
     }),
   setor: z.string().optional().nullable(),
+  senha: z
+    .string()
+    .length(4, 'A senha deve ter exatamente 4 dígitos')
+    .regex(/^\d+$/, 'A senha deve conter apenas números'),
 })
 
 export type EmployeeFormData = z.infer<typeof employeeSchema>

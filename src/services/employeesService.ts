@@ -40,9 +40,10 @@ export const employeesService = {
   },
 
   async create(employee: EmployeeInsert) {
+    // Cast to any to avoid type errors with outdated generated Supabase types
     const { data, error } = await supabase
       .from('FUNCIONARIOS')
-      .insert(employee)
+      .insert(employee as any)
       .select()
       .single()
 
@@ -51,9 +52,10 @@ export const employeesService = {
   },
 
   async update(id: number, employee: EmployeeUpdate) {
+    // Cast to any to avoid type errors with outdated generated Supabase types
     const { data, error } = await supabase
       .from('FUNCIONARIOS')
-      .update(employee)
+      .update(employee as any)
       .eq('id', id)
       .select()
       .single()

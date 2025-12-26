@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Loader2 } from 'lucide-react'
-import { maskCPF, unmask } from '@/lib/masks'
+import { maskCPF } from '@/lib/masks'
 import { employeesService } from '@/services/employeesService'
 import { useToast } from '@/hooks/use-toast'
 
@@ -47,6 +47,7 @@ export function EmployeeForm({
           cpf: initialData.cpf || '',
           email: initialData.email,
           setor: initialData.setor || '',
+          senha: initialData.senha || '0000',
         }
       : {
           nome_completo: '',
@@ -54,6 +55,7 @@ export function EmployeeForm({
           cpf: '',
           email: '',
           setor: '',
+          senha: '',
         },
   })
 
@@ -183,6 +185,30 @@ export function EmployeeForm({
                     <SelectItem value="Financeiro">Financeiro</SelectItem>
                   </SelectContent>
                 </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="senha"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Senha (4 dígitos) *</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="0000"
+                    maxLength={4}
+                    inputMode="numeric"
+                    {...field}
+                    value={field.value || ''}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '')
+                      field.onChange(value)
+                    }}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
