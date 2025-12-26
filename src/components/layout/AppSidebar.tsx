@@ -25,7 +25,6 @@ import {
   Map,
   BarChart3,
   AlertCircle,
-  Package,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 
@@ -48,11 +47,6 @@ export function AppSidebar() {
       title: 'Funcionários',
       url: '/funcionarios',
       icon: Briefcase,
-    },
-    {
-      title: 'Produtos',
-      url: '/produtos',
-      icon: Package,
     },
     {
       title: 'Acerto',

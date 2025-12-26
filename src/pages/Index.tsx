@@ -12,20 +12,12 @@ import {
   Map,
   BarChart3,
   AlertCircle,
-  Package,
 } from 'lucide-react'
 
 const Index = () => {
   // Navigation Hub for all devices
 
   const modules = [
-    {
-      title: 'Produtos',
-      description: 'Catálogo de produtos',
-      icon: Package,
-      to: '/produtos',
-      color: 'text-orange-600',
-    },
     {
       title: 'Clientes',
       description: 'Gestão de clientes',
