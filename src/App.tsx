@@ -11,46 +11,49 @@ import ClientFormPage from '@/pages/clients/ClientFormPage'
 import EmployeesPage from '@/pages/employees/EmployeesPage'
 import EmployeeFormPage from '@/pages/employees/EmployeeFormPage'
 import PlaceholderModule from '@/pages/PlaceholderModule'
+import { AuthProvider } from '@/hooks/use-auth'
 
 const App = () => (
   <BrowserRouter
     future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
   >
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <Routes>
-        <Route element={<GlobalLayout />}>
-          <Route path="/" element={<Index />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <Routes>
+          <Route element={<GlobalLayout />}>
+            <Route path="/" element={<Index />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
 
-          <Route path="/clientes" element={<ClientsPage />} />
-          <Route path="/clientes/novo" element={<ClientFormPage />} />
-          <Route path="/clientes/:id" element={<ClientFormPage />} />
+            <Route path="/clientes" element={<ClientsPage />} />
+            <Route path="/clientes/novo" element={<ClientFormPage />} />
+            <Route path="/clientes/:id" element={<ClientFormPage />} />
 
-          <Route path="/funcionarios" element={<EmployeesPage />} />
-          <Route path="/funcionarios/novo" element={<EmployeeFormPage />} />
-          <Route path="/funcionarios/:id" element={<EmployeeFormPage />} />
+            <Route path="/funcionarios" element={<EmployeesPage />} />
+            <Route path="/funcionarios/novo" element={<EmployeeFormPage />} />
+            <Route path="/funcionarios/:id" element={<EmployeeFormPage />} />
 
-          {/* New Modules Routes */}
-          <Route path="/produtos" element={<PlaceholderModule />} />
-          <Route path="/acerto" element={<PlaceholderModule />} />
-          <Route path="/complemento" element={<PlaceholderModule />} />
-          <Route path="/recebimento" element={<PlaceholderModule />} />
-          <Route path="/nota-fiscal" element={<PlaceholderModule />} />
-          <Route path="/caixa" element={<PlaceholderModule />} />
-          <Route path="/cobranca" element={<PlaceholderModule />} />
-          <Route path="/inventario" element={<PlaceholderModule />} />
-          <Route path="/rota" element={<PlaceholderModule />} />
-          <Route path="/relatorio" element={<PlaceholderModule />} />
-          <Route path="/pendencias" element={<PlaceholderModule />} />
+            {/* New Modules Routes */}
+            <Route path="/produtos" element={<PlaceholderModule />} />
+            <Route path="/acerto" element={<PlaceholderModule />} />
+            <Route path="/complemento" element={<PlaceholderModule />} />
+            <Route path="/recebimento" element={<PlaceholderModule />} />
+            <Route path="/nota-fiscal" element={<PlaceholderModule />} />
+            <Route path="/caixa" element={<PlaceholderModule />} />
+            <Route path="/cobranca" element={<PlaceholderModule />} />
+            <Route path="/inventario" element={<PlaceholderModule />} />
+            <Route path="/rota" element={<PlaceholderModule />} />
+            <Route path="/relatorio" element={<PlaceholderModule />} />
+            <Route path="/pendencias" element={<PlaceholderModule />} />
 
-          <Route path="/vendas" element={<PlaceholderModule />} />
-        </Route>
+            <Route path="/vendas" element={<PlaceholderModule />} />
+          </Route>
 
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </TooltipProvider>
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </TooltipProvider>
+    </AuthProvider>
   </BrowserRouter>
 )
 
