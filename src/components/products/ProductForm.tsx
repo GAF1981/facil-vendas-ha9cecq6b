@@ -40,7 +40,7 @@ export function ProductForm({
       : {
           CODIGO: 0,
           'CÓDIGO BARRAS': null,
-          MERCADORIA: '',
+          PRODUTOS: '',
           'DESCRIÇÃO RESUMIDA': '',
           GRUPO: '',
           PREÇO: '',
@@ -135,10 +135,10 @@ export function ProductForm({
             <div className="md:col-span-6">
               <FormField
                 control={form.control}
-                name="MERCADORIA"
+                name="PRODUTOS"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Mercadoria *</FormLabel>
+                    <FormLabel>Produto *</FormLabel>
                     <FormControl>
                       <Input placeholder="Nome do produto" {...field} />
                     </FormControl>

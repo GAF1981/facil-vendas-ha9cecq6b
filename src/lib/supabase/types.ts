@@ -144,8 +144,8 @@ export type Database = {
           'CÓDIGO BARRAS': number
           'DESCRIÇÃO RESUMIDA': string | null
           GRUPO: string | null
-          MERCADORIA: string | null
           PREÇO: string | null
+          PRODUTOS: string | null
           'PRODUTOS CONCATENADOS': string | null
           TIPO: string | null
         }
@@ -154,8 +154,8 @@ export type Database = {
           'CÓDIGO BARRAS': number
           'DESCRIÇÃO RESUMIDA'?: string | null
           GRUPO?: string | null
-          MERCADORIA?: string | null
           PREÇO?: string | null
+          PRODUTOS?: string | null
           'PRODUTOS CONCATENADOS'?: string | null
           TIPO?: string | null
         }
@@ -164,8 +164,8 @@ export type Database = {
           'CÓDIGO BARRAS'?: number
           'DESCRIÇÃO RESUMIDA'?: string | null
           GRUPO?: string | null
-          MERCADORIA?: string | null
           PREÇO?: string | null
+          PRODUTOS?: string | null
           'PRODUTOS CONCATENADOS'?: string | null
           TIPO?: string | null
         }

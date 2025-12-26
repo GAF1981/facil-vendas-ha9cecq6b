@@ -92,7 +92,7 @@ export function ProductCardItem({ product, onUpdate }: ProductCardItemProps) {
             </DropdownMenu>
           </div>
           <CardTitle className="text-base line-clamp-2 mt-1">
-            {product.MERCADORIA}
+            {product.PRODUTOS}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-4 pt-2 text-sm text-muted-foreground space-y-2">

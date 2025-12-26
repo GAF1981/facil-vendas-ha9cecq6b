@@ -87,7 +87,7 @@ export function ProductTable({ products, onUpdate }: ProductTableProps) {
                 <TableCell className="font-medium">{product.CODIGO}</TableCell>
                 <TableCell>
                   <div className="flex flex-col">
-                    <span className="font-medium">{product.MERCADORIA}</span>
+                    <span className="font-medium">{product.PRODUTOS}</span>
                     {product['DESCRIÇÃO RESUMIDA'] && (
                       <span className="text-xs text-muted-foreground">
                         {product['DESCRIÇÃO RESUMIDA']}

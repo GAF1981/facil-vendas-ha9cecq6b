@@ -22,13 +22,13 @@ export const productsService = {
         // CÓDIGO BARRAS typically handles larger numbers (EAN-13)
         conditions.push(`"CÓDIGO BARRAS".eq.${searchTerm}`)
         // Always allow searching by name even if it looks like a number
-        conditions.push(`MERCADORIA.ilike.%${searchTerm}%`)
+        conditions.push(`PRODUTOS.ilike.%${searchTerm}%`)
 
         query = query.or(conditions.join(','))
       } else {
         // Text search: name or description
         query = query.or(
-          `MERCADORIA.ilike.%${searchTerm}%, "DESCRIÇÃO RESUMIDA".ilike.%${searchTerm}%`,
+          `PRODUTOS.ilike.%${searchTerm}%, "DESCRIÇÃO RESUMIDA".ilike.%${searchTerm}%`,
         )
       }
     }
@@ -37,7 +37,7 @@ export const productsService = {
     const to = from + pageSize - 1
 
     const { data, error, count } = await query
-      .order('MERCADORIA', { ascending: true })
+      .order('PRODUTOS', { ascending: true })
       .range(from, to)
 
     if (error) throw error

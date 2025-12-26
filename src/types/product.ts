@@ -39,8 +39,8 @@ export const productSchema = z.object({
     .number()
     .min(0, 'Código de barras inválido')
     .optional()
-    .nullable(), // Although DB says number, it handles input
-  MERCADORIA: z.string().min(2, 'Nome da mercadoria é obrigatório'),
+    .nullable(),
+  PRODUTOS: z.string().min(2, 'Nome do produto é obrigatório'),
   'DESCRIÇÃO RESUMIDA': z.string().optional().nullable(),
   GRUPO: z.string().optional().nullable(),
   PREÇO: z.string().optional().nullable(),
