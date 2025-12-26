@@ -10,6 +10,8 @@ import ClientsPage from '@/pages/clients/ClientsPage'
 import ClientFormPage from '@/pages/clients/ClientFormPage'
 import EmployeesPage from '@/pages/employees/EmployeesPage'
 import EmployeeFormPage from '@/pages/employees/EmployeeFormPage'
+import ProductsPage from '@/pages/products/ProductsPage'
+import ProductFormPage from '@/pages/products/ProductFormPage'
 import PlaceholderModule from '@/pages/PlaceholderModule'
 import LoginPage from '@/pages/auth/LoginPage'
 import { AuthProvider } from '@/hooks/use-auth'
@@ -38,6 +40,10 @@ const App = () => (
               <Route path="/funcionarios" element={<EmployeesPage />} />
               <Route path="/funcionarios/novo" element={<EmployeeFormPage />} />
               <Route path="/funcionarios/:id" element={<EmployeeFormPage />} />
+
+              <Route path="/produtos" element={<ProductsPage />} />
+              <Route path="/produtos/novo" element={<ProductFormPage />} />
+              <Route path="/produtos/:id" element={<ProductFormPage />} />
 
               {/* New Modules Routes */}
               <Route path="/acerto" element={<PlaceholderModule />} />

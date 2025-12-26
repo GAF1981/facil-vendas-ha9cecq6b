@@ -12,6 +12,7 @@ import {
   Map,
   BarChart3,
   AlertCircle,
+  Package,
 } from 'lucide-react'
 
 const Index = () => {
@@ -31,6 +32,13 @@ const Index = () => {
       icon: Briefcase,
       to: '/funcionarios',
       color: 'text-indigo-600',
+    },
+    {
+      title: 'Produtos',
+      description: 'Catálogo de produtos',
+      icon: Package,
+      to: '/produtos',
+      color: 'text-orange-600',
     },
     {
       title: 'Acerto',

@@ -37,6 +37,8 @@ export function Header() {
         return 'Clientes'
       case 'funcionarios':
         return 'Funcionários'
+      case 'produtos':
+        return 'Produtos'
       case 'novo':
         return 'Novo'
       case 'vendas':
