@@ -3,6 +3,8 @@ import { useUserStore } from '@/stores/useUserStore'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Loader2, Calendar, Clock, Save, ArrowLeft, Check } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -34,11 +36,31 @@ export default function AcertoPage() {
 
   const [mode, setMode] = useState<'ACERTO' | 'CAPTACAO'>('ACERTO')
   const [loadingStatus, setLoadingStatus] = useState(false)
+  const [nextOrderNumber, setNextOrderNumber] = useState<number | null>(null)
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
+
+  useEffect(() => {
+    if (isClientConfirmed) {
+      setNextOrderNumber(null)
+      bancoDeDadosService
+        .getNextNumeroPedido()
+        .then((num) => setNextOrderNumber(num))
+        .catch((err) => {
+          console.error('Error fetching next order number:', err)
+          toast({
+            title: 'Erro',
+            description: 'Não foi possível obter o número do pedido.',
+            variant: 'destructive',
+          })
+        })
+    } else {
+      setNextOrderNumber(null)
+    }
+  }, [isClientConfirmed, toast])
 
   const handleClientSelect = async (selectedClient: ClientRow) => {
     setClient(selectedClient)
@@ -285,6 +307,17 @@ export default function AcertoPage() {
 
       {isClientConfirmed && (
         <div className="space-y-4 animate-fade-in pt-4 border-t">
+          <div className="flex items-center gap-3 pb-2">
+            <Label className="text-sm font-bold text-muted-foreground uppercase">
+              Número de Pedido
+            </Label>
+            <Input
+              value={nextOrderNumber !== null ? nextOrderNumber : '...'}
+              readOnly
+              className="w-24 h-9 font-mono text-center font-bold bg-muted"
+            />
+          </div>
+
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               Resumo da Contagem

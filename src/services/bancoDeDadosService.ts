@@ -33,6 +33,11 @@ export const bancoDeDadosService = {
     return (data?.['NÚMERO DO PEDIDO'] || 0) as number
   },
 
+  async getNextNumeroPedido() {
+    const max = await this.getMaxNumeroPedido()
+    return max + 1
+  },
+
   async saveTransaction(
     client: ClientRow,
     employee: Employee,
@@ -41,8 +46,7 @@ export const bancoDeDadosService = {
   ) {
     // 1. Get Context (Order Number)
     // ID VENDA ITENS is now handled automatically by the database (Identity)
-    const currentMaxPedido = await this.getMaxNumeroPedido()
-    const nextPedido = currentMaxPedido + 1
+    const nextPedido = await this.getNextNumeroPedido()
 
     const dataAcertoStr = format(date, 'yyyy-MM-dd')
     const horaAcerto = format(date, 'HH:mm:ss')
