@@ -430,12 +430,13 @@ export default function AcertoPage() {
             onUpdateSaldoFinal={handleUpdateSaldoFinal}
             onRemoveItem={handleRemoveItem}
             mode={mode}
+            acertoTipo={acertoTipo}
           />
 
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-card border p-4 rounded-lg shadow-sm">
             <div className="text-sm text-muted-foreground">
-              {mode === 'CAPTACAO'
-                ? '* Em modo Captação, apenas o Saldo Final é editável.'
+              {acertoTipo === 'CAPTAÇÃO' || acertoTipo === 'COMPLEMENTO'
+                ? '* A Contagem é preenchida automaticamente para este tipo de operação.'
                 : '* Saldo Inicial padrão é 0 para novos itens.'}
             </div>
             <div className="flex items-center gap-4">

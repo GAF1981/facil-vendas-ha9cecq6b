@@ -18,7 +18,79 @@ interface AcertoTableProps {
   onUpdateSaldoFinal: (uid: string, newSaldo: number) => void
   onRemoveItem: (uid: string) => void
   mode: 'ACERTO' | 'CAPTACAO'
+  acertoTipo: string
 }
+
+const VerticalHeader = ({
+  children,
+  className,
+}: {
+  children: React.ReactNode
+  className?: string
+}) => (
+  <TableHead
+    className={cn(
+      'h-32 align-bottom pb-4 text-center whitespace-nowrap',
+      className,
+    )}
+  >
+    <div
+      className="writing-mode-vertical-rl rotate-180 flex items-center justify-center w-full mx-auto"
+      style={{ writingMode: 'vertical-rl' }}
+    >
+      {children}
+    </div>
+  </TableHead>
+)
+
+const NumberInputControl = ({
+  value,
+  onChange,
+  className,
+  disabled,
+}: {
+  value: number
+  onChange: (val: number) => void
+  className?: string
+  disabled?: boolean
+}) => (
+  <div
+    className={cn(
+      'flex items-center justify-center gap-2',
+      className,
+      disabled && 'opacity-60 pointer-events-none',
+    )}
+  >
+    <Button
+      variant="outline"
+      size="icon"
+      className="h-7 w-7"
+      onClick={() => onChange(Math.max(0, value - 1))}
+      tabIndex={-1}
+      disabled={disabled}
+    >
+      <Minus className="h-3 w-3" />
+    </Button>
+    <Input
+      type="number"
+      min="0"
+      value={value}
+      onChange={(e) => onChange(Math.max(0, parseInt(e.target.value) || 0))}
+      className="h-8 w-16 text-center p-1"
+      disabled={disabled}
+    />
+    <Button
+      variant="outline"
+      size="icon"
+      className="h-7 w-7"
+      onClick={() => onChange(value + 1)}
+      tabIndex={-1}
+      disabled={disabled}
+    >
+      <Plus className="h-3 w-3" />
+    </Button>
+  </div>
+)
 
 export function AcertoTable({
   items,
@@ -26,77 +98,14 @@ export function AcertoTable({
   onUpdateSaldoFinal,
   onRemoveItem,
   mode,
+  acertoTipo,
 }: AcertoTableProps) {
-  const VerticalHeader = ({
-    children,
-    className,
-  }: {
-    children: React.ReactNode
-    className?: string
-  }) => (
-    <TableHead
-      className={cn(
-        'h-32 align-bottom pb-4 text-center whitespace-nowrap',
-        className,
-      )}
-    >
-      <div
-        className="writing-mode-vertical-rl rotate-180 flex items-center justify-center w-full mx-auto"
-        style={{ writingMode: 'vertical-rl' }}
-      >
-        {children}
-      </div>
-    </TableHead>
-  )
-
-  const NumberInputControl = ({
-    value,
-    onChange,
-    className,
-    disabled,
-  }: {
-    value: number
-    onChange: (val: number) => void
-    className?: string
-    disabled?: boolean
-  }) => (
-    <div
-      className={cn(
-        'flex items-center justify-center gap-2',
-        className,
-        disabled && 'opacity-60 pointer-events-none',
-      )}
-    >
-      <Button
-        variant="outline"
-        size="icon"
-        className="h-7 w-7"
-        onClick={() => onChange(Math.max(0, value - 1))}
-        tabIndex={-1}
-        disabled={disabled}
-      >
-        <Minus className="h-3 w-3" />
-      </Button>
-      <Input
-        type="number"
-        min="0"
-        value={value}
-        onChange={(e) => onChange(Math.max(0, parseInt(e.target.value) || 0))}
-        className="h-8 w-16 text-center p-1"
-        disabled={disabled}
-      />
-      <Button
-        variant="outline"
-        size="icon"
-        className="h-7 w-7"
-        onClick={() => onChange(value + 1)}
-        tabIndex={-1}
-        disabled={disabled}
-      >
-        <Plus className="h-3 w-3" />
-      </Button>
-    </div>
-  )
+  // Determine if Contagem is editable based on acertoTipo
+  // ACERTO: Editable
+  // CAPTAÇÃO: Read-only
+  // COMPLEMENTO: Read-only
+  const isContagemDisabled =
+    acertoTipo === 'CAPTAÇÃO' || acertoTipo === 'COMPLEMENTO'
 
   return (
     <div className="rounded-md border bg-card overflow-hidden">
@@ -154,7 +163,7 @@ export function AcertoTable({
                   <NumberInputControl
                     value={item.contagem}
                     onChange={(val) => onUpdateContagem(item.uid, val)}
-                    disabled={mode === 'CAPTACAO'}
+                    disabled={isContagemDisabled}
                   />
                 </TableCell>
                 <TableCell className="text-center font-bold">
