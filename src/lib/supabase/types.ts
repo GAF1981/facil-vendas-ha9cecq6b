@@ -32,7 +32,7 @@ export type Database = {
           'NOVAS CONSIGNAÇÕES': string | null
           'NÚMERO DO PEDIDO': number | null
           'QUANTIDADE VENDIDA': string | null
-          RECOHIDO: string | null
+          RECOLHIDO: string | null
           'SALDO FINAL': number | null
           'SALDO INICIAL': number | null
           TIPO: string | null
@@ -54,12 +54,12 @@ export type Database = {
           FORMA?: string | null
           FUNCIONÁRIO?: string | null
           'HORA DO ACERTO'?: string | null
-          'ID VENDA ITENS': number
+          'ID VENDA ITENS'?: number
           MERCADORIA?: string | null
           'NOVAS CONSIGNAÇÕES'?: string | null
           'NÚMERO DO PEDIDO'?: number | null
           'QUANTIDADE VENDIDA'?: string | null
-          RECOHIDO?: string | null
+          RECOLHIDO?: string | null
           'SALDO FINAL'?: number | null
           'SALDO INICIAL'?: number | null
           TIPO?: string | null
@@ -86,7 +86,7 @@ export type Database = {
           'NOVAS CONSIGNAÇÕES'?: string | null
           'NÚMERO DO PEDIDO'?: number | null
           'QUANTIDADE VENDIDA'?: string | null
-          RECOHIDO?: string | null
+          RECOLHIDO?: string | null
           'SALDO FINAL'?: number | null
           'SALDO INICIAL'?: number | null
           TIPO?: string | null

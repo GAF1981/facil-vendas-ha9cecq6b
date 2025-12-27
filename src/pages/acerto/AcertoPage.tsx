@@ -33,7 +33,6 @@ export default function AcertoPage() {
   const [saving, setSaving] = useState(false)
 
   const [mode, setMode] = useState<'ACERTO' | 'CAPTACAO'>('ACERTO')
-  const [canCaptacao, setCanCaptacao] = useState(false)
   const [loadingStatus, setLoadingStatus] = useState(false)
 
   useEffect(() => {
@@ -45,21 +44,14 @@ export default function AcertoPage() {
     setClient(selectedClient)
     setLastAcertoDate(null)
     setLoadingStatus(true)
-    setCanCaptacao(false)
 
     try {
       const lastDate = await acertoService.getLastAcertoDate(
         selectedClient.CODIGO,
       )
       setLastAcertoDate(lastDate)
-
-      const hasBalance = await bancoDeDadosService.hasOutstandingBalance(
-        selectedClient.CODIGO,
-      )
-      setCanCaptacao(hasBalance)
     } catch (error) {
       console.error(error)
-      setCanCaptacao(false)
     } finally {
       setLoadingStatus(false)
     }
@@ -82,7 +74,6 @@ export default function AcertoPage() {
     setIsClientConfirmed(false)
     setItems([])
     setLastAcertoDate(null)
-    setCanCaptacao(false)
     setMode('ACERTO')
   }
 
@@ -278,16 +269,14 @@ export default function AcertoPage() {
                   ACERTO CLIENTE
                 </Button>
 
-                {canCaptacao && (
-                  <Button
-                    onClick={() => handleConfirmClient('CAPTACAO')}
-                    className="bg-blue-600 hover:bg-blue-700 text-white min-w-[160px]"
-                    size="lg"
-                  >
-                    <Check className="mr-2 h-5 w-5" />
-                    CAPTAÇÃO/RECOLOCAÇÃO
-                  </Button>
-                )}
+                <Button
+                  onClick={() => handleConfirmClient('CAPTACAO')}
+                  className="bg-gray-200 hover:bg-gray-300 text-gray-900 min-w-[160px]"
+                  size="lg"
+                >
+                  <Check className="mr-2 h-5 w-5" />
+                  CAPTAÇÃO
+                </Button>
               </div>
             )}
           </div>
