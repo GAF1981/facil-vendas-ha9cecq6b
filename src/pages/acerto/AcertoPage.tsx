@@ -8,6 +8,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Link, useNavigate } from 'react-router-dom'
 import { acertoService } from '@/services/acertoService'
+import { bancoDeDadosService } from '@/services/bancoDeDadosService'
 import { ClientRow } from '@/types/client'
 import { ProductRow } from '@/types/product'
 import { AcertoItem } from '@/types/acerto'
@@ -16,6 +17,8 @@ import { ProductSelector } from '@/components/acerto/ProductSelector'
 import { AcertoTable } from '@/components/acerto/AcertoTable'
 import { ClientSearch } from '@/components/acerto/ClientSearch'
 import { ClientDetails } from '@/components/acerto/ClientDetails'
+import { cn } from '@/lib/utils'
+import { parseCurrency } from '@/lib/formatters'
 
 export default function AcertoPage() {
   const { employee } = useUserStore()
@@ -30,6 +33,10 @@ export default function AcertoPage() {
   const [items, setItems] = useState<AcertoItem[]>([])
   const [saving, setSaving] = useState(false)
 
+  // New State for Mode
+  const [mode, setMode] = useState<'ACERTO' | 'CAPTACAO'>('ACERTO')
+  const [loadingStatus, setLoadingStatus] = useState(false)
+
   // Clock
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
@@ -40,16 +47,25 @@ export default function AcertoPage() {
   const handleClientSelect = async (selectedClient: ClientRow) => {
     setClient(selectedClient)
     setLastAcertoDate(null)
+    setLoadingStatus(true)
 
     try {
-      // Fetch last acerto
+      // Fetch last acerto (legacy check for UI info)
       const lastDate = await acertoService.getLastAcertoDate(
         selectedClient.CODIGO,
       )
       setLastAcertoDate(lastDate)
+
+      // Determine Mode based on DB history
+      const status = await bancoDeDadosService.getClientStatus(
+        selectedClient.CODIGO,
+      )
+      setMode(status)
     } catch (error) {
       console.error(error)
-      // Non-blocking error
+      setMode('ACERTO') // Default fallback
+    } finally {
+      setLoadingStatus(false)
     }
   }
 
@@ -85,12 +101,12 @@ export default function AcertoPage() {
       return
     }
 
-    const price = product.PREÇO
-      ? parseFloat(product.PREÇO.replace(',', '.'))
-      : 0
+    const price = parseCurrency(product.PREÇO)
     const saldoInicial = 0 // Defaults to 0 as per user story
 
-    // Initial calculation: Quant Vendida = Saldo Inicial - Contagem
+    // For new items:
+    // ACERTO: Contagem starts at 0. QuantVendida = 0.
+    // CAPTACAO: Contagem starts at 0 (and is locked). QuantVendida = 0.
     const contagem = 0
     const quantVendida = saldoInicial - contagem
     const valorVendido = quantVendida * price
@@ -105,7 +121,7 @@ export default function AcertoPage() {
       contagem: contagem,
       quantVendida: quantVendida,
       valorVendido: valorVendido,
-      saldoFinal: 0, // Defaults to 0, independent
+      saldoFinal: 0,
     }
 
     setItems((prev) => [...prev, newItem])
@@ -117,7 +133,9 @@ export default function AcertoPage() {
       prev.map((item) => {
         if (item.uid !== uid) return item
 
-        const contagem = Math.max(0, newContagem) // Ensure non-negative
+        // Mode check: In CAPTACAO, contagem should not change via UI,
+        // but extra safety here doesn't hurt.
+        const contagem = Math.max(0, newContagem)
 
         // Automatic calculation for sold quantity and value based on Contagem
         // Formula: Quantidade Vendida = Saldo Inicial - CONTAGEM
@@ -129,7 +147,6 @@ export default function AcertoPage() {
           contagem,
           quantVendida,
           valorVendido,
-          // Saldo Final is independent, so we don't change it here
         }
       }),
     )
@@ -141,9 +158,10 @@ export default function AcertoPage() {
       prev.map((item) => {
         if (item.uid !== uid) return item
 
-        const saldoFinal = Math.max(0, newSaldo) // Ensure non-negative
+        const saldoFinal = Math.max(0, newSaldo)
 
-        // Saldo Final is independent, so no other calculations here
+        // Saldo Final is independent in terms of UI display for "Valor Vendido",
+        // but "Novas Consignações" logic happens at Save/DB service level.
         return {
           ...item,
           saldoFinal,
@@ -179,20 +197,14 @@ export default function AcertoPage() {
 
     setSaving(true)
     try {
-      const total = items.reduce((acc, item) => acc + item.valorVendido, 0)
+      // Capture exact time for the batch
+      const now = new Date()
 
-      await acertoService.saveAcerto({
-        clienteId: client.CODIGO,
-        funcionarioId: employee.id,
-        valorTotal: total,
-        dataAcerto: new Date().toISOString(),
-        itens: items,
-        observacoes: 'Acerto realizado via App',
-      })
+      await bancoDeDadosService.saveTransaction(client, employee, items, now)
 
       toast({
         title: 'Sucesso',
-        description: 'Acerto registrado com sucesso!',
+        description: `${mode === 'CAPTACAO' ? 'Captação' : 'Acerto'} registrado com sucesso!`,
         className: 'bg-green-50 border-green-200 text-green-900',
       })
 
@@ -206,7 +218,7 @@ export default function AcertoPage() {
       console.error(error)
       toast({
         title: 'Erro ao salvar',
-        description: 'Não foi possível registrar o acerto.',
+        description: 'Não foi possível registrar os dados.',
         variant: 'destructive',
       })
     } finally {
@@ -225,10 +237,10 @@ export default function AcertoPage() {
           </Button>
           <div>
             <h1 className="text-3xl font-bold tracking-tight">
-              Acerto de Cliente
+              Controle de Vendas
             </h1>
             <p className="text-muted-foreground">
-              Controle de estoque e vendas por cliente.
+              Gerencie acertos e captações de clientes.
             </p>
           </div>
         </div>
@@ -268,7 +280,12 @@ export default function AcertoPage() {
         {client && (
           <div className="space-y-4 animate-fade-in-up">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Cliente Selecionado</h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-semibold">Cliente Selecionado</h2>
+                {loadingStatus && (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+              </div>
               {isClientConfirmed && (
                 <Button variant="ghost" size="sm" onClick={handleChangeClient}>
                   Trocar Cliente
@@ -278,15 +295,22 @@ export default function AcertoPage() {
 
             <ClientDetails client={client} lastAcertoDate={lastAcertoDate} />
 
-            {!isClientConfirmed && (
+            {!isClientConfirmed && !loadingStatus && (
               <div className="flex justify-start pt-2">
                 <Button
                   onClick={handleConfirmClient}
-                  className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
+                  className={cn(
+                    'w-full sm:w-auto text-white',
+                    mode === 'ACERTO'
+                      ? 'bg-green-600 hover:bg-green-700'
+                      : 'bg-blue-600 hover:bg-blue-700',
+                  )}
                   size="lg"
                 >
                   <Check className="mr-2 h-5 w-5" />
-                  ACERTO CLIENTE
+                  {mode === 'ACERTO'
+                    ? 'ACERTO CLIENTE'
+                    : 'CAPTAÇÃO/RECOLOCAÇÃO'}
                 </Button>
               </div>
             )}
@@ -303,6 +327,16 @@ export default function AcertoPage() {
               <span className="text-sm font-normal text-muted-foreground ml-2">
                 ({items.length} itens)
               </span>
+              <span
+                className={cn(
+                  'text-xs px-2 py-0.5 rounded-full border',
+                  mode === 'ACERTO'
+                    ? 'bg-green-50 text-green-700 border-green-200'
+                    : 'bg-blue-50 text-blue-700 border-blue-200',
+                )}
+              >
+                {mode === 'ACERTO' ? 'Modo Acerto' : 'Modo Captação'}
+              </span>
             </h2>
             <ProductSelector onSelect={handleAddProduct} />
           </div>
@@ -312,11 +346,14 @@ export default function AcertoPage() {
             onUpdateContagem={handleUpdateContagem}
             onUpdateSaldoFinal={handleUpdateSaldoFinal}
             onRemoveItem={handleRemoveItem}
+            mode={mode}
           />
 
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-card border p-4 rounded-lg shadow-sm">
             <div className="text-sm text-muted-foreground">
-              * Saldo Inicial padrão é 0 para novos itens.
+              {mode === 'CAPTACAO'
+                ? '* Em modo Captação, apenas o Saldo Final é editável.'
+                : '* Saldo Inicial padrão é 0 para novos itens.'}
             </div>
             <div className="flex items-center gap-4">
               <div className="text-right">
@@ -346,7 +383,7 @@ export default function AcertoPage() {
                 ) : (
                   <Save className="mr-2 h-4 w-4" />
                 )}
-                Finalizar Acerto
+                Finalizar {mode === 'ACERTO' ? 'Acerto' : 'Captação'}
               </Button>
             </div>
           </div>

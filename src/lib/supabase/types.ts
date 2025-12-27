@@ -15,33 +15,81 @@ export type Database = {
   }
   public: {
     Tables: {
-      acertos: {
+      BANCO_DE_DADOS: {
         Row: {
-          cliente_id: number
-          created_at: string | null
-          data_acerto: string | null
-          funcionario_id: number
-          id: number
-          observacoes: string | null
-          valor_total: number | null
+          CLIENTE: string | null
+          'COD. CLIENTE': number | null
+          'COD. PRODUTO': number | null
+          'CODIGO FUNCIONARIO': number | null
+          CONTAGEM: number | null
+          'DATA DO ACERTO': string | null
+          'DESCONTO POR GRUPO': string | null
+          FORMA: string | null
+          FUNCIONÁRIO: string | null
+          'ID VENDA ITENS': number
+          MERCADORIA: string | null
+          'NOVAS CONSIGNAÇÕES': string | null
+          'NÚMERO DO PEDIDO': number | null
+          'QUANTIDADE VENDIDA': string | null
+          RECOHIDO: string | null
+          'SALDO FINAL': number | null
+          'SALDO INICIAL': number | null
+          TIPO: string | null
+          VALOR: string | null
+          'VALOR CONSIGNADO TOTAL (Custo)': string | null
+          'VALOR CONSIGNADO TOTAL (Preço Venda)': string | null
+          'VALOR VENDA PRODUTO': string | null
+          'VALOR VENDIDO': string | null
         }
         Insert: {
-          cliente_id: number
-          created_at?: string | null
-          data_acerto?: string | null
-          funcionario_id: number
-          id?: number
-          observacoes?: string | null
-          valor_total?: number | null
+          CLIENTE?: string | null
+          'COD. CLIENTE'?: number | null
+          'COD. PRODUTO'?: number | null
+          'CODIGO FUNCIONARIO'?: number | null
+          CONTAGEM?: number | null
+          'DATA DO ACERTO'?: string | null
+          'DESCONTO POR GRUPO'?: string | null
+          FORMA?: string | null
+          FUNCIONÁRIO?: string | null
+          'ID VENDA ITENS': number
+          MERCADORIA?: string | null
+          'NOVAS CONSIGNAÇÕES'?: string | null
+          'NÚMERO DO PEDIDO'?: number | null
+          'QUANTIDADE VENDIDA'?: string | null
+          RECOHIDO?: string | null
+          'SALDO FINAL'?: number | null
+          'SALDO INICIAL'?: number | null
+          TIPO?: string | null
+          VALOR?: string | null
+          'VALOR CONSIGNADO TOTAL (Custo)'?: string | null
+          'VALOR CONSIGNADO TOTAL (Preço Venda)'?: string | null
+          'VALOR VENDA PRODUTO'?: string | null
+          'VALOR VENDIDO'?: string | null
         }
         Update: {
-          cliente_id?: number
-          created_at?: string | null
-          data_acerto?: string | null
-          funcionario_id?: number
-          id?: number
-          observacoes?: string | null
-          valor_total?: number | null
+          CLIENTE?: string | null
+          'COD. CLIENTE'?: number | null
+          'COD. PRODUTO'?: number | null
+          'CODIGO FUNCIONARIO'?: number | null
+          CONTAGEM?: number | null
+          'DATA DO ACERTO'?: string | null
+          'DESCONTO POR GRUPO'?: string | null
+          FORMA?: string | null
+          FUNCIONÁRIO?: string | null
+          'ID VENDA ITENS'?: number
+          MERCADORIA?: string | null
+          'NOVAS CONSIGNAÇÕES'?: string | null
+          'NÚMERO DO PEDIDO'?: number | null
+          'QUANTIDADE VENDIDA'?: string | null
+          RECOHIDO?: string | null
+          'SALDO FINAL'?: number | null
+          'SALDO INICIAL'?: number | null
+          TIPO?: string | null
+          VALOR?: string | null
+          'VALOR CONSIGNADO TOTAL (Custo)'?: string | null
+          'VALOR CONSIGNADO TOTAL (Preço Venda)'?: string | null
+          'VALOR VENDA PRODUTO'?: string | null
+          'VALOR VENDIDO'?: string | null
         }
         Relationships: []
       }
@@ -167,50 +215,6 @@ export type Database = {
           setor?: string | null
         }
         Relationships: []
-      }
-      itens_acerto: {
-        Row: {
-          acerto_id: number | null
-          contagem: number | null
-          id: number
-          preco_unitario: number | null
-          produto_id: number
-          quant_vendida: number | null
-          saldo_final: number | null
-          saldo_inicial: number | null
-          valor_vendido: number | null
-        }
-        Insert: {
-          acerto_id?: number | null
-          contagem?: number | null
-          id?: number
-          preco_unitario?: number | null
-          produto_id: number
-          quant_vendida?: number | null
-          saldo_final?: number | null
-          saldo_inicial?: number | null
-          valor_vendido?: number | null
-        }
-        Update: {
-          acerto_id?: number | null
-          contagem?: number | null
-          id?: number
-          preco_unitario?: number | null
-          produto_id?: number
-          quant_vendida?: number | null
-          saldo_final?: number | null
-          saldo_inicial?: number | null
-          valor_vendido?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'itens_acerto_acerto_id_fkey'
-            columns: ['acerto_id']
-            isOneToOne: false
-            referencedRelation: 'acertos'
-            referencedColumns: ['id']
-          },
-        ]
       }
       PRODUTOS: {
         Row: {

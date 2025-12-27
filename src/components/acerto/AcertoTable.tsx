@@ -17,6 +17,7 @@ interface AcertoTableProps {
   onUpdateContagem: (uid: string, newContagem: number) => void
   onUpdateSaldoFinal: (uid: string, newSaldo: number) => void
   onRemoveItem: (uid: string) => void
+  mode: 'ACERTO' | 'CAPTACAO'
 }
 
 export function AcertoTable({
@@ -24,6 +25,7 @@ export function AcertoTable({
   onUpdateContagem,
   onUpdateSaldoFinal,
   onRemoveItem,
+  mode,
 }: AcertoTableProps) {
   // Helper for vertical headers styling
   const VerticalHeader = ({
@@ -53,10 +55,12 @@ export function AcertoTable({
     value,
     onChange,
     className,
+    disabled,
   }: {
     value: number
     onChange: (val: number) => void
     className?: string
+    disabled?: boolean
   }) => (
     <div className={cn('flex items-center justify-center gap-2', className)}>
       <Button
@@ -65,6 +69,7 @@ export function AcertoTable({
         className="h-7 w-7"
         onClick={() => onChange(Math.max(0, value - 1))}
         tabIndex={-1}
+        disabled={disabled}
       >
         <Minus className="h-3 w-3" />
       </Button>
@@ -74,6 +79,7 @@ export function AcertoTable({
         value={value}
         onChange={(e) => onChange(Math.max(0, parseInt(e.target.value) || 0))}
         className="h-8 w-16 text-center p-1"
+        disabled={disabled}
       />
       <Button
         variant="outline"
@@ -81,6 +87,7 @@ export function AcertoTable({
         className="h-7 w-7"
         onClick={() => onChange(value + 1)}
         tabIndex={-1}
+        disabled={disabled}
       >
         <Plus className="h-3 w-3" />
       </Button>
@@ -139,6 +146,7 @@ export function AcertoTable({
                   <NumberInputControl
                     value={item.contagem}
                     onChange={(val) => onUpdateContagem(item.uid, val)}
+                    disabled={mode === 'CAPTACAO'}
                   />
                 </TableCell>
                 <TableCell className="text-center font-bold">
