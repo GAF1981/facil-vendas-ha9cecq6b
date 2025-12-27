@@ -14,12 +14,14 @@ import { cn } from '@/lib/utils'
 
 interface AcertoTableProps {
   items: AcertoItem[]
+  onUpdateContagem: (uid: string, newContagem: number) => void
   onUpdateSaldoFinal: (uid: string, newSaldo: number) => void
   onRemoveItem: (uid: string) => void
 }
 
 export function AcertoTable({
   items,
+  onUpdateContagem,
   onUpdateSaldoFinal,
   onRemoveItem,
 }: AcertoTableProps) {
@@ -46,6 +48,45 @@ export function AcertoTable({
     </TableHead>
   )
 
+  // Helper for numeric input with +/- buttons
+  const NumberInputControl = ({
+    value,
+    onChange,
+    className,
+  }: {
+    value: number
+    onChange: (val: number) => void
+    className?: string
+  }) => (
+    <div className={cn('flex items-center justify-center gap-2', className)}>
+      <Button
+        variant="outline"
+        size="icon"
+        className="h-7 w-7"
+        onClick={() => onChange(Math.max(0, value - 1))}
+        tabIndex={-1}
+      >
+        <Minus className="h-3 w-3" />
+      </Button>
+      <Input
+        type="number"
+        min="0"
+        value={value}
+        onChange={(e) => onChange(Math.max(0, parseInt(e.target.value) || 0))}
+        className="h-8 w-16 text-center p-1"
+      />
+      <Button
+        variant="outline"
+        size="icon"
+        className="h-7 w-7"
+        onClick={() => onChange(value + 1)}
+        tabIndex={-1}
+      >
+        <Plus className="h-3 w-3" />
+      </Button>
+    </div>
+  )
+
   return (
     <div className="rounded-md border bg-card overflow-hidden">
       <Table>
@@ -57,6 +98,9 @@ export function AcertoTable({
             </VerticalHeader>
             <VerticalHeader>TIPO</VerticalHeader>
             <VerticalHeader>SALDO INICIAL</VerticalHeader>
+            <VerticalHeader className="bg-blue-50/50 font-bold text-blue-700">
+              CONTAGEM
+            </VerticalHeader>
             <VerticalHeader>QUANT. VENDIDA</VerticalHeader>
             <VerticalHeader>VALOR VENDIDO</VerticalHeader>
             <VerticalHeader className="bg-primary/5 font-bold text-primary">
@@ -69,7 +113,7 @@ export function AcertoTable({
           {items.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={8}
+                colSpan={9}
                 className="h-24 text-center text-muted-foreground"
               >
                 Nenhum produto adicionado. Clique em "Inserir Produto" para
@@ -91,6 +135,12 @@ export function AcertoTable({
                 <TableCell className="text-center font-mono">
                   {item.saldoInicial}
                 </TableCell>
+                <TableCell className="p-2 bg-blue-50/30">
+                  <NumberInputControl
+                    value={item.contagem}
+                    onChange={(val) => onUpdateContagem(item.uid, val)}
+                  />
+                </TableCell>
                 <TableCell className="text-center font-bold">
                   {item.quantVendida}
                 </TableCell>
@@ -98,45 +148,10 @@ export function AcertoTable({
                   R$ {item.valorVendido.toFixed(2).replace('.', ',')}
                 </TableCell>
                 <TableCell className="p-2 bg-primary/5">
-                  <div className="flex items-center justify-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() =>
-                        onUpdateSaldoFinal(
-                          item.uid,
-                          Math.max(0, item.saldoFinal - 1),
-                        )
-                      }
-                      tabIndex={-1}
-                    >
-                      <Minus className="h-3 w-3" />
-                    </Button>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={item.saldoFinal}
-                      onChange={(e) =>
-                        onUpdateSaldoFinal(
-                          item.uid,
-                          Math.max(0, parseInt(e.target.value) || 0),
-                        )
-                      }
-                      className="h-8 w-16 text-center p-1"
-                    />
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() =>
-                        onUpdateSaldoFinal(item.uid, item.saldoFinal + 1)
-                      }
-                      tabIndex={-1}
-                    >
-                      <Plus className="h-3 w-3" />
-                    </Button>
-                  </div>
+                  <NumberInputControl
+                    value={item.saldoFinal}
+                    onChange={(val) => onUpdateSaldoFinal(item.uid, val)}
+                  />
                 </TableCell>
                 <TableCell>
                   <Button

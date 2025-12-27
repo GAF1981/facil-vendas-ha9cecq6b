@@ -90,6 +90,11 @@ export default function AcertoPage() {
       : 0
     const saldoInicial = 0 // Defaults to 0 as per user story
 
+    // Initial calculation: Quant Vendida = Saldo Inicial - Contagem
+    const contagem = 0
+    const quantVendida = saldoInicial - contagem
+    const valorVendido = quantVendida * price
+
     const newItem: AcertoItem = {
       uid: Math.random().toString(36).substr(2, 9),
       produtoId: product.ID,
@@ -97,13 +102,37 @@ export default function AcertoPage() {
       tipo: product.TIPO || '',
       precoUnitario: price,
       saldoInicial: saldoInicial,
-      contagem: 0,
-      quantVendida: saldoInicial - 0, // 0 - 0 = 0
-      valorVendido: 0,
-      saldoFinal: 0, // Defaults to 0
+      contagem: contagem,
+      quantVendida: quantVendida,
+      valorVendido: valorVendido,
+      saldoFinal: 0, // Defaults to 0, independent
     }
 
     setItems((prev) => [...prev, newItem])
+  }
+
+  // Update Contagem Logic
+  const handleUpdateContagem = (uid: string, newContagem: number) => {
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.uid !== uid) return item
+
+        const contagem = Math.max(0, newContagem) // Ensure non-negative
+
+        // Automatic calculation for sold quantity and value based on Contagem
+        // Formula: Quantidade Vendida = Saldo Inicial - CONTAGEM
+        const quantVendida = item.saldoInicial - contagem
+        const valorVendido = quantVendida * item.precoUnitario
+
+        return {
+          ...item,
+          contagem,
+          quantVendida,
+          valorVendido,
+          // Saldo Final is independent, so we don't change it here
+        }
+      }),
+    )
   }
 
   // Update Saldo Final Logic
@@ -113,17 +142,10 @@ export default function AcertoPage() {
         if (item.uid !== uid) return item
 
         const saldoFinal = Math.max(0, newSaldo) // Ensure non-negative
-        // Automatic calculation for sold quantity and value, based on manual saldo final
-        const quantVendida = item.saldoInicial - saldoFinal
-        const valorVendido = quantVendida * item.precoUnitario
-        // Contagem is kept in sync with saldo final for data consistency
-        const contagem = saldoFinal
 
+        // Saldo Final is independent, so no other calculations here
         return {
           ...item,
-          contagem,
-          quantVendida,
-          valorVendido,
           saldoFinal,
         }
       }),
@@ -287,6 +309,7 @@ export default function AcertoPage() {
 
           <AcertoTable
             items={items}
+            onUpdateContagem={handleUpdateContagem}
             onUpdateSaldoFinal={handleUpdateSaldoFinal}
             onRemoveItem={handleRemoveItem}
           />
