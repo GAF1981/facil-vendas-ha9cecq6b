@@ -56,7 +56,7 @@ const NumberInputControl = ({
 }) => (
   <div
     className={cn(
-      'flex items-center justify-center gap-2',
+      'flex flex-col items-center justify-center w-14 mx-auto',
       className,
       disabled && 'opacity-60 pointer-events-none',
     )}
@@ -64,30 +64,30 @@ const NumberInputControl = ({
     <Button
       variant="outline"
       size="icon"
-      className="h-7 w-7"
-      onClick={() => onChange(Math.max(0, value - 1))}
+      className="h-6 w-full rounded-b-none border-b-0 hover:bg-muted active:bg-muted/80 z-0 focus:z-10"
+      onClick={() => onChange(value + 1)}
       tabIndex={-1}
       disabled={disabled}
     >
-      <Minus className="h-3 w-3" />
+      <Plus className="h-3 w-3" />
     </Button>
     <Input
       type="number"
       min="0"
       value={value}
       onChange={(e) => onChange(Math.max(0, parseInt(e.target.value) || 0))}
-      className="h-8 w-16 text-center p-1"
+      className="h-9 w-full text-center px-0 py-1 rounded-none z-10 focus-visible:ring-1 focus-visible:ring-inset border-input"
       disabled={disabled}
     />
     <Button
       variant="outline"
       size="icon"
-      className="h-7 w-7"
-      onClick={() => onChange(value + 1)}
+      className="h-6 w-full rounded-t-none border-t-0 hover:bg-muted active:bg-muted/80 z-0 focus:z-10"
+      onClick={() => onChange(Math.max(0, value - 1))}
       tabIndex={-1}
       disabled={disabled}
     >
-      <Plus className="h-3 w-3" />
+      <Minus className="h-3 w-3" />
     </Button>
   </div>
 )
@@ -147,8 +147,15 @@ export function AcertoTable({
                 <TableCell className="font-mono text-xs text-center text-muted-foreground">
                   {item.idVendaItens || '-'}
                 </TableCell>
-                <TableCell className="font-mono text-xs text-center">
-                  {item.produtoCodigo || '-'}
+                <TableCell className="font-mono text-xs text-center p-0 align-middle">
+                  <div className="flex justify-center items-center h-full py-2">
+                    <span
+                      className="writing-mode-vertical-rl rotate-180 block"
+                      style={{ writingMode: 'vertical-rl' }}
+                    >
+                      {item.produtoCodigo || '-'}
+                    </span>
+                  </div>
                 </TableCell>
                 <TableCell className="font-medium">
                   {item.produtoNome}
