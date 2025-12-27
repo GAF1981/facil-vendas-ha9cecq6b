@@ -33,8 +33,9 @@ export default function AcertoPage() {
   const [items, setItems] = useState<AcertoItem[]>([])
   const [saving, setSaving] = useState(false)
 
-  // New State for Mode (Dynamic Settlement Action Logic)
+  // New State for Mode and Logic
   const [mode, setMode] = useState<'ACERTO' | 'CAPTACAO'>('ACERTO')
+  const [canCaptacao, setCanCaptacao] = useState(false)
   const [loadingStatus, setLoadingStatus] = useState(false)
 
   // Clock
@@ -48,6 +49,7 @@ export default function AcertoPage() {
     setClient(selectedClient)
     setLastAcertoDate(null)
     setLoadingStatus(true)
+    setCanCaptacao(false)
 
     try {
       // Fetch last acerto (legacy check for UI info)
@@ -56,23 +58,23 @@ export default function AcertoPage() {
       )
       setLastAcertoDate(lastDate)
 
-      // Determine Mode based on DB history
-      // This implements the requirement: queries the database immediately after a client is selected
-      const status = await bancoDeDadosService.getClientStatus(
+      // Determine Eligibility for CAPTACAO based on DB history
+      const hasBalance = await bancoDeDadosService.hasOutstandingBalance(
         selectedClient.CODIGO,
       )
-      setMode(status)
+      setCanCaptacao(hasBalance)
     } catch (error) {
       console.error(error)
-      setMode('ACERTO') // Default fallback
+      setCanCaptacao(false)
     } finally {
       setLoadingStatus(false)
     }
   }
 
-  // Handle Confirmation
-  const handleConfirmClient = () => {
+  // Handle Confirmation with Mode Selection
+  const handleConfirmClient = (selectedMode: 'ACERTO' | 'CAPTACAO') => {
     if (!client) return
+    setMode(selectedMode)
     setIsClientConfirmed(true)
   }
 
@@ -88,6 +90,8 @@ export default function AcertoPage() {
     setIsClientConfirmed(false)
     setItems([])
     setLastAcertoDate(null)
+    setCanCaptacao(false)
+    setMode('ACERTO') // Reset mode
   }
 
   // Add Product
@@ -134,8 +138,7 @@ export default function AcertoPage() {
       prev.map((item) => {
         if (item.uid !== uid) return item
 
-        // Mode check: In CAPTACAO, contagem should not change via UI,
-        // but extra safety here doesn't hurt.
+        // Mode check: In CAPTACAO, contagem should be locked, handled in UI.
         const contagem = Math.max(0, newContagem)
 
         // Automatic calculation for sold quantity and value based on Contagem
@@ -298,22 +301,26 @@ export default function AcertoPage() {
 
             {/* Conditional Button Rendering based on Mode */}
             {!isClientConfirmed && !loadingStatus && (
-              <div className="flex justify-start pt-2">
+              <div className="flex flex-col sm:flex-row gap-4 pt-2">
                 <Button
-                  onClick={handleConfirmClient}
-                  className={cn(
-                    'w-full sm:w-auto text-white',
-                    mode === 'ACERTO'
-                      ? 'bg-green-600 hover:bg-green-700'
-                      : 'bg-blue-600 hover:bg-blue-700',
-                  )}
+                  onClick={() => handleConfirmClient('ACERTO')}
+                  className="bg-green-600 hover:bg-green-700 text-white min-w-[160px]"
                   size="lg"
                 >
                   <Check className="mr-2 h-5 w-5" />
-                  {mode === 'ACERTO'
-                    ? 'ACERTO CLIENTE'
-                    : 'CAPTAÇÃO/RECOLOCAÇÃO'}
+                  ACERTO CLIENTE
                 </Button>
+
+                {canCaptacao && (
+                  <Button
+                    onClick={() => handleConfirmClient('CAPTACAO')}
+                    className="bg-blue-600 hover:bg-blue-700 text-white min-w-[160px]"
+                    size="lg"
+                  >
+                    <Check className="mr-2 h-5 w-5" />
+                    CAPTAÇÃO/RECOLOCAÇÃO
+                  </Button>
+                )}
               </div>
             )}
           </div>

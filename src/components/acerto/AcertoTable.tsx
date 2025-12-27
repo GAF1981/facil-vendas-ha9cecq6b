@@ -62,7 +62,13 @@ export function AcertoTable({
     className?: string
     disabled?: boolean
   }) => (
-    <div className={cn('flex items-center justify-center gap-2', className)}>
+    <div
+      className={cn(
+        'flex items-center justify-center gap-2',
+        className,
+        disabled && 'opacity-60 pointer-events-none',
+      )}
+    >
       <Button
         variant="outline"
         size="icon"

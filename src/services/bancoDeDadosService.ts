@@ -5,10 +5,8 @@ import { Employee } from '@/types/employee'
 import { parseCurrency, formatCurrency } from '@/lib/formatters'
 
 export const bancoDeDadosService = {
-  // Check client status for button logic
-  async getClientStatus(clienteId: number): Promise<'ACERTO' | 'CAPTACAO'> {
-    // We check count of records matching the criteria:
-    // Client exists (COD. CLIENTE match) AND has at least one record with SALDO FINAL > 0
+  // Check if client has outstanding balance to determine if CAPTACAO button should be shown
+  async hasOutstandingBalance(clienteId: number): Promise<boolean> {
     const { count, error } = await supabase
       .from('BANCO_DE_DADOS')
       .select('*', { count: 'exact', head: true })
@@ -16,13 +14,11 @@ export const bancoDeDadosService = {
       .gt('SALDO FINAL', 0)
 
     if (error) {
-      console.error('Error checking client status:', error)
-      return 'ACERTO' // Default to ACERTO on error
+      console.error('Error checking client balance:', error)
+      return false
     }
 
-    // If count > 0, it means the client exists and has outstanding balance -> CAPTACAO
-    // If count == 0, it means either client doesn't exist OR has no outstanding balance -> ACERTO
-    return (count || 0) > 0 ? 'CAPTACAO' : 'ACERTO'
+    return (count || 0) > 0
   },
 
   async getMaxIdVendaItens() {
@@ -68,29 +64,29 @@ export const bancoDeDadosService = {
     // 2. Prepare payload
     const rowsToInsert = items.map((item) => {
       // Calculations
-      const valentiaVal = item.precoUnitario // This is the Product Price
-      const valorVendidoVal = item.valorVendido // Calculated in UI
+      const valentiaVal = item.precoUnitario // From Products Table (stored in item)
+      const valorVendidoVal = item.valorVendido // Calculated as Price * QuantVendida
 
       const saldoFinal = item.saldoFinal
       const contagem = item.contagem
 
-      // Novas Consignações: SALDO FINAL - CONTAGEM. If > 0 save result, else 0
+      // NOVAS CONSIGNAÇÕES: SALDO FINAL - CONTAGEM. If > 0 save result, else 0
       const diff = saldoFinal - contagem
       const novasConsignacoesVal = diff > 0 ? diff : 0
 
-      // Recolhido: If (SALDO FINAL - CONTAGEM) < 0, save abs result, else 0
+      // RECOHIDO: If (SALDO FINAL - CONTAGEM) < 0, save abs result, else 0
       const recolhidoVal = diff < 0 ? Math.abs(diff) : 0
 
       // Desconto Logic
       const descontoStr = client.Desconto || '0'
       const descontoVal = parseCurrency(descontoStr)
-      // Heuristic: If discount is > 1 (e.g. 20), assume percentage (0.2). If <= 1 (e.g. 0.2), use as is.
+      // Heuristic: If discount is > 1 (e.g. 20), assume percentage (0.2 -> 20/100). If <= 1 (e.g. 0.2), use as is.
       const discountFactor = descontoVal > 1 ? descontoVal / 100 : descontoVal
 
-      // Valor Consignado Total (Preço Venda) = SALDO FINAL * VALENTIA
+      // VALOR CONSIGNADO TOTAL (Preço Venda) = SALDO FINAL * VALENTIA
       const valorConsignadoVendaVal = saldoFinal * valentiaVal
 
-      // Valor Consignado Total (Custo) = Venda - (Venda * Discount)
+      // VALOR CONSIGNADO TOTAL (Custo) = Venda - (Venda * Discount)
       const valorConsignadoCustoVal =
         valorConsignadoVendaVal - valorConsignadoVendaVal * discountFactor
 
@@ -98,7 +94,6 @@ export const bancoDeDadosService = {
       const idVendaItens = nextId++
 
       // Map to DB columns
-      // Using 'any' cast to handle dynamic columns not yet in generated types (VALENTIA, HORA DO ACERTO)
       return {
         'ID VENDA ITENS': idVendaItens,
         'NÚMERO DO PEDIDO': nextPedido,
@@ -126,7 +121,7 @@ export const bancoDeDadosService = {
 
         'SALDO FINAL': saldoFinal,
 
-        // New Business Logic Columns
+        // Business Logic Columns
         VALENTIA: formatCurrency(valentiaVal),
         'NOVAS CONSIGNAÇÕES': formatCurrency(novasConsignacoesVal),
         RECOHIDO: formatCurrency(recolhidoVal),
