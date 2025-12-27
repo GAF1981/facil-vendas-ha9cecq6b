@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useUserStore } from '@/stores/useUserStore'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -39,16 +39,21 @@ export default function AcertoPage() {
 
   // State for automatic order number
   const [nextOrderNumber, setNextOrderNumber] = useState<number | null>(null)
+  // Ref for automatic Item ID generation (sequential)
+  const nextItemIdRef = useRef<number | null>(null)
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
 
-  // Effect to fetch next order number when client is confirmed
+  // Effect to fetch next order number and max item ID when client is confirmed
   useEffect(() => {
     if (isClientConfirmed) {
       setNextOrderNumber(null)
+      nextItemIdRef.current = null
+
+      // Fetch Next Order Number
       bancoDeDadosService
         .getNextNumeroPedido()
         .then((num) => setNextOrderNumber(num))
@@ -60,8 +65,24 @@ export default function AcertoPage() {
             variant: 'destructive',
           })
         })
+
+      // Fetch Max Item ID for sequential generation
+      bancoDeDadosService
+        .getMaxIdVendaItens()
+        .then((max) => {
+          nextItemIdRef.current = max + 1
+        })
+        .catch((err) => {
+          console.error('Error fetching max item ID:', err)
+          toast({
+            title: 'Erro',
+            description: 'Não foi possível inicializar o gerador de IDs.',
+            variant: 'destructive',
+          })
+        })
     } else {
       setNextOrderNumber(null)
+      nextItemIdRef.current = null
     }
   }, [isClientConfirmed, toast])
 
@@ -112,17 +133,19 @@ export default function AcertoPage() {
       return
     }
 
-    // Fetch the last ID VENDA ITENS for this product/client to show context
-    let idVendaItens: number | null = null
-    if (client) {
+    // Generate unique sequential ID
+    let newId = nextItemIdRef.current
+    if (newId === null) {
       try {
-        idVendaItens = await bancoDeDadosService.getLastIdVendaItens(
-          client.CODIGO,
-          product.ID,
-        )
+        const max = await bancoDeDadosService.getMaxIdVendaItens()
+        newId = max + 1
       } catch (e) {
-        console.error('Error fetching last ID VENDA ITENS', e)
+        console.error('Failed to fetch fallback max ID', e)
+        newId = 1 // Fallback
       }
+      nextItemIdRef.current = newId + 1
+    } else {
+      nextItemIdRef.current = newId + 1
     }
 
     const price = parseCurrency(product.PREÇO)
@@ -142,7 +165,7 @@ export default function AcertoPage() {
       quantVendida: quantVendida,
       valorVendido: valorVendido,
       saldoFinal: 0,
-      idVendaItens: idVendaItens,
+      idVendaItens: newId, // Assign generated ID
     }
 
     setItems((prev) => [...prev, newItem])
