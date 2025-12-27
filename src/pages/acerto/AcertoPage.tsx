@@ -100,25 +100,28 @@ export default function AcertoPage() {
       contagem: 0,
       quantVendida: saldoInicial - 0, // 0 - 0 = 0
       valorVendido: 0,
-      saldoFinal: 0, // Reflects count
+      saldoFinal: 0, // Defaults to 0
     }
 
     setItems((prev) => [...prev, newItem])
   }
 
-  // Update Count Logic
-  const handleUpdateCount = (uid: string, newCount: number) => {
+  // Update Saldo Final Logic
+  const handleUpdateSaldoFinal = (uid: string, newSaldo: number) => {
     setItems((prev) =>
       prev.map((item) => {
         if (item.uid !== uid) return item
 
-        const quantVendida = item.saldoInicial - newCount
+        const saldoFinal = Math.max(0, newSaldo) // Ensure non-negative
+        // Automatic calculation for sold quantity and value, based on manual saldo final
+        const quantVendida = item.saldoInicial - saldoFinal
         const valorVendido = quantVendida * item.precoUnitario
-        const saldoFinal = newCount // Saldo final reflects count
+        // Contagem is kept in sync with saldo final for data consistency
+        const contagem = saldoFinal
 
         return {
           ...item,
-          contagem: newCount,
+          contagem,
           quantVendida,
           valorVendido,
           saldoFinal,
@@ -284,7 +287,7 @@ export default function AcertoPage() {
 
           <AcertoTable
             items={items}
-            onUpdateCount={handleUpdateCount}
+            onUpdateSaldoFinal={handleUpdateSaldoFinal}
             onRemoveItem={handleRemoveItem}
           />
 

@@ -14,13 +14,13 @@ import { cn } from '@/lib/utils'
 
 interface AcertoTableProps {
   items: AcertoItem[]
-  onUpdateCount: (uid: string, newCount: number) => void
+  onUpdateSaldoFinal: (uid: string, newSaldo: number) => void
   onRemoveItem: (uid: string) => void
 }
 
 export function AcertoTable({
   items,
-  onUpdateCount,
+  onUpdateSaldoFinal,
   onRemoveItem,
 }: AcertoTableProps) {
   // Helper for vertical headers styling
@@ -57,12 +57,11 @@ export function AcertoTable({
             </VerticalHeader>
             <VerticalHeader>TIPO</VerticalHeader>
             <VerticalHeader>SALDO INICIAL</VerticalHeader>
-            <VerticalHeader className="bg-primary/5 font-bold text-primary">
-              CONTAGEM
-            </VerticalHeader>
             <VerticalHeader>QUANT. VENDIDA</VerticalHeader>
             <VerticalHeader>VALOR VENDIDO</VerticalHeader>
-            <VerticalHeader>SALDO FINAL</VerticalHeader>
+            <VerticalHeader className="bg-primary/5 font-bold text-primary">
+              SALDO FINAL
+            </VerticalHeader>
             <TableHead className="w-[50px]"></TableHead>
           </TableRow>
         </TableHeader>
@@ -70,7 +69,7 @@ export function AcertoTable({
           {items.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={9}
+                colSpan={8}
                 className="h-24 text-center text-muted-foreground"
               >
                 Nenhum produto adicionado. Clique em "Inserir Produto" para
@@ -92,6 +91,12 @@ export function AcertoTable({
                 <TableCell className="text-center font-mono">
                   {item.saldoInicial}
                 </TableCell>
+                <TableCell className="text-center font-bold">
+                  {item.quantVendida}
+                </TableCell>
+                <TableCell className="text-center font-mono text-green-600">
+                  R$ {item.valorVendido.toFixed(2).replace('.', ',')}
+                </TableCell>
                 <TableCell className="p-2 bg-primary/5">
                   <div className="flex items-center justify-center gap-2">
                     <Button
@@ -99,7 +104,10 @@ export function AcertoTable({
                       size="icon"
                       className="h-7 w-7"
                       onClick={() =>
-                        onUpdateCount(item.uid, Math.max(0, item.contagem - 1))
+                        onUpdateSaldoFinal(
+                          item.uid,
+                          Math.max(0, item.saldoFinal - 1),
+                        )
                       }
                       tabIndex={-1}
                     >
@@ -108,9 +116,9 @@ export function AcertoTable({
                     <Input
                       type="number"
                       min="0"
-                      value={item.contagem}
+                      value={item.saldoFinal}
                       onChange={(e) =>
-                        onUpdateCount(
+                        onUpdateSaldoFinal(
                           item.uid,
                           Math.max(0, parseInt(e.target.value) || 0),
                         )
@@ -121,21 +129,14 @@ export function AcertoTable({
                       variant="outline"
                       size="icon"
                       className="h-7 w-7"
-                      onClick={() => onUpdateCount(item.uid, item.contagem + 1)}
+                      onClick={() =>
+                        onUpdateSaldoFinal(item.uid, item.saldoFinal + 1)
+                      }
                       tabIndex={-1}
                     >
                       <Plus className="h-3 w-3" />
                     </Button>
                   </div>
-                </TableCell>
-                <TableCell className="text-center font-bold">
-                  {item.quantVendida}
-                </TableCell>
-                <TableCell className="text-center font-mono text-green-600">
-                  R$ {item.valorVendido.toFixed(2).replace('.', ',')}
-                </TableCell>
-                <TableCell className="text-center font-mono">
-                  {item.saldoFinal}
                 </TableCell>
                 <TableCell>
                   <Button
