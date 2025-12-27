@@ -31,13 +31,12 @@ export type Database = {
           MERCADORIA: string | null
           'NOVAS CONSIGNAÇÕES': string | null
           'NÚMERO DO PEDIDO': number | null
+          'PREÇO VENDIDO': string | null
           'QUANTIDADE VENDIDA': string | null
           RECOLHIDO: string | null
           'SALDO FINAL': number | null
           'SALDO INICIAL': number | null
           TIPO: string | null
-          VALENTIA: string | null
-          VALOR: string | null
           'VALOR CONSIGNADO TOTAL (Custo)': string | null
           'VALOR CONSIGNADO TOTAL (Preço Venda)': string | null
           'VALOR VENDA PRODUTO': string | null
@@ -58,13 +57,12 @@ export type Database = {
           MERCADORIA?: string | null
           'NOVAS CONSIGNAÇÕES'?: string | null
           'NÚMERO DO PEDIDO'?: number | null
+          'PREÇO VENDIDO'?: string | null
           'QUANTIDADE VENDIDA'?: string | null
           RECOLHIDO?: string | null
           'SALDO FINAL'?: number | null
           'SALDO INICIAL'?: number | null
           TIPO?: string | null
-          VALENTIA?: string | null
-          VALOR?: string | null
           'VALOR CONSIGNADO TOTAL (Custo)'?: string | null
           'VALOR CONSIGNADO TOTAL (Preço Venda)'?: string | null
           'VALOR VENDA PRODUTO'?: string | null
@@ -85,13 +83,12 @@ export type Database = {
           MERCADORIA?: string | null
           'NOVAS CONSIGNAÇÕES'?: string | null
           'NÚMERO DO PEDIDO'?: number | null
+          'PREÇO VENDIDO'?: string | null
           'QUANTIDADE VENDIDA'?: string | null
           RECOLHIDO?: string | null
           'SALDO FINAL'?: number | null
           'SALDO INICIAL'?: number | null
           TIPO?: string | null
-          VALENTIA?: string | null
-          VALOR?: string | null
           'VALOR CONSIGNADO TOTAL (Custo)'?: string | null
           'VALOR CONSIGNADO TOTAL (Preço Venda)'?: string | null
           'VALOR VENDA PRODUTO'?: string | null

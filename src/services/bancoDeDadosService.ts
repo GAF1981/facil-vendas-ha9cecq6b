@@ -91,7 +91,7 @@ export const bancoDeDadosService = {
     const dataAcertoStr = format(date, 'yyyy-MM-dd')
     const horaAcerto = format(date, 'HH:mm:ss')
 
-    // 2. Fetch current product prices for VALENTIA
+    // 2. Fetch current product prices
     const productIds = items.map((i) => i.produtoId)
 
     // Guard against empty items list
@@ -111,13 +111,11 @@ export const bancoDeDadosService = {
 
     // 3. Prepare rows
     const rowsToInsert = items.map((item) => {
-      // Get current price from DB (Valentia)
+      // Get current price from DB
       const currentPrice = priceMap.get(item.produtoId) || item.precoUnitario
-      const valentiaVal = currentPrice
 
-      // Recalculate Sales Value based on current price
+      // Calculate derived values
       const valorVendidoVal = currentPrice * item.quantVendida
-
       const saldoFinal = item.saldoFinal
       const contagem = item.contagem
 
@@ -140,7 +138,7 @@ export const bancoDeDadosService = {
       const discountFactor = descontoVal > 1 ? descontoVal / 100 : descontoVal
 
       // Consigned Values Calculation
-      const valorConsignadoVendaVal = saldoFinal * valentiaVal
+      const valorConsignadoVendaVal = saldoFinal * currentPrice
       const valorConsignadoCustoVal =
         valorConsignadoVendaVal - valorConsignadoVendaVal * discountFactor
 
@@ -174,7 +172,8 @@ export const bancoDeDadosService = {
 
         'SALDO FINAL': saldoFinal,
 
-        VALENTIA: formatCurrency(valentiaVal),
+        // VALENTIA column reference removed as it is obsolete
+
         'NOVAS CONSIGNAÇÕES': formatCurrency(novasConsignacoesVal),
 
         // Using the corrected column name
