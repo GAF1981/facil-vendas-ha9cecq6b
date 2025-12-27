@@ -97,7 +97,6 @@ export function AcertoTable({
   onUpdateContagem,
   onUpdateSaldoFinal,
   onRemoveItem,
-  mode,
   acertoTipo,
 }: AcertoTableProps) {
   // Determine if Contagem is editable based on acertoTipo

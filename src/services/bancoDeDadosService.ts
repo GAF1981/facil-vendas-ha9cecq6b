@@ -145,7 +145,7 @@ export const bancoDeDadosService = {
         valorConsignadoVendaVal - valorConsignadoVendaVal * discountFactor
 
       return {
-        // Explicitly set ID VENDA ITENS
+        // Explicitly set ID VENDA ITENS as per User Story
         'ID VENDA ITENS': item.idVendaItens,
 
         'NÚMERO DO PEDIDO': nextPedido,
@@ -160,8 +160,10 @@ export const bancoDeDadosService = {
 
         'DESCONTO POR GRUPO': client.Desconto,
 
-        'COD. PRODUTO': item.produtoCodigo ?? null, // Map to CODIGO, fallback to null if missing
+        // Explicitly map Product Code and Name as per User Story
+        'COD. PRODUTO': item.produtoCodigo ?? null,
         MERCADORIA: item.produtoNome,
+
         TIPO: acertoTipo, // Using the selected acerto type
         'SALDO INICIAL': item.saldoInicial,
         CONTAGEM: contagem,
