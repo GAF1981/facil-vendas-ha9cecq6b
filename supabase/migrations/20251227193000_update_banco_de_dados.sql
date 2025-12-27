@@ -1,3 +1,2 @@
--- Add HORA DO ACERTO and VALENTIA columns to BANCO_DE_DADOS
-ALTER TABLE "public"."BANCO_DE_DADOS" ADD COLUMN IF NOT EXISTS "HORA DO ACERTO" text;
-ALTER TABLE "public"."BANCO_DE_DADOS" ADD COLUMN IF NOT EXISTS "VALENTIA" text;
+-- Migration disabled due to duplicate key error conflict (version 20251227140509).
+-- The changes are applied in 20251227200000_ensure_banco_de_dados_columns.sql
