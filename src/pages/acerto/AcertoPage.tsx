@@ -25,7 +25,6 @@ export default function AcertoPage() {
   const { toast } = useToast()
   const navigate = useNavigate()
 
-  // State
   const [client, setClient] = useState<ClientRow | null>(null)
   const [isClientConfirmed, setIsClientConfirmed] = useState(false)
   const [lastAcertoDate, setLastAcertoDate] = useState<string | null>(null)
@@ -33,18 +32,15 @@ export default function AcertoPage() {
   const [items, setItems] = useState<AcertoItem[]>([])
   const [saving, setSaving] = useState(false)
 
-  // New State for Mode and Logic
   const [mode, setMode] = useState<'ACERTO' | 'CAPTACAO'>('ACERTO')
   const [canCaptacao, setCanCaptacao] = useState(false)
   const [loadingStatus, setLoadingStatus] = useState(false)
 
-  // Clock
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
 
-  // Handle Client Selection with Real-time Database Verification
   const handleClientSelect = async (selectedClient: ClientRow) => {
     setClient(selectedClient)
     setLastAcertoDate(null)
@@ -52,13 +48,11 @@ export default function AcertoPage() {
     setCanCaptacao(false)
 
     try {
-      // Fetch last acerto (legacy check for UI info)
       const lastDate = await acertoService.getLastAcertoDate(
         selectedClient.CODIGO,
       )
       setLastAcertoDate(lastDate)
 
-      // Determine Eligibility for CAPTACAO based on DB history
       const hasBalance = await bancoDeDadosService.hasOutstandingBalance(
         selectedClient.CODIGO,
       )
@@ -71,14 +65,12 @@ export default function AcertoPage() {
     }
   }
 
-  // Handle Confirmation with Mode Selection
   const handleConfirmClient = (selectedMode: 'ACERTO' | 'CAPTACAO') => {
     if (!client) return
     setMode(selectedMode)
     setIsClientConfirmed(true)
   }
 
-  // Handle Change Client
   const handleChangeClient = () => {
     if (items.length > 0) {
       const confirmChange = window.confirm(
@@ -91,12 +83,10 @@ export default function AcertoPage() {
     setItems([])
     setLastAcertoDate(null)
     setCanCaptacao(false)
-    setMode('ACERTO') // Reset mode
+    setMode('ACERTO')
   }
 
-  // Add Product
   const handleAddProduct = (product: ProductRow) => {
-    // Check if exists
     if (items.some((i) => i.produtoId === product.ID)) {
       toast({
         title: 'Produto já adicionado',
@@ -107,11 +97,7 @@ export default function AcertoPage() {
     }
 
     const price = parseCurrency(product.PREÇO)
-    const saldoInicial = 0 // Defaults to 0 as per user story
-
-    // For new items:
-    // ACERTO: Contagem starts at 0. QuantVendida = 0.
-    // CAPTACAO: Contagem starts at 0 (and is locked). QuantVendida = 0.
+    const saldoInicial = 0
     const contagem = 0
     const quantVendida = saldoInicial - contagem
     const valorVendido = quantVendida * price
@@ -132,17 +118,12 @@ export default function AcertoPage() {
     setItems((prev) => [...prev, newItem])
   }
 
-  // Update Contagem Logic
   const handleUpdateContagem = (uid: string, newContagem: number) => {
     setItems((prev) =>
       prev.map((item) => {
         if (item.uid !== uid) return item
 
-        // Mode check: In CAPTACAO, contagem should be locked, handled in UI.
         const contagem = Math.max(0, newContagem)
-
-        // Automatic calculation for sold quantity and value based on Contagem
-        // Formula: Quantidade Vendida = Saldo Inicial - CONTAGEM
         const quantVendida = item.saldoInicial - contagem
         const valorVendido = quantVendida * item.precoUnitario
 
@@ -156,30 +137,22 @@ export default function AcertoPage() {
     )
   }
 
-  // Update Saldo Final Logic
   const handleUpdateSaldoFinal = (uid: string, newSaldo: number) => {
     setItems((prev) =>
       prev.map((item) => {
         if (item.uid !== uid) return item
-
-        const saldoFinal = Math.max(0, newSaldo)
-
-        // Saldo Final is independent in terms of UI display for "Valor Vendido",
-        // but "Novas Consignações" logic happens at Save/DB service level.
         return {
           ...item,
-          saldoFinal,
+          saldoFinal: Math.max(0, newSaldo),
         }
       }),
     )
   }
 
-  // Remove Item
   const handleRemoveItem = (uid: string) => {
     setItems((prev) => prev.filter((i) => i.uid !== uid))
   }
 
-  // Save Acerto
   const handleSave = async () => {
     if (!client || !employee) {
       toast({
@@ -201,9 +174,7 @@ export default function AcertoPage() {
 
     setSaving(true)
     try {
-      // Capture exact time for the batch
       const now = new Date()
-
       await bancoDeDadosService.saveTransaction(client, employee, items, now)
 
       toast({
@@ -212,7 +183,6 @@ export default function AcertoPage() {
         className: 'bg-green-50 border-green-200 text-green-900',
       })
 
-      // Reset
       setItems([])
       setClient(null)
       setIsClientConfirmed(false)
@@ -262,7 +232,6 @@ export default function AcertoPage() {
         </div>
       </div>
 
-      {/* Employee Info */}
       <Card className="bg-primary/5 border-primary/20">
         <CardContent className="p-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -277,7 +246,6 @@ export default function AcertoPage() {
         </CardContent>
       </Card>
 
-      {/* Client Selection Section */}
       <div className="space-y-4">
         {!isClientConfirmed && <ClientSearch onSelect={handleClientSelect} />}
 
@@ -299,7 +267,6 @@ export default function AcertoPage() {
 
             <ClientDetails client={client} lastAcertoDate={lastAcertoDate} />
 
-            {/* Conditional Button Rendering based on Mode */}
             {!isClientConfirmed && !loadingStatus && (
               <div className="flex flex-col sm:flex-row gap-4 pt-2">
                 <Button
@@ -327,7 +294,6 @@ export default function AcertoPage() {
         )}
       </div>
 
-      {/* Product Section (Only visible when confirmed) */}
       {isClientConfirmed && (
         <div className="space-y-4 animate-fade-in pt-4 border-t">
           <div className="flex items-center justify-between">

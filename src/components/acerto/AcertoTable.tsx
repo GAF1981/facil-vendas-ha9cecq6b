@@ -27,7 +27,6 @@ export function AcertoTable({
   onRemoveItem,
   mode,
 }: AcertoTableProps) {
-  // Helper for vertical headers styling
   const VerticalHeader = ({
     children,
     className,
@@ -50,7 +49,6 @@ export function AcertoTable({
     </TableHead>
   )
 
-  // Helper for numeric input with +/- buttons
   const NumberInputControl = ({
     value,
     onChange,
