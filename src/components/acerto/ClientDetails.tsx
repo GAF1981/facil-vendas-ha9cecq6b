@@ -1,14 +1,32 @@
 import { ClientRow } from '@/types/client'
+import { LastAcertoInfo } from '@/types/acerto'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 
 interface ClientDetailsProps {
   client: ClientRow
-  lastAcertoDate?: string | null
+  lastAcerto?: LastAcertoInfo | null
 }
 
-export function ClientDetails({ client, lastAcertoDate }: ClientDetailsProps) {
+export function ClientDetails({ client, lastAcerto }: ClientDetailsProps) {
+  // Helper to format date string yyyy-MM-dd to dd/MM/yyyy safely
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'N/A'
+    try {
+      // If it matches yyyy-MM-dd, split and join to avoid timezone issues
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        const [year, month, day] = dateString.split('-')
+        return `${day}/${month}/${year}`
+      }
+      // Fallback for other formats (like ISO with time)
+      return format(parseISO(dateString), 'dd/MM/yyyy')
+    } catch (e) {
+      console.error('Date formatting error:', e)
+      return dateString
+    }
+  }
+
   return (
     <Card className="bg-muted/30 border-primary/20">
       <CardContent className="p-4">
@@ -47,12 +65,24 @@ export function ClientDetails({ client, lastAcertoDate }: ClientDetailsProps) {
           </div>
         </div>
 
-        {lastAcertoDate && (
-          <div className="mt-4 pt-4 border-t flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="font-semibold">Último Acerto:</span>
-            <span>{format(new Date(lastAcertoDate), 'dd/MM/yyyy HH:mm')}</span>
+        <div className="mt-4 pt-4 border-t grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <Label className="text-xs text-muted-foreground font-semibold block mb-1">
+              Data do último Acerto:
+            </Label>
+            <span className="text-sm font-medium">
+              {lastAcerto?.data ? formatDate(lastAcerto.data) : 'N/A'}
+            </span>
           </div>
-        )}
+          <div>
+            <Label className="text-xs text-muted-foreground font-semibold block mb-1">
+              Hora do último Acerto:
+            </Label>
+            <span className="text-sm font-medium">
+              {lastAcerto?.hora || 'N/A'}
+            </span>
+          </div>
+        </div>
       </CardContent>
     </Card>
   )

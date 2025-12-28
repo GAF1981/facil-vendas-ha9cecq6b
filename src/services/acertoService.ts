@@ -1,22 +1,28 @@
 import { supabase } from '@/lib/supabase/client'
-import { Acerto } from '@/types/acerto'
+import { Acerto, LastAcertoInfo } from '@/types/acerto'
 
 export const acertoService = {
-  async getLastAcertoDate(clienteId: number) {
+  async getLastAcerto(clienteId: number): Promise<LastAcertoInfo | null> {
     const { data, error } = await supabase
-      .from('ACERTOS')
-      .select('DATA_ACERTO')
-      .eq('CLIENTE_ID', clienteId)
-      .order('DATA_ACERTO', { ascending: false })
+      .from('BANCO_DE_DADOS')
+      .select('"DATA DO ACERTO", "HORA DO ACERTO"')
+      .eq('COD. CLIENTE', clienteId)
+      .order('DATA DO ACERTO', { ascending: false })
+      .order('HORA DO ACERTO', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
 
-    if (error && error.code !== 'PGRST116') {
+    if (error) {
       console.error('Error fetching last acerto:', error)
       return null
     }
 
-    return data?.DATA_ACERTO || null
+    if (!data) return null
+
+    return {
+      data: data['DATA DO ACERTO'] || null,
+      hora: data['HORA DO ACERTO'] || null,
+    }
   },
 
   async saveAcerto(acerto: Acerto) {

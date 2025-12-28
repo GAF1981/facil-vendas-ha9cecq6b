@@ -20,7 +20,7 @@ import { acertoService } from '@/services/acertoService'
 import { bancoDeDadosService } from '@/services/bancoDeDadosService'
 import { ClientRow } from '@/types/client'
 import { ProductRow } from '@/types/product'
-import { AcertoItem } from '@/types/acerto'
+import { AcertoItem, LastAcertoInfo } from '@/types/acerto'
 import { useToast } from '@/hooks/use-toast'
 import { ProductSelector } from '@/components/acerto/ProductSelector'
 import { AcertoTable } from '@/components/acerto/AcertoTable'
@@ -36,7 +36,7 @@ export default function AcertoPage() {
 
   const [client, setClient] = useState<ClientRow | null>(null)
   const [isClientConfirmed, setIsClientConfirmed] = useState(false)
-  const [lastAcertoDate, setLastAcertoDate] = useState<string | null>(null)
+  const [lastAcerto, setLastAcerto] = useState<LastAcertoInfo | null>(null)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [items, setItems] = useState<AcertoItem[]>([])
   const [saving, setSaving] = useState(false)
@@ -96,16 +96,19 @@ export default function AcertoPage() {
 
   const handleClientSelect = async (selectedClient: ClientRow) => {
     setClient(selectedClient)
-    setLastAcertoDate(null)
+    setLastAcerto(null)
     setLoadingStatus(true)
 
     try {
-      const lastDate = await acertoService.getLastAcertoDate(
-        selectedClient.CODIGO,
-      )
-      setLastAcertoDate(lastDate)
+      const info = await acertoService.getLastAcerto(selectedClient.CODIGO)
+      setLastAcerto(info)
     } catch (error) {
       console.error(error)
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível buscar o último acerto.',
+        variant: 'destructive',
+      })
     } finally {
       setLoadingStatus(false)
     }
@@ -128,7 +131,7 @@ export default function AcertoPage() {
     setClient(null)
     setIsClientConfirmed(false)
     setItems([])
-    setLastAcertoDate(null)
+    setLastAcerto(null)
     setMode('ACERTO')
     setAcertoTipo('ACERTO')
   }
@@ -301,7 +304,7 @@ export default function AcertoPage() {
       setItems([])
       setClient(null)
       setIsClientConfirmed(false)
-      setLastAcertoDate(null)
+      setLastAcerto(null)
       navigate('/')
     } catch (error) {
       console.error(error)
@@ -380,7 +383,7 @@ export default function AcertoPage() {
               )}
             </div>
 
-            <ClientDetails client={client} lastAcertoDate={lastAcertoDate} />
+            <ClientDetails client={client} lastAcerto={lastAcerto} />
 
             {!isClientConfirmed && !loadingStatus && (
               <div className="flex flex-col sm:flex-row gap-4 pt-2">
