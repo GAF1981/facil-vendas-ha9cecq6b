@@ -35,6 +35,7 @@ export default function AcertoPage() {
   const navigate = useNavigate()
 
   const [client, setClient] = useState<ClientRow | null>(null)
+  const [lastAcertoDate, setLastAcertoDate] = useState<string | null>(null)
   const [isClientConfirmed, setIsClientConfirmed] = useState(false)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [items, setItems] = useState<AcertoItem[]>([])
@@ -52,6 +53,19 @@ export default function AcertoPage() {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
+
+  // Effect to fetch last acerto date when client is selected
+  useEffect(() => {
+    if (client) {
+      setLastAcertoDate(null) // Reset while fetching
+      bancoDeDadosService
+        .getLastAcertoDate(client.CODIGO)
+        .then((date) => setLastAcertoDate(date))
+        .catch((err) => console.error('Error fetching last date', err))
+    } else {
+      setLastAcertoDate(null)
+    }
+  }, [client])
 
   // Effect to fetch next order number and max item ID when client is confirmed
   useEffect(() => {
@@ -360,7 +374,7 @@ export default function AcertoPage() {
               )}
             </div>
 
-            <ClientDetails client={client} />
+            <ClientDetails client={client} lastAcertoDate={lastAcertoDate} />
 
             {!isClientConfirmed && (
               <div className="flex flex-col sm:flex-row gap-4 pt-2">
