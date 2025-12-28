@@ -16,6 +16,7 @@ import ProductFormPage from '@/pages/products/ProductFormPage'
 import PlaceholderModule from '@/pages/PlaceholderModule'
 import LoginPage from '@/pages/auth/LoginPage'
 import AcertoPage from '@/pages/acerto/AcertoPage'
+import RecebimentoPage from '@/pages/recebimento/RecebimentoPage'
 import { AuthProvider } from '@/hooks/use-auth'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 
@@ -54,9 +55,11 @@ const App = () => (
               {/* Acerto Module */}
               <Route path="/acerto" element={<AcertoPage />} />
 
+              {/* Recebimento Module */}
+              <Route path="/recebimento" element={<RecebimentoPage />} />
+
               {/* New Modules Routes */}
               <Route path="/complemento" element={<PlaceholderModule />} />
-              <Route path="/recebimento" element={<PlaceholderModule />} />
               <Route path="/nota-fiscal" element={<PlaceholderModule />} />
               <Route path="/caixa" element={<PlaceholderModule />} />
               <Route path="/cobranca" element={<PlaceholderModule />} />

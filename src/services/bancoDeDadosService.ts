@@ -227,10 +227,11 @@ export const bancoDeDadosService = {
 
   async getAcertoHistory(clienteId: number) {
     // Fetch last 500 rows to reconstruct history
+    // Added FORMA to selection as requested
     const { data, error } = await supabase
       .from('BANCO_DE_DADOS')
       .select(
-        '"NÚMERO DO PEDIDO", "DATA DO ACERTO", "HORA DO ACERTO", "FUNCIONÁRIO", "VALOR VENDIDO", DETALHES_PAGAMENTO, "DESCONTO POR GRUPO"',
+        '"NÚMERO DO PEDIDO", "DATA DO ACERTO", "HORA DO ACERTO", "FUNCIONÁRIO", "VALOR VENDIDO", DETALHES_PAGAMENTO, "DESCONTO POR GRUPO", FORMA',
       )
       .eq('"CÓDIGO DO CLIENTE"', clienteId)
       .order('"DATA DO ACERTO"', { ascending: false })
@@ -276,7 +277,7 @@ export const bancoDeDadosService = {
     // Fetch payments from RECEBIMENTOS for these orders
     const paymentsInfoMap = new Map<
       number,
-      { total: number; methods: Set<string> }
+      { total: number; methods: Set<string>; abatimento: number }
     >()
 
     if (orderIds.length > 0) {
@@ -290,9 +291,17 @@ export const bancoDeDadosService = {
           const current = paymentsInfoMap.get(p.venda_id) || {
             total: 0,
             methods: new Set(),
+            abatimento: 0,
           }
-          current.total += Number(p.valor_pago) || 0
+          const val = Number(p.valor_pago) || 0
+          current.total += val
           if (p.forma_pagamento) current.methods.add(p.forma_pagamento)
+
+          // Logic: Only 'Dinheiro' and 'Cheque' abate the debt
+          if (['Dinheiro', 'Cheque'].includes(p.forma_pagamento)) {
+            current.abatimento += val
+          }
+
           paymentsInfoMap.set(p.venda_id, current)
         })
       }
@@ -309,6 +318,7 @@ export const bancoDeDadosService = {
       // Prioritize RECEBIMENTOS table
       const paymentInfo = paymentsInfoMap.get(order.id)
       let valorPago = paymentInfo?.total || 0
+      let valorAbatimento = paymentInfo?.abatimento || 0
       let methods = paymentInfo ? Array.from(paymentInfo.methods) : []
 
       // If no payment found in RECEBIMENTOS (or value is 0), try to use the legacy JSON column from BANCO_DE_DADOS
@@ -317,6 +327,17 @@ export const bancoDeDadosService = {
           (acc: number, p: any) => acc + (Number(p.value) || 0),
           0,
         )
+
+        // Calculate legacy abatement
+        valorAbatimento = order.pagamentos.reduce((acc: number, p: any) => {
+          const method = p.method
+          const val = Number(p.value) || 0
+          if (['Dinheiro', 'Cheque'].includes(method)) {
+            return acc + val
+          }
+          return acc
+        }, 0)
+
         methods = order.pagamentos
           .map((p: any) => p.method)
           .filter((m: any) => !!m)
@@ -324,11 +345,17 @@ export const bancoDeDadosService = {
 
       const uniqueMethods = [...new Set(methods)].join(', ')
 
+      // Logic:
+      // Valor Pago -> Total amount paid (for records)
+      // Debito -> Saldo a Pagar minus only specific methods (Dinheiro/Cheque)
+      // Pix/Boleto do NOT abate the debt in this summary.
+      const debito = saldoAPagar - valorAbatimento
+
       return {
         ...order,
         saldoAPagar,
         valorPago,
-        debito: saldoAPagar - valorPago,
+        debito: debito,
         methods: uniqueMethods || '-',
         mediaMensal: null as number | null,
       }
