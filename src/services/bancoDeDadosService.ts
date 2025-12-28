@@ -242,12 +242,14 @@ export const bancoDeDadosService = {
 
     // Group by Order Number to create "Settlements"
     const ordersMap = new Map<number, any>()
+    const orderIds: number[] = []
 
     data.forEach((row) => {
       const orderId = row['NÚMERO DO PEDIDO']
       if (!orderId) return
 
       if (!ordersMap.has(orderId)) {
+        orderIds.push(orderId)
         ordersMap.set(orderId, {
           id: orderId,
           data: row['DATA DO ACERTO'],
@@ -264,6 +266,23 @@ export const bancoDeDadosService = {
       order.valorVendaTotal += parseCurrency(row['VALOR VENDIDO'])
     })
 
+    // Fetch payments from RECEBIMENTOS for these orders
+    // This ensures we get the most accurate payment info stored in the structured table
+    const paymentsMap = new Map<number, number>()
+    if (orderIds.length > 0) {
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from('RECEBIMENTOS')
+        .select('venda_id, valor_pago')
+        .in('venda_id', orderIds)
+
+      if (!paymentsError && paymentsData) {
+        paymentsData.forEach((p) => {
+          const current = paymentsMap.get(p.venda_id) || 0
+          paymentsMap.set(p.venda_id, current + (Number(p.valor_pago) || 0))
+        })
+      }
+    }
+
     // Process calculated fields
     return Array.from(ordersMap.values()).map((order) => {
       const descontoStr = order.desconto || '0'
@@ -272,8 +291,12 @@ export const bancoDeDadosService = {
       const valorDesconto = order.valorVendaTotal * discountFactor
       const saldoAPagar = order.valorVendaTotal - valorDesconto
 
-      let valorPago = 0
-      if (Array.isArray(order.pagamentos)) {
+      // Prioritize RECEBIMENTOS table, fallback to JSON in BANCO_DE_DADOS if no records in RECEBIMENTOS
+      // This handles backward compatibility for old records that might not be in RECEBIMENTOS
+      let valorPago = paymentsMap.get(order.id) || 0
+
+      // If no payment found in RECEBIMENTOS (or value is 0), try to use the legacy JSON column from BANCO_DE_DADOS
+      if (valorPago === 0 && Array.isArray(order.pagamentos)) {
         valorPago = order.pagamentos.reduce(
           (acc: number, p: any) => acc + (Number(p.value) || 0),
           0,
@@ -298,7 +321,6 @@ export const bancoDeDadosService = {
     payments: PaymentEntry[],
   ) {
     // 1. Get Context (Order Number)
-    // We calculate it again here to ensure sequence integrity at the moment of saving
     const nextPedido = await this.getNextNumeroPedido()
 
     const dataAcertoStr = format(date, 'yyyy-MM-dd')
@@ -307,7 +329,6 @@ export const bancoDeDadosService = {
     // 2. Fetch current product prices (Automated Price Lookup)
     const productIds = items.map((i) => i.produtoId)
 
-    // Guard against empty items list
     if (productIds.length === 0) return
 
     const { data: productsData, error: productsError } = await supabase
@@ -323,7 +344,6 @@ export const bancoDeDadosService = {
     })
 
     // Construct Payment String (FORMA)
-    // Example: "Pix R$ 100,00 | Dinheiro R$ 50,00"
     const paymentString = payments
       .map(
         (p) => `${p.method} R$ ${formatCurrency(p.value)} (${p.installments}x)`,
@@ -334,15 +354,11 @@ export const bancoDeDadosService = {
 
     // 3. Prepare rows
     const rowsToInsert = items.map((item) => {
-      // Get current official price from DB
       const currentPrice = priceMap.get(item.produtoId) || item.precoUnitario
-
-      // Calculate derived values
       const valorVendidoVal = currentPrice * item.quantVendida
       const saldoFinal = item.saldoFinal
       const contagem = item.contagem
 
-      // Consignment Logic: Saldo Final - Contagem
       const diff = saldoFinal - contagem
       let novasConsignacoesVal = 0
       let recolhidoVal = 0
@@ -352,69 +368,46 @@ export const bancoDeDadosService = {
         recolhidoVal = 0
       } else if (diff < 0) {
         novasConsignacoesVal = 0
-        recolhidoVal = Math.abs(diff) // Storing magnitude of collected items
+        recolhidoVal = Math.abs(diff)
       }
 
-      // Discount Logic
       const descontoStr = client.Desconto || '0'
       const descontoVal = parseCurrency(descontoStr.replace('%', ''))
       const discountFactor = descontoVal > 1 ? descontoVal / 100 : descontoVal
 
-      // Consigned Values Calculation
       const valorConsignadoVendaVal = saldoFinal * currentPrice
       const valorConsignadoCustoVal =
         valorConsignadoVendaVal - valorConsignadoVendaVal * discountFactor
 
       return {
-        // Explicitly set ID VENDA ITENS
         'ID VENDA ITENS': item.idVendaItens,
-
         'NÚMERO DO PEDIDO': nextPedido,
         'DATA DO ACERTO': dataAcertoStr,
         'HORA DO ACERTO': horaAcerto,
-
         'CÓDIGO DO CLIENTE': client.CODIGO,
         CLIENTE: client['NOME CLIENTE'],
-
         'CODIGO FUNCIONARIO': employee.id,
         FUNCIONÁRIO: employee.nome_completo,
-
         'DESCONTO POR GRUPO': client.Desconto,
-
-        // Explicitly map Product Code and Name
         'COD. PRODUTO': item.produtoCodigo ?? null,
         MERCADORIA: item.produtoNome,
-
-        // Mapped TIPO from item (Resumo da Contagem)
         TIPO: item.tipo,
-
-        // Mapped FORMA from Calculated String
         FORMA: formaPagamento,
-
         'SALDO INICIAL': item.saldoInicial,
         CONTAGEM: contagem,
-
         'QUANTIDADE VENDIDA': item.quantVendida.toString(),
         'VALOR VENDIDO': formatCurrency(valorVendidoVal),
         'VALOR VENDA PRODUTO': formatCurrency(valorVendidoVal),
-
-        // Automated population of PREÇO VENDIDO based on product catalog
         'PREÇO VENDIDO': formatCurrency(currentPrice),
-
         'SALDO FINAL': saldoFinal,
-
         'NOVAS CONSIGNAÇÕES': formatCurrency(novasConsignacoesVal),
-
         RECOLHIDO: formatCurrency(recolhidoVal),
-
         'VALOR CONSIGNADO TOTAL (Preço Venda)': formatCurrency(
           valorConsignadoVendaVal,
         ),
         'VALOR CONSIGNADO TOTAL (Custo)': formatCurrency(
           valorConsignadoCustoVal,
         ),
-
-        // Add detailed payment info
         DETALHES_PAGAMENTO: payments,
       }
     })
@@ -473,6 +466,7 @@ export const bancoDeDadosService = {
       if (recebimentosError) {
         console.error('Error inserting recebimentos:', recebimentosError)
         // Throw error to alert failure even if BANCO_DE_DADOS insert was successful
+        // This ensures the caller knows something went wrong with critical financial data
         throw recebimentosError
       }
     }

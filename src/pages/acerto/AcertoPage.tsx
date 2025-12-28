@@ -39,7 +39,7 @@ import { AcertoSalesSummary } from '@/components/acerto/AcertoSalesSummary'
 import { AcertoPaymentSummary } from '@/components/acerto/AcertoPaymentSummary'
 import { AcertoHistoryTable } from '@/components/acerto/AcertoHistoryTable'
 import { cn } from '@/lib/utils'
-import { parseCurrency, formatCurrency } from '@/lib/formatters'
+import { parseCurrency } from '@/lib/formatters'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PaymentEntry } from '@/types/payment'
 import {
@@ -376,9 +376,6 @@ export default function AcertoPage() {
     }
 
     // 2. Negative Debt Check (Overpayment)
-    // Debt = Valor Acerto - Total Paid
-    // "The debt cannot be negative" means Total Paid cannot be > Valor Acerto
-    // Note: Use a small epsilon for float comparison logic
     if (totalPaid > valorAcerto + 0.01) {
       toast({
         title: 'Débito Negativo',
@@ -477,7 +474,7 @@ export default function AcertoPage() {
       // 3. Success Message (Required Text)
       toast({
         title: 'Pedido realizado com Sucesso',
-        description: 'Operação finalizada.',
+        description: 'Operação finalizada e pagamentos registrados.',
         className: 'bg-green-50 border-green-200 text-green-900',
       })
 
@@ -487,11 +484,13 @@ export default function AcertoPage() {
       setIsClientConfirmed(false)
       setPayments([])
       navigate('/')
-    } catch (error) {
+    } catch (error: any) {
       console.error(error)
       toast({
         title: 'Erro ao salvar',
-        description: 'Não foi possível registrar os dados.',
+        description:
+          error.message ||
+          'Não foi possível registrar os dados ou o pagamento.',
         variant: 'destructive',
       })
     } finally {

@@ -258,6 +258,54 @@ export type Database = {
         }
         Relationships: []
       }
+      RECEBIMENTOS: {
+        Row: {
+          cliente_id: number
+          created_at: string | null
+          data_pagamento: string | null
+          forma_pagamento: string
+          funcionario_id: number
+          id: number
+          valor_pago: number
+          venda_id: number
+        }
+        Insert: {
+          cliente_id: number
+          created_at?: string | null
+          data_pagamento?: string | null
+          forma_pagamento: string
+          funcionario_id: number
+          id?: number
+          valor_pago: number
+          venda_id: number
+        }
+        Update: {
+          cliente_id?: number
+          created_at?: string | null
+          data_pagamento?: string | null
+          forma_pagamento?: string
+          funcionario_id?: number
+          id?: number
+          valor_pago?: number
+          venda_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'RECEBIMENTOS_cliente_id_fkey'
+            columns: ['cliente_id']
+            isOneToOne: false
+            referencedRelation: 'CLIENTES'
+            referencedColumns: ['CODIGO']
+          },
+          {
+            foreignKeyName: 'RECEBIMENTOS_funcionario_id_fkey'
+            columns: ['funcionario_id']
+            isOneToOne: false
+            referencedRelation: 'FUNCIONARIOS'
+            referencedColumns: ['id']
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
