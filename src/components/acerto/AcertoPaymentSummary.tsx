@@ -40,39 +40,30 @@ export function AcertoPaymentSummary({
   onPaymentsChange,
   disabled = false,
 }: AcertoPaymentSummaryProps) {
-  // Total Selecionado is sum of "Valor Registrado" (entry.value)
   const totalRegistered = payments.reduce((acc, p) => acc + p.value, 0)
   const remaining = saldoAPagar - totalRegistered
   const isComplete = Math.abs(remaining) < 0.01
 
-  // Update default payment if list is empty and there is balance
-  useEffect(() => {
-    // Optional: Only if user hasn't selected anything yet and there is a balance
-  }, [])
+  useEffect(() => {}, [])
 
   const handleToggleMethod = (method: PaymentMethodType, checked: boolean) => {
     if (disabled) return
 
     if (checked) {
-      // Add method
-      // Default value is remaining balance (or 0 if negative)
       const defaultValue = Math.max(0, remaining)
-
       const today = new Date()
-      // Automated Due Date Logic: Boleto = Today + 10 days, Others = Today
       const dueDateDate = method === 'Boleto' ? addDays(today, 10) : today
       const dueDate = format(dueDateDate, 'yyyy-MM-dd')
 
       const newEntry: PaymentEntry = {
         method,
-        value: defaultValue, // Valor Registrado
-        paidValue: 0, // Valor Pago starts at 0, user must fill if paid immediately
+        value: defaultValue,
+        paidValue: 0,
         installments: 1,
         dueDate: dueDate,
       }
       onPaymentsChange([...payments, newEntry])
     } else {
-      // Remove method
       onPaymentsChange(payments.filter((p) => p.method !== method))
     }
   }
@@ -103,21 +94,18 @@ export function AcertoPaymentSummary({
 
         const updated = { ...p, [field]: value }
 
-        // If installments count changed, regenerate details
         if (field === 'installments') {
           const count = value as number
           if (count > 1) {
             updated.details = generateInstallments(p.value, count)
           } else {
             updated.details = undefined
-            // Recalculate default due date based on method if switching back to 1 installment
             const today = new Date()
             const dueDateDate = method === 'Boleto' ? addDays(today, 10) : today
             updated.dueDate = format(dueDateDate, 'yyyy-MM-dd')
           }
         }
 
-        // If value changed and we have multiple installments, regenerate details proportionally
         if (field === 'value' && p.installments > 1) {
           updated.details = generateInstallments(
             value as number,
@@ -145,7 +133,6 @@ export function AcertoPaymentSummary({
         const newDetails = [...p.details]
         newDetails[index] = { ...newDetails[index], [field]: value }
 
-        // When value changes, we update the total payment value (Registered) to match sum of installments
         let newValue = p.value
         if (field === 'value') {
           newValue = newDetails.reduce((acc, curr) => acc + curr.value, 0)
@@ -166,7 +153,6 @@ export function AcertoPaymentSummary({
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {/* Saldo a Pagar */}
           <div className="flex flex-col space-y-1 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-900 shadow-sm">
             <span className="text-sm text-blue-700 dark:text-blue-400 font-medium flex items-center gap-1">
               <DollarSign className="h-3.5 w-3.5" /> Saldo a Pagar
@@ -176,7 +162,6 @@ export function AcertoPaymentSummary({
             </span>
           </div>
 
-          {/* Total Selecionado */}
           <div
             className={cn(
               'flex flex-col space-y-1 p-3 rounded-lg border shadow-sm',
@@ -208,7 +193,6 @@ export function AcertoPaymentSummary({
           </div>
         </div>
 
-        {/* Payment Methods Selection */}
         <div className="space-y-4 pt-4 border-t">
           <Label className="text-base font-semibold">Formas de Pagamento</Label>
 
@@ -252,7 +236,6 @@ export function AcertoPaymentSummary({
           </div>
         </div>
 
-        {/* Active Payments Details */}
         {payments.length > 0 && (
           <div className="space-y-4 animate-fade-in">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
@@ -267,18 +250,19 @@ export function AcertoPaymentSummary({
                     disabled && 'opacity-60 pointer-events-none',
                   )}
                 >
-                  <div className="flex flex-col md:flex-row gap-4 items-start md:items-end">
-                    {/* Method Column */}
-                    <div className="w-full md:w-28 shrink-0">
+                  <div className="flex flex-col md:flex-row gap-3 items-start md:items-end">
+                    <div className="w-full md:w-24 shrink-0">
                       <Label className="text-xs text-muted-foreground font-bold uppercase mb-1.5 block">
                         Método
                       </Label>
-                      <div className="font-semibold text-primary flex items-center justify-center gap-2 h-10 px-2 bg-muted/50 rounded-md border text-sm text-center">
+                      <div
+                        className="font-semibold text-primary flex items-center justify-center gap-2 h-10 px-2 bg-muted/50 rounded-md border text-sm text-center truncate"
+                        title={entry.method}
+                      >
                         {entry.method}
                       </div>
                     </div>
 
-                    {/* Value Column (Valor Registrado) */}
                     <div className="w-full md:flex-1">
                       <Label className="text-xs font-medium mb-1.5 block">
                         Valor Registrado
@@ -305,7 +289,6 @@ export function AcertoPaymentSummary({
                       </div>
                     </div>
 
-                    {/* Paid Value Column (Valor Pago) */}
                     <div className="w-full md:flex-1">
                       <Label className="text-xs font-medium mb-1.5 block text-green-700">
                         Valor Pago
@@ -332,8 +315,7 @@ export function AcertoPaymentSummary({
                       </div>
                     </div>
 
-                    {/* Installments Column */}
-                    <div className="w-full md:w-28">
+                    <div className="w-full md:w-20">
                       <Label className="text-xs font-medium mb-1.5 block">
                         Parcelas
                       </Label>
@@ -348,7 +330,7 @@ export function AcertoPaymentSummary({
                           )
                         }
                       >
-                        <SelectTrigger className="h-10">
+                        <SelectTrigger className="h-10 px-2">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -363,15 +345,14 @@ export function AcertoPaymentSummary({
                       </Select>
                     </div>
 
-                    {/* Due Date Column (Only if 1 installment) */}
                     {entry.installments === 1 && (
-                      <div className="w-full md:w-36">
+                      <div className="w-full md:w-32">
                         <Label className="text-xs font-medium mb-1.5 flex items-center gap-1">
                           <Calendar className="h-3 w-3" /> Vencimento
                         </Label>
                         <Input
                           type="date"
-                          className="h-10"
+                          className="h-10 px-2 text-xs"
                           value={entry.dueDate}
                           disabled={disabled}
                           onChange={(e) =>
@@ -386,7 +367,6 @@ export function AcertoPaymentSummary({
                     )}
                   </div>
 
-                  {/* Granular Installment Details */}
                   {entry.installments > 1 && entry.details && (
                     <div className="pl-4 border-l-2 border-muted space-y-3">
                       <h4 className="text-xs font-semibold text-muted-foreground uppercase">
@@ -421,10 +401,10 @@ export function AcertoPaymentSummary({
                                 }
                               />
                             </div>
-                            <div className="w-full sm:w-40">
+                            <div className="w-full sm:w-32">
                               <Input
                                 type="date"
-                                className="h-8 text-sm"
+                                className="h-8 text-sm px-2"
                                 value={inst.dueDate}
                                 disabled={disabled}
                                 onChange={(e) =>
