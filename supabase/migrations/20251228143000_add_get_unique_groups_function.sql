@@ -1,0 +1,9 @@
+CREATE OR REPLACE FUNCTION get_unique_product_groups()
+RETURNS TABLE (grupo text)
+LANGUAGE sql
+AS $$
+  SELECT DISTINCT "GRUPO"
+  FROM "PRODUTOS"
+  WHERE "GRUPO" IS NOT NULL AND "GRUPO" <> ''
+  ORDER BY "GRUPO";
+$$;

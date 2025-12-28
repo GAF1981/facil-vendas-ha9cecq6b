@@ -6,6 +6,7 @@ export const productsService = {
     page: number = 1,
     pageSize: number = 20,
     search: string = '',
+    group: string | null = null,
   ) {
     let query = supabase.from('PRODUTOS').select('*', { count: 'exact' })
 
@@ -25,6 +26,10 @@ export const productsService = {
       }
     }
 
+    if (group && group !== 'todos') {
+      query = query.eq('GRUPO', group)
+    }
+
     const from = (page - 1) * pageSize
     const to = from + pageSize - 1
 
@@ -41,6 +46,17 @@ export const productsService = {
       data: (data as ProductRow[]) || [],
       count: count || 0,
     }
+  },
+
+  async getGroups() {
+    const { data, error } = await supabase.rpc('get_unique_product_groups')
+
+    if (error) {
+      console.error('Error fetching groups:', error)
+      return []
+    }
+
+    return (data as any[]).map((item) => item.grupo).filter(Boolean) as string[]
   },
 
   async getById(id: number) {
