@@ -29,7 +29,7 @@ import { ClientDetails } from '@/components/acerto/ClientDetails'
 import { AcertoStockSummary } from '@/components/acerto/AcertoStockSummary'
 import { AcertoSalesSummary } from '@/components/acerto/AcertoSalesSummary'
 import { AcertoPaymentSummary } from '@/components/acerto/AcertoPaymentSummary'
-import { AcertoSummary } from '@/components/acerto/AcertoSummary'
+import { AcertoHistoryTable } from '@/components/acerto/AcertoHistoryTable'
 import { cn } from '@/lib/utils'
 import { parseCurrency, formatCurrency } from '@/lib/formatters'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -341,11 +341,30 @@ export default function AcertoPage() {
       return
     }
 
+    // STRICT VALIDATION
+    // 1. Mandatory Payment
     if (payments.length === 0) {
-      const confirmNoPayment = window.confirm(
-        'Nenhuma forma de pagamento selecionada. Deseja continuar mesmo assim?',
-      )
-      if (!confirmNoPayment) return
+      toast({
+        title: 'Pagamento Obrigatório',
+        description:
+          'É necessário selecionar pelo menos uma forma de pagamento e atribuir um valor.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // 2. Negative Debt Check (Overpayment)
+    // Debt = Valor Acerto - Total Paid
+    // "The debt cannot be negative" means Total Paid cannot be > Valor Acerto
+    // Note: Use a small epsilon for float comparison logic
+    if (totalPaid > valorAcerto + 0.01) {
+      toast({
+        title: 'Débito Negativo',
+        description:
+          'O valor total pago não pode exceder o saldo a pagar. O débito não pode ser negativo.',
+        variant: 'destructive',
+      })
+      return
     }
 
     // Zero-Stock Validation
@@ -631,14 +650,10 @@ export default function AcertoPage() {
             onPaymentsChange={setPayments}
           />
 
-          {/* New Settlement Summary */}
-          <AcertoSummary
-            employee={employee}
-            date={currentTime}
+          {/* New History Table (Replacing Settlement Summary) */}
+          <AcertoHistoryTable
+            clientId={client!.CODIGO}
             monthlyAverage={monthlyAverage}
-            totalSales={totalVendido}
-            balanceToPay={valorAcerto}
-            totalPaid={totalPaid}
           />
 
           {/* Bottom Action Bar */}

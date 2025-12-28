@@ -44,8 +44,7 @@ export function AcertoPaymentSummary({
 
   // Update default payment if list is empty and there is balance
   useEffect(() => {
-    // Only if user hasn't selected anything yet and there is a balance
-    // This is optional UX - removed to avoid overriding user intent
+    // Optional: Only if user hasn't selected anything yet and there is a balance
   }, [])
 
   const handleToggleMethod = (method: PaymentMethodType, checked: boolean) => {
@@ -234,18 +233,20 @@ export function AcertoPaymentSummary({
                   className="bg-card border rounded-lg p-4 shadow-sm animate-slide-up space-y-4"
                 >
                   <div className="flex flex-col md:flex-row gap-4 items-start md:items-end">
-                    <div className="w-full md:w-48 shrink-0">
+                    {/* Method Column - Decreased Width */}
+                    <div className="w-full md:w-32 shrink-0">
                       <Label className="text-xs text-muted-foreground font-bold uppercase mb-1.5 block">
                         Método
                       </Label>
-                      <div className="font-semibold text-primary flex items-center gap-2 h-10 px-3 bg-muted/50 rounded-md border text-sm">
+                      <div className="font-semibold text-primary flex items-center justify-center gap-2 h-10 px-2 bg-muted/50 rounded-md border text-sm text-center">
                         {entry.method}
                       </div>
                     </div>
 
+                    {/* Value Column - Increased Width (flex-1) */}
                     <div className="w-full md:flex-1">
                       <Label className="text-xs font-medium mb-1.5 block">
-                        Valor Total
+                        Valor Total Pago
                       </Label>
                       <div className="relative">
                         <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">
@@ -255,7 +256,7 @@ export function AcertoPaymentSummary({
                           type="number"
                           step="0.01"
                           min="0"
-                          className="pl-9 font-bold"
+                          className="pl-9 font-bold text-lg h-10"
                           value={entry.value}
                           onChange={(e) =>
                             handleUpdateEntry(
@@ -282,7 +283,7 @@ export function AcertoPaymentSummary({
                           )
                         }
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="h-10">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -304,6 +305,7 @@ export function AcertoPaymentSummary({
                         </Label>
                         <Input
                           type="date"
+                          className="h-10"
                           value={entry.dueDate}
                           onChange={(e) =>
                             handleUpdateEntry(

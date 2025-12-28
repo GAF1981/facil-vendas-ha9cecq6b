@@ -224,6 +224,70 @@ export const bancoDeDadosService = {
     return total / months.length
   },
 
+  async getAcertoHistory(clienteId: number) {
+    // Fetch last 500 rows to reconstruct history
+    const { data, error } = await supabase
+      .from('BANCO_DE_DADOS')
+      .select(
+        '"NÚMERO DO PEDIDO", "DATA DO ACERTO", "HORA DO ACERTO", "FUNCIONÁRIO", "VALOR VENDIDO", DETALHES_PAGAMENTO, "DESCONTO POR GRUPO"',
+      )
+      .eq('"CÓDIGO DO CLIENTE"', clienteId)
+      .order('"DATA DO ACERTO"', { ascending: false })
+      .order('"HORA DO ACERTO"', { ascending: false })
+      .limit(500)
+
+    if (error) throw error
+    if (!data) return []
+
+    // Group by Order Number to create "Settlements"
+    const ordersMap = new Map<number, any>()
+
+    data.forEach((row) => {
+      const orderId = row['NÚMERO DO PEDIDO']
+      if (!orderId) return
+
+      if (!ordersMap.has(orderId)) {
+        ordersMap.set(orderId, {
+          id: orderId,
+          data: row['DATA DO ACERTO'],
+          hora: row['HORA DO ACERTO'],
+          vendedor: row['FUNCIONÁRIO'],
+          valorVendaTotal: 0,
+          desconto: row['DESCONTO POR GRUPO'],
+          pagamentos: row['DETALHES_PAGAMENTO'],
+        })
+      }
+
+      const order = ordersMap.get(orderId)
+      // Accumulate sales value for all items in the order
+      order.valorVendaTotal += parseCurrency(row['VALOR VENDIDO'])
+    })
+
+    // Process calculated fields
+    return Array.from(ordersMap.values()).map((order) => {
+      const descontoStr = order.desconto || '0'
+      const descontoVal = parseCurrency(descontoStr.replace('%', ''))
+      const discountFactor = descontoVal > 1 ? descontoVal / 100 : descontoVal
+      const valorDesconto = order.valorVendaTotal * discountFactor
+      const saldoAPagar = order.valorVendaTotal - valorDesconto
+
+      let valorPago = 0
+      if (Array.isArray(order.pagamentos)) {
+        valorPago = order.pagamentos.reduce(
+          (acc: number, p: any) => acc + (Number(p.value) || 0),
+          0,
+        )
+      }
+
+      return {
+        ...order,
+        saldoAPagar,
+        valorPago,
+        debito: saldoAPagar - valorPago,
+      }
+    })
+  },
+
   async saveTransaction(
     client: ClientRow,
     employee: Employee,
