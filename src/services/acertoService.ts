@@ -16,7 +16,7 @@ export const acertoService = {
         .from('BANCO_DE_DADOS')
         .select('"DATA DO ACERTO"')
         .eq('COD. CLIENTE', clienteId)
-        .eq('FORMA', 'CAPTAÇÃO')
+        .ilike('FORMA', '%CAPTAÇÃO%') // Updated to match records containing "CAPTAÇÃO"
         .order('DATA DO ACERTO', { ascending: false })
         .limit(1)
         .maybeSingle(),
