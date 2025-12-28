@@ -32,6 +32,7 @@ export function ProductSelector({ onSelect }: ProductSelectorProps) {
   const [loading, setLoading] = useState(false)
   const [groups, setGroups] = useState<string[]>([])
   const [selectedGroup, setSelectedGroup] = useState<string>('todos')
+  const [selectedFrequentes, setSelectedFrequentes] = useState<string>('todos')
   const { toast } = useToast()
 
   // Fetch groups on mount
@@ -50,17 +51,18 @@ export function ProductSelector({ onSelect }: ProductSelectorProps) {
       }
     }, 500)
     return () => clearTimeout(timer)
-  }, [searchTerm, open, selectedGroup])
+  }, [searchTerm, open, selectedGroup, selectedFrequentes])
 
   const handleSearch = async (term: string) => {
     setLoading(true)
     try {
-      // Fetch products with optional group filter
+      // Fetch products with optional group and frequentes filter
       const { data } = await productsService.getProducts(
         1,
         20,
         term,
         selectedGroup === 'todos' ? null : selectedGroup,
+        selectedFrequentes === 'todos' ? null : selectedFrequentes,
       )
       setProducts(data)
     } catch (error) {
@@ -117,6 +119,23 @@ export function ProductSelector({ onSelect }: ProductSelectorProps) {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="w-full sm:w-[150px]">
+              <Select
+                value={selectedFrequentes}
+                onValueChange={setSelectedFrequentes}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Frequência" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todas Freq.</SelectItem>
+                  <SelectItem value="SIM">Frequentes: SIM</SelectItem>
+                  <SelectItem value="NÃO">Frequentes: NÃO</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="relative flex-1">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input

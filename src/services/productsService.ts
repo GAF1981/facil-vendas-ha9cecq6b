@@ -7,6 +7,7 @@ export const productsService = {
     pageSize: number = 20,
     search: string = '',
     group: string | null = null,
+    frequentes: string | null = null,
   ) {
     let query = supabase.from('PRODUTOS').select('*', { count: 'exact' })
 
@@ -28,6 +29,10 @@ export const productsService = {
 
     if (group && group !== 'todos') {
       query = query.eq('GRUPO', group)
+    }
+
+    if (frequentes && frequentes !== 'todos') {
+      query = query.eq('FREQUENTES', frequentes)
     }
 
     const from = (page - 1) * pageSize
