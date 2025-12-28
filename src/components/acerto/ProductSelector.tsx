@@ -32,7 +32,8 @@ export function ProductSelector({ onSelect }: ProductSelectorProps) {
   const [loading, setLoading] = useState(false)
   const [groups, setGroups] = useState<string[]>([])
   const [selectedGroup, setSelectedGroup] = useState<string>('todos')
-  const [selectedFrequentes, setSelectedFrequentes] = useState<string>('todos')
+  // Default to 'SIM' to show frequent products first
+  const [selectedFrequentes, setSelectedFrequentes] = useState<string>('SIM')
   const { toast } = useToast()
 
   // Fetch groups on mount
@@ -57,12 +58,15 @@ export function ProductSelector({ onSelect }: ProductSelectorProps) {
     setLoading(true)
     try {
       // Fetch products with optional group and frequentes filter
+      // Now requesting alphabetical sort by PRODUTO name
       const { data } = await productsService.getProducts(
         1,
         20,
         term,
         selectedGroup === 'todos' ? null : selectedGroup,
         selectedFrequentes === 'todos' ? null : selectedFrequentes,
+        'PRODUTO', // Order by Name
+        true, // Ascending (A-Z)
       )
       setProducts(data)
     } catch (error) {
@@ -87,8 +91,8 @@ export function ProductSelector({ onSelect }: ProductSelectorProps) {
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen)
     if (newOpen) {
-      // Reset filter when opening if desired, or keep state
-      // keeping state is usually better UX
+      // We keep the state of filters when reopening to provide better UX
+      // But we ensure the search term is reset if needed, currently kept for continuity
     }
   }
 

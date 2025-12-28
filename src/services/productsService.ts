@@ -8,6 +8,8 @@ export const productsService = {
     search: string = '',
     group: string | null = null,
     frequentes: string | null = null,
+    orderBy: 'ID' | 'PRODUTO' = 'ID',
+    ascending: boolean = false,
   ) {
     let query = supabase.from('PRODUTOS').select('*', { count: 'exact' })
 
@@ -39,7 +41,7 @@ export const productsService = {
     const to = from + pageSize - 1
 
     const { data, error, count } = await query
-      .order('ID', { ascending: false })
+      .order(orderBy, { ascending })
       .range(from, to)
 
     if (error) {
