@@ -163,8 +163,8 @@ export const bancoDeDadosService = {
         // CODIGO -> COD. PRODUTO
         // PRODUTO -> MERCADORIA
         // TIPO -> TIPO
-        // SALDO INICIAL -> SALDO INICIAL
-        const saldoInicial = dbItem['SALDO INICIAL'] || 0
+        // SALDO INICIAL -> SALDO FINAL (from previous record)
+        const saldoInicial = dbItem['SALDO FINAL'] || 0
         const contagem = 0
         const quantVendida = saldoInicial - contagem
         const precoUnitario = parseCurrency(product.PREÇO)
