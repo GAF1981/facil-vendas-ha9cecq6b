@@ -6,6 +6,7 @@ import { ProductRow } from '@/types/product'
 import { parseCurrency, formatCurrency } from '@/lib/formatters'
 import { format } from 'date-fns'
 import { PaymentEntry } from '@/types/payment'
+import { RecebimentoInsert } from '@/types/recebimento'
 
 export const bancoDeDadosService = {
   async hasOutstandingBalance(clienteId: number): Promise<boolean> {
@@ -418,11 +419,62 @@ export const bancoDeDadosService = {
       }
     })
 
-    // 4. Insert into DB
+    // 4. Insert into BANCO_DE_DADOS
     const { error } = await supabase
       .from('BANCO_DE_DADOS')
       .insert(rowsToInsert as any)
 
     if (error) throw error
+
+    // 5. Insert into RECEBIMENTOS
+    const recebimentosToInsert: RecebimentoInsert[] = []
+
+    payments.forEach((payment) => {
+      // If we have installments details, use them to create separate entries
+      if (
+        payment.installments > 1 &&
+        payment.details &&
+        payment.details.length > 0
+      ) {
+        payment.details.forEach((detail) => {
+          recebimentosToInsert.push({
+            venda_id: nextPedido,
+            cliente_id: client.CODIGO,
+            funcionario_id: employee.id,
+            forma_pagamento: payment.method,
+            valor_pago: detail.value,
+            // Combine date with 12:00 time to ensure valid timestamp
+            data_pagamento: new Date(
+              `${detail.dueDate}T12:00:00`,
+            ).toISOString(),
+          })
+        })
+      } else {
+        // Single payment entry
+        recebimentosToInsert.push({
+          venda_id: nextPedido,
+          cliente_id: client.CODIGO,
+          funcionario_id: employee.id,
+          forma_pagamento: payment.method,
+          valor_pago: payment.value,
+          // Use dueDate if available (set to 12:00 to avoid timezone issues), otherwise now
+          data_pagamento: payment.dueDate
+            ? new Date(`${payment.dueDate}T12:00:00`).toISOString()
+            : new Date().toISOString(),
+        })
+      }
+    })
+
+    if (recebimentosToInsert.length > 0) {
+      const { error: recebimentosError } = await supabase
+        .from('RECEBIMENTOS')
+        .insert(recebimentosToInsert)
+
+      if (recebimentosError) {
+        console.error('Error inserting recebimentos:', recebimentosError)
+        // Throw error to alert failure even if BANCO_DE_DADOS insert was successful
+        throw recebimentosError
+      }
+    }
   },
 }
