@@ -26,6 +26,7 @@ import { ProductSelector } from '@/components/acerto/ProductSelector'
 import { AcertoTable } from '@/components/acerto/AcertoTable'
 import { ClientSearch } from '@/components/acerto/ClientSearch'
 import { ClientDetails } from '@/components/acerto/ClientDetails'
+import { AcertoStockSummary } from '@/components/acerto/AcertoStockSummary'
 import { cn } from '@/lib/utils'
 import { parseCurrency } from '@/lib/formatters'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -539,6 +540,8 @@ export default function AcertoPage() {
             mode={mode}
             acertoTipo={acertoTipo}
           />
+
+          <AcertoStockSummary items={items} />
 
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-card border p-4 rounded-lg shadow-sm">
             <div className="text-sm text-muted-foreground">
