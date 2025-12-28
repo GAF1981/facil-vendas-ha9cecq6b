@@ -240,53 +240,80 @@ export default function AcertoPage() {
     }
   }
 
-  const handleAddProduct = async (product: ProductRow) => {
-    if (items.some((i) => i.produtoId === product.ID)) {
+  const handleAddProducts = async (products: ProductRow[]) => {
+    // Filter out items already in the list
+    const productsToAdd = products.filter(
+      (p) => !items.some((i) => i.produtoId === p.ID),
+    )
+
+    if (productsToAdd.length === 0) {
       toast({
-        title: 'Produto já adicionado',
-        description: 'Este produto já está na lista.',
+        title:
+          products.length === 1
+            ? 'Produto já adicionado'
+            : 'Produtos já adicionados',
+        description: 'Todos os produtos selecionados já constam na lista.',
         variant: 'destructive',
       })
       return
     }
 
-    // Generate unique sequential ID
-    let newId = nextItemIdRef.current
-    if (newId === null) {
+    if (productsToAdd.length < products.length) {
+      toast({
+        title: 'Produtos duplicados ignorados',
+        description: `Adicionados ${productsToAdd.length} de ${products.length} produtos selecionados.`,
+        variant: 'warning',
+      })
+    }
+
+    // Generate unique sequential IDs for the batch
+    let currentId = nextItemIdRef.current
+    if (currentId === null) {
       try {
         const max = await bancoDeDadosService.getMaxIdVendaItens()
-        newId = max + 1
+        currentId = max + 1
       } catch (e) {
         console.error('Failed to fetch fallback max ID', e)
-        newId = 1 // Fallback
+        currentId = 1 // Fallback
       }
-      nextItemIdRef.current = newId + 1
-    } else {
-      nextItemIdRef.current = newId + 1
     }
 
-    const price = parseCurrency(product.PREÇO)
-    const saldoInicial = 0
-    const contagem = 0
-    const quantVendida = saldoInicial - contagem
-    const valorVendido = quantVendida * price
+    const newItems: AcertoItem[] = []
 
-    const newItem: AcertoItem = {
-      uid: Math.random().toString(36).substr(2, 9),
-      produtoId: product.ID,
-      produtoCodigo: product.CODIGO,
-      produtoNome: product.PRODUTO || 'Sem nome',
-      tipo: product.TIPO || '',
-      precoUnitario: price,
-      saldoInicial: saldoInicial,
-      contagem: contagem,
-      quantVendida: quantVendida,
-      valorVendido: valorVendido,
-      saldoFinal: 0,
-      idVendaItens: newId, // Assign generated ID
+    for (const product of productsToAdd) {
+      const price = parseCurrency(product.PREÇO)
+      const saldoInicial = 0
+      const contagem = 0
+      const quantVendida = saldoInicial - contagem
+      const valorVendido = quantVendida * price
+
+      const newItem: AcertoItem = {
+        uid: Math.random().toString(36).substr(2, 9),
+        produtoId: product.ID,
+        produtoCodigo: product.CODIGO,
+        produtoNome: product.PRODUTO || 'Sem nome',
+        tipo: product.TIPO || '',
+        precoUnitario: price,
+        saldoInicial: saldoInicial,
+        contagem: contagem,
+        quantVendida: quantVendida,
+        valorVendido: valorVendido,
+        saldoFinal: 0,
+        idVendaItens: currentId, // Assign generated ID
+      }
+
+      newItems.push(newItem)
+      currentId++
     }
 
-    setItems((prev) => [...prev, newItem])
+    nextItemIdRef.current = currentId
+    setItems((prev) => [...prev, ...newItems])
+
+    toast({
+      title: 'Produtos adicionados',
+      description: `${newItems.length} produto(s) adicionado(s) à lista.`,
+      className: 'bg-green-50 border-green-200 text-green-900',
+    })
   }
 
   const handleUpdateContagem = (uid: string, newContagem: number) => {
@@ -682,7 +709,7 @@ export default function AcertoPage() {
                 {mode === 'ACERTO' ? 'Modo Acerto' : 'Modo Captação'}
               </span>
             </h2>
-            <ProductSelector onSelect={handleAddProduct} />
+            <ProductSelector onSelect={handleAddProducts} />
           </div>
 
           {/* Table */}

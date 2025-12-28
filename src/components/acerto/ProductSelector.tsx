@@ -6,6 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import {
@@ -15,14 +16,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Search, Plus } from 'lucide-react'
+import { Search, Plus, Check } from 'lucide-react'
 import { ProductRow } from '@/types/product'
 import { productsService } from '@/services/productsService'
 import { useToast } from '@/hooks/use-toast'
 import { ProductSelectorTable } from './ProductSelectorTable'
+import { Badge } from '@/components/ui/badge'
 
 interface ProductSelectorProps {
-  onSelect: (product: ProductRow) => void
+  onSelect: (products: ProductRow[]) => void
 }
 
 export function ProductSelector({ onSelect }: ProductSelectorProps) {
@@ -32,8 +34,10 @@ export function ProductSelector({ onSelect }: ProductSelectorProps) {
   const [loading, setLoading] = useState(false)
   const [groups, setGroups] = useState<string[]>([])
   const [selectedGroup, setSelectedGroup] = useState<string>('todos')
-  // Default to 'SIM' to show frequent products first
   const [selectedFrequentes, setSelectedFrequentes] = useState<string>('SIM')
+  const [selectedProducts, setSelectedProducts] = useState<
+    Map<number, ProductRow>
+  >(new Map())
   const { toast } = useToast()
 
   // Fetch groups on mount
@@ -58,7 +62,6 @@ export function ProductSelector({ onSelect }: ProductSelectorProps) {
     setLoading(true)
     try {
       // Fetch products with optional group and frequentes filter
-      // Now requesting alphabetical sort by PRODUTO name
       const { data } = await productsService.getProducts(
         1,
         20,
@@ -81,19 +84,64 @@ export function ProductSelector({ onSelect }: ProductSelectorProps) {
     }
   }
 
-  const handleSelect = (product: ProductRow) => {
-    onSelect(product)
+  const handleSingleSelect = (product: ProductRow) => {
+    // Individual selection action: Add immediately and close
+    onSelect([product])
+    closeAndReset()
+  }
+
+  const handleConfirmBulk = () => {
+    if (selectedProducts.size === 0) return
+    onSelect(Array.from(selectedProducts.values()))
+    closeAndReset()
+  }
+
+  const closeAndReset = () => {
     setOpen(false)
     setSearchTerm('')
     setProducts([])
+    setSelectedProducts(new Map())
   }
 
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen)
-    if (newOpen) {
-      // We keep the state of filters when reopening to provide better UX
-      // But we ensure the search term is reset if needed, currently kept for continuity
+    if (!newOpen) {
+      // Reset selection when closing modal without confirming?
+      // User story says maintenance of existing behavior.
+      // Usually standard is to clear selection on cancel/close.
+      setSelectedProducts(new Map())
+    } else {
+      // Refresh search when opening
+      if (searchTerm || selectedGroup !== 'todos') {
+        // Keeps state
+      }
     }
+  }
+
+  const handleToggleSelect = (product: ProductRow) => {
+    const newSelected = new Map(selectedProducts)
+    if (newSelected.has(product.ID)) {
+      newSelected.delete(product.ID)
+    } else {
+      newSelected.set(product.ID, product)
+    }
+    setSelectedProducts(newSelected)
+  }
+
+  const handleToggleSelectAll = (currentProducts: ProductRow[]) => {
+    if (currentProducts.length === 0) return
+
+    const allSelected = currentProducts.every((p) => selectedProducts.has(p.ID))
+    const newSelected = new Map(selectedProducts)
+
+    if (allSelected) {
+      // Deselect all visible
+      currentProducts.forEach((p) => newSelected.delete(p.ID))
+    } else {
+      // Select all visible
+      currentProducts.forEach((p) => newSelected.set(p.ID, p))
+    }
+    setSelectedProducts(newSelected)
   }
 
   return (
@@ -104,7 +152,7 @@ export function ProductSelector({ onSelect }: ProductSelectorProps) {
           Inserir Produto
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col p-0">
+      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0">
         <DialogHeader className="p-6 pb-2">
           <DialogTitle>Selecionar Produto</DialogTitle>
           <div className="flex flex-col sm:flex-row gap-2 mt-4">
@@ -158,9 +206,29 @@ export function ProductSelector({ onSelect }: ProductSelectorProps) {
             products={products}
             loading={loading}
             searchTerm={searchTerm}
-            onSelect={handleSelect}
+            selectedIds={new Set(selectedProducts.keys())}
+            onSelect={handleSingleSelect}
+            onToggleSelect={handleToggleSelect}
+            onToggleSelectAll={handleToggleSelectAll}
           />
         </div>
+
+        {selectedProducts.size > 0 && (
+          <DialogFooter className="p-4 border-t bg-muted/20">
+            <div className="flex items-center justify-between w-full">
+              <div className="text-sm text-muted-foreground">
+                <Badge variant="secondary" className="mr-2">
+                  {selectedProducts.size}
+                </Badge>
+                produto(s) selecionado(s)
+              </div>
+              <Button onClick={handleConfirmBulk} className="gap-2">
+                <Check className="h-4 w-4" />
+                Confirmar Seleção ({selectedProducts.size})
+              </Button>
+            </div>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   )
