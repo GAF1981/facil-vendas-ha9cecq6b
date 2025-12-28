@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase/client'
 import { Acerto, LastAcertoInfo } from '@/types/acerto'
+import { format, parseISO } from 'date-fns'
 
 export const acertoService = {
   async getLastAcerto(clienteId: number): Promise<LastAcertoInfo | null> {
@@ -48,10 +49,21 @@ export const acertoService = {
       }
     }
 
+    const formatDate = (dateStr: string | null) => {
+      if (!dateStr) return null
+      try {
+        // Return in dd/MM/yyyy format (e.g., 15/12/2025)
+        return format(parseISO(dateStr), 'dd/MM/yyyy')
+      } catch (e) {
+        console.error('Error formatting date:', dateStr, e)
+        return dateStr
+      }
+    }
+
     return {
-      data: lastAcertoResult.data['DATA DO ACERTO'] || null,
+      data: formatDate(lastAcertoResult.data['DATA DO ACERTO']),
       hora: lastAcertoResult.data['HORA DO ACERTO'] || null,
-      captacao: lastCaptacaoResult.data?.['DATA DO ACERTO'] || null,
+      captacao: formatDate(lastCaptacaoResult.data?.['DATA DO ACERTO'] || null),
     }
   },
 
