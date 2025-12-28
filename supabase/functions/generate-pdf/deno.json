@@ -1,6 +1,7 @@
 {
   "imports": {
     "pdf-lib": "https://esm.sh/pdf-lib@1.17.1",
-    "../shared/": "../shared/"
+    "https://deno.land/std@0.168.0/http/server.ts": "https://deno.land/std@0.168.0/http/server.ts",
+    "../_shared/cors.ts": "../_shared/cors.ts"
   }
 }

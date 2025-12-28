@@ -12,7 +12,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, Calendar, Clock, Save, ArrowLeft, Check } from 'lucide-react'
+import {
+  Loader2,
+  Calendar,
+  Clock,
+  Save,
+  ArrowLeft,
+  Check,
+  Copy,
+} from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Link, useNavigate } from 'react-router-dom'
@@ -312,6 +320,20 @@ export default function AcertoPage() {
     setItems((prev) => prev.filter((i) => i.uid !== uid))
   }
 
+  const handleRepeatCountToFinalBalance = () => {
+    setItems((prev) =>
+      prev.map((item) => ({
+        ...item,
+        saldoFinal: item.contagem,
+      })),
+    )
+    toast({
+      title: 'Saldo Final Atualizado',
+      description: 'O saldo final foi igualado à contagem para todos os itens.',
+      className: 'bg-blue-50 border-blue-200 text-blue-900',
+    })
+  }
+
   // Calculate totals for summary and saving
   const totalVendido = items.reduce((acc, item) => acc + item.valorVendido, 0)
   const descontoStr = client?.Desconto || '0'
@@ -405,17 +427,37 @@ export default function AcertoPage() {
             .map((p) => `${p.method}: R$ ${formatCurrency(p.value)}`)
             .join(' | ') || acertoTipo
 
+        // Calculate Consignment Totals (Value)
+        const consignmentSummary = items.reduce(
+          (acc, item) => {
+            const diff = item.saldoFinal - item.contagem
+            const price = item.precoUnitario
+            if (diff > 0) {
+              acc.novasConsignacoes += diff * price
+            } else if (diff < 0) {
+              acc.recolhido += Math.abs(diff) * price
+            }
+            return acc
+          },
+          { novasConsignacoes: 0, recolhido: 0 },
+        )
+
         const pdfBlob = await acertoService.generatePdf({
           client,
           employee,
           items,
           date: now.toISOString(),
           acertoTipo,
-          total: totalVendido,
-          // Pass new calculated values if backend supports it in future
-          discount: valorDesconto,
-          finalValue: valorAcerto,
-          paymentMethod: paymentString,
+          // Financials
+          totalVendido,
+          totalRecolhido: consignmentSummary.recolhido,
+          totalNovasConsignacoes: consignmentSummary.novasConsignacoes,
+          valorDesconto,
+          valorAcerto,
+          valorPago: totalPaid,
+          debito: Math.max(0, valorAcerto - totalPaid),
+          // Payments
+          payments,
         })
 
         // Trigger Download
@@ -605,6 +647,18 @@ export default function AcertoPage() {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="flex justify-end mb-1">
+            <Button
+              onClick={handleRepeatCountToFinalBalance}
+              variant="outline"
+              size="sm"
+              disabled={items.length === 0}
+            >
+              <Copy className="mr-2 h-4 w-4" />
+              Repetir a Contagem no Saldo Final
+            </Button>
           </div>
 
           <div className="flex items-center justify-between">
