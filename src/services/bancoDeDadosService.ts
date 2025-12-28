@@ -226,12 +226,11 @@ export const bancoDeDadosService = {
   },
 
   async getAcertoHistory(clienteId: number) {
-    // Fetch last 500 rows to reconstruct history
-    // Added FORMA to selection as requested
+    // 1. Fetch Orders from BANCO_DE_DADOS
     const { data, error } = await supabase
       .from('BANCO_DE_DADOS')
       .select(
-        '"NÚMERO DO PEDIDO", "DATA DO ACERTO", "HORA DO ACERTO", "FUNCIONÁRIO", "VALOR VENDIDO", DETALHES_PAGAMENTO, "DESCONTO POR GRUPO", FORMA',
+        '"NÚMERO DO PEDIDO", "DATA DO ACERTO", "HORA DO ACERTO", "FUNCIONÁRIO", "VALOR VENDIDO", "DESCONTO POR GRUPO"',
       )
       .eq('"CÓDIGO DO CLIENTE"', clienteId)
       .order('"DATA DO ACERTO"', { ascending: false })
@@ -239,9 +238,39 @@ export const bancoDeDadosService = {
       .limit(500)
 
     if (error) throw error
-    if (!data) return []
+    if (!data || data.length === 0) return []
 
-    // Group by Order Number to create "Settlements"
+    // 2. Fetch Payments from RECEBIMENTOS
+    // We fetch all payments for this client to ensure we cover all displayed orders
+    const { data: paymentsData, error: paymentsError } = await supabase
+      .from('RECEBIMENTOS')
+      .select('venda_id, valor_pago, forma_pagamento')
+      .eq('cliente_id', clienteId)
+
+    if (paymentsError) {
+      console.error('Error fetching receipts:', paymentsError)
+      // Fallback or just continue with empty payments (showing as debt)
+    }
+
+    // 3. Group Payments by venda_id
+    const paymentsMap = new Map<
+      number,
+      { total: number; methods: Set<string> }
+    >()
+    if (paymentsData) {
+      paymentsData.forEach((p) => {
+        if (!p.venda_id) return
+        const existing = paymentsMap.get(p.venda_id) || {
+          total: 0,
+          methods: new Set<string>(),
+        }
+        existing.total += p.valor_pago || 0
+        if (p.forma_pagamento) existing.methods.add(p.forma_pagamento)
+        paymentsMap.set(p.venda_id, existing)
+      })
+    }
+
+    // 4. Group by Order Number to create "Settlements"
     const ordersMap = new Map<number, any>()
 
     data.forEach((row) => {
@@ -256,7 +285,6 @@ export const bancoDeDadosService = {
           vendedor: row['FUNCIONÁRIO'],
           valorVendaTotal: 0,
           desconto: row['DESCONTO POR GRUPO'],
-          pagamentos: row['DETALHES_PAGAMENTO'],
         })
       }
 
@@ -265,14 +293,14 @@ export const bancoDeDadosService = {
       order.valorVendaTotal += parseCurrency(row['VALOR VENDIDO'])
     })
 
-    // Convert map to array and Sort by Date/Time Descending explicitly to ensure correct order for diff calculation
+    // 5. Convert map to array and Sort by Date/Time Descending
     const orders = Array.from(ordersMap.values()).sort((a, b) => {
       const dtA = new Date(`${a.data}T${a.hora || '00:00:00'}`).getTime()
       const dtB = new Date(`${b.data}T${b.hora || '00:00:00'}`).getTime()
       return dtB - dtA
     })
 
-    // Process calculated fields and financial data
+    // 6. Process calculated fields and financial data
     const result = orders.map((order) => {
       const descontoStr = order.desconto || '0'
       const descontoVal = parseCurrency(descontoStr.replace('%', ''))
@@ -280,41 +308,16 @@ export const bancoDeDadosService = {
       const valorDesconto = order.valorVendaTotal * discountFactor
       const saldoAPagar = order.valorVendaTotal - valorDesconto
 
-      // Retrieve "Valor Pago" from DETALHES_PAGAMENTO (JSON)
-      // This is the new logic requested by User Story
-      let valorPago = 0
-      let methods: string[] = []
+      // Retrieve "Valor Pago" from RECEBIMENTOS map
+      const paymentInfo = paymentsMap.get(order.id)
+      const valorPago = paymentInfo ? paymentInfo.total : 0
+      const uniqueMethods = paymentInfo
+        ? Array.from(paymentInfo.methods).join(', ')
+        : '-'
 
-      if (Array.isArray(order.pagamentos)) {
-        // Calculate Total Paid Value from JSON (New logic)
-        valorPago = order.pagamentos.reduce(
-          (acc: number, p: any) => acc + (Number(p.paidValue) || 0),
-          0,
-        )
-
-        // If valorPago is 0, check if it is a legacy record where we only had 'value'
-        // Legacy check: If 'paidValue' property is missing or undefined in ALL entries, fallback to 'value'
-        const isNewStructure = order.pagamentos.some(
-          (p: any) => 'paidValue' in p,
-        )
-
-        if (!isNewStructure) {
-          // Legacy Fallback: Use 'value' as 'Valor Pago'
-          valorPago = order.pagamentos.reduce(
-            (acc: number, p: any) => acc + (Number(p.value) || 0),
-            0,
-          )
-        }
-
-        methods = order.pagamentos
-          .map((p: any) => p.method)
-          .filter((m: any) => !!m)
-      }
-
-      const uniqueMethods = [...new Set(methods)].join(', ')
-
-      // Logic updated per User Story:
       // Debito = Saldo a Pagar - Valor Pago
+      // If no payments found (e.g. log entries), value is 0, debt is full.
+      // If receipt log entry (sales 0), then debt is -Paid (Credit) or just 0 if linked.
       const debito = saldoAPagar - valorPago
 
       return {
@@ -322,7 +325,7 @@ export const bancoDeDadosService = {
         saldoAPagar,
         valorPago,
         debito: debito,
-        methods: uniqueMethods || '-',
+        methods: uniqueMethods,
         mediaMensal: null as number | null,
       }
     })

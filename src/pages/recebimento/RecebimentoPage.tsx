@@ -2,7 +2,10 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ClientSearch } from '@/components/acerto/ClientSearch'
 import { ClientDetails } from '@/components/acerto/ClientDetails'
-import { AcertoHistoryTable } from '@/components/acerto/AcertoHistoryTable'
+import {
+  AcertoHistoryTable,
+  HistoryRow,
+} from '@/components/acerto/AcertoHistoryTable'
 import { AcertoPaymentSummary } from '@/components/acerto/AcertoPaymentSummary'
 import { ClientRow } from '@/types/client'
 import { bancoDeDadosService } from '@/services/bancoDeDadosService'
@@ -12,6 +15,7 @@ import { PaymentEntry } from '@/types/payment'
 import { useUserStore } from '@/stores/useUserStore'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
+import { format } from 'date-fns'
 
 export default function RecebimentoPage() {
   const { employee } = useUserStore()
@@ -27,15 +31,19 @@ export default function RecebimentoPage() {
 
   // Payment State
   const [payments, setPayments] = useState<PaymentEntry[]>([])
-  const [historyData, setHistoryData] = useState<any[]>([])
+  const [historyData, setHistoryData] = useState<HistoryRow[]>([])
   const [totalDebt, setTotalDebt] = useState(0)
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [saving, setSaving] = useState(false)
+
+  // Selected Order State
+  const [selectedOrder, setSelectedOrder] = useState<HistoryRow | null>(null)
 
   // Fetch data when client changes
   useEffect(() => {
     if (client) {
       setLoadingHistory(true)
+      setSelectedOrder(null)
 
       // 1. Fetch Monthly Average
       bancoDeDadosService
@@ -52,33 +60,63 @@ export default function RecebimentoPage() {
         .finally(() => setLoadingLastAcerto(false))
 
       // 3. Fetch History to calculate Total Debt
-      bancoDeDadosService
-        .getAcertoHistory(client.CODIGO)
-        .then((data) => {
-          setHistoryData(data)
-          // Calculate Total Debt (Sum of all positive debts + negative credits)
-          const debt = data.reduce((acc, row) => acc + row.debito, 0)
-          setTotalDebt(Math.max(0, debt)) // Ensure not negative display? Or show negative as credit?
-          // Usually "Saldo a Pagar" is debt. If negative, it's credit.
-          // Let's keep the raw value, but PaymentSummary expects positive usually.
-          // If total debt is negative (client has credit), user might still want to add payment? Unlikely.
-          // But user might want to register a negative payment (refund)? No, payment entry doesn't support negative.
-          // Let's stick to simple debt.
-          setTotalDebt(debt)
-        })
-        .catch((err) => console.error('Error fetching history', err))
-        .finally(() => setLoadingHistory(false))
+      fetchHistory()
     } else {
       setMonthlyAverage(0)
       setLastAcerto(null)
       setHistoryData([])
       setTotalDebt(0)
       setPayments([])
+      setSelectedOrder(null)
     }
   }, [client])
 
+  const fetchHistory = () => {
+    if (!client) return
+    bancoDeDadosService
+      .getAcertoHistory(client.CODIGO)
+      .then((data) => {
+        setHistoryData(data)
+        // Calculate Total Debt (Sum of all positive debts)
+        const debt = data.reduce((acc, row) => acc + row.debito, 0)
+        setTotalDebt(debt)
+      })
+      .catch((err) => console.error('Error fetching history', err))
+      .finally(() => setLoadingHistory(false))
+  }
+
   const handleClientSelect = (selected: ClientRow) => {
     setClient(selected)
+  }
+
+  const handleOrderSelect = (order: HistoryRow | null) => {
+    setSelectedOrder(order)
+    if (order) {
+      // If order selected, we update the displayed "Saldo a Pagar" in the summary component context
+      // And we can auto-fill the payment with the remaining debt of THAT order
+      // Also reset payments to match the order debt
+      if (order.debito > 0) {
+        const today = new Date()
+        const dueDate = format(today, 'yyyy-MM-dd')
+        const newEntry: PaymentEntry = {
+          method: 'Dinheiro',
+          value: order.debito,
+          paidValue: order.debito,
+          installments: 1,
+          dueDate: dueDate,
+          autoFill: true,
+        }
+        setPayments([newEntry])
+      } else {
+        setPayments([])
+      }
+    } else {
+      // If deselected, revert to full debt and clear payments
+      // Recalculate full debt
+      const debt = historyData.reduce((acc, row) => acc + row.debito, 0)
+      setTotalDebt(debt)
+      setPayments([])
+    }
   }
 
   const handleSaveRecebimento = async () => {
@@ -112,25 +150,26 @@ export default function RecebimentoPage() {
 
     setSaving(true)
     try {
-      await recebimentoService.saveRecebimento(client, employee, payments)
+      await recebimentoService.saveRecebimento(
+        client,
+        employee,
+        payments,
+        selectedOrder ? selectedOrder.id : undefined,
+      )
 
       toast({
         title: 'Recebimento salvo',
-        description: 'Pagamento registrado com sucesso.',
+        description: selectedOrder
+          ? `Pagamento registrado para o pedido #${selectedOrder.id}.`
+          : 'Pagamento registrado com sucesso.',
         className: 'bg-green-50 border-green-200 text-green-900',
       })
 
-      // Refresh history and clear payments
+      // Refresh history and clear payments/selection
       setPayments([])
+      setSelectedOrder(null)
       setLoadingHistory(true)
-      bancoDeDadosService
-        .getAcertoHistory(client.CODIGO)
-        .then((data) => {
-          setHistoryData(data)
-          const debt = data.reduce((acc, row) => acc + row.debito, 0)
-          setTotalDebt(debt)
-        })
-        .finally(() => setLoadingHistory(false))
+      fetchHistory()
     } catch (error: any) {
       console.error(error)
       toast({
@@ -143,6 +182,9 @@ export default function RecebimentoPage() {
       setSaving(false)
     }
   }
+
+  // Determine what debt value to show
+  const currentDebt = selectedOrder ? selectedOrder.debito : totalDebt
 
   return (
     <div className="space-y-6 animate-fade-in p-2 pb-24 sm:p-6">
@@ -178,8 +220,25 @@ export default function RecebimentoPage() {
 
             {/* Payment Section - Reusing AcertoPaymentSummary */}
             <div className="space-y-4">
+              {selectedOrder && (
+                <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-md flex items-center justify-between animate-fade-in">
+                  <span className="font-medium">
+                    Pagando Pedido Selecionado:{' '}
+                    <strong>#{selectedOrder.id}</strong>
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleOrderSelect(null)}
+                    className="text-blue-800 hover:text-blue-900 hover:bg-blue-100"
+                  >
+                    Cancelar Seleção
+                  </Button>
+                </div>
+              )}
+
               <AcertoPaymentSummary
-                saldoAPagar={totalDebt}
+                saldoAPagar={currentDebt}
                 payments={payments}
                 onPaymentsChange={setPayments}
                 disabled={saving}
@@ -208,10 +267,19 @@ export default function RecebimentoPage() {
             </div>
 
             <div className="pt-2">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-lg font-semibold">Histórico de Pedidos</h3>
+                <span className="text-sm text-muted-foreground">
+                  Selecione um pedido para pagar individualmente
+                </span>
+              </div>
               <AcertoHistoryTable
                 clientId={client.CODIGO}
                 monthlyAverage={monthlyAverage}
                 data={historyData} // Pass pre-fetched data
+                onSelectOrder={handleOrderSelect}
+                selectedOrderId={selectedOrder?.id}
+                hideHeader
               />
             </div>
           </div>

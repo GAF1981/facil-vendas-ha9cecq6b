@@ -8,6 +8,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { bancoDeDadosService } from '@/services/bancoDeDadosService'
 import { formatCurrency } from '@/lib/formatters'
 import { format, parseISO } from 'date-fns'
@@ -15,7 +16,7 @@ import { ptBR } from 'date-fns/locale'
 import { FileClock, Loader2, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-interface HistoryRow {
+export interface HistoryRow {
   id: number
   data: string
   hora: string
@@ -25,6 +26,7 @@ interface HistoryRow {
   valorPago: number
   debito: number
   mediaMensal: number | null
+  methods?: string
 }
 
 interface AcertoHistoryTableProps {
@@ -32,7 +34,9 @@ interface AcertoHistoryTableProps {
   monthlyAverage?: number
   hideHeader?: boolean
   className?: string
-  data?: HistoryRow[] // Allow passing data externally
+  data?: HistoryRow[]
+  onSelectOrder?: (order: HistoryRow | null) => void
+  selectedOrderId?: number | null
 }
 
 export function AcertoHistoryTable({
@@ -42,6 +46,8 @@ export function AcertoHistoryTable({
   hideHeader = false,
   className,
   data: externalData,
+  onSelectOrder,
+  selectedOrderId,
 }: AcertoHistoryTableProps) {
   const [history, setHistory] = useState<HistoryRow[]>([])
   const [loading, setLoading] = useState(false)
@@ -80,6 +86,16 @@ export function AcertoHistoryTable({
     }
   }, [clientId, externalData])
 
+  const handleCheckboxChange = (order: HistoryRow, checked: boolean) => {
+    if (onSelectOrder) {
+      if (checked) {
+        onSelectOrder(order)
+      } else {
+        onSelectOrder(null)
+      }
+    }
+  }
+
   if (loading && !externalData) {
     return (
       <Card
@@ -116,6 +132,7 @@ export function AcertoHistoryTable({
             <Table>
               <TableHeader className="bg-muted/50">
                 <TableRow>
+                  <TableHead className="w-[80px]">Pedido</TableHead>
                   <TableHead>Data do Acerto</TableHead>
                   <TableHead>Vendedor</TableHead>
                   <TableHead className="text-right">Média Mensal</TableHead>
@@ -129,13 +146,16 @@ export function AcertoHistoryTable({
                   <TableHead className="text-right text-red-600">
                     Débito
                   </TableHead>
+                  {onSelectOrder && (
+                    <TableHead className="w-[50px]"></TableHead>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {history.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={7}
+                      colSpan={onSelectOrder ? 9 : 8}
                       className="h-24 text-center text-muted-foreground"
                     >
                       Nenhum histórico encontrado para este cliente.
@@ -144,6 +164,9 @@ export function AcertoHistoryTable({
                 ) : (
                   history.map((row) => (
                     <TableRow key={row.id} className="hover:bg-muted/30">
+                      <TableCell className="font-mono font-medium text-xs text-muted-foreground">
+                        #{row.id}
+                      </TableCell>
                       <TableCell className="font-medium">
                         <div className="flex flex-col">
                           <span>
@@ -187,6 +210,17 @@ export function AcertoHistoryTable({
                       >
                         R$ {formatCurrency(row.debito)}
                       </TableCell>
+                      {onSelectOrder && (
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedOrderId === row.id}
+                            onCheckedChange={(c) =>
+                              handleCheckboxChange(row, c as boolean)
+                            }
+                            aria-label={`Selecionar pedido ${row.id}`}
+                          />
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))
                 )}

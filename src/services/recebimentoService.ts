@@ -11,15 +11,21 @@ export const recebimentoService = {
     client: ClientRow,
     employee: Employee,
     payments: PaymentEntry[],
+    linkedOrderId?: number, // Optional: Pay a specific existing order
     date: Date = new Date(),
   ) {
-    // 1. Get Next Order ID
+    // 1. Get Next Order ID for the Receipt Log
     const nextPedido = await bancoDeDadosService.getNextNumeroPedido()
     const nextItemId = (await bancoDeDadosService.getMaxIdVendaItens()) + 1
     const dataAcertoStr = format(date, 'yyyy-MM-dd')
     const horaAcerto = format(date, 'HH:mm:ss')
 
-    // 2. Prepare Payment String for display in legacy systems/columns
+    // Determine which ID to link the financial records to
+    // If linkedOrderId is provided, payments go to THAT order.
+    // Otherwise, they go to the new receipt order (nextPedido).
+    const financialOrderId = linkedOrderId || nextPedido
+
+    // 2. Prepare Payment String for display
     const paymentString = payments
       .map(
         (p) =>
@@ -27,10 +33,11 @@ export const recebimentoService = {
       )
       .join(' | ')
 
-    // 3. Insert into BANCO_DE_DADOS
-    // We insert a row to represent the receipt event in the main timeline.
-    // We use MERCADORIA='RECEBIMENTO' to distinguish it from product sales.
-    // Value sold is 0 because it's just a payment event.
+    // 3. Insert into BANCO_DE_DADOS (Receipt Log Event)
+    // We insert a row to represent the receipt event in the timeline.
+    // Even if linked to an old order, we record this "Action" today.
+    // If linkedOrderId is used, this log entry is financially neutral in calculations
+    // because payments are attached to the old ID, not this new nextPedido.
     const rowToInsert = {
       'ID VENDA ITENS': nextItemId,
       'NÚMERO DO PEDIDO': nextPedido,
@@ -42,7 +49,9 @@ export const recebimentoService = {
       FUNCIONÁRIO: employee.nome_completo,
       'DESCONTO POR GRUPO': '0',
       'COD. PRODUTO': null,
-      MERCADORIA: 'RECEBIMENTO',
+      MERCADORIA: linkedOrderId
+        ? `PAGAMENTO PEDIDO #${linkedOrderId}`
+        : 'RECEBIMENTO',
       TIPO: 'PAGAMENTO',
       FORMA: paymentString,
       'SALDO INICIAL': 0,
@@ -56,7 +65,7 @@ export const recebimentoService = {
       RECOLHIDO: '0,00',
       'VALOR CONSIGNADO TOTAL (Preço Venda)': '0,00',
       'VALOR CONSIGNADO TOTAL (Custo)': '0,00',
-      DETALHES_PAGAMENTO: payments, // JSON storage for history reconstruction
+      DETALHES_PAGAMENTO: payments, // Kept for reference/audit in the log
     }
 
     const { error: dbError } = await supabase
@@ -66,6 +75,7 @@ export const recebimentoService = {
     if (dbError) throw dbError
 
     // 4. Insert into RECEBIMENTOS
+    // These records are the SOURCE OF TRUTH for calculations.
     const recebimentosToInsert: any[] = []
 
     payments.forEach((payment) => {
@@ -77,7 +87,7 @@ export const recebimentoService = {
       ) {
         payment.details.forEach((detail) => {
           recebimentosToInsert.push({
-            venda_id: nextPedido,
+            venda_id: financialOrderId, // Link to selected order or new receipt
             cliente_id: client.CODIGO,
             funcionario_id: employee.id,
             forma_pagamento: payment.method,
@@ -91,11 +101,11 @@ export const recebimentoService = {
       } else {
         // Single payment
         recebimentosToInsert.push({
-          venda_id: nextPedido,
+          venda_id: financialOrderId, // Link to selected order or new receipt
           cliente_id: client.CODIGO,
           funcionario_id: employee.id,
           forma_pagamento: payment.method,
-          valor_pago: payment.paidValue, // For receipt, we track what was actually paid
+          valor_pago: payment.paidValue,
           data_pagamento: payment.dueDate
             ? new Date(`${payment.dueDate}T12:00:00`).toISOString()
             : new Date().toISOString(),
