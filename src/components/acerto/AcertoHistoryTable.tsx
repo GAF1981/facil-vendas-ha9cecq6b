@@ -15,13 +15,6 @@ import { ptBR } from 'date-fns/locale'
 import { FileClock, Loader2, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-interface AcertoHistoryTableProps {
-  clientId: number
-  monthlyAverage: number
-  hideHeader?: boolean
-  className?: string
-}
-
 interface HistoryRow {
   id: number
   data: string
@@ -34,18 +27,33 @@ interface HistoryRow {
   mediaMensal: number | null
 }
 
+interface AcertoHistoryTableProps {
+  clientId: number
+  monthlyAverage?: number
+  hideHeader?: boolean
+  className?: string
+  data?: HistoryRow[] // Allow passing data externally
+}
+
 export function AcertoHistoryTable({
   clientId,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  monthlyAverage, // Kept for interface compatibility but replaced in column
+  monthlyAverage,
   hideHeader = false,
   className,
+  data: externalData,
 }: AcertoHistoryTableProps) {
   const [history, setHistory] = useState<HistoryRow[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
 
   useEffect(() => {
+    // If external data is provided, use it and skip fetch
+    if (externalData) {
+      setHistory(externalData)
+      return
+    }
+
     let mounted = true
     const fetchHistory = async () => {
       setLoading(true)
@@ -70,9 +78,9 @@ export function AcertoHistoryTable({
     return () => {
       mounted = false
     }
-  }, [clientId])
+  }, [clientId, externalData])
 
-  if (loading) {
+  if (loading && !externalData) {
     return (
       <Card
         className={cn(
@@ -170,10 +178,14 @@ export function AcertoHistoryTable({
                       <TableCell
                         className={cn(
                           'text-right font-mono font-medium',
-                          row.debito > 0.01 ? 'text-red-600' : 'text-gray-400',
+                          row.debito > 0.01
+                            ? 'text-red-600'
+                            : row.debito < -0.01
+                              ? 'text-green-600'
+                              : 'text-gray-400',
                         )}
                       >
-                        R$ {formatCurrency(Math.max(0, row.debito))}
+                        R$ {formatCurrency(row.debito)}
                       </TableCell>
                     </TableRow>
                   ))
