@@ -171,32 +171,42 @@ serve(async (req) => {
       saldoFin: 550,
     }
 
-    drawText('Produto', colX.prod, y, { size: 8, font: fontBold })
-    drawText('S.Ini', colX.saldoIni, y, {
-      size: 8,
-      font: fontBold,
-      align: 'right',
-    })
-    drawText('Q.Vend', colX.venda, y, {
-      size: 8,
-      font: fontBold,
-      align: 'right',
-    })
-    drawText('Unit', colX.preco, y, {
-      size: 8,
-      font: fontBold,
-      align: 'right',
-    })
-    drawText('Total', colX.total, y, {
-      size: 8,
-      font: fontBold,
-      align: 'right',
-    })
-    drawText('S.Fin', colX.saldoFin, y, {
-      size: 8,
-      font: fontBold,
-      align: 'right',
-    })
+    const drawHeaders = (currentY: number) => {
+      drawText('Produto', colX.prod, currentY, { size: 8, font: fontBold })
+      drawText('S.Ini', colX.saldoIni, currentY, {
+        size: 8,
+        font: fontBold,
+        align: 'right',
+      })
+      // Added Contagem Header
+      drawText('Contagem', colX.cont, currentY, {
+        size: 8,
+        font: fontBold,
+        align: 'right',
+      })
+      drawText('Q.Vend', colX.venda, currentY, {
+        size: 8,
+        font: fontBold,
+        align: 'right',
+      })
+      drawText('Unit', colX.preco, currentY, {
+        size: 8,
+        font: fontBold,
+        align: 'right',
+      })
+      drawText('Total', colX.total, currentY, {
+        size: 8,
+        font: fontBold,
+        align: 'right',
+      })
+      drawText('S.Fin', colX.saldoFin, currentY, {
+        size: 8,
+        font: fontBold,
+        align: 'right',
+      })
+    }
+
+    drawHeaders(y)
 
     y -= 5
     page.drawLine({
@@ -211,7 +221,7 @@ serve(async (req) => {
     for (const item of items) {
       if (checkPageBreak(20)) {
         // Redraw Headers on new page
-        drawText('Produto', colX.prod, y, { size: 8, font: fontBold })
+        drawHeaders(y)
         y -= 15
       }
 
@@ -220,6 +230,11 @@ serve(async (req) => {
         size: 8,
       })
       drawText(String(item.saldoInicial), colX.saldoIni, y, {
+        size: 8,
+        align: 'right',
+      })
+      // Added Contagem Value
+      drawText(String(item.contagem), colX.cont, y, {
         size: 8,
         align: 'right',
       })
