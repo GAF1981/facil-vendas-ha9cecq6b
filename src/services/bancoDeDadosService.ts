@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase/client'
 import { AcertoItem } from '@/types/acerto'
 import { ClientRow } from '@/types/client'
 import { Employee } from '@/types/employee'
+import { ProductRow } from '@/types/product'
 import { parseCurrency, formatCurrency } from '@/lib/formatters'
 import { format } from 'date-fns'
 
@@ -102,6 +103,91 @@ export const bancoDeDadosService = {
       date: data['DATA DO ACERTO'] || '',
       time: data['HORA DO ACERTO'] || '',
     }
+  },
+
+  async getAcertoItemsAsNewTransaction(
+    clienteId: number,
+    date: string,
+    time: string,
+  ): Promise<{ items: AcertoItem[]; nextId: number }> {
+    // 1. Fetch DB Items for this client and specific datetime
+    const { data: dbItems, error: dbError } = await supabase
+      .from('BANCO_DE_DADOS')
+      .select('*')
+      .eq('"CÓDIGO DO CLIENTE"', clienteId)
+      .eq('"DATA DO ACERTO"', date)
+      .eq('"HORA DO ACERTO"', time)
+
+    if (dbError) throw dbError
+    if (!dbItems || dbItems.length === 0)
+      return { items: [], nextId: (await this.getMaxIdVendaItens()) + 1 }
+
+    // 2. Fetch Products to resolve IDs (since DB only stores COD. PRODUTO and MERCADORIA)
+    const productCodes = [
+      ...new Set(
+        dbItems.map((i) => i['COD. PRODUTO']).filter((c) => c != null),
+      ),
+    ] as number[]
+
+    // Fetch products by Code
+    let products: ProductRow[] = []
+    if (productCodes.length > 0) {
+      const { data: productsData, error: productsError } = await supabase
+        .from('PRODUTOS')
+        .select('*')
+        .in('CODIGO', productCodes)
+
+      if (productsError) console.error('Error fetching products', productsError)
+      if (productsData) products = productsData
+    }
+
+    // 3. Prepare IDs
+    let currentMaxId = await this.getMaxIdVendaItens()
+
+    // 4. Map DB Items to AcertoItem
+    const items: AcertoItem[] = dbItems
+      .map((dbItem) => {
+        // Find matching product
+        const product = products.find(
+          (p) => p.CODIGO === dbItem['COD. PRODUTO'],
+        )
+
+        // If product not found by code, we can't reliably link it.
+        // For robustness, we could try to search by name in a real scenario,
+        // but for now we skip to avoid data corruption.
+        if (!product) return null
+
+        currentMaxId++
+
+        // Mapping Logic:
+        // CODIGO -> COD. PRODUTO
+        // PRODUTO -> MERCADORIA
+        // TIPO -> TIPO
+        // SALDO INICIAL -> SALDO INICIAL
+        const saldoInicial = dbItem['SALDO INICIAL'] || 0
+        const contagem = 0
+        const quantVendida = saldoInicial - contagem
+        const precoUnitario = parseCurrency(product.PREÇO)
+        const valorVendido = quantVendida * precoUnitario
+
+        return {
+          uid: Math.random().toString(36).substr(2, 9),
+          produtoId: product.ID,
+          produtoCodigo: dbItem['COD. PRODUTO'],
+          produtoNome: dbItem['MERCADORIA'] || product.PRODUTO || 'Sem nome',
+          tipo: dbItem['TIPO'],
+          precoUnitario: precoUnitario,
+          saldoInicial: saldoInicial,
+          contagem: contagem,
+          quantVendida: quantVendida,
+          valorVendido: valorVendido,
+          saldoFinal: 0,
+          idVendaItens: currentMaxId,
+        }
+      })
+      .filter((i) => i !== null) as AcertoItem[]
+
+    return { items, nextId: currentMaxId + 1 }
   },
 
   async saveTransaction(

@@ -41,6 +41,7 @@ export default function AcertoPage() {
     time: string
   } | null>(null)
   const [loadingLastAcerto, setLoadingLastAcerto] = useState(false)
+  const [fetchingItems, setFetchingItems] = useState(false)
   const [isClientConfirmed, setIsClientConfirmed] = useState(false)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [items, setItems] = useState<AcertoItem[]>([])
@@ -78,8 +79,11 @@ export default function AcertoPage() {
   // Effect to fetch next order number and max item ID when client is confirmed
   useEffect(() => {
     if (isClientConfirmed) {
+      // Only reset if we didn't just load items (which would set nextItemIdRef)
+      if (items.length === 0) {
+        nextItemIdRef.current = null
+      }
       setNextOrderNumber(null)
-      nextItemIdRef.current = null
 
       // Fetch Next Order Number
       bancoDeDadosService
@@ -94,35 +98,76 @@ export default function AcertoPage() {
           })
         })
 
-      // Fetch Max Item ID for sequential generation
-      bancoDeDadosService
-        .getMaxIdVendaItens()
-        .then((max) => {
-          nextItemIdRef.current = max + 1
-        })
-        .catch((err) => {
-          console.error('Error fetching max item ID:', err)
-          toast({
-            title: 'Erro',
-            description: 'Não foi possível inicializar o gerador de IDs.',
-            variant: 'destructive',
+      // Fetch Max Item ID for sequential generation IF not already set by data loading
+      if (items.length === 0) {
+        bancoDeDadosService
+          .getMaxIdVendaItens()
+          .then((max) => {
+            nextItemIdRef.current = max + 1
           })
-        })
+          .catch((err) => {
+            console.error('Error fetching max item ID:', err)
+            toast({
+              title: 'Erro',
+              description: 'Não foi possível inicializar o gerador de IDs.',
+              variant: 'destructive',
+            })
+          })
+      }
     } else {
       setNextOrderNumber(null)
       nextItemIdRef.current = null
     }
-  }, [isClientConfirmed, toast])
+  }, [isClientConfirmed, toast]) // Removed items from dependency to avoid loop/reset
 
   const handleClientSelect = (selectedClient: ClientRow) => {
     setClient(selectedClient)
   }
 
-  const handleConfirmClient = (selectedMode: 'ACERTO' | 'CAPTACAO') => {
+  const handleConfirmClient = async (selectedMode: 'ACERTO' | 'CAPTACAO') => {
     if (!client) return
-    setMode(selectedMode)
-    setAcertoTipo(selectedMode === 'CAPTACAO' ? 'CAPTAÇÃO' : 'ACERTO')
-    setIsClientConfirmed(true)
+
+    setFetchingItems(true)
+    try {
+      if (selectedMode === 'ACERTO' && lastAcerto) {
+        const { items: loadedItems, nextId } =
+          await bancoDeDadosService.getAcertoItemsAsNewTransaction(
+            client.CODIGO,
+            lastAcerto.date,
+            lastAcerto.time,
+          )
+
+        if (loadedItems.length > 0) {
+          setItems(loadedItems)
+          nextItemIdRef.current = nextId
+          toast({
+            title: 'Itens carregados',
+            description: `${loadedItems.length} itens foram recuperados do último acerto.`,
+            className: 'bg-blue-50 border-blue-200 text-blue-900',
+          })
+        } else {
+          toast({
+            title: 'Nenhum item encontrado',
+            description:
+              'Não foi possível encontrar itens para o último acerto.',
+            variant: 'warning',
+          })
+        }
+      }
+
+      setMode(selectedMode)
+      setAcertoTipo(selectedMode === 'CAPTACAO' ? 'CAPTAÇÃO' : 'ACERTO')
+      setIsClientConfirmed(true)
+    } catch (error) {
+      console.error('Error confirming client:', error)
+      toast({
+        title: 'Erro',
+        description: 'Falha ao preparar o acerto. Tente novamente.',
+        variant: 'destructive',
+      })
+    } finally {
+      setFetchingItems(false)
+    }
   }
 
   const handleChangeClient = () => {
@@ -406,8 +451,13 @@ export default function AcertoPage() {
                         onClick={() => handleConfirmClient('ACERTO')}
                         className="bg-green-600 hover:bg-green-700 text-white min-w-[160px]"
                         size="lg"
+                        disabled={fetchingItems}
                       >
-                        <Check className="mr-2 h-5 w-5" />
+                        {fetchingItems ? (
+                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        ) : (
+                          <Check className="mr-2 h-5 w-5" />
+                        )}
                         ACERTO CLIENTE
                       </Button>
                     ) : (
@@ -415,6 +465,7 @@ export default function AcertoPage() {
                         onClick={() => handleConfirmClient('CAPTACAO')}
                         className="bg-gray-200 hover:bg-gray-300 text-gray-900 min-w-[160px]"
                         size="lg"
+                        disabled={fetchingItems}
                       >
                         <Check className="mr-2 h-5 w-5" />
                         CAPTAÇÃO
