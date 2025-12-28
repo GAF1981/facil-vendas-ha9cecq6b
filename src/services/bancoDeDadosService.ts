@@ -498,7 +498,7 @@ export const bancoDeDadosService = {
           cliente_id: client.CODIGO,
           funcionario_id: employee.id,
           forma_pagamento: payment.method,
-          valor_pago: payment.value, // Keep inserting Registered Value to track the "Receivable"
+          valor_pago: payment.paidValue, // Using Paid Value instead of Registered Value
           // Use dueDate if available (set to 12:00 to avoid timezone issues), otherwise now
           data_pagamento: payment.dueDate
             ? new Date(`${payment.dueDate}T12:00:00`).toISOString()
