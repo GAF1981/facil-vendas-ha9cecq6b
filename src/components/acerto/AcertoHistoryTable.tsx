@@ -31,11 +31,13 @@ interface HistoryRow {
   saldoAPagar: number
   valorPago: number
   debito: number
+  mediaMensal: number | null
 }
 
 export function AcertoHistoryTable({
   clientId,
-  monthlyAverage,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  monthlyAverage, // Kept for interface compatibility but replaced in column
   hideHeader = false,
   className,
 }: AcertoHistoryTableProps) {
@@ -152,7 +154,9 @@ export function AcertoHistoryTable({
                       </TableCell>
                       <TableCell>{row.vendedor || '-'}</TableCell>
                       <TableCell className="text-right font-mono text-muted-foreground">
-                        R$ {formatCurrency(monthlyAverage)}
+                        {row.mediaMensal !== null
+                          ? `R$ ${formatCurrency(row.mediaMensal)}`
+                          : '-'}
                       </TableCell>
                       <TableCell className="text-right font-mono">
                         R$ {formatCurrency(row.valorVendaTotal)}

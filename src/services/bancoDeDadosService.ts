@@ -4,7 +4,7 @@ import { ClientRow } from '@/types/client'
 import { Employee } from '@/types/employee'
 import { ProductRow } from '@/types/product'
 import { parseCurrency, formatCurrency } from '@/lib/formatters'
-import { format } from 'date-fns'
+import { format, parseISO, differenceInDays } from 'date-fns'
 import { PaymentEntry } from '@/types/payment'
 import { RecebimentoInsert } from '@/types/recebimento'
 
@@ -242,14 +242,12 @@ export const bancoDeDadosService = {
 
     // Group by Order Number to create "Settlements"
     const ordersMap = new Map<number, any>()
-    const orderIds: number[] = []
 
     data.forEach((row) => {
       const orderId = row['NÚMERO DO PEDIDO']
       if (!orderId) return
 
       if (!ordersMap.has(orderId)) {
-        orderIds.push(orderId)
         ordersMap.set(orderId, {
           id: orderId,
           data: row['DATA DO ACERTO'],
@@ -266,8 +264,16 @@ export const bancoDeDadosService = {
       order.valorVendaTotal += parseCurrency(row['VALOR VENDIDO'])
     })
 
+    // Convert map to array and Sort by Date/Time Descending explicitly to ensure correct order for diff calculation
+    const orders = Array.from(ordersMap.values()).sort((a, b) => {
+      const dtA = new Date(`${a.data}T${a.hora || '00:00:00'}`).getTime()
+      const dtB = new Date(`${b.data}T${b.hora || '00:00:00'}`).getTime()
+      return dtB - dtA
+    })
+
+    const orderIds = orders.map((o) => o.id)
+
     // Fetch payments from RECEBIMENTOS for these orders
-    // This ensures we get the most accurate payment info stored in the structured table
     const paymentsInfoMap = new Map<
       number,
       { total: number; methods: Set<string> }
@@ -292,8 +298,8 @@ export const bancoDeDadosService = {
       }
     }
 
-    // Process calculated fields
-    return Array.from(ordersMap.values()).map((order) => {
+    // Process calculated fields and financial data
+    const result = orders.map((order) => {
       const descontoStr = order.desconto || '0'
       const descontoVal = parseCurrency(descontoStr.replace('%', ''))
       const discountFactor = descontoVal > 1 ? descontoVal / 100 : descontoVal
@@ -324,8 +330,34 @@ export const bancoDeDadosService = {
         valorPago,
         debito: saldoAPagar - valorPago,
         methods: uniqueMethods || '-',
+        mediaMensal: null as number | null,
       }
     })
+
+    // Calculate Media Mensal based on intervals
+    for (let i = 0; i < result.length; i++) {
+      const current = result[i]
+      let mediaMensal = null
+
+      if (i < result.length - 1) {
+        const previous = result[i + 1]
+        // Parse dates safely
+        const dateCurrent = parseISO(current.data)
+        const datePrev = parseISO(previous.data)
+
+        const diffDays = differenceInDays(dateCurrent, datePrev)
+
+        // Formula: VALOR VENDIDO / ((Data Atual - Data Anterior) / 30)
+        if (diffDays > 0) {
+          const factor = diffDays / 30
+          mediaMensal = current.valorVendaTotal / factor
+        }
+      }
+
+      result[i].mediaMensal = mediaMensal
+    }
+
+    return result
   },
 
   async saveTransaction(
