@@ -33,6 +33,7 @@ import { AcertoStockSummary } from '@/components/acerto/AcertoStockSummary'
 import { AcertoSalesSummary } from '@/components/acerto/AcertoSalesSummary'
 import { AcertoPaymentSummary } from '@/components/acerto/AcertoPaymentSummary'
 import { AcertoHistoryTable } from '@/components/acerto/AcertoHistoryTable'
+import { AcertoFiscalSection } from '@/components/acerto/AcertoFiscalSection'
 import { cn } from '@/lib/utils'
 import { parseCurrency } from '@/lib/formatters'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -82,6 +83,9 @@ export default function AcertoPage() {
   // Signature State
   const [signature, setSignature] = useState<string | null>(null)
   const [showSignatureModal, setShowSignatureModal] = useState(false)
+
+  // Nota Fiscal State
+  const [notaFiscalVenda, setNotaFiscalVenda] = useState(false)
 
   // State for automatic order number
   const [nextOrderNumber, setNextOrderNumber] = useState<number | null>(null)
@@ -202,6 +206,7 @@ export default function AcertoPage() {
       if (selectedMode === 'CAPTACAO') {
         setPayments([])
       }
+      setNotaFiscalVenda(false) // Reset
       setIsClientConfirmed(true)
     } catch (error) {
       console.error('Error confirming client:', error)
@@ -229,6 +234,7 @@ export default function AcertoPage() {
     setAcertoTipo('ACERTO')
     setPayments([])
     setSignature(null)
+    setNotaFiscalVenda(false)
   }
 
   const handleAddProducts = async (products: ProductRow[]) => {
@@ -469,7 +475,7 @@ export default function AcertoPage() {
 
       const pdfBlob = await acertoService.generatePdf(data, {
         preview: true,
-        signature: null, // Preview doesn't need signature yet? Or maybe it does? Requirement implies signature captured first, then preview? No, preview usually before signing or independent. I'll pass null for now.
+        signature: null,
       })
 
       const url = window.URL.createObjectURL(pdfBlob)
@@ -518,6 +524,7 @@ export default function AcertoPage() {
         now,
         acertoTipo,
         payments,
+        notaFiscalVenda, // Pass the checkbox state
       )
 
       // 2. Generate and Download PDF
@@ -559,6 +566,7 @@ export default function AcertoPage() {
       setIsClientConfirmed(false)
       setPayments([])
       setSignature(null)
+      setNotaFiscalVenda(false)
       navigate('/')
     } catch (error: any) {
       console.error(error)
@@ -760,6 +768,14 @@ export default function AcertoPage() {
 
           {/* Stock Summary */}
           <AcertoStockSummary items={items} />
+
+          {/* Fiscal Section */}
+          <AcertoFiscalSection
+            clientNotaFiscal={client?.['NOTA FISCAL'] || null}
+            notaFiscalVenda={notaFiscalVenda}
+            onNotaFiscalVendaChange={setNotaFiscalVenda}
+            disabled={acertoTipo === 'CAPTAÇÃO' || mode === 'CAPTACAO'}
+          />
 
           {/* New Payment Summary */}
           <AcertoPaymentSummary

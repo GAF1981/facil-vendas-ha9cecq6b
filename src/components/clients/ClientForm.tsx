@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Loader2 } from 'lucide-react'
+import { Loader2, ChevronsUpDown, Check } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -25,6 +25,20 @@ import { Separator } from '@/components/ui/separator'
 import { maskCPF, maskCNPJ, maskPhone, maskCEP, unmask } from '@/lib/masks'
 import { clientsService } from '@/services/clientsService'
 import { useToast } from '@/hooks/use-toast'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { cn } from '@/lib/utils'
 
 interface ClientFormProps {
   initialData?: ClientRow
@@ -38,6 +52,9 @@ export function ClientForm({
   onCancel,
 }: ClientFormProps) {
   const [loading, setLoading] = useState(false)
+  const [routes, setRoutes] = useState<string[]>([])
+  const [openRoute, setOpenRoute] = useState(false)
+  const [searchValue, setSearchValue] = useState('')
   const { toast } = useToast()
 
   const form = useForm<ClientFormData>({
@@ -65,7 +82,7 @@ export function ClientForm({
           'CONTATO 1': '',
           'CONTATO 2': '',
           'FORMA DE PAGAMENTO': '',
-          'NOTA FISCAL': '',
+          'NOTA FISCAL': 'NÃO', // Default to NÃO
           EXPOSITOR: '',
           Desconto: '',
           'DESCONTO ACESSORIO CELULAR': '',
@@ -80,6 +97,9 @@ export function ClientForm({
   })
 
   useEffect(() => {
+    // Fetch unique routes
+    clientsService.getRoutes().then((data) => setRoutes(data))
+
     if (!initialData) {
       clientsService
         .getNextCode()
@@ -593,15 +613,75 @@ export function ClientForm({
                 control={form.control}
                 name="GRUPO ROTA"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="flex flex-col">
                     <FormLabel>Rota / Grupo Rota</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Rota de entrega"
-                        {...field}
-                        value={field.value || ''}
-                      />
-                    </FormControl>
+                    <Popover open={openRoute} onOpenChange={setOpenRoute}>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={openRoute}
+                            className={cn(
+                              'w-full justify-between',
+                              !field.value && 'text-muted-foreground',
+                            )}
+                          >
+                            {field.value || 'Selecione ou crie uma rota'}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[400px] p-0">
+                        <Command>
+                          <CommandInput
+                            placeholder="Buscar rota..."
+                            onValueChange={setSearchValue}
+                          />
+                          <CommandList>
+                            <CommandEmpty>
+                              <div className="p-2">
+                                <p className="text-sm text-muted-foreground mb-2">
+                                  Nenhuma rota encontrada.
+                                </p>
+                                <Button
+                                  variant="secondary"
+                                  className="w-full justify-start"
+                                  onClick={() => {
+                                    field.onChange(searchValue)
+                                    setOpenRoute(false)
+                                  }}
+                                >
+                                  Criar "{searchValue}"
+                                </Button>
+                              </div>
+                            </CommandEmpty>
+                            <CommandGroup heading="Rotas Existentes">
+                              {routes.map((rota) => (
+                                <CommandItem
+                                  key={rota}
+                                  value={rota}
+                                  onSelect={(currentValue) => {
+                                    field.onChange(currentValue)
+                                    setOpenRoute(false)
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      'mr-2 h-4 w-4',
+                                      field.value === rota
+                                        ? 'opacity-100'
+                                        : 'opacity-0',
+                                    )}
+                                  />
+                                  {rota}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -702,15 +782,23 @@ export function ClientForm({
                 name="NOTA FISCAL"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Info Nota Fiscal</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Dados específicos para NF"
-                        className="resize-none h-20"
-                        {...field}
-                        value={field.value || ''}
-                      />
-                    </FormControl>
+                    <FormLabel>
+                      Informação sobre a emissão de nota fiscal
+                    </FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value || 'NÃO'}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="SIM">SIM</SelectItem>
+                        <SelectItem value="NÃO">NÃO</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}

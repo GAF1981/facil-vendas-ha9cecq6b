@@ -130,4 +130,15 @@ export const clientsService = {
       recentClients: recentClients as ClientRow[],
     }
   },
+
+  async getRoutes() {
+    const { data, error } = await supabase.rpc('get_unique_client_routes')
+
+    if (error) {
+      console.error('Error fetching routes:', error)
+      return []
+    }
+
+    return (data as any[]).map((item) => item.rota).filter(Boolean) as string[]
+  },
 }

@@ -397,6 +397,7 @@ export const bancoDeDadosService = {
     date: Date,
     acertoTipo: string,
     payments: PaymentEntry[],
+    notaFiscalVenda: boolean,
   ) {
     // 1. Get Context (Order Number)
     const nextPedido = await this.getNextNumeroPedido()
@@ -553,6 +554,21 @@ export const bancoDeDadosService = {
       if (recebimentosError) {
         console.error('Error inserting recebimentos:', recebimentosError)
         throw recebimentosError
+      }
+    }
+
+    // 6. Insert into NOTA_FISCAL if requested
+    if (notaFiscalVenda) {
+      const { error: nfError } = await supabase.from('NOTA_FISCAL').insert({
+        venda_id: nextPedido,
+        cliente_id: client.CODIGO,
+      })
+
+      if (nfError) {
+        console.error('Error inserting nota fiscal record:', nfError)
+        // We log but don't stop transaction?
+        // Ideally should throw, but let's keep it robust as requested "ensure records are captured"
+        throw nfError
       }
     }
   },

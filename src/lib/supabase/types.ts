@@ -107,6 +107,7 @@ export type Database = {
           'HORA DO ACERTO': string | null
           'ID VENDA ITENS': number
           MERCADORIA: string | null
+          nota_fiscal_emitida: boolean | null
           'NOVAS CONSIGNAÇÕES': string | null
           'NÚMERO DO PEDIDO': number | null
           'PREÇO VENDIDO': string | null
@@ -137,6 +138,7 @@ export type Database = {
           'HORA DO ACERTO'?: string | null
           'ID VENDA ITENS'?: number
           MERCADORIA?: string | null
+          nota_fiscal_emitida?: boolean | null
           'NOVAS CONSIGNAÇÕES'?: string | null
           'NÚMERO DO PEDIDO'?: number | null
           'PREÇO VENDIDO'?: string | null
@@ -167,6 +169,7 @@ export type Database = {
           'HORA DO ACERTO'?: string | null
           'ID VENDA ITENS'?: number
           MERCADORIA?: string | null
+          nota_fiscal_emitida?: boolean | null
           'NOVAS CONSIGNAÇÕES'?: string | null
           'NÚMERO DO PEDIDO'?: number | null
           'PREÇO VENDIDO'?: string | null
