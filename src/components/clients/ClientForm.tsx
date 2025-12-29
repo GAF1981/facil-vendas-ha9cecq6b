@@ -39,6 +39,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
+import { NewRouteDialog } from './NewRouteDialog'
 
 interface ClientFormProps {
   initialData?: ClientRow
@@ -96,9 +97,13 @@ export function ClientForm({
         },
   })
 
+  const fetchRoutes = async () => {
+    clientsService.getRoutes().then((data) => setRoutes(data))
+  }
+
   useEffect(() => {
     // Fetch unique routes
-    clientsService.getRoutes().then((data) => setRoutes(data))
+    fetchRoutes()
 
     if (!initialData) {
       clientsService
@@ -652,7 +657,7 @@ export function ClientForm({
                                     setOpenRoute(false)
                                   }}
                                 >
-                                  Criar "{searchValue}"
+                                  Usar "{searchValue}"
                                 </Button>
                               </div>
                             </CommandEmpty>
@@ -682,6 +687,7 @@ export function ClientForm({
                         </Command>
                       </PopoverContent>
                     </Popover>
+                    <NewRouteDialog onSuccess={fetchRoutes} />
                     <FormMessage />
                   </FormItem>
                 )}

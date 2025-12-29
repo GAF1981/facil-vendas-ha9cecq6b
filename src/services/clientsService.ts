@@ -141,4 +141,15 @@ export const clientsService = {
 
     return (data as any[]).map((item) => item.rota).filter(Boolean) as string[]
   },
+
+  async createRoute(name: string) {
+    const { data, error } = await supabase
+      .from('CRIAR_NOVA_ROTA')
+      .insert({ nome_rota: name })
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
 }

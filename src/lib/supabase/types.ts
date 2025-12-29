@@ -315,6 +315,27 @@ export type Database = {
         }
         Relationships: []
       }
+      NOTA_FISCAL: {
+        Row: {
+          cliente_id: number
+          created_at: string
+          id: number
+          venda_id: number
+        }
+        Insert: {
+          cliente_id: number
+          created_at?: string
+          id?: number
+          venda_id: number
+        }
+        Update: {
+          cliente_id?: number
+          created_at?: string
+          id?: number
+          venda_id?: number
+        }
+        Relationships: []
+      }
       PRODUTOS: {
         Row: {
           CODIGO: number | null
@@ -413,6 +434,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_unique_client_routes: {
+        Args: never
+        Returns: {
+          rota: string
+        }[]
+      }
       get_unique_product_groups: {
         Args: never
         Returns: {
