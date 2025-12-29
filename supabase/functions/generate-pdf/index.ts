@@ -180,25 +180,23 @@ serve(async (req) => {
     drawText('ITENS DO PEDIDO', margins.left, y, { size: 12, font: fontBold })
     y -= 15
 
-    // Table Headers - Optimized layout with TIPO added
+    // Table Headers
     const colX = {
-      prod: margins.left, // 40
-      tipo: 220, // New Column X (Start)
-      saldoIni: 300, // Shifted
-      cont: 355, // Shifted
-      venda: 415, // Shifted
-      total: 485, // Shifted
-      saldoFin: 555, // Shifted (Max Width)
+      prod: margins.left,
+      tipo: 220,
+      saldoIni: 300,
+      cont: 355,
+      venda: 415,
+      total: 485,
+      saldoFin: 555,
     }
 
-    const headerHeight = 60 // Reserved height for vertical headers
+    const headerHeight = 60
 
     const drawHeaders = (currentY: number) => {
-      // Horizontal Header
       drawText('Produto', colX.prod, currentY, { size: 8, font: fontBold })
       drawText('Tipo', colX.tipo, currentY, { size: 8, font: fontBold })
 
-      // Vertical Headers
       const headers = [
         { text: 'Saldo Inicial', x: colX.saldoIni },
         { text: 'Contagem', x: colX.cont },
@@ -208,8 +206,6 @@ serve(async (req) => {
       ]
 
       headers.forEach((h) => {
-        // Draw vertical text (rotated 90deg counter-clockwise)
-        // Adjust x to align roughly centered/right-ish relative to the column end
         drawText(h.text, h.x - 12, currentY, {
           size: 8,
           font: fontBold,
@@ -218,7 +214,6 @@ serve(async (req) => {
       })
     }
 
-    // Reserve space for headers
     y -= headerHeight
     drawHeaders(y)
 
@@ -231,14 +226,11 @@ serve(async (req) => {
     })
     y -= 15
 
-    // Items Loop
     for (const item of items) {
       if (checkPageBreak(20)) {
-        // Redraw Headers on new page
         y -= headerHeight
         drawHeaders(y)
         y -= 10
-        // Redraw separator line
         page.drawLine({
           start: { x: margins.left, y },
           end: { x: width - margins.right, y },
@@ -248,13 +240,11 @@ serve(async (req) => {
         y -= 15
       }
 
-      // Truncate name to fit in allocated space (~170 width)
       const name = (item.produtoNome || '').substring(0, 35)
       drawText(`${item.produtoCodigo || '-'} ${name}`, colX.prod, y, {
         size: 8,
       })
 
-      // Draw Tipo
       drawText((item.tipo || '-').substring(0, 10), colX.tipo, y, {
         size: 8,
       })
@@ -295,14 +285,16 @@ serve(async (req) => {
     // Financial Summary
     checkPageBreak(120)
 
-    // Left Column: Values
+    // IMPROVED LAYOUT: Increased spacing for values
+    const valueX = margins.left + 140 // Increased from 100 to 140
+
     drawText('RESUMO FINANCEIRO', margins.left, y, {
       size: 10,
       font: fontBold,
     })
     y -= 15
     drawText('Total Vendido:', margins.left, y, { size: 9 })
-    drawText(`R$ ${formatCurrency(totalVendido)}`, margins.left + 100, y, {
+    drawText(`R$ ${formatCurrency(totalVendido)}`, valueX, y, {
       size: 9,
       align: 'right',
     })
@@ -310,7 +302,7 @@ serve(async (req) => {
 
     if (valorDesconto > 0) {
       drawText('Desconto:', margins.left, y, { size: 9 })
-      drawText(`R$ ${formatCurrency(valorDesconto)}`, margins.left + 100, y, {
+      drawText(`R$ ${formatCurrency(valorDesconto)}`, valueX, y, {
         size: 9,
         align: 'right',
         color: rgb(1, 0, 0),
@@ -319,7 +311,7 @@ serve(async (req) => {
     }
 
     drawText('Total a Pagar:', margins.left, y, { size: 9, font: fontBold })
-    drawText(`R$ ${formatCurrency(valorAcerto)}`, margins.left + 100, y, {
+    drawText(`R$ ${formatCurrency(valorAcerto)}`, valueX, y, {
       size: 9,
       font: fontBold,
       align: 'right',
@@ -327,7 +319,7 @@ serve(async (req) => {
     y -= 12
 
     drawText('Valor Pago:', margins.left, y, { size: 9 })
-    drawText(`R$ ${formatCurrency(valorPago)}`, margins.left + 100, y, {
+    drawText(`R$ ${formatCurrency(valorPago)}`, valueX, y, {
       size: 9,
       align: 'right',
     })
@@ -335,7 +327,7 @@ serve(async (req) => {
 
     if (debito > 0) {
       drawText('Debito Restante:', margins.left, y, { size: 9 })
-      drawText(`R$ ${formatCurrency(debito)}`, margins.left + 100, y, {
+      drawText(`R$ ${formatCurrency(debito)}`, valueX, y, {
         size: 9,
         align: 'right',
         color: rgb(1, 0, 0),
@@ -414,7 +406,7 @@ serve(async (req) => {
           c.charCodeAt(0),
         )
         const image = await pdfDoc.embedPng(imageBytes)
-        const imageDims = image.scale(0.5) // Scale down if needed
+        const imageDims = image.scale(0.5)
 
         y -= imageDims.height
         page.drawImage(image, {
@@ -433,8 +425,6 @@ serve(async (req) => {
       }
     }
 
-    // NEW: Resumo de Acertos (Histórico)
-    // Updated to match UI Columns: Data, Vendedor, Média Mensal, Valor da Venda, Saldo a Pagar, Valor Pago, Débito
     if (history && history.length > 0) {
       checkPageBreak(150)
       drawText('RESUMO DE ACERTOS (HISTÓRICO)', margins.left, y, {
@@ -443,15 +433,14 @@ serve(async (req) => {
       })
       y -= 15
 
-      // Header Coords (Adjusted for Date first)
       const histX = {
-        data: margins.left, // Data
-        vend: margins.left + 60, // Vendedor
-        media: margins.left + 260, // Média (Right)
-        venda: margins.left + 330, // Venda (Right)
-        saldo: margins.left + 400, // Saldo (Right)
-        pago: margins.left + 470, // Pago (Right)
-        debito: margins.left + 540, // Débito (Right) - Max ~555
+        data: margins.left,
+        vend: margins.left + 60,
+        media: margins.left + 260,
+        venda: margins.left + 330,
+        saldo: margins.left + 400,
+        pago: margins.left + 470,
+        debito: margins.left + 540,
       }
 
       drawText('Data', histX.data, y, { size: 7, font: fontBold })
@@ -500,14 +489,12 @@ serve(async (req) => {
           y -= 15
         }
 
-        // Row Data
         drawText(formatDate(row.data), histX.data, y, { size: 7 })
 
         drawText((row.vendedor || '-').substring(0, 35), histX.vend, y, {
           size: 7,
         })
 
-        // Média Mensal (from Row)
         drawText(
           row.mediaMensal !== null ? formatCurrency(row.mediaMensal) : '-',
           histX.media,
@@ -526,12 +513,12 @@ serve(async (req) => {
         drawText(formatCurrency(row.saldoAPagar), histX.saldo, y, {
           size: 7,
           align: 'right',
-          color: rgb(0, 0.2, 0.8), // Blue-ish
+          color: rgb(0, 0.2, 0.8),
         })
         drawText(formatCurrency(row.valorPago), histX.pago, y, {
           size: 7,
           align: 'right',
-          color: rgb(0, 0.5, 0), // Green-ish
+          color: rgb(0, 0.5, 0),
         })
 
         const debitoVal = Math.max(0, row.debito)

@@ -40,6 +40,7 @@ export type Database = {
           TIPO: string | null
           'VALOR CONSIGNADO TOTAL (Custo)': string | null
           'VALOR CONSIGNADO TOTAL (Preço Venda)': string | null
+          'VALOR DEVIDO': number | null
           'VALOR VENDA PRODUTO': string | null
           'VALOR VENDIDO': string | null
         }
@@ -67,6 +68,7 @@ export type Database = {
           TIPO?: string | null
           'VALOR CONSIGNADO TOTAL (Custo)'?: string | null
           'VALOR CONSIGNADO TOTAL (Preço Venda)'?: string | null
+          'VALOR DEVIDO'?: number | null
           'VALOR VENDA PRODUTO'?: string | null
           'VALOR VENDIDO'?: string | null
         }
@@ -94,6 +96,7 @@ export type Database = {
           TIPO?: string | null
           'VALOR CONSIGNADO TOTAL (Custo)'?: string | null
           'VALOR CONSIGNADO TOTAL (Preço Venda)'?: string | null
+          'VALOR DEVIDO'?: number | null
           'VALOR VENDA PRODUTO'?: string | null
           'VALOR VENDIDO'?: string | null
         }

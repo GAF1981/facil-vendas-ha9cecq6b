@@ -6,11 +6,11 @@ import { PaymentEntry } from '@/types/payment'
 
 export const cobrancaService = {
   async getDebts(): Promise<ClientDebt[]> {
-    // 1. Fetch data from BANCO_DE_DADOS
+    // 1. Fetch data from BANCO_DE_DADOS including new columns
     const { data: dbData, error: dbError } = await supabase
       .from('BANCO_DE_DADOS')
       .select(
-        '"NÚMERO DO PEDIDO", "CÓDIGO DO CLIENTE", "CLIENTE", "VALOR VENDIDO", "DESCONTO POR GRUPO", "DATA DO ACERTO", "DETALHES_PAGAMENTO", "VALOR DEVIDO"',
+        '"NÚMERO DO PEDIDO", "CÓDIGO DO CLIENTE", "CLIENTE", "VALOR VENDIDO", "DESCONTO POR GRUPO", "DATA DO ACERTO", "DETALHES_PAGAMENTO", "VALOR DEVIDO", "FORMA", "forma_cobranca", "data_combinada"',
       )
       .not('NÚMERO DO PEDIDO', 'is', null)
 
@@ -24,12 +24,10 @@ export const cobrancaService = {
     if (recError) throw recError
 
     // 3. Fetch Client Types efficiently
-    // Extract unique client IDs from transactions
     const clientIds = [
       ...new Set(dbData?.map((r) => r['CÓDIGO DO CLIENTE']) || []),
     ] as number[]
 
-    // Fetch details for these clients
     let clientTypesMap = new Map<number, string>()
     if (clientIds.length > 0) {
       const { data: clientData, error: clientError } = await supabase
@@ -72,19 +70,17 @@ export const cobrancaService = {
           rawTotal: 0,
           discountStr: row['DESCONTO POR GRUPO'],
           paymentDetailsJSON: row['DETALHES_PAGAMENTO'],
-          // Accumulate VALOR DEVIDO if present
           totalValorDevido: 0,
+          formaPagamento: row['FORMA'] || 'N/D', // New
+          formaCobranca: row['forma_cobranca'], // New
+          dataCombinada: row['data_combinada'], // New
         })
       }
       const order = ordersMap.get(oid)
       order.rawTotal += parseCurrency(row['VALOR VENDIDO'])
 
-      // Accumulate new column if exists
       if (row['VALOR DEVIDO'] !== null && row['VALOR DEVIDO'] !== undefined) {
         order.totalValorDevido += row['VALOR DEVIDO']
-      } else {
-        // Fallback if null (shouldn't happen with migration, but safety)
-        // We will calculate later if this remains 0 and no rows had it
       }
     })
 
@@ -94,14 +90,11 @@ export const cobrancaService = {
 
     ordersMap.forEach((order) => {
       // Calculate Net Value
-      // If totalValorDevido is > 0, use it (from column).
-      // Else, fallback to calculation (Total - Discount).
       let netValue = 0
       let discountAmount = 0
 
       if (order.totalValorDevido > 0.001) {
         netValue = order.totalValorDevido
-        // Back-calculate discount for display
         discountAmount = order.rawTotal - netValue
       } else {
         const descontoStr = order.discountStr || '0'
@@ -119,12 +112,13 @@ export const cobrancaService = {
       const paidValue = paymentInfo.total
       const remaining = netValue - paidValue
 
-      // Only consider orders with actual remaining debt
-      if (remaining > 0.05) {
-        // Determine Status based on payment schedule
-        let status: 'VENCIDO' | 'A VENCER' = 'A VENCER'
-        let oldestOverdue: string | null = null
+      // Logic updated: Include ALL orders, even paid ones
+      let status: 'VENCIDO' | 'A VENCER' | 'SEM DÉBITO' = 'A VENCER'
+      let oldestOverdue: string | null = null
 
+      if (remaining <= 0.05) {
+        status = 'SEM DÉBITO'
+      } else {
         const expectedPayments: { date: Date; value: number }[] = []
         const details = order.paymentDetailsJSON as PaymentEntry[] | null
 
@@ -170,63 +164,91 @@ export const cobrancaService = {
         if (expectedPayments.length > 0 && isOverdue) {
           status = 'VENCIDO'
         }
+      }
 
-        const orderObj: OrderDebt = {
-          orderId: order.orderId,
-          date: order.date,
-          totalValue: order.rawTotal,
-          discount: discountAmount,
-          netValue: netValue,
-          paidValue: paidValue,
-          remainingValue: remaining,
-          status: status,
-          paymentDetails: details || [],
-          paymentsMade: paymentInfo.history,
-          oldestOverdueDate: oldestOverdue,
-        }
+      const orderObj: OrderDebt = {
+        orderId: order.orderId,
+        date: order.date,
+        totalValue: order.rawTotal,
+        discount: discountAmount,
+        netValue: netValue,
+        paidValue: paidValue,
+        remainingValue: remaining,
+        status: status,
+        paymentDetails: order.paymentDetailsJSON || [],
+        paymentsMade: paymentInfo.history,
+        oldestOverdueDate: oldestOverdue,
+        formaPagamento: order.formaPagamento,
+        valorDevido: netValue, // "Valor Devido" specific to this order
+        formaCobranca: order.formaCobranca,
+        dataCombinada: order.dataCombinada,
+      }
 
-        if (!clientsMap.has(order.clientId)) {
-          clientsMap.set(order.clientId, {
-            clientId: order.clientId,
-            clientName: order.clientName || `Cliente ${order.clientId}`,
-            clientType: clientTypesMap.get(order.clientId) || 'N/D',
-            totalDebt: 0,
-            orderCount: 0,
-            status: 'A VENCER',
-            lastAcertoDate: order.date,
-            oldestOverdueDate: null,
-            orders: [],
-          })
-        }
+      if (!clientsMap.has(order.clientId)) {
+        clientsMap.set(order.clientId, {
+          clientId: order.clientId,
+          clientName: order.clientName || `Cliente ${order.clientId}`,
+          clientType: clientTypesMap.get(order.clientId) || 'N/D',
+          totalDebt: 0,
+          orderCount: 0,
+          status: 'SEM DÉBITO', // Default start
+          lastAcertoDate: order.date,
+          oldestOverdueDate: null,
+          orders: [],
+        })
+      }
 
-        const clientDebt = clientsMap.get(order.clientId)!
+      const clientDebt = clientsMap.get(order.clientId)!
+      if (remaining > 0.05) {
         clientDebt.totalDebt += remaining
-        clientDebt.orderCount += 1
-        clientDebt.orders.push(orderObj)
+      }
+      clientDebt.orderCount += 1
+      clientDebt.orders.push(orderObj)
 
-        if (status === 'VENCIDO') {
-          clientDebt.status = 'VENCIDO'
-        }
+      // Update Client Status priority: VENCIDO > A VENCER > SEM DÉBITO
+      if (status === 'VENCIDO') {
+        clientDebt.status = 'VENCIDO'
+      } else if (status === 'A VENCER' && clientDebt.status !== 'VENCIDO') {
+        clientDebt.status = 'A VENCER'
+      } else if (
+        status === 'SEM DÉBITO' &&
+        clientDebt.status === 'SEM DÉBITO'
+      ) {
+        // Keep SEM DÉBITO if all orders are so
+      }
 
-        if (order.date > clientDebt.lastAcertoDate) {
-          clientDebt.lastAcertoDate = order.date
-        }
+      if (order.date > clientDebt.lastAcertoDate) {
+        clientDebt.lastAcertoDate = order.date
+      }
 
-        if (oldestOverdue) {
-          if (
-            !clientDebt.oldestOverdueDate ||
-            oldestOverdue < clientDebt.oldestOverdueDate
-          ) {
-            clientDebt.oldestOverdueDate = oldestOverdue
-          }
+      if (oldestOverdue) {
+        if (
+          !clientDebt.oldestOverdueDate ||
+          oldestOverdue < clientDebt.oldestOverdueDate
+        ) {
+          clientDebt.oldestOverdueDate = oldestOverdue
         }
       }
     })
 
     return Array.from(clientsMap.values()).sort((a, b) => {
+      // Sort priority: VENCIDO, then by Debt Amount DESC
       if (a.status === 'VENCIDO' && b.status !== 'VENCIDO') return -1
       if (a.status !== 'VENCIDO' && b.status === 'VENCIDO') return 1
       return b.totalDebt - a.totalDebt
     })
+  },
+
+  async updateOrderField(
+    orderId: number,
+    field: 'forma_cobranca' | 'data_combinada',
+    value: any,
+  ) {
+    const { error } = await supabase
+      .from('BANCO_DE_DADOS')
+      .update({ [field]: value })
+      .eq('NÚMERO DO PEDIDO', orderId)
+
+    if (error) throw error
   },
 }

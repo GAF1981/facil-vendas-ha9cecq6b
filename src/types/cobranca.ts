@@ -8,10 +8,15 @@ export interface OrderDebt {
   netValue: number // total - discount
   paidValue: number // from RECEBIMENTOS
   remainingValue: number
-  status: 'VENCIDO' | 'A VENCER'
+  status: 'VENCIDO' | 'A VENCER' | 'SEM DÉBITO'
   paymentDetails: PaymentEntry[] // From BANCO_DE_DADOS
   paymentsMade: { date: string; value: number }[] // From RECEBIMENTOS
   oldestOverdueDate: string | null
+  // New columns
+  formaPagamento: string // "Forma de Pagamento"
+  valorDevido: number // "Valor Devido"
+  formaCobranca?: string // "Forma de cobrança"
+  dataCombinada?: string // "Data Combinada"
 }
 
 export interface ClientDebt {
@@ -20,7 +25,7 @@ export interface ClientDebt {
   clientType: string // Added client type
   totalDebt: number
   orderCount: number
-  status: 'VENCIDO' | 'A VENCER'
+  status: 'VENCIDO' | 'A VENCER' | 'SEM DÉBITO'
   lastAcertoDate: string
   oldestOverdueDate: string | null
   orders: OrderDebt[]
