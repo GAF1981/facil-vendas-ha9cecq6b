@@ -312,7 +312,7 @@ export default function CobrancaPage() {
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : (
-        <DebtTable data={filteredData} />
+        <DebtTable data={filteredData} onRefresh={fetchDebts} />
       )}
     </div>
   )

@@ -9,11 +9,12 @@ import {
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Search, Eraser } from 'lucide-react'
+import { Search, Eraser, MessageSquareText } from 'lucide-react'
 import { ClientDebt } from '@/types/cobranca'
 import { formatCurrency } from '@/lib/formatters'
 import { format, parseISO } from 'date-fns'
 import { DebtDetailsDialog } from './DebtDetailsDialog'
+import { CollectionActionsSheet } from './CollectionActionsSheet'
 import {
   Select,
   SelectContent,
@@ -28,6 +29,7 @@ import { cn } from '@/lib/utils'
 
 interface DebtTableProps {
   data: ClientDebt[]
+  onRefresh?: () => void
 }
 
 // Flattened row type for display
@@ -50,11 +52,21 @@ interface FlatRow {
   // Editable fields (Receivable Level)
   formaCobranca: string | null
   dataCombinada: string | null
+  // New field
+  collectionActionCount: number
 }
 
-export function DebtTable({ data }: DebtTableProps) {
+export function DebtTable({ data, onRefresh }: DebtTableProps) {
   const [selectedClient, setSelectedClient] = useState<ClientDebt | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+
+  // Sheet State
+  const [selectedOrderForActions, setSelectedOrderForActions] = useState<{
+    orderId: string
+    clientId: number
+    clientName: string
+  } | null>(null)
+
   const { toast } = useToast()
 
   // Local state for optimistic updates on editable fields (Receivable Level)
@@ -70,6 +82,18 @@ export function DebtTable({ data }: DebtTableProps) {
   const handleCloseModal = () => {
     setIsModalOpen(false)
     setSelectedClient(null)
+  }
+
+  const handleOpenActions = (
+    orderId: number,
+    clientId: number,
+    clientName: string,
+  ) => {
+    setSelectedOrderForActions({
+      orderId: orderId.toString(),
+      clientId,
+      clientName,
+    })
   }
 
   const flattenedData: FlatRow[] = useMemo(() => {
@@ -109,6 +133,7 @@ export function DebtTable({ data }: DebtTableProps) {
             status: inst.status,
             formaCobranca: currentFormaCobranca,
             dataCombinada: currentDataCombinada,
+            collectionActionCount: order.collectionActionCount,
           }
         })
       }),
@@ -179,6 +204,7 @@ export function DebtTable({ data }: DebtTableProps) {
               {/* Editable Columns */}
               <TableHead className="min-w-[150px]">Forma Cobrança</TableHead>
               <TableHead className="min-w-[150px]">Data Combinada</TableHead>
+              <TableHead className="min-w-[80px] text-center">Ações</TableHead>
 
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
@@ -187,7 +213,7 @@ export function DebtTable({ data }: DebtTableProps) {
             {flattenedData.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={13}
+                  colSpan={14}
                   className="h-24 text-center text-muted-foreground"
                 >
                   Nenhum registro encontrado.
@@ -314,6 +340,37 @@ export function DebtTable({ data }: DebtTableProps) {
                     </div>
                   </TableCell>
 
+                  {/* Collection Actions Column */}
+                  <TableCell className="text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <span
+                        className={cn(
+                          'text-xs font-semibold',
+                          row.collectionActionCount > 0
+                            ? 'text-blue-600'
+                            : 'text-muted-foreground',
+                        )}
+                      >
+                        {row.collectionActionCount}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                        onClick={() =>
+                          handleOpenActions(
+                            row.orderId,
+                            row.clientId,
+                            row.clientName,
+                          )
+                        }
+                        title="Ver Ações de Cobrança"
+                      >
+                        <MessageSquareText className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+
                   <TableCell>
                     <Button
                       variant="ghost"
@@ -341,6 +398,17 @@ export function DebtTable({ data }: DebtTableProps) {
         onClose={handleCloseModal}
         client={selectedClient}
       />
+
+      {selectedOrderForActions && (
+        <CollectionActionsSheet
+          isOpen={!!selectedOrderForActions}
+          onClose={() => setSelectedOrderForActions(null)}
+          orderId={selectedOrderForActions.orderId}
+          clientId={selectedOrderForActions.clientId}
+          clientName={selectedOrderForActions.clientName}
+          onActionAdded={() => onRefresh && onRefresh()}
+        />
+      )}
     </>
   )
 }

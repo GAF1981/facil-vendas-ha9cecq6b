@@ -1,12 +1,17 @@
 import { supabase } from '@/lib/supabase/client'
-import { ClientDebt, OrderDebt, Receivable } from '@/types/cobranca'
+import {
+  ClientDebt,
+  OrderDebt,
+  Receivable,
+  CollectionAction,
+  CollectionActionInsert,
+} from '@/types/cobranca'
 import { parseCurrency } from '@/lib/formatters'
 import { isBefore, parseISO, startOfDay } from 'date-fns'
 
 export const cobrancaService = {
   async getDebts(): Promise<ClientDebt[]> {
     // 1. Fetch data from BANCO_DE_DADOS
-    // Removed order-level forma_cobranca/data_combinada from selection to prefer RECEBIMENTOS
     const { data: dbData, error: dbError } = await supabase
       .from('BANCO_DE_DADOS')
       .select(
@@ -17,7 +22,6 @@ export const cobrancaService = {
     if (dbError) throw dbError
 
     // 2. Fetch data from RECEBIMENTOS (Granular rows)
-    // Now including forma_cobranca and data_combinada
     const { data: recData, error: recError } = await supabase
       .from('RECEBIMENTOS')
       .select(
@@ -25,6 +29,21 @@ export const cobrancaService = {
       )
 
     if (recError) throw recError
+
+    // 2.5 Fetch Collection Actions Counts
+    const { data: cobrancaData, error: cobrancaError } = await supabase
+      .from('COBRANÇA')
+      .select('"NÚMERO DO PEDIDO"')
+
+    if (cobrancaError) throw cobrancaError
+
+    const cobrancaCounts = new Map<string, number>()
+    cobrancaData?.forEach((row) => {
+      const pid = row['NÚMERO DO PEDIDO']
+      if (pid) {
+        cobrancaCounts.set(pid, (cobrancaCounts.get(pid) || 0) + 1)
+      }
+    })
 
     // 3. Fetch Client Types efficiently
     const clientIds = [
@@ -210,6 +229,8 @@ export const cobrancaService = {
         oldestOverdueDate: oldestOverdue,
         formaPagamento: order.formaPagamento,
         valorDevido: netValue,
+        collectionActionCount:
+          cobrancaCounts.get(order.orderId.toString()) || 0,
       }
 
       if (!clientsMap.has(order.clientId)) {
@@ -320,5 +341,42 @@ export const cobrancaService = {
 
       if (error) throw error
     }
+  },
+
+  async getCollectionActions(orderId: string): Promise<CollectionAction[]> {
+    const { data, error } = await supabase
+      .from('COBRANÇA')
+      .select('*')
+      .eq('NÚMERO DO PEDIDO', orderId)
+      .order('DATA AÇÃO COBRANÇA', { ascending: false })
+
+    if (error) throw error
+
+    return (data || []).map((row) => ({
+      id: row['ID COBRANÇA'],
+      acao: row['AÇÃO DE COBRANÇA'],
+      dataAcao: row['DATA AÇÃO COBRANÇA'],
+      novaDataCombinada: row['NOVA DATA COMBINADA PAGAMENTO'],
+      funcionarioNome: row['NOME FUNCIONÁRIO'],
+      funcionarioId: row['CÓDIGO FUNCIONÁRIO'],
+      pedidoId: row['NÚMERO DO PEDIDO'],
+      clienteId: row['COD. CLIENTE'],
+      clienteNome: row['CLIENTE'],
+    }))
+  },
+
+  async addCollectionAction(action: CollectionActionInsert): Promise<void> {
+    const { error } = await supabase.from('COBRANÇA').insert({
+      'AÇÃO DE COBRANÇA': action.acao,
+      'DATA AÇÃO COBRANÇA': action.dataAcao,
+      'NOVA DATA COMBINADA PAGAMENTO': action.novaDataCombinada,
+      'NOME FUNCIONÁRIO': action.funcionarioNome,
+      'CÓDIGO FUNCIONÁRIO': action.funcionarioId,
+      'NÚMERO DO PEDIDO': action.pedidoId,
+      'COD. CLIENTE': action.clienteId,
+      CLIENTE: action.clienteNome,
+    })
+
+    if (error) throw error
   },
 }

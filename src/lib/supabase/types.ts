@@ -195,6 +195,42 @@ export type Database = {
         }
         Relationships: []
       }
+      COBRANÇA: {
+        Row: {
+          'AÇÃO DE COBRANÇA': string | null
+          CLIENTE: string | null
+          'COD. CLIENTE': number | null
+          'CÓDIGO FUNCIONÁRIO': string | null
+          'DATA AÇÃO COBRANÇA': string | null
+          'ID COBRANÇA': number
+          'NOME FUNCIONÁRIO': string | null
+          'NOVA DATA COMBINADA PAGAMENTO': string | null
+          'NÚMERO DO PEDIDO': string | null
+        }
+        Insert: {
+          'AÇÃO DE COBRANÇA'?: string | null
+          CLIENTE?: string | null
+          'COD. CLIENTE'?: number | null
+          'CÓDIGO FUNCIONÁRIO'?: string | null
+          'DATA AÇÃO COBRANÇA'?: string | null
+          'ID COBRANÇA': number
+          'NOME FUNCIONÁRIO'?: string | null
+          'NOVA DATA COMBINADA PAGAMENTO'?: string | null
+          'NÚMERO DO PEDIDO'?: string | null
+        }
+        Update: {
+          'AÇÃO DE COBRANÇA'?: string | null
+          CLIENTE?: string | null
+          'COD. CLIENTE'?: number | null
+          'CÓDIGO FUNCIONÁRIO'?: string | null
+          'DATA AÇÃO COBRANÇA'?: string | null
+          'ID COBRANÇA'?: number
+          'NOME FUNCIONÁRIO'?: string | null
+          'NOVA DATA COMBINADA PAGAMENTO'?: string | null
+          'NÚMERO DO PEDIDO'?: string | null
+        }
+        Relationships: []
+      }
       FUNCIONARIOS: {
         Row: {
           apelido: string | null
@@ -271,6 +307,8 @@ export type Database = {
         Row: {
           cliente_id: number
           created_at: string | null
+          data_combinada: string | null
+          forma_cobranca: string | null
           forma_pagamento: string
           funcionario_id: number
           id: number
@@ -282,6 +320,8 @@ export type Database = {
         Insert: {
           cliente_id: number
           created_at?: string | null
+          data_combinada?: string | null
+          forma_cobranca?: string | null
           forma_pagamento: string
           funcionario_id: number
           id?: number
@@ -293,6 +333,8 @@ export type Database = {
         Update: {
           cliente_id?: number
           created_at?: string | null
+          data_combinada?: string | null
+          forma_cobranca?: string | null
           forma_pagamento?: string
           funcionario_id?: number
           id?: number

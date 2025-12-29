@@ -28,6 +28,7 @@ export interface OrderDebt {
   // New columns
   formaPagamento: string // "Forma de Pagamento" (Order Level)
   valorDevido: number // "Valor Devido"
+  collectionActionCount: number // New: Count of collection actions
 }
 
 export interface ClientDebt {
@@ -40,4 +41,27 @@ export interface ClientDebt {
   lastAcertoDate: string
   oldestOverdueDate: string | null
   orders: OrderDebt[]
+}
+
+export interface CollectionAction {
+  id: number
+  acao: string | null
+  dataAcao: string | null
+  novaDataCombinada: string | null
+  funcionarioNome: string | null
+  funcionarioId: string | null
+  pedidoId: string | null
+  clienteId: number | null
+  clienteNome: string | null
+}
+
+export interface CollectionActionInsert {
+  acao: string
+  dataAcao: string
+  novaDataCombinada: string | null
+  funcionarioNome: string
+  funcionarioId: string
+  pedidoId: string
+  clienteId: number
+  clienteNome: string
 }
