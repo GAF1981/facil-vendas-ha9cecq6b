@@ -34,7 +34,13 @@ export interface HistoryRow {
   debito: number
   mediaMensal: number | null
   methods?: string
-  paymentDetails?: { method: string; value: number; date?: string }[]
+  paymentDetails?: {
+    method: string
+    value: number
+    date?: string
+    employeeName?: string
+    createdAt?: string
+  }[]
 }
 
 interface AcertoHistoryTableProps {
@@ -63,7 +69,14 @@ export function AcertoHistoryTable({
 
   // State for Payment Details Modal
   const [selectedPaymentDetails, setSelectedPaymentDetails] = useState<
-    { method: string; value: number; date?: string }[] | null
+    | {
+        method: string
+        value: number
+        date?: string
+        employeeName?: string
+        createdAt?: string
+      }[]
+    | null
   >(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [selectedOrderRef, setSelectedOrderRef] = useState<number | null>(null)
@@ -289,7 +302,7 @@ export function AcertoHistoryTable({
 
       {/* Payment Details Dialog */}
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Detalhes do Pagamento</DialogTitle>
           </DialogHeader>
@@ -316,7 +329,9 @@ export function AcertoHistoryTable({
                 <TableHeader>
                   <TableRow className="bg-muted/50">
                     <TableHead>Método</TableHead>
-                    <TableHead>Data</TableHead>
+                    <TableHead>Referência</TableHead>
+                    <TableHead>Recebido por</TableHead>
+                    <TableHead>Data/Hora Recebimento</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -325,7 +340,7 @@ export function AcertoHistoryTable({
                   selectedPaymentDetails.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={3}
+                        colSpan={5}
                         className="text-center text-muted-foreground"
                       >
                         Nenhum detalhe encontrado.
@@ -340,6 +355,15 @@ export function AcertoHistoryTable({
                         <TableCell className="text-xs text-muted-foreground">
                           {detail.date
                             ? format(parseISO(detail.date), 'dd/MM/yyyy')
+                            : '-'}
+                        </TableCell>
+                        <TableCell>{detail.employeeName || '-'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {detail.createdAt
+                            ? format(
+                                parseISO(detail.createdAt),
+                                'dd/MM/yyyy HH:mm:ss',
+                              )
                             : '-'}
                         </TableCell>
                         <TableCell className="text-right font-mono">

@@ -256,21 +256,29 @@ export const bancoDeDadosService = {
       {
         total: number
         methods: Set<string>
-        details: { method: string; value: number; date: string }[]
+        details: {
+          method: string
+          value: number
+          date: string
+          employeeName: string
+          createdAt: string
+        }[]
       }
     >()
 
     if (orderIds.length > 0) {
       const { data: paymentsData, error: paymentsError } = await supabase
         .from('RECEBIMENTOS')
-        .select('venda_id, valor_pago, forma_pagamento, data_pagamento')
+        .select(
+          'venda_id, valor_pago, forma_pagamento, data_pagamento, created_at, FUNCIONARIOS(nome_completo)',
+        )
         .in('venda_id', orderIds)
 
       if (paymentsError) {
         console.error('Error fetching receipts:', paymentsError)
       } else if (paymentsData) {
         // Aggregate payments by venda_id
-        paymentsData.forEach((p) => {
+        paymentsData.forEach((p: any) => {
           if (!p.venda_id) return
           const existing = paymentsMap.get(p.venda_id) || {
             total: 0,
@@ -285,6 +293,8 @@ export const bancoDeDadosService = {
             method: p.forma_pagamento,
             value: p.valor_pago || 0,
             date: p.data_pagamento || '',
+            employeeName: p.FUNCIONARIOS?.nome_completo || 'N/A',
+            createdAt: p.created_at || '',
           })
 
           paymentsMap.set(p.venda_id, existing)
