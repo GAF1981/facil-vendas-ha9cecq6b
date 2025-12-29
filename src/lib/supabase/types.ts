@@ -15,6 +15,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      'AÇOES DE COBRANÇA': {
+        Row: {
+          'AÇÃO DE COBRANÇA': string | null
+          CLIENTE: string | null
+          'COD. CLIENTE': number | null
+          'CÓDIGO FUNCIONÁRIO': number | null
+          'DATA AÇÃO COBRANÇA': string | null
+          'ID AÇÃO': number
+          'NOME FUNCIONÁRIO': string | null
+          'NOVA DATA COMBINADA PAGAMENTO': string | null
+          'NÚMERO DO PEDIDO': number | null
+        }
+        Insert: {
+          'AÇÃO DE COBRANÇA'?: string | null
+          CLIENTE?: string | null
+          'COD. CLIENTE'?: number | null
+          'CÓDIGO FUNCIONÁRIO'?: number | null
+          'DATA AÇÃO COBRANÇA'?: string | null
+          'ID AÇÃO'?: number
+          'NOME FUNCIONÁRIO'?: string | null
+          'NOVA DATA COMBINADA PAGAMENTO'?: string | null
+          'NÚMERO DO PEDIDO'?: number | null
+        }
+        Update: {
+          'AÇÃO DE COBRANÇA'?: string | null
+          CLIENTE?: string | null
+          'COD. CLIENTE'?: number | null
+          'CÓDIGO FUNCIONÁRIO'?: number | null
+          'DATA AÇÃO COBRANÇA'?: string | null
+          'ID AÇÃO'?: number
+          'NOME FUNCIONÁRIO'?: string | null
+          'NOVA DATA COMBINADA PAGAMENTO'?: string | null
+          'NÚMERO DO PEDIDO'?: number | null
+        }
+        Relationships: []
+      }
       BANCO_DE_DADOS: {
         Row: {
           CLIENTE: string | null
@@ -192,42 +228,6 @@ export type Database = {
           'RAZÃO SOCIAL'?: string | null
           TIPO?: string | null
           'TIPO DE CLIENTE'?: string | null
-        }
-        Relationships: []
-      }
-      COBRANÇA: {
-        Row: {
-          'AÇÃO DE COBRANÇA': string | null
-          CLIENTE: string | null
-          'COD. CLIENTE': number | null
-          'CÓDIGO FUNCIONÁRIO': number | null
-          'DATA AÇÃO COBRANÇA': string | null
-          'ID COBRANÇA': number
-          'NOME FUNCIONÁRIO': string | null
-          'NOVA DATA COMBINADA PAGAMENTO': string | null
-          'NÚMERO DO PEDIDO': number | null
-        }
-        Insert: {
-          'AÇÃO DE COBRANÇA'?: string | null
-          CLIENTE?: string | null
-          'COD. CLIENTE'?: number | null
-          'CÓDIGO FUNCIONÁRIO'?: number | null
-          'DATA AÇÃO COBRANÇA'?: string | null
-          'ID COBRANÇA'?: number
-          'NOME FUNCIONÁRIO'?: string | null
-          'NOVA DATA COMBINADA PAGAMENTO'?: string | null
-          'NÚMERO DO PEDIDO'?: number | null
-        }
-        Update: {
-          'AÇÃO DE COBRANÇA'?: string | null
-          CLIENTE?: string | null
-          'COD. CLIENTE'?: number | null
-          'CÓDIGO FUNCIONÁRIO'?: number | null
-          'DATA AÇÃO COBRANÇA'?: string | null
-          'ID COBRANÇA'?: number
-          'NOME FUNCIONÁRIO'?: string | null
-          'NOVA DATA COMBINADA PAGAMENTO'?: string | null
-          'NÚMERO DO PEDIDO'?: number | null
         }
         Relationships: []
       }

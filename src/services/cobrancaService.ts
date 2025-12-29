@@ -15,7 +15,7 @@ export const cobrancaService = {
     const { data: dbData, error: dbError } = await supabase
       .from('BANCO_DE_DADOS')
       .select(
-        '"NÚMERO DO PEDIDO", "CÓDIGO DO CLIENTE", "CLIENTE", "VALOR VENDIDO", "DESCONTO POR GRUPO", "DATA DO ACERTO", "DETALHES_PAGAMENTO", "VALOR DEVIDO", "FORMA", "CODIGO FUNCIONARIO"',
+        '"NÚMERO DO PEDIDO", "CÓDIGO DO CLIENTE", "CLIENTE", "VALOR VENDIDO", "DESCONTO POR GRUPO", "DATA DO ACERTO", "DETALHES_PAGAMENTO", "VALOR DEVIDO", "FORMA", "CODIGO FUNCIONARIO", data_combinada',
       )
       .not('NÚMERO DO PEDIDO', 'is', null)
 
@@ -130,6 +130,7 @@ export const cobrancaService = {
           totalValorDevido: 0,
           formaPagamento: row['FORMA'] || 'N/D',
           funcionarioId: row['CODIGO FUNCIONARIO'],
+          dataCombinada: row.data_combinada,
         })
       }
       const order = ordersMap.get(oid)
@@ -184,7 +185,7 @@ export const cobrancaService = {
                 : 'A VENCER'
               : 'PAGO',
           formaCobranca: null,
-          dataCombinada: null,
+          dataCombinada: order.dataCombinada || null,
         })
       } else {
         // Sort installments by vencimento
@@ -383,5 +384,29 @@ export const cobrancaService = {
       .insert(payload)
 
     if (error) throw error
+
+    // Update BANCO_DE_DADOS and RECEBIMENTOS if novaDataCombinada is provided
+    if (action.novaDataCombinada) {
+      // 1. Update BANCO_DE_DADOS (Using quotes for NÚMERO DO PEDIDO due to spaces)
+      const { error: bdError } = await supabase
+        .from('BANCO_DE_DADOS')
+        .update({ data_combinada: action.novaDataCombinada } as any)
+        .eq('"NÚMERO DO PEDIDO"', action.pedidoId)
+
+      if (bdError) {
+        console.error('Error updating BANCO_DE_DADOS data_combinada:', bdError)
+        // We log but don't throw, as the main action was saved
+      }
+
+      // 2. Update RECEBIMENTOS (for all records of this order)
+      const { error: recError } = await supabase
+        .from('RECEBIMENTOS')
+        .update({ data_combinada: action.novaDataCombinada } as any)
+        .eq('venda_id', action.pedidoId)
+
+      if (recError) {
+        console.error('Error updating RECEBIMENTOS data_combinada:', recError)
+      }
+    }
   },
 }
