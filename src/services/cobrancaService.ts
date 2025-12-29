@@ -45,19 +45,28 @@ export const cobrancaService = {
       }
     })
 
-    // 3. Fetch Client Types and Groups efficiently
+    // 3. Fetch Client Types, Groups and Address Info efficiently
     const clientIds = [
       ...new Set(dbData?.map((r) => r['CÓDIGO DO CLIENTE']) || []),
     ] as number[]
 
     let clientInfoMap = new Map<
       number,
-      { type: string; group: string | null; route: string | null }
+      {
+        type: string
+        group: string | null
+        route: string | null
+        address: string | null
+        neighborhood: string | null
+        city: string | null
+      }
     >()
     if (clientIds.length > 0) {
       const { data: clientData, error: clientError } = await supabase
         .from('CLIENTES')
-        .select('CODIGO, "TIPO DE CLIENTE", GRUPO, "GRUPO ROTA"')
+        .select(
+          'CODIGO, "TIPO DE CLIENTE", GRUPO, "GRUPO ROTA", ENDEREÇO, BAIRRO, MUNICÍPIO',
+        )
         .in('CODIGO', clientIds)
 
       if (!clientError && clientData) {
@@ -66,6 +75,9 @@ export const cobrancaService = {
             type: c['TIPO DE CLIENTE'] || 'N/D',
             group: (c as any)['GRUPO'] || null,
             route: (c as any)['GRUPO ROTA'] || null,
+            address: (c as any)['ENDEREÇO'] || null,
+            neighborhood: (c as any)['BAIRRO'] || null,
+            city: (c as any)['MUNICÍPIO'] || null,
           })
         })
       }
@@ -248,6 +260,9 @@ export const cobrancaService = {
           clientType: clientInfo?.type || 'N/D',
           group: clientInfo?.group || null,
           routeGroup: clientInfo?.route || null,
+          address: clientInfo?.address || null,
+          neighborhood: clientInfo?.neighborhood || null,
+          city: clientInfo?.city || null,
           totalDebt: 0,
           orderCount: 0,
           status: 'SEM DÉBITO', // Default start

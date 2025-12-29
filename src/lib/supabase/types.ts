@@ -144,27 +144,6 @@ export type Database = {
         }
         Relationships: []
       }
-      'CLIENTE COMPLETA': {
-        Row: {
-          CODIGO: number
-          GRUPO: string | null
-          'GRUPO ROTA': string | null
-          'NOME CLIENTE': string | null
-        }
-        Insert: {
-          CODIGO: number
-          GRUPO?: string | null
-          'GRUPO ROTA'?: string | null
-          'NOME CLIENTE'?: string | null
-        }
-        Update: {
-          CODIGO?: number
-          GRUPO?: string | null
-          'GRUPO ROTA'?: string | null
-          'NOME CLIENTE'?: string | null
-        }
-        Relationships: []
-      }
       CLIENTES: {
         Row: {
           'ALTERAÇÃO CLIENTE': string | null
@@ -185,6 +164,8 @@ export type Database = {
           'FONE 1': string | null
           'FONE 2': string | null
           'FORMA DE PAGAMENTO': string | null
+          GRUPO: string | null
+          'GRUPO ROTA': string | null
           IE: string | null
           MUNICÍPIO: string | null
           'NOME CLIENTE': string | null
@@ -213,6 +194,8 @@ export type Database = {
           'FONE 1'?: string | null
           'FONE 2'?: string | null
           'FORMA DE PAGAMENTO'?: string | null
+          GRUPO?: string | null
+          'GRUPO ROTA'?: string | null
           IE?: string | null
           MUNICÍPIO?: string | null
           'NOME CLIENTE'?: string | null
@@ -241,6 +224,8 @@ export type Database = {
           'FONE 1'?: string | null
           'FONE 2'?: string | null
           'FORMA DE PAGAMENTO'?: string | null
+          GRUPO?: string | null
+          'GRUPO ROTA'?: string | null
           IE?: string | null
           MUNICÍPIO?: string | null
           'NOME CLIENTE'?: string | null

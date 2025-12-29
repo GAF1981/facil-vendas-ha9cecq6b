@@ -321,7 +321,7 @@ export default function CobrancaPage() {
               <Select value={routeFilter} onValueChange={setRouteFilter}>
                 <SelectTrigger>
                   <MapPin className="w-4 h-4 mr-2 text-muted-foreground" />
-                  <SelectValue placeholder="Rota" />
+                  <SelectValue placeholder="Grupo Rota" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas Rotas</SelectItem>

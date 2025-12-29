@@ -25,6 +25,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
+import { MapPin } from 'lucide-react'
 
 interface DebtDetailsDialogProps {
   isOpen: boolean
@@ -47,20 +48,30 @@ export function DebtDetailsDialog({
             <DialogTitle className="text-xl">
               Detalhamento de Débitos: {client.clientName}
             </DialogTitle>
-            <div className="flex gap-2 text-xs text-muted-foreground flex-wrap">
-              <Badge variant="secondary" className="font-normal">
-                {client.clientType}
-              </Badge>
-              {client.group && (
-                <Badge variant="outline" className="font-normal">
-                  Grupo: {client.group}
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 text-xs text-muted-foreground flex-wrap mt-1">
+              <div className="flex gap-2">
+                <Badge variant="secondary" className="font-normal">
+                  {client.clientType}
                 </Badge>
-              )}
-              {client.routeGroup && (
-                <Badge variant="outline" className="font-normal">
-                  Rota: {client.routeGroup}
-                </Badge>
-              )}
+                {client.group && (
+                  <Badge variant="outline" className="font-normal">
+                    Grupo: {client.group}
+                  </Badge>
+                )}
+                {client.routeGroup && (
+                  <Badge variant="outline" className="font-normal">
+                    Rota: {client.routeGroup}
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                <MapPin className="w-3 h-3" />
+                <span>
+                  {[client.address, client.neighborhood, client.city]
+                    .filter(Boolean)
+                    .join(', ')}
+                </span>
+              </div>
             </div>
             <div className="text-sm text-muted-foreground mt-1">
               Total Devido:{' '}

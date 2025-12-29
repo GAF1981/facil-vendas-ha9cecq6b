@@ -44,6 +44,10 @@ export interface ClientDebt {
   // New classification fields
   group: string | null
   routeGroup: string | null
+  // New address fields
+  address: string | null
+  neighborhood: string | null
+  city: string | null
 }
 
 export interface CollectionAction {

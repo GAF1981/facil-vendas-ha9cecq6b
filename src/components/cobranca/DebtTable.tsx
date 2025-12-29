@@ -39,6 +39,11 @@ interface FlatRow {
   clientId: number
   clientName: string
   clientType: string
+  // Address info
+  address: string | null
+  neighborhood: string | null
+  city: string | null
+  // Order info
   clientOrderCount: number
   orderId: number
   orderDate: string
@@ -122,6 +127,9 @@ export function DebtTable({ data, onRefresh }: DebtTableProps) {
             clientId: client.clientId,
             clientName: client.clientName,
             clientType: client.clientType,
+            address: client.address,
+            neighborhood: client.neighborhood,
+            city: client.city,
             clientOrderCount: client.orderCount,
             orderId: order.orderId,
             orderDate: order.date,
@@ -193,6 +201,9 @@ export function DebtTable({ data, onRefresh }: DebtTableProps) {
               <TableHead className="w-[70px]">Código</TableHead>
               <TableHead className="w-[90px]">Tipo</TableHead>
               <TableHead className="min-w-[150px]">Nome Cliente</TableHead>
+              <TableHead className="min-w-[150px]">Endereço</TableHead>
+              <TableHead className="min-w-[100px]">Bairro</TableHead>
+              <TableHead className="min-w-[100px]">Município</TableHead>
               <TableHead className="w-[80px]">Pedido #</TableHead>
               <TableHead>Vencimento</TableHead>
               <TableHead>F. Pagamento</TableHead>
@@ -213,7 +224,7 @@ export function DebtTable({ data, onRefresh }: DebtTableProps) {
             {flattenedData.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={14}
+                  colSpan={17}
                   className="h-24 text-center text-muted-foreground"
                 >
                   Nenhum registro encontrado.
@@ -230,6 +241,24 @@ export function DebtTable({ data, onRefresh }: DebtTableProps) {
                   </TableCell>
                   <TableCell className="font-medium text-sm">
                     {row.clientName}
+                  </TableCell>
+                  <TableCell
+                    className="text-xs text-muted-foreground truncate max-w-[150px]"
+                    title={row.address || ''}
+                  >
+                    {row.address || '-'}
+                  </TableCell>
+                  <TableCell
+                    className="text-xs text-muted-foreground truncate max-w-[100px]"
+                    title={row.neighborhood || ''}
+                  >
+                    {row.neighborhood || '-'}
+                  </TableCell>
+                  <TableCell
+                    className="text-xs text-muted-foreground truncate max-w-[100px]"
+                    title={row.city || ''}
+                  >
+                    {row.city || '-'}
                   </TableCell>
                   <TableCell className="font-mono text-xs">
                     {row.orderId}
