@@ -36,7 +36,8 @@ export interface HistoryRow {
   methods?: string
   paymentDetails?: {
     method: string
-    value: number
+    value: number // This is 'Valor Pago'
+    registeredValue?: number // This is 'Valor Registrado'
     date?: string
     employeeName?: string
     createdAt?: string
@@ -72,6 +73,7 @@ export function AcertoHistoryTable({
     | {
         method: string
         value: number
+        registeredValue?: number
         date?: string
         employeeName?: string
         createdAt?: string
@@ -251,17 +253,19 @@ export function AcertoHistoryTable({
                           <TableCell className="text-right font-mono font-medium text-green-600 bg-green-50/30 p-2">
                             <div className="flex items-center justify-end gap-2">
                               <span>R$ {formatCurrency(row.valorPago)}</span>
-                              {row.valorPago > 0 && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 text-green-700 hover:text-green-800 hover:bg-green-200"
-                                  onClick={() => handleShowDetails(row)}
-                                  title="Ver detalhes do pagamento"
-                                >
-                                  <Search className="h-3.5 w-3.5" />
-                                </Button>
-                              )}
+                              {/* Always show details button if there are payment details, even if paid is 0 (installments) */}
+                              {row.paymentDetails &&
+                                row.paymentDetails.length > 0 && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-green-700 hover:text-green-800 hover:bg-green-200"
+                                    onClick={() => handleShowDetails(row)}
+                                    title="Ver detalhes do pagamento"
+                                  >
+                                    <Search className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
                             </div>
                           </TableCell>
                           <TableCell
@@ -332,7 +336,10 @@ export function AcertoHistoryTable({
                     <TableHead>Referência</TableHead>
                     <TableHead>Recebido por</TableHead>
                     <TableHead>Data/Hora Recebimento</TableHead>
-                    <TableHead className="text-right">Valor</TableHead>
+                    <TableHead className="text-right">V. Registrado</TableHead>
+                    <TableHead className="text-right text-green-700">
+                      V. Pago
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -340,7 +347,7 @@ export function AcertoHistoryTable({
                   selectedPaymentDetails.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={5}
+                        colSpan={6}
                         className="text-center text-muted-foreground"
                       >
                         Nenhum detalhe encontrado.
@@ -366,7 +373,12 @@ export function AcertoHistoryTable({
                               )
                             : '-'}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right font-mono text-muted-foreground">
+                          {detail.registeredValue !== undefined
+                            ? `R$ ${formatCurrency(detail.registeredValue)}`
+                            : '-'}
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-bold text-green-700">
                           R$ {formatCurrency(detail.value)}
                         </TableCell>
                       </TableRow>

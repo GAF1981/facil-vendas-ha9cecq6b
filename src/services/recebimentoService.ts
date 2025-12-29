@@ -35,7 +35,8 @@ export const recebimentoService = {
             cliente_id: client.CODIGO,
             funcionario_id: employee.id,
             forma_pagamento: payment.method,
-            valor_pago: detail.value,
+            valor_registrado: detail.value, // Captured Separately
+            valor_pago: 0, // Installments assumed as debts unless specified otherwise logic needed
             // Ensure 12:00 to avoid timezone shifts
             data_pagamento: new Date(
               `${detail.dueDate}T12:00:00`,
@@ -49,6 +50,7 @@ export const recebimentoService = {
           cliente_id: client.CODIGO,
           funcionario_id: employee.id,
           forma_pagamento: payment.method,
+          valor_registrado: payment.value, // Captured Separately
           valor_pago: payment.paidValue,
           data_pagamento: payment.dueDate
             ? new Date(`${payment.dueDate}T12:00:00`).toISOString()

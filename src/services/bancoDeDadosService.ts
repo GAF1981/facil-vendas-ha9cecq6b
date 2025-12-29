@@ -258,7 +258,8 @@ export const bancoDeDadosService = {
         methods: Set<string>
         details: {
           method: string
-          value: number
+          value: number // Valor Pago
+          registeredValue: number // Valor Registrado
           date: string
           employeeName: string
           createdAt: string
@@ -270,7 +271,7 @@ export const bancoDeDadosService = {
       const { data: paymentsData, error: paymentsError } = await supabase
         .from('RECEBIMENTOS')
         .select(
-          'venda_id, valor_pago, forma_pagamento, data_pagamento, created_at, FUNCIONARIOS(nome_completo)',
+          'venda_id, valor_pago, valor_registrado, forma_pagamento, data_pagamento, created_at, FUNCIONARIOS(nome_completo)',
         )
         .in('venda_id', orderIds)
 
@@ -292,6 +293,7 @@ export const bancoDeDadosService = {
           existing.details.push({
             method: p.forma_pagamento,
             value: p.valor_pago || 0,
+            registeredValue: p.valor_registrado || 0,
             date: p.data_pagamento || '',
             employeeName: p.FUNCIONARIOS?.nome_completo || 'N/A',
             createdAt: p.created_at || '',
@@ -518,7 +520,8 @@ export const bancoDeDadosService = {
             cliente_id: client.CODIGO,
             funcionario_id: employee.id,
             forma_pagamento: payment.method,
-            valor_pago: detail.value,
+            valor_registrado: detail.value, // Captured Separately
+            valor_pago: 0, // Future installments are debts, not paid yet
             // Combine date with 12:00 time to ensure valid timestamp
             data_pagamento: new Date(
               `${detail.dueDate}T12:00:00`,
@@ -532,6 +535,7 @@ export const bancoDeDadosService = {
           cliente_id: client.CODIGO,
           funcionario_id: employee.id,
           forma_pagamento: payment.method,
+          valor_registrado: payment.value, // Captured Separately
           valor_pago: payment.paidValue, // Manual entry required now
           // Use dueDate if available (set to 12:00 to avoid timezone issues), otherwise now
           data_pagamento: payment.dueDate

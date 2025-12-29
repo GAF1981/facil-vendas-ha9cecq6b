@@ -2,6 +2,7 @@ export interface RecebimentoInsert {
   venda_id: number
   cliente_id: number
   forma_pagamento: string
+  valor_registrado?: number
   valor_pago: number
   data_pagamento?: string
   funcionario_id: number
