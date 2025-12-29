@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Search, Eraser } from 'lucide-react'
-import { ClientDebt, OrderDebt } from '@/types/cobranca'
+import { ClientDebt, OrderDebt, Receivable } from '@/types/cobranca'
 import { formatCurrency } from '@/lib/formatters'
 import { format, parseISO } from 'date-fns'
 import { DebtDetailsDialog } from './DebtDetailsDialog'
@@ -24,17 +24,30 @@ import {
 import { Input } from '@/components/ui/input'
 import { cobrancaService } from '@/services/cobrancaService'
 import { useToast } from '@/hooks/use-toast'
+import { cn } from '@/lib/utils'
 
 interface DebtTableProps {
   data: ClientDebt[]
 }
 
 // Flattened row type for display
-interface FlatOrderRow extends OrderDebt {
+interface FlatRow {
+  uniqueId: string
   clientId: number
   clientName: string
   clientType: string
   clientOrderCount: number
+  orderId: number
+  orderDate: string
+  // Installment specific
+  vencimento: string | null
+  formaPagamento: string
+  valorRegistrado: number
+  valorPago: number
+  status: 'VENCIDO' | 'A VENCER' | 'PAGO'
+  // Editable fields (Order Level)
+  formaCobranca: string | null
+  dataCombinada: string | null
 }
 
 export function DebtTable({ data }: DebtTableProps) {
@@ -42,9 +55,9 @@ export function DebtTable({ data }: DebtTableProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const { toast } = useToast()
 
-  // Local state for optimistic updates on editable fields
+  // Local state for optimistic updates on editable fields (Order Level)
   const [localUpdates, setLocalUpdates] = useState<
-    Record<number, Partial<OrderDebt>>
+    Record<number, { formaCobranca?: any; dataCombinada?: any }>
   >({})
 
   const handleOpenDetails = (client: ClientDebt) => {
@@ -57,17 +70,38 @@ export function DebtTable({ data }: DebtTableProps) {
     setSelectedClient(null)
   }
 
-  const flattenedData: FlatOrderRow[] = useMemo(() => {
+  const flattenedData: FlatRow[] = useMemo(() => {
     return data.flatMap((client) =>
-      client.orders.map((order) => ({
-        ...order,
-        clientId: client.clientId,
-        clientName: client.clientName,
-        clientType: client.clientType,
-        clientOrderCount: client.orderCount,
-        // Apply local updates if any
-        ...localUpdates[order.orderId],
-      })),
+      client.orders.flatMap((order) => {
+        // Apply local updates
+        const updates = localUpdates[order.orderId] || {}
+        const currentFormaCobranca =
+          updates.formaCobranca !== undefined
+            ? updates.formaCobranca
+            : order.formaCobranca
+        const currentDataCombinada =
+          updates.dataCombinada !== undefined
+            ? updates.dataCombinada
+            : order.dataCombinada
+
+        // Use installments for granular rows
+        return order.installments.map((inst, index) => ({
+          uniqueId: `${client.clientId}-${order.orderId}-${inst.id}-${index}`,
+          clientId: client.clientId,
+          clientName: client.clientName,
+          clientType: client.clientType,
+          clientOrderCount: client.orderCount,
+          orderId: order.orderId,
+          orderDate: order.date,
+          vencimento: inst.vencimento,
+          formaPagamento: inst.formaPagamento,
+          valorRegistrado: inst.valorRegistrado,
+          valorPago: inst.valorPago,
+          status: inst.status,
+          formaCobranca: currentFormaCobranca,
+          dataCombinada: currentDataCombinada,
+        }))
+      }),
     )
   }, [data, localUpdates])
 
@@ -99,30 +133,25 @@ export function DebtTable({ data }: DebtTableProps) {
         description: 'Falha ao atualizar dados.',
         variant: 'destructive',
       })
-      // Revert optimistic update? For simplicity, we keep it but warn.
     }
   }
 
   const handleClearAll = async (field: 'forma_cobranca' | 'data_combinada') => {
-    // Clear for ALL visible rows
-    const updates = {} as Record<number, Partial<OrderDebt>>
+    // Collect unique order IDs visible
+    const visibleOrderIds = new Set(flattenedData.map((r) => r.orderId))
+    const updates = {} as Record<
+      number,
+      { formaCobranca?: any; dataCombinada?: any }
+    >
     const promises: Promise<void>[] = []
 
-    for (const row of flattenedData) {
-      if (
-        (field === 'forma_cobranca' && row.formaCobranca) ||
-        (field === 'data_combinada' && row.dataCombinada)
-      ) {
-        updates[row.orderId] = {
-          ...localUpdates[row.orderId],
-          [field === 'forma_cobranca' ? 'formaCobranca' : 'dataCombinada']:
-            null,
-        }
-        promises.push(
-          cobrancaService.updateOrderField(row.orderId, field, null),
-        )
+    visibleOrderIds.forEach((oid) => {
+      updates[oid] = {
+        ...localUpdates[oid],
+        [field === 'forma_cobranca' ? 'formaCobranca' : 'dataCombinada']: null,
       }
-    }
+      promises.push(cobrancaService.updateOrderField(oid, field, null))
+    })
 
     setLocalUpdates((prev) => ({ ...prev, ...updates }))
 
@@ -130,7 +159,7 @@ export function DebtTable({ data }: DebtTableProps) {
       await Promise.all(promises)
       toast({
         title: 'Limpeza Concluída',
-        description: `Campo ${field === 'forma_cobranca' ? 'Forma de Cobrança' : 'Data Combinada'} limpo para todos os itens visíveis.`,
+        description: `Campo ${field === 'forma_cobranca' ? 'Forma de Cobrança' : 'Data Combinada'} limpo para todos os pedidos visíveis.`,
       })
     } catch (error) {
       toast({
@@ -147,20 +176,18 @@ export function DebtTable({ data }: DebtTableProps) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[80px]">Código</TableHead>
-              <TableHead className="w-[100px]">Tipo</TableHead>
-              <TableHead>Nome Cliente</TableHead>
-              <TableHead className="text-center w-[80px]">
-                Qtd. Pedidos
-              </TableHead>
+              <TableHead className="w-[70px]">Código</TableHead>
+              <TableHead className="w-[90px]">Tipo</TableHead>
+              <TableHead className="min-w-[150px]">Nome Cliente</TableHead>
               <TableHead className="w-[80px]">Pedido #</TableHead>
-              <TableHead>Data Venda</TableHead>
+              <TableHead>Vencimento</TableHead>
               <TableHead>F. Pagamento</TableHead>
-              <TableHead className="text-right">Valor Devido</TableHead>
+              <TableHead className="text-right">Valor Parc.</TableHead>
+              <TableHead className="text-right">Pago</TableHead>
               <TableHead className="text-center">Status</TableHead>
 
               {/* Editable Columns */}
-              <TableHead className="min-w-[150px]">
+              <TableHead className="min-w-[140px]">
                 <div className="flex flex-col items-start gap-1">
                   <div className="flex items-center justify-between w-full">
                     <span>Forma Cobrança</span>
@@ -176,7 +203,7 @@ export function DebtTable({ data }: DebtTableProps) {
                   </div>
                 </div>
               </TableHead>
-              <TableHead className="min-w-[140px]">
+              <TableHead className="min-w-[130px]">
                 <div className="flex flex-col items-start gap-1">
                   <div className="flex items-center justify-between w-full">
                     <span>Data Combinada</span>
@@ -208,10 +235,7 @@ export function DebtTable({ data }: DebtTableProps) {
               </TableRow>
             ) : (
               flattenedData.map((row) => (
-                <TableRow
-                  key={`${row.clientId}-${row.orderId}`}
-                  className="hover:bg-muted/50"
-                >
+                <TableRow key={row.uniqueId} className="hover:bg-muted/50">
                   <TableCell className="font-mono text-xs font-medium">
                     {row.clientId}
                   </TableCell>
@@ -221,14 +245,13 @@ export function DebtTable({ data }: DebtTableProps) {
                   <TableCell className="font-medium text-sm">
                     {row.clientName}
                   </TableCell>
-                  <TableCell className="text-center font-mono text-xs">
-                    {row.clientOrderCount}
-                  </TableCell>
                   <TableCell className="font-mono text-xs">
                     {row.orderId}
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {row.date ? format(parseISO(row.date), 'dd/MM/yyyy') : '-'}
+                  <TableCell className="text-xs">
+                    {row.vencimento
+                      ? format(parseISO(row.vencimento), 'dd/MM/yyyy')
+                      : '-'}
                   </TableCell>
                   <TableCell
                     className="text-xs truncate max-w-[100px]"
@@ -236,19 +259,26 @@ export function DebtTable({ data }: DebtTableProps) {
                   >
                     {row.formaPagamento}
                   </TableCell>
-                  <TableCell className="text-right font-mono text-sm font-bold text-red-600">
-                    R$ {formatCurrency(row.valorDevido)}
+                  <TableCell className="text-right font-mono text-xs">
+                    {formatCurrency(row.valorRegistrado)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-xs text-green-600">
+                    {formatCurrency(row.valorPago)}
                   </TableCell>
                   <TableCell className="text-center">
                     <Badge
                       variant={
                         row.status === 'VENCIDO'
                           ? 'destructive'
-                          : row.status === 'SEM DÉBITO'
+                          : row.status === 'PAGO'
                             ? 'secondary'
                             : 'outline'
                       }
-                      className="text-[10px] px-1 py-0 h-5"
+                      className={cn(
+                        'text-[10px] px-1 py-0 h-5',
+                        row.status === 'PAGO' &&
+                          'bg-green-100 text-green-700 hover:bg-green-200',
+                      )}
                     >
                       {row.status}
                     </Badge>
@@ -299,7 +329,6 @@ export function DebtTable({ data }: DebtTableProps) {
                       variant="ghost"
                       size="icon"
                       onClick={() => {
-                        // Find original client object to pass to details
                         const originalClient = data.find(
                           (c) => c.clientId === row.clientId,
                         )

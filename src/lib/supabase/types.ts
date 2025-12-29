@@ -276,6 +276,7 @@ export type Database = {
           funcionario_id: number
           id: number
           valor_pago: number
+          valor_registrado: number | null
           venda_id: number
         }
         Insert: {
@@ -286,6 +287,7 @@ export type Database = {
           funcionario_id: number
           id?: number
           valor_pago: number
+          valor_registrado?: number | null
           venda_id: number
         }
         Update: {
@@ -296,6 +298,7 @@ export type Database = {
           funcionario_id?: number
           id?: number
           valor_pago?: number
+          valor_registrado?: number | null
           venda_id?: number
         }
         Relationships: [

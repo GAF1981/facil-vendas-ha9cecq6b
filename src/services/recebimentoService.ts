@@ -36,11 +36,10 @@ export const recebimentoService = {
             funcionario_id: employee.id,
             forma_pagamento: payment.method,
             valor_registrado: detail.value, // Captured Separately
-            valor_pago: 0, // Installments assumed as debts unless specified otherwise logic needed
+            valor_pago: 0, // Installments assumed as debts unless specified otherwise
             // Ensure 12:00 to avoid timezone shifts
-            data_pagamento: new Date(
-              `${detail.dueDate}T12:00:00`,
-            ).toISOString(),
+            // Renamed data_pagamento to vencimento
+            vencimento: new Date(`${detail.dueDate}T12:00:00`).toISOString(),
           })
         })
       } else {
@@ -52,7 +51,8 @@ export const recebimentoService = {
           forma_pagamento: payment.method,
           valor_registrado: payment.value, // Captured Separately
           valor_pago: payment.paidValue,
-          data_pagamento: payment.dueDate
+          // Renamed data_pagamento to vencimento
+          vencimento: payment.dueDate
             ? new Date(`${payment.dueDate}T12:00:00`).toISOString()
             : new Date().toISOString(),
         })

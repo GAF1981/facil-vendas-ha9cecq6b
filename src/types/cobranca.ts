@@ -1,5 +1,14 @@
 import { PaymentEntry } from './payment'
 
+export interface Receivable {
+  id: number
+  vencimento: string | null
+  valorRegistrado: number
+  valorPago: number
+  formaPagamento: string
+  status: 'VENCIDO' | 'A VENCER' | 'PAGO'
+}
+
 export interface OrderDebt {
   orderId: number
   date: string // Data do Acerto
@@ -9,11 +18,12 @@ export interface OrderDebt {
   paidValue: number // from RECEBIMENTOS
   remainingValue: number
   status: 'VENCIDO' | 'A VENCER' | 'SEM DÉBITO'
-  paymentDetails: PaymentEntry[] // From BANCO_DE_DADOS
-  paymentsMade: { date: string; value: number }[] // From RECEBIMENTOS
+  paymentDetails: PaymentEntry[] // From BANCO_DE_DADOS (Legacy/Reference)
+  paymentsMade: { date: string; value: number }[] // From RECEBIMENTOS (History)
+  installments: Receivable[] // Granular rows for display
   oldestOverdueDate: string | null
   // New columns
-  formaPagamento: string // "Forma de Pagamento"
+  formaPagamento: string // "Forma de Pagamento" (Order Level)
   valorDevido: number // "Valor Devido"
   formaCobranca?: string // "Forma de cobrança"
   dataCombinada?: string // "Data Combinada"

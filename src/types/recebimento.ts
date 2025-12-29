@@ -4,7 +4,7 @@ export interface RecebimentoInsert {
   forma_pagamento: string
   valor_registrado?: number
   valor_pago: number
-  data_pagamento?: string
+  vencimento?: string // Renamed from data_pagamento
   funcionario_id: number
 }
 

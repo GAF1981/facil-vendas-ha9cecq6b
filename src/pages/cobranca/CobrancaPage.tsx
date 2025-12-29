@@ -37,7 +37,7 @@ export default function CobrancaPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('todos')
   const [typeFilter, setTypeFilter] = useState<string>('all')
-  const [vencimentoFilter, setVencimentoFilter] = useState<string>('') // New Date Filter
+  const [vencimentoFilter, setVencimentoFilter] = useState<string>('')
   const { toast } = useToast()
 
   const fetchDebts = async () => {
@@ -77,43 +77,29 @@ export default function CobrancaPage() {
   ) => {
     let res = [...source]
 
-    // 1. Pre-filtering orders inside clients if necessary?
-    // The DebtTable flattens data. Filtering clients implies removing clients or filtering their orders?
-    // Usually filters apply to the visible rows.
-    // Since DebtTable shows Orders, we should filter Clients to only include those with matching Orders,
-    // OR filter orders inside clients.
-    // Let's filter Clients based on their content, but for "Vencimento" it's tricky if we don't modify the orders array.
-    // The best approach is to filter `orders` inside each client, then remove clients with empty orders.
-
-    // We clone the data structure to avoid mutation issues
+    // Deep copy enough to modify nested arrays without affecting state directly
     res = res.map((client) => ({
       ...client,
-      orders: [...client.orders],
+      orders: client.orders.map((order) => ({
+        ...order,
+        installments: [...order.installments],
+      })),
     }))
 
-    // Filter Orders first based on Vencimento
+    // Filter Installments based on Vencimento
     if (vencimento) {
       const targetDate = parseISO(vencimento)
       res.forEach((client) => {
-        client.orders = client.orders.filter((order) => {
-          // Check payment details for matching due date
-          // Or verify if `oldestOverdueDate` matches?
-          // Prompt says "Data de Vencimento" filter.
-          // Orders have `paymentDetails` with due dates.
-          // We check if ANY installment matches the date?
-          // Or if the MAIN due date matches?
-          // Let's check if any scheduled payment matches the date.
-          const hasMatch = order.paymentDetails.some((p) => {
-            if (p.dueDate && isSameDay(parseISO(p.dueDate), targetDate))
-              return true
-            if (p.details)
-              return p.details.some((d) =>
-                isSameDay(parseISO(d.dueDate), targetDate),
-              )
+        client.orders.forEach((order) => {
+          order.installments = order.installments.filter((inst) => {
+            if (inst.vencimento) {
+              return isSameDay(parseISO(inst.vencimento), targetDate)
+            }
             return false
           })
-          return hasMatch
         })
+        // Remove orders with no matching installments
+        client.orders = client.orders.filter((o) => o.installments.length > 0)
       })
       // Remove clients with no matching orders
       res = res.filter((c) => c.orders.length > 0)
@@ -129,17 +115,17 @@ export default function CobrancaPage() {
     }
 
     if (status !== 'todos') {
-      if (status === 'SEM DÉBITO') {
-        // Show clients/orders with 'SEM DÉBITO' status
-        res.forEach((client) => {
-          client.orders = client.orders.filter((o) => o.status === 'SEM DÉBITO')
+      res.forEach((client) => {
+        client.orders.forEach((order) => {
+          order.installments = order.installments.filter((inst) => {
+            if (status === 'SEM DÉBITO') return inst.status === 'PAGO' // Treat as 'PAGO' in this context? Or strict
+            if (status === 'A VENCER' || status === 'VENCIDO')
+              return inst.status === status
+            return true
+          })
         })
-      } else {
-        // For 'A VENCER' or 'VENCIDO'
-        res.forEach((client) => {
-          client.orders = client.orders.filter((o) => o.status === status)
-        })
-      }
+        client.orders = client.orders.filter((o) => o.installments.length > 0)
+      })
       res = res.filter((c) => c.orders.length > 0)
     }
 
@@ -155,19 +141,41 @@ export default function CobrancaPage() {
     applyFilters(data, searchTerm, statusFilter, typeFilter, vencimentoFilter)
   }, [searchTerm, statusFilter, typeFilter, vencimentoFilter, data])
 
-  // Summary Metrics based on filtered orders
+  // Summary Metrics based on filtered orders/installments
   const totalReceivable = filteredData.reduce(
-    (acc, c) => acc + c.orders.reduce((oAcc, o) => oAcc + o.remainingValue, 0),
+    (acc, c) =>
+      acc +
+      c.orders.reduce(
+        (oAcc, o) =>
+          oAcc +
+          o.installments.reduce(
+            (iAcc, i) =>
+              iAcc +
+              (i.status !== 'PAGO' ? i.valorRegistrado - i.valorPago : 0),
+            0,
+          ),
+        0,
+      ),
     0,
   )
 
   const countVencidos = filteredData.reduce(
-    (acc, c) => acc + c.orders.filter((o) => o.status === 'VENCIDO').length,
+    (acc, c) =>
+      acc +
+      c.orders.reduce(
+        (oAcc, o) =>
+          oAcc + o.installments.filter((i) => i.status === 'VENCIDO').length,
+        0,
+      ),
     0,
   )
 
-  // Count total displayed orders (rows)
-  const totalOrders = filteredData.reduce((acc, c) => acc + c.orders.length, 0)
+  // Count total displayed rows (installments)
+  const totalRows = filteredData.reduce(
+    (acc, c) =>
+      acc + c.orders.reduce((oAcc, o) => oAcc + o.installments.length, 0),
+    0,
+  )
 
   return (
     <div className="space-y-6 animate-fade-in p-2 pb-20 sm:p-0">
@@ -179,7 +187,7 @@ export default function CobrancaPage() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Cobrança</h1>
             <p className="text-muted-foreground">
-              Gestão de inadimplência e monitoramento de débitos.
+              Gestão de inadimplência e monitoramento de parcelas.
             </p>
           </div>
         </div>
@@ -204,26 +212,28 @@ export default function CobrancaPage() {
               R$ {formatCurrency(totalReceivable)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Soma dos débitos listados
+              Soma das parcelas em aberto listadas
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Pedidos Listados
+              Itens Listados
             </CardTitle>
             <Search className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalOrders}</div>
-            <p className="text-xs text-muted-foreground">Pedidos encontrados</p>
+            <div className="text-2xl font-bold">{totalRows}</div>
+            <p className="text-xs text-muted-foreground">
+              Parcelas/Registros encontrados
+            </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Pedidos Vencidos
+              Parcelas Vencidas
             </CardTitle>
             <div className="h-4 w-4 rounded-full bg-red-500" />
           </CardHeader>
@@ -263,7 +273,7 @@ export default function CobrancaPage() {
                   <SelectItem value="todos">Todos Status</SelectItem>
                   <SelectItem value="A VENCER">A Vencer</SelectItem>
                   <SelectItem value="VENCIDO">Vencido</SelectItem>
-                  <SelectItem value="SEM DÉBITO">Sem Débito</SelectItem>
+                  <SelectItem value="SEM DÉBITO">Pago / Sem Débito</SelectItem>
                 </SelectContent>
               </Select>
             </div>

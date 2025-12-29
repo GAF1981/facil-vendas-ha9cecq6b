@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase/client'
-import { ClientDebt, OrderDebt } from '@/types/cobranca'
+import { ClientDebt, OrderDebt, Receivable } from '@/types/cobranca'
 import { parseCurrency } from '@/lib/formatters'
 import { isBefore, parseISO, startOfDay } from 'date-fns'
 import { PaymentEntry } from '@/types/payment'
@@ -16,10 +16,13 @@ export const cobrancaService = {
 
     if (dbError) throw dbError
 
-    // 2. Fetch data from RECEBIMENTOS
+    // 2. Fetch data from RECEBIMENTOS (Granular rows)
+    // Renamed data_pagamento to vencimento
     const { data: recData, error: recError } = await supabase
       .from('RECEBIMENTOS')
-      .select('venda_id, valor_pago, data_pagamento')
+      .select(
+        'id, venda_id, valor_pago, vencimento, valor_registrado, forma_pagamento',
+      )
 
     if (recError) throw recError
 
@@ -42,16 +45,49 @@ export const cobrancaService = {
       }
     }
 
-    // 4. Aggregate Payments by Order ID
-    const paymentsMap = new Map<number, { total: number; history: any[] }>()
+    // 4. Aggregate Payments and Installments by Order ID
+    const paymentsMap = new Map<
+      number,
+      { total: number; history: any[]; installments: Receivable[] }
+    >()
+    const today = startOfDay(new Date())
+
     recData?.forEach((r) => {
       const pid = r.venda_id
       if (!paymentsMap.has(pid)) {
-        paymentsMap.set(pid, { total: 0, history: [] })
+        paymentsMap.set(pid, { total: 0, history: [], installments: [] })
       }
       const entry = paymentsMap.get(pid)!
-      entry.total += r.valor_pago
-      entry.history.push({ date: r.data_pagamento, value: r.valor_pago })
+
+      // History of payments (only if paid > 0)
+      if (r.valor_pago > 0) {
+        entry.total += r.valor_pago
+        entry.history.push({ date: r.vencimento, value: r.valor_pago })
+      }
+
+      // Granular Installment/Row Logic
+      const valorRegistrado = r.valor_registrado ?? 0
+      const valorPago = r.valor_pago ?? 0
+      let status: 'VENCIDO' | 'A VENCER' | 'PAGO' = 'A VENCER'
+
+      if (valorPago >= valorRegistrado && valorRegistrado > 0) {
+        status = 'PAGO'
+      } else if (
+        r.vencimento &&
+        isBefore(parseISO(r.vencimento), today) &&
+        valorPago < valorRegistrado
+      ) {
+        status = 'VENCIDO'
+      }
+
+      entry.installments.push({
+        id: r.id,
+        vencimento: r.vencimento,
+        valorRegistrado: valorRegistrado,
+        valorPago: valorPago,
+        formaPagamento: r.forma_pagamento,
+        status,
+      })
     })
 
     // 5. Aggregate Sales items into Orders
@@ -71,9 +107,9 @@ export const cobrancaService = {
           discountStr: row['DESCONTO POR GRUPO'],
           paymentDetailsJSON: row['DETALHES_PAGAMENTO'],
           totalValorDevido: 0,
-          formaPagamento: row['FORMA'] || 'N/D', // New
-          formaCobranca: row['forma_cobranca'], // New
-          dataCombinada: row['data_combinada'], // New
+          formaPagamento: row['FORMA'] || 'N/D',
+          formaCobranca: row['forma_cobranca'],
+          dataCombinada: row['data_combinada'],
         })
       }
       const order = ordersMap.get(oid)
@@ -86,7 +122,6 @@ export const cobrancaService = {
 
     // 6. Process Orders to calculate Debt and Status per Client
     const clientsMap = new Map<number, ClientDebt>()
-    const today = startOfDay(new Date())
 
     ordersMap.forEach((order) => {
       // Calculate Net Value
@@ -104,65 +139,56 @@ export const cobrancaService = {
         netValue = order.rawTotal - discountAmount
       }
 
-      // Get Paid Amount
+      // Get Paid Amount and Installments
       const paymentInfo = paymentsMap.get(order.orderId) || {
         total: 0,
         history: [],
+        installments: [],
       }
       const paidValue = paymentInfo.total
       const remaining = netValue - paidValue
+      let installments = paymentInfo.installments
 
-      // Logic updated: Include ALL orders, even paid ones
-      let status: 'VENCIDO' | 'A VENCER' | 'SEM DÉBITO' = 'A VENCER'
+      // Fallback: If no installments found in RECEBIMENTOS, create a synthetic one from Order
+      if (installments.length === 0) {
+        installments.push({
+          id: -order.orderId, // Temp ID
+          vencimento: order.date, // Default to order date
+          valorRegistrado: netValue,
+          valorPago: paidValue,
+          formaPagamento: order.formaPagamento,
+          status:
+            remaining > 0.05
+              ? isBefore(parseISO(order.date), today)
+                ? 'VENCIDO'
+                : 'A VENCER'
+              : 'PAGO',
+        })
+      } else {
+        // Sort installments by vencimento
+        installments.sort((a, b) => {
+          if (!a.vencimento) return 1
+          if (!b.vencimento) return -1
+          return (
+            new Date(a.vencimento).getTime() - new Date(b.vencimento).getTime()
+          )
+        })
+      }
+
+      // Determine Order Status based on installments
+      let status: 'VENCIDO' | 'A VENCER' | 'SEM DÉBITO' = 'SEM DÉBITO'
       let oldestOverdue: string | null = null
 
-      if (remaining <= 0.05) {
-        status = 'SEM DÉBITO'
-      } else {
-        const expectedPayments: { date: Date; value: number }[] = []
-        const details = order.paymentDetailsJSON as PaymentEntry[] | null
-
-        if (details && Array.isArray(details)) {
-          details.forEach((p) => {
-            if (p.installments > 1 && p.details) {
-              p.details.forEach((d) => {
-                if (d.dueDate) {
-                  expectedPayments.push({
-                    date: parseISO(d.dueDate),
-                    value: d.value,
-                  })
-                }
-              })
-            } else {
-              if (p.dueDate) {
-                expectedPayments.push({
-                  date: parseISO(p.dueDate),
-                  value: p.value,
-                })
-              }
-            }
-          })
-        }
-
-        expectedPayments.sort((a, b) => a.date.getTime() - b.date.getTime())
-
-        let availablePayment = paidValue
-        let isOverdue = false
-
-        for (const expected of expectedPayments) {
-          if (availablePayment >= expected.value - 0.01) {
-            availablePayment -= expected.value
-          } else {
-            if (isBefore(expected.date, today)) {
-              isOverdue = true
-              if (!oldestOverdue) oldestOverdue = expected.date.toISOString()
-            }
-            availablePayment = 0
-          }
-        }
-
-        if (expectedPayments.length > 0 && isOverdue) {
+      if (remaining > 0.05) {
+        status = 'A VENCER' // Default if debt exists
+        // Check if any installment is overdue
+        const hasOverdue = installments.some((i) => i.status === 'VENCIDO')
+        if (hasOverdue) {
           status = 'VENCIDO'
+          const overdueItem = installments.find((i) => i.status === 'VENCIDO')
+          if (overdueItem && overdueItem.vencimento) {
+            oldestOverdue = overdueItem.vencimento
+          }
         }
       }
 
@@ -177,9 +203,10 @@ export const cobrancaService = {
         status: status,
         paymentDetails: order.paymentDetailsJSON || [],
         paymentsMade: paymentInfo.history,
+        installments: installments, // Added
         oldestOverdueDate: oldestOverdue,
         formaPagamento: order.formaPagamento,
-        valorDevido: netValue, // "Valor Devido" specific to this order
+        valorDevido: netValue,
         formaCobranca: order.formaCobranca,
         dataCombinada: order.dataCombinada,
       }
@@ -210,11 +237,6 @@ export const cobrancaService = {
         clientDebt.status = 'VENCIDO'
       } else if (status === 'A VENCER' && clientDebt.status !== 'VENCIDO') {
         clientDebt.status = 'A VENCER'
-      } else if (
-        status === 'SEM DÉBITO' &&
-        clientDebt.status === 'SEM DÉBITO'
-      ) {
-        // Keep SEM DÉBITO if all orders are so
       }
 
       if (order.date > clientDebt.lastAcertoDate) {
