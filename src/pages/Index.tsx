@@ -60,6 +60,13 @@ const Index = () => {
       color: 'text-emerald-600',
     },
     {
+      title: 'Cobrança',
+      description: 'Gestão de inadimplência',
+      icon: CreditCard,
+      to: '/cobranca',
+      color: 'text-red-600',
+    },
+    {
       title: 'Nota Fiscal',
       description: 'Emissão de NF-e',
       icon: FileText,
@@ -72,13 +79,6 @@ const Index = () => {
       icon: Wallet,
       to: '/caixa',
       color: 'text-green-600',
-    },
-    {
-      title: 'Cobrança',
-      description: 'Gestão de cobranças',
-      icon: CreditCard,
-      to: '/cobranca',
-      color: 'text-red-600',
     },
     {
       title: 'Inventário',

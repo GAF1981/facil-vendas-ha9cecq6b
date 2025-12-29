@@ -17,6 +17,7 @@ import PlaceholderModule from '@/pages/PlaceholderModule'
 import LoginPage from '@/pages/auth/LoginPage'
 import AcertoPage from '@/pages/acerto/AcertoPage'
 import RecebimentoPage from '@/pages/recebimento/RecebimentoPage'
+import CobrancaPage from '@/pages/cobranca/CobrancaPage'
 import { AuthProvider } from '@/hooks/use-auth'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 
@@ -58,11 +59,13 @@ const App = () => (
               {/* Recebimento Module */}
               <Route path="/recebimento" element={<RecebimentoPage />} />
 
+              {/* Cobranca Module (NEW) */}
+              <Route path="/cobranca" element={<CobrancaPage />} />
+
               {/* New Modules Routes */}
               <Route path="/complemento" element={<PlaceholderModule />} />
               <Route path="/nota-fiscal" element={<PlaceholderModule />} />
               <Route path="/caixa" element={<PlaceholderModule />} />
-              <Route path="/cobranca" element={<PlaceholderModule />} />
               <Route path="/inventario" element={<PlaceholderModule />} />
               <Route path="/rota" element={<PlaceholderModule />} />
               <Route path="/relatorio" element={<PlaceholderModule />} />

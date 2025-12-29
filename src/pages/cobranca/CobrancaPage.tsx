@@ -1,0 +1,203 @@
+import { useEffect, useState } from 'react'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
+import { CreditCard, Search, RefreshCw, Loader2 } from 'lucide-react'
+import { DebtTable } from '@/components/cobranca/DebtTable'
+import { cobrancaService } from '@/services/cobrancaService'
+import { ClientDebt } from '@/types/cobranca'
+import { useToast } from '@/hooks/use-toast'
+import { formatCurrency } from '@/lib/formatters'
+
+export default function CobrancaPage() {
+  const [loading, setLoading] = useState(true)
+  const [data, setData] = useState<ClientDebt[]>([])
+  const [filteredData, setFilteredData] = useState<ClientDebt[]>([])
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>('todos')
+  const { toast } = useToast()
+
+  const fetchDebts = async () => {
+    setLoading(true)
+    try {
+      const result = await cobrancaService.getDebts()
+      setData(result)
+      applyFilters(result, searchTerm, statusFilter)
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: 'Erro ao carregar cobranças',
+        description: 'Não foi possível carregar a lista de débitos.',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchDebts()
+  }, [])
+
+  const applyFilters = (
+    source: ClientDebt[],
+    search: string,
+    status: string,
+  ) => {
+    let res = [...source]
+
+    if (search.trim()) {
+      const lowerSearch = search.toLowerCase()
+      res = res.filter(
+        (c) =>
+          c.clientName.toLowerCase().includes(lowerSearch) ||
+          c.clientId.toString().includes(lowerSearch),
+      )
+    }
+
+    if (status !== 'todos') {
+      res = res.filter((c) => c.status === status)
+    }
+
+    setFilteredData(res)
+  }
+
+  // Handle filter changes
+  useEffect(() => {
+    applyFilters(data, searchTerm, statusFilter)
+  }, [searchTerm, statusFilter, data])
+
+  // Summary Metrics
+  const totalReceivable = filteredData.reduce((acc, c) => acc + c.totalDebt, 0)
+  const countVencidos = filteredData.filter(
+    (c) => c.status === 'VENCIDO',
+  ).length
+
+  return (
+    <div className="space-y-6 animate-fade-in p-2 pb-20 sm:p-0">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-red-100 text-red-700 rounded-lg shrink-0">
+            <CreditCard className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Cobrança</h1>
+            <p className="text-muted-foreground">
+              Gestão de inadimplência e monitoramento de débitos.
+            </p>
+          </div>
+        </div>
+        <Button variant="outline" onClick={fetchDebts} disabled={loading}>
+          <RefreshCw
+            className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+          />
+          Atualizar
+        </Button>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Total a Receber (Filtro)
+            </CardTitle>
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              R$ {formatCurrency(totalReceivable)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Soma dos débitos listados abaixo
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Clientes Listados
+            </CardTitle>
+            <Search className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{filteredData.length}</div>
+            <p className="text-xs text-muted-foreground">
+              Clientes com pendências
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Situação Crítica
+            </CardTitle>
+            <div className="h-4 w-4 rounded-full bg-red-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">
+              {countVencidos}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Clientes com status VENCIDO
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Filtros e Busca</CardTitle>
+          <CardDescription>
+            Refine a lista de clientes para focar nas cobranças prioritárias.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome ou código..."
+                className="pl-8"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="w-full md:w-[200px]">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="A VENCER">A Vencer</SelectItem>
+                  <SelectItem value="VENCIDO">Vencido</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {loading && data.length === 0 ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : (
+        <DebtTable data={filteredData} />
+      )}
+    </div>
+  )
+}

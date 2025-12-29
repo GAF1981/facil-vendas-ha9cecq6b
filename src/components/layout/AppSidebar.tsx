@@ -70,6 +70,11 @@ export function AppSidebar() {
       icon: ArrowDownCircle,
     },
     {
+      title: 'Cobrança',
+      url: '/cobranca',
+      icon: CreditCard,
+    },
+    {
       title: 'Nota Fiscal',
       url: '/nota-fiscal',
       icon: FileText,
@@ -78,11 +83,6 @@ export function AppSidebar() {
       title: 'Caixa',
       url: '/caixa',
       icon: Wallet,
-    },
-    {
-      title: 'Cobrança',
-      url: '/cobranca',
-      icon: CreditCard,
     },
     {
       title: 'Inventário',
