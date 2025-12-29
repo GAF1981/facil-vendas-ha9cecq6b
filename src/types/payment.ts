@@ -13,7 +13,7 @@ export interface PaymentEntry {
   installments: number
   dueDate: string
   details?: PaymentInstallment[] // For granular control
-  autoFill?: boolean // Controls auto-fill logic for Valor Pago
+  // autoFill removed as per requirement
 }
 
 export const PAYMENT_METHODS: PaymentMethodType[] = [

@@ -3,12 +3,20 @@ import { ClientTable } from '@/components/clients/ClientTable'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   Plus,
   Search,
   Loader2,
   ChevronLeft,
   ChevronRight,
   ArrowLeft,
+  Filter,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
@@ -20,6 +28,7 @@ const ClientsPage = () => {
   const [clients, setClients] = useState<ClientRow[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [typeFilter, setTypeFilter] = useState<string>('ATIVO') // Default to ATIVO
   const [page, setPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const [pageSize] = useState(20)
@@ -35,10 +44,10 @@ const ClientsPage = () => {
     return () => clearTimeout(timer)
   }, [searchTerm])
 
-  // Reset page when search changes
+  // Reset page when search or filter changes
   useEffect(() => {
     setPage(1)
-  }, [debouncedSearch])
+  }, [debouncedSearch, typeFilter])
 
   const fetchClients = useCallback(async () => {
     setLoading(true)
@@ -47,6 +56,7 @@ const ClientsPage = () => {
         page,
         pageSize,
         debouncedSearch,
+        typeFilter,
       )
       setClients(data)
       setTotalCount(count)
@@ -59,7 +69,7 @@ const ClientsPage = () => {
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, debouncedSearch, toast])
+  }, [page, pageSize, debouncedSearch, typeFilter, toast])
 
   useEffect(() => {
     fetchClients()
@@ -95,8 +105,8 @@ const ClientsPage = () => {
         </Button>
       </div>
 
-      <div className="flex items-center bg-card p-4 rounded-lg border shadow-sm">
-        <div className="relative w-full max-w-sm">
+      <div className="flex flex-col sm:flex-row gap-4 bg-card p-4 rounded-lg border shadow-sm">
+        <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por código ou nome..."
@@ -104,6 +114,20 @@ const ClientsPage = () => {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
+        </div>
+        <div className="w-full sm:w-[200px]">
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger>
+              <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
+              <SelectValue placeholder="Tipo de Cliente" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="ATIVO">Ativo</SelectItem>
+              <SelectItem value="INATIVO">Inativo</SelectItem>
+              <SelectItem value="BLOQUEADO">Bloqueado</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

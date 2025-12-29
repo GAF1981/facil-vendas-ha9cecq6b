@@ -414,6 +414,18 @@ export default function AcertoPage() {
       return false
     }
 
+    // 3. STRICT Validation for Negative Debt caused by Paid Value
+    // If Total Paid > Total Acerto, Debito becomes negative.
+    if (!isCaptacao && totalPaid > valorAcerto + 0.01) {
+      toast({
+        title: 'Pagamento Excedente',
+        description:
+          'O valor total pago não pode exceder o valor do acerto. O débito não pode ser menor que zero.',
+        variant: 'destructive',
+      })
+      return false
+    }
+
     return true
   }
 

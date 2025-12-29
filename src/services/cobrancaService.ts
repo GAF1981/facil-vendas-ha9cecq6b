@@ -7,11 +7,10 @@ import { PaymentEntry } from '@/types/payment'
 export const cobrancaService = {
   async getDebts(): Promise<ClientDebt[]> {
     // 1. Fetch data from BANCO_DE_DADOS
-    // We select only necessary columns to optimize performance
     const { data: dbData, error: dbError } = await supabase
       .from('BANCO_DE_DADOS')
       .select(
-        '"NÚMERO DO PEDIDO", "CÓDIGO DO CLIENTE", "CLIENTE", "VALOR VENDIDO", "DESCONTO POR GRUPO", "DATA DO ACERTO", "DETALHES_PAGAMENTO"',
+        '"NÚMERO DO PEDIDO", "CÓDIGO DO CLIENTE", "CLIENTE", "VALOR VENDIDO", "DESCONTO POR GRUPO", "DATA DO ACERTO", "DETALHES_PAGAMENTO", "VALOR DEVIDO"',
       )
       .not('NÚMERO DO PEDIDO', 'is', null)
 
@@ -24,7 +23,28 @@ export const cobrancaService = {
 
     if (recError) throw recError
 
-    // 3. Aggregate Payments by Order ID
+    // 3. Fetch Client Types efficiently
+    // Extract unique client IDs from transactions
+    const clientIds = [
+      ...new Set(dbData?.map((r) => r['CÓDIGO DO CLIENTE']) || []),
+    ] as number[]
+
+    // Fetch details for these clients
+    let clientTypesMap = new Map<number, string>()
+    if (clientIds.length > 0) {
+      const { data: clientData, error: clientError } = await supabase
+        .from('CLIENTES')
+        .select('CODIGO, "TIPO DE CLIENTE"')
+        .in('CODIGO', clientIds)
+
+      if (!clientError && clientData) {
+        clientData.forEach((c) => {
+          clientTypesMap.set(c.CODIGO, c['TIPO DE CLIENTE'] || 'N/D')
+        })
+      }
+    }
+
+    // 4. Aggregate Payments by Order ID
     const paymentsMap = new Map<number, { total: number; history: any[] }>()
     recData?.forEach((r) => {
       const pid = r.venda_id
@@ -36,7 +56,7 @@ export const cobrancaService = {
       entry.history.push({ date: r.data_pagamento, value: r.valor_pago })
     })
 
-    // 4. Aggregate Sales items into Orders
+    // 5. Aggregate Sales items into Orders
     const ordersMap = new Map<number, any>()
 
     dbData?.forEach((row) => {
@@ -52,23 +72,44 @@ export const cobrancaService = {
           rawTotal: 0,
           discountStr: row['DESCONTO POR GRUPO'],
           paymentDetailsJSON: row['DETALHES_PAGAMENTO'],
+          // Accumulate VALOR DEVIDO if present
+          totalValorDevido: 0,
         })
       }
       const order = ordersMap.get(oid)
       order.rawTotal += parseCurrency(row['VALOR VENDIDO'])
+
+      // Accumulate new column if exists
+      if (row['VALOR DEVIDO'] !== null && row['VALOR DEVIDO'] !== undefined) {
+        order.totalValorDevido += row['VALOR DEVIDO']
+      } else {
+        // Fallback if null (shouldn't happen with migration, but safety)
+        // We will calculate later if this remains 0 and no rows had it
+      }
     })
 
-    // 5. Process Orders to calculate Debt and Status per Client
+    // 6. Process Orders to calculate Debt and Status per Client
     const clientsMap = new Map<number, ClientDebt>()
     const today = startOfDay(new Date())
 
     ordersMap.forEach((order) => {
-      // Calculate Net Value (Apply Discount)
-      const descontoStr = order.discountStr || '0'
-      const descontoVal = parseCurrency(descontoStr.replace('%', ''))
-      const discountFactor = descontoVal > 1 ? descontoVal / 100 : descontoVal
-      const discountAmount = order.rawTotal * discountFactor
-      const netValue = order.rawTotal - discountAmount
+      // Calculate Net Value
+      // If totalValorDevido is > 0, use it (from column).
+      // Else, fallback to calculation (Total - Discount).
+      let netValue = 0
+      let discountAmount = 0
+
+      if (order.totalValorDevido > 0.001) {
+        netValue = order.totalValorDevido
+        // Back-calculate discount for display
+        discountAmount = order.rawTotal - netValue
+      } else {
+        const descontoStr = order.discountStr || '0'
+        const descontoVal = parseCurrency(descontoStr.replace('%', ''))
+        const discountFactor = descontoVal > 1 ? descontoVal / 100 : descontoVal
+        discountAmount = order.rawTotal * discountFactor
+        netValue = order.rawTotal - discountAmount
+      }
 
       // Get Paid Amount
       const paymentInfo = paymentsMap.get(order.orderId) || {
@@ -79,13 +120,11 @@ export const cobrancaService = {
       const remaining = netValue - paidValue
 
       // Only consider orders with actual remaining debt
-      // Using 0.05 as epsilon to avoid floating point issues
       if (remaining > 0.05) {
         // Determine Status based on payment schedule
         let status: 'VENCIDO' | 'A VENCER' = 'A VENCER'
         let oldestOverdue: string | null = null
 
-        // Flatten expected installments from DETALHES_PAGAMENTO
         const expectedPayments: { date: Date; value: number }[] = []
         const details = order.paymentDetailsJSON as PaymentEntry[] | null
 
@@ -111,26 +150,19 @@ export const cobrancaService = {
           })
         }
 
-        // Sort expected payments by date
         expectedPayments.sort((a, b) => a.date.getTime() - b.date.getTime())
 
-        // Logic: Fill expected payments buckets with available paid amount
         let availablePayment = paidValue
         let isOverdue = false
 
         for (const expected of expectedPayments) {
           if (availablePayment >= expected.value - 0.01) {
-            // This installment is covered
             availablePayment -= expected.value
           } else {
-            // Partially paid or unpaid
-            // Check if this installment is overdue
             if (isBefore(expected.date, today)) {
               isOverdue = true
               if (!oldestOverdue) oldestOverdue = expected.date.toISOString()
             }
-            // If even one installment is not fully covered and overdue, the order is overdue
-            // Consume remaining available payment (if any) and continue checking
             availablePayment = 0
           }
         }
@@ -139,7 +171,6 @@ export const cobrancaService = {
           status = 'VENCIDO'
         }
 
-        // Construct OrderDebt object
         const orderObj: OrderDebt = {
           orderId: order.orderId,
           date: order.date,
@@ -154,14 +185,14 @@ export const cobrancaService = {
           oldestOverdueDate: oldestOverdue,
         }
 
-        // Aggregate to Client
         if (!clientsMap.has(order.clientId)) {
           clientsMap.set(order.clientId, {
             clientId: order.clientId,
             clientName: order.clientName || `Cliente ${order.clientId}`,
+            clientType: clientTypesMap.get(order.clientId) || 'N/D',
             totalDebt: 0,
             orderCount: 0,
-            status: 'A VENCER', // Default, will upgrade to VENCIDO if any order is overdue
+            status: 'A VENCER',
             lastAcertoDate: order.date,
             oldestOverdueDate: null,
             orders: [],
@@ -173,17 +204,14 @@ export const cobrancaService = {
         clientDebt.orderCount += 1
         clientDebt.orders.push(orderObj)
 
-        // Upgrade Client Status if this order is overdue
         if (status === 'VENCIDO') {
           clientDebt.status = 'VENCIDO'
         }
 
-        // Update latest Acerto date
         if (order.date > clientDebt.lastAcertoDate) {
           clientDebt.lastAcertoDate = order.date
         }
 
-        // Update oldest overdue date (min)
         if (oldestOverdue) {
           if (
             !clientDebt.oldestOverdueDate ||
@@ -195,7 +223,6 @@ export const cobrancaService = {
       }
     })
 
-    // Convert map to array and sort by status (VENCIDO first) then Total Debt
     return Array.from(clientsMap.values()).sort((a, b) => {
       if (a.status === 'VENCIDO' && b.status !== 'VENCIDO') return -1
       if (a.status !== 'VENCIDO' && b.status === 'VENCIDO') return 1

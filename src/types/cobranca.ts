@@ -17,6 +17,7 @@ export interface OrderDebt {
 export interface ClientDebt {
   clientId: number
   clientName: string
+  clientType: string // Added client type
   totalDebt: number
   orderCount: number
   status: 'VENCIDO' | 'A VENCER'

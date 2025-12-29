@@ -2,11 +2,12 @@ import { supabase } from '@/lib/supabase/client'
 import { ClientRow, ClientInsert, ClientUpdate } from '@/types/client'
 
 export const clientsService = {
-  // Now supports pagination and search optimized for CODIGO and NOME CLIENTE
+  // Now supports filtering by TIPO DE CLIENTE
   async getClients(
     page: number = 1,
     pageSize: number = 20,
     search: string = '',
+    typeFilter: string | 'all' = 'all',
   ) {
     let query = supabase.from('CLIENTES').select('*', { count: 'exact' })
 
@@ -21,6 +22,11 @@ export const clientsService = {
       } else {
         query = query.ilike('NOME CLIENTE', `%${searchTerm}%`)
       }
+    }
+
+    if (typeFilter && typeFilter !== 'all') {
+      // Assuming the column is "TIPO DE CLIENTE"
+      query = query.eq('TIPO DE CLIENTE', typeFilter)
     }
 
     const from = (page - 1) * pageSize

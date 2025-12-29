@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { CreditCard, Search, RefreshCw, Loader2 } from 'lucide-react'
+import { CreditCard, Search, RefreshCw, Loader2, Filter } from 'lucide-react'
 import { DebtTable } from '@/components/cobranca/DebtTable'
 import { cobrancaService } from '@/services/cobrancaService'
 import { ClientDebt } from '@/types/cobranca'
@@ -28,6 +28,7 @@ export default function CobrancaPage() {
   const [filteredData, setFilteredData] = useState<ClientDebt[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('todos')
+  const [typeFilter, setTypeFilter] = useState<string>('all') // New client type filter
   const { toast } = useToast()
 
   const fetchDebts = async () => {
@@ -35,7 +36,7 @@ export default function CobrancaPage() {
     try {
       const result = await cobrancaService.getDebts()
       setData(result)
-      applyFilters(result, searchTerm, statusFilter)
+      applyFilters(result, searchTerm, statusFilter, typeFilter)
     } catch (error) {
       console.error(error)
       toast({
@@ -56,6 +57,7 @@ export default function CobrancaPage() {
     source: ClientDebt[],
     search: string,
     status: string,
+    type: string,
   ) => {
     let res = [...source]
 
@@ -72,13 +74,17 @@ export default function CobrancaPage() {
       res = res.filter((c) => c.status === status)
     }
 
+    if (type !== 'all') {
+      res = res.filter((c) => c.clientType === type)
+    }
+
     setFilteredData(res)
   }
 
   // Handle filter changes
   useEffect(() => {
-    applyFilters(data, searchTerm, statusFilter)
-  }, [searchTerm, statusFilter, data])
+    applyFilters(data, searchTerm, statusFilter, typeFilter)
+  }, [searchTerm, statusFilter, typeFilter, data])
 
   // Summary Metrics
   const totalReceivable = filteredData.reduce((acc, c) => acc + c.totalDebt, 0)
@@ -184,6 +190,20 @@ export default function CobrancaPage() {
                   <SelectItem value="todos">Todos</SelectItem>
                   <SelectItem value="A VENCER">A Vencer</SelectItem>
                   <SelectItem value="VENCIDO">Vencido</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-full md:w-[200px]">
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger>
+                  <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
+                  <SelectValue placeholder="Tipo de Cliente" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos Tipos</SelectItem>
+                  <SelectItem value="ATIVO">Ativo</SelectItem>
+                  <SelectItem value="INATIVO">Inativo</SelectItem>
+                  <SelectItem value="BLOQUEADO">Bloqueado</SelectItem>
                 </SelectContent>
               </Select>
             </div>

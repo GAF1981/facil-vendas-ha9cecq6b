@@ -31,6 +31,7 @@ import {
 import { useState } from 'react'
 import { ClientRow } from '@/types/client'
 import { clientsService } from '@/services/clientsService'
+import { Badge } from '@/components/ui/badge'
 
 interface ClientTableProps {
   clients: ClientRow[]
@@ -70,6 +71,7 @@ export function ClientTable({ clients, onUpdate }: ClientTableProps) {
             <TableRow>
               <TableHead className="w-[80px]">Código</TableHead>
               <TableHead>Nome</TableHead>
+              <TableHead>Tipo</TableHead>
               <TableHead className="hidden md:table-cell">CPF/CNPJ</TableHead>
               <TableHead className="hidden lg:table-cell">Cidade</TableHead>
               <TableHead className="hidden md:table-cell">Telefone</TableHead>
@@ -92,6 +94,18 @@ export function ClientTable({ clients, onUpdate }: ClientTableProps) {
                       {client.CNPJ || '-'}
                     </span>
                   </div>
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    variant={
+                      client['TIPO DE CLIENTE'] === 'ATIVO'
+                        ? 'default'
+                        : 'secondary'
+                    }
+                    className="text-xs"
+                  >
+                    {client['TIPO DE CLIENTE'] || 'N/D'}
+                  </Badge>
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
                   {client.CNPJ || '-'}

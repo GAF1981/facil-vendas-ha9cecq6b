@@ -456,6 +456,11 @@ export const bancoDeDadosService = {
       const valorConsignadoCustoVal =
         valorConsignadoVendaVal - valorConsignadoVendaVal * discountFactor
 
+      // Calculate VALOR DEVIDO per item
+      // Logic: (Item Sales Value) - (Item Sales Value * Discount)
+      // This distributes the debt proportionally to items
+      const itemDebt = valorVendidoVal * (1 - discountFactor)
+
       return {
         'ID VENDA ITENS': item.idVendaItens,
         'NÚMERO DO PEDIDO': nextPedido,
@@ -485,6 +490,7 @@ export const bancoDeDadosService = {
         'VALOR CONSIGNADO TOTAL (Custo)': formatCurrency(
           valorConsignadoCustoVal,
         ),
+        'VALOR DEVIDO': itemDebt, // Populate new column
         DETALHES_PAGAMENTO: payments,
       }
     })
@@ -526,7 +532,7 @@ export const bancoDeDadosService = {
           cliente_id: client.CODIGO,
           funcionario_id: employee.id,
           forma_pagamento: payment.method,
-          valor_pago: payment.paidValue, // Using Paid Value instead of Registered Value
+          valor_pago: payment.paidValue, // Manual entry required now
           // Use dueDate if available (set to 12:00 to avoid timezone issues), otherwise now
           data_pagamento: payment.dueDate
             ? new Date(`${payment.dueDate}T12:00:00`).toISOString()
