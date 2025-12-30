@@ -1,9 +1,8 @@
 import { supabase } from '@/lib/supabase/client'
 import { Rota, RotaItem } from '@/types/rota'
-import { ClientRow } from '@/types/client'
 import { cobrancaService } from './cobrancaService'
 import { pendenciasService } from './pendenciasService'
-import { differenceInDays, parseISO } from 'date-fns'
+import { parseISO } from 'date-fns'
 import { parseCurrency } from '@/lib/formatters'
 
 export const rotaService = {
@@ -73,7 +72,6 @@ export const rotaService = {
   async upsertRotaItem(
     item: Partial<RotaItem> & { rota_id: number; cliente_id: number },
   ) {
-    // Check if exists
     const { data: existing, error: fetchError } = await supabase
       .from('ROTA_ITEMS')
       .select('id')
@@ -103,6 +101,21 @@ export const rotaService = {
     }
   },
 
+  async getClientProjections() {
+    const { data, error } = await supabase.rpc('get_client_projections')
+    if (error) {
+      console.error('Error calculating projections:', error)
+      return new Map<number, number>()
+    }
+    const map = new Map<number, number>()
+    if (data) {
+      ;(data as any[]).forEach((d) => {
+        map.set(d.client_id, d.projecao)
+      })
+    }
+    return map
+  },
+
   async getFullRotaData(rota: Rota | null) {
     // 1. Fetch all Clients
     const { data: clients, error: clientsError } = await supabase
@@ -113,9 +126,7 @@ export const rotaService = {
     if (clientsError) throw clientsError
     if (!clients) return []
 
-    // 2. Fetch Debts (This is heavy, but we need it for filtering)
-    // Optimization: cobrancaService.getDebts() fetches everything.
-    // Ideally we should cache or optimize, but we'll reuse it for consistency.
+    // 2. Fetch Debts
     const allDebts = await cobrancaService.getDebts()
     const debtMap = new Map(allDebts.map((d) => [d.clientId, d]))
 
@@ -123,50 +134,30 @@ export const rotaService = {
     const allPendencies = await pendenciasService.getAll(false) // Unresolved
     const pendencyMap = new Set(allPendencies.map((p) => p.cliente_id))
 
-    // 4. Fetch Rota Items (if active rota)
+    // 4. Fetch Rota Items
     let rotaItemsMap = new Map<number, RotaItem>()
     if (rota) {
       const items = await this.getRotaItems(rota.id)
       items.forEach((i) => rotaItemsMap.set(i.cliente_id, i))
     }
 
-    // 5. Fetch Last Acerto Info (Date and Stock)
-    // We can try to use BANCO_DE_DADOS summary
-    // Since we can't easily do complex aggregations without a new view, we might need to rely on
-    // what we have or do separate queries.
-    // Optimization: Get distinct client IDs from debts logic or fetch minimal stats.
-    // For now, let's assume we can fetch basic stats.
-    // We'll iterate clients and calculate projection on the fly if we have the data.
+    // 5. Fetch Projections (Optimized via RPC)
+    const projectionMap = await this.getClientProjections()
 
-    // To make projection work: (Current - Last) * Avg.
-    // We need Last Date and Avg.
-    // debtMap (from cobrancaService) already has 'lastAcertoDate'.
-    // It doesn't have 'average'.
-
-    // Let's do a fetch for average stats for all clients in one go if possible?
-    // Not easy without SQL function.
-    // Fallback: We will fetch recent transactions for calculation or use a placeholder.
-    // Given the constraints, I will implement a simplified projection or perform lazy loading if permitted.
-    // User Story says "Automatic calculation ... in real-time".
-    // I'll fetch summary stats from a custom RPC if I could write one, but I already wrote the migration.
-    // I'll add a helper to fetch basic stats.
-
-    const { data: dbStats, error: dbStatsError } = await supabase
+    // 6. Fetch basic Summary Stats (Latest Date and Stock)
+    // Using simple limit query for now as per legacy logic, but we could improve this later.
+    // For now, we reuse the existing strategy to get Last Date for "Data Acerto" column
+    const { data: dbStats } = await supabase
       .from('BANCO_DE_DADOS')
       .select(
         '"CÓDIGO DO CLIENTE", "DATA DO ACERTO", "SALDO FINAL", "VALOR VENDIDO"',
       )
       .order('"DATA DO ACERTO"', { ascending: false })
-      .limit(2000) // Fetches recent 2000 records to approximate recent activity
+      .limit(2000)
 
-    // Group stats locally
     const statsMap = new Map<
       number,
-      {
-        lastDate: string | null
-        stock: number
-        history: { date: string; value: number }[]
-      }
+      { lastDate: string | null; stock: number; history: any[] }
     >()
 
     dbStats?.forEach((row: any) => {
@@ -176,34 +167,24 @@ export const rotaService = {
       if (!statsMap.has(cid)) {
         statsMap.set(cid, { lastDate: null, stock: 0, history: [] })
       }
-
       const entry = statsMap.get(cid)!
 
-      // Assuming sorted by date desc
       if (!entry.lastDate) {
         entry.lastDate = row['DATA DO ACERTO']
         entry.stock = row['SALDO FINAL'] || 0
       }
-
       entry.history.push({
         date: row['DATA DO ACERTO'],
         value: parseCurrency(row['VALOR VENDIDO']),
       })
     })
 
-    // 6. Check for Completed Status (Green)
-    // If settlement registered between rota start and end (or now if active)
+    // 7. Check for Completed Status
     const completedSet = new Set<number>()
     if (rota) {
       const startDate = parseISO(rota.data_inicio)
       const endDate = rota.data_fim ? parseISO(rota.data_fim) : new Date()
 
-      // We can check statsMap history or fetch specific receipts
-      // Let's use history for simplicity as it covers recent acertos
-      // Ideally we should query RECEBIMENTOS or BANCO_DE_DADOS for range
-
-      // Let's rely on statsMap history for now to avoid another heavy query
-      // It might miss if 2000 limit is hit, but it's a trade-off.
       statsMap.forEach((val, key) => {
         const hasRecent = val.history.some((h) => {
           const d = parseISO(h.date)
@@ -219,33 +200,6 @@ export const rotaService = {
       const rotaItem = rotaItemsMap.get(cid)
       const stats = statsMap.get(cid)
 
-      // Projection Calc
-      let projecao = 0
-      const lastDateStr = stats?.lastDate
-      if (lastDateStr) {
-        const lastDate = parseISO(lastDateStr)
-        const daysSince = differenceInDays(new Date(), lastDate)
-
-        // Calculate Average
-        // Simple monthly average from history
-        // history is mixed, we need to bucket by month
-        // This is a rough approx for "Max of Last 3"
-        // For true accuracy we need more data.
-        // Using average of available history in limit.
-        const history = stats?.history || []
-        if (history.length > 0) {
-          const total = history.reduce((acc, h) => acc + h.value, 0)
-          // Span in months approx
-          const firstDate = parseISO(history[history.length - 1].date)
-          const spanDays =
-            differenceInDays(parseISO(history[0].date), firstDate) || 1
-          const months = Math.max(1, spanDays / 30)
-          const avg = total / months
-
-          projecao = (daysSince / 30) * avg
-        }
-      }
-
       return {
         rowNumber: index + 1,
         client,
@@ -256,7 +210,7 @@ export const rotaService = {
         debito: debtInfo?.totalDebt || 0,
         quant_debito: debtInfo?.orderCount || 0,
         data_acerto: stats?.lastDate || null,
-        projecao,
+        projecao: projectionMap.get(cid) || 0, // Using automated calculation
         estoque: stats?.stock || 0,
         has_pendency: pendencyMap.has(cid),
         is_completed: completedSet.has(cid),

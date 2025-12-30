@@ -49,26 +49,27 @@ export function RotaFilters({
   }
 
   return (
-    <div className="space-y-4 p-4 bg-card border rounded-lg shadow-sm">
+    <div className="space-y-2 p-3 bg-card border rounded-lg shadow-sm">
       <div className="flex justify-between items-center">
-        <h3 className="text-sm font-semibold">Filtros Avançados</h3>
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+          Filtros Avançados
+        </h3>
         <Button
           variant="ghost"
           size="sm"
           onClick={clearFilters}
-          className="h-8"
+          className="h-6 px-2 text-xs"
         >
-          <Eraser className="w-3 h-3 mr-2" /> Limpar
+          <Eraser className="w-3 h-3 mr-1" /> Limpar
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-        {/* Dropdowns */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
         <Select
           value={filters.x_na_rota}
           onValueChange={(v) => handleChange('x_na_rota', v)}
         >
-          <SelectTrigger className="h-8 text-xs">
+          <SelectTrigger className="h-7 text-xs">
             <SelectValue placeholder="x na ROTA" />
           </SelectTrigger>
           <SelectContent>
@@ -84,7 +85,7 @@ export function RotaFilters({
           value={filters.agregado}
           onValueChange={(v) => handleChange('agregado', v)}
         >
-          <SelectTrigger className="h-8 text-xs">
+          <SelectTrigger className="h-7 text-xs">
             <SelectValue placeholder="Agregado" />
           </SelectTrigger>
           <SelectContent>
@@ -98,7 +99,7 @@ export function RotaFilters({
           value={filters.vendedor}
           onValueChange={(v) => handleChange('vendedor', v)}
         >
-          <SelectTrigger className="h-8 text-xs">
+          <SelectTrigger className="h-7 text-xs">
             <SelectValue placeholder="Vendedor" />
           </SelectTrigger>
           <SelectContent>
@@ -115,7 +116,7 @@ export function RotaFilters({
           value={filters.municipio}
           onValueChange={(v) => handleChange('municipio', v)}
         >
-          <SelectTrigger className="h-8 text-xs">
+          <SelectTrigger className="h-7 text-xs">
             <SelectValue placeholder="Município" />
           </SelectTrigger>
           <SelectContent>
@@ -132,7 +133,7 @@ export function RotaFilters({
           value={filters.tipo_cliente}
           onValueChange={(v) => handleChange('tipo_cliente', v)}
         >
-          <SelectTrigger className="h-8 text-xs">
+          <SelectTrigger className="h-7 text-xs">
             <SelectValue placeholder="Tipo de Cliente" />
           </SelectTrigger>
           <SelectContent>
@@ -146,19 +147,20 @@ export function RotaFilters({
         </Select>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-        {/* Ranges */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 pt-1">
         <div className="flex gap-1 items-center">
-          <span className="text-xs w-12 font-medium">Débito:</span>
+          <span className="text-[10px] w-12 font-medium text-muted-foreground">
+            Débito:
+          </span>
           <Input
-            className="h-8 text-xs"
+            className="h-7 text-xs"
             placeholder="Min"
             type="number"
             value={filters.debito_min}
             onChange={(e) => handleChange('debito_min', e.target.value)}
           />
           <Input
-            className="h-8 text-xs"
+            className="h-7 text-xs"
             placeholder="Max"
             type="number"
             value={filters.debito_max}
@@ -167,16 +169,18 @@ export function RotaFilters({
         </div>
 
         <div className="flex gap-1 items-center">
-          <span className="text-xs w-14 font-medium">Projeção:</span>
+          <span className="text-[10px] w-12 font-medium text-muted-foreground">
+            Projeção:
+          </span>
           <Input
-            className="h-8 text-xs"
+            className="h-7 text-xs"
             placeholder="Min"
             type="number"
             value={filters.projecao_min}
             onChange={(e) => handleChange('projecao_min', e.target.value)}
           />
           <Input
-            className="h-8 text-xs"
+            className="h-7 text-xs"
             placeholder="Max"
             type="number"
             value={filters.projecao_max}
@@ -185,16 +189,18 @@ export function RotaFilters({
         </div>
 
         <div className="flex gap-1 items-center">
-          <span className="text-xs w-12 font-medium">Estoque:</span>
+          <span className="text-[10px] w-12 font-medium text-muted-foreground">
+            Estoque:
+          </span>
           <Input
-            className="h-8 text-xs"
+            className="h-7 text-xs"
             placeholder="Min"
             type="number"
             value={filters.estoque_min}
             onChange={(e) => handleChange('estoque_min', e.target.value)}
           />
           <Input
-            className="h-8 text-xs"
+            className="h-7 text-xs"
             placeholder="Max"
             type="number"
             value={filters.estoque_max}
@@ -203,15 +209,17 @@ export function RotaFilters({
         </div>
 
         <div className="flex gap-1 items-center">
-          <span className="text-xs w-12 font-medium">Acerto:</span>
+          <span className="text-[10px] w-12 font-medium text-muted-foreground">
+            Acerto:
+          </span>
           <Input
-            className="h-8 text-xs px-1"
+            className="h-7 text-xs px-1"
             type="date"
             value={filters.data_acerto_start}
             onChange={(e) => handleChange('data_acerto_start', e.target.value)}
           />
           <Input
-            className="h-8 text-xs px-1"
+            className="h-7 text-xs px-1"
             type="date"
             value={filters.data_acerto_end}
             onChange={(e) => handleChange('data_acerto_end', e.target.value)}

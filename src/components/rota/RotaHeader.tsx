@@ -23,59 +23,58 @@ export function RotaHeader({
   const displayRota = activeRota || lastRota
 
   return (
-    <Card className="mb-6 border-l-4 border-l-primary">
-      <CardContent className="p-6 flex flex-col md:flex-row items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">
+    <Card className="border-l-4 border-l-primary shadow-sm bg-muted/20">
+      <CardContent className="p-3 flex flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <h2 className="text-lg font-bold tracking-tight whitespace-nowrap">
             Controle de Rota
           </h2>
           {displayRota ? (
-            <p className="text-muted-foreground mt-1">
-              ID{' '}
-              <span className="font-mono font-bold text-primary">
-                {displayRota.id}
+            <div className="text-sm text-muted-foreground flex items-center gap-2">
+              <span className="bg-primary/10 text-primary px-2 py-0.5 rounded font-mono font-bold">
+                ID {displayRota.id}
               </span>
-              : Rota{' '}
-              {format(
-                parseISO(displayRota.data_inicio),
-                "dd/MM/yyyy 'às' HH:mm",
-                { locale: ptBR },
-              )}
-              {displayRota.data_fim ? (
-                <>
-                  {' '}
-                  a{' '}
-                  {format(
-                    parseISO(displayRota.data_fim),
-                    "dd/MM/yyyy 'às' HH:mm",
-                    { locale: ptBR },
-                  )}
-                </>
-              ) : (
-                <span className="text-green-600 font-medium ml-1">
-                  (Em andamento)
-                </span>
-              )}
-            </p>
+              <span>
+                {format(
+                  parseISO(displayRota.data_inicio),
+                  "dd/MM/yyyy 'às' HH:mm",
+                  { locale: ptBR },
+                )}
+                {displayRota.data_fim ? (
+                  <>
+                    {' a '}
+                    {format(
+                      parseISO(displayRota.data_fim),
+                      "dd/MM/yyyy 'às' HH:mm",
+                      { locale: ptBR },
+                    )}
+                  </>
+                ) : (
+                  <span className="text-green-600 font-semibold ml-1">
+                    (Em andamento)
+                  </span>
+                )}
+              </span>
+            </div>
           ) : (
-            <p className="text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground">
               Nenhuma rota ativa ou recente.
             </p>
           )}
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           {!activeRota ? (
             <Button
               onClick={onStart}
               disabled={loading}
-              size="lg"
-              className="bg-green-600 hover:bg-green-700"
+              size="sm"
+              className="bg-green-600 hover:bg-green-700 h-8"
             >
               {loading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
               ) : (
-                <Play className="mr-2 h-4 w-4" />
+                <Play className="mr-2 h-3 w-3" />
               )}
               Iniciar Rota
             </Button>
@@ -83,13 +82,14 @@ export function RotaHeader({
             <Button
               onClick={onEnd}
               disabled={loading}
-              size="lg"
+              size="sm"
               variant="destructive"
+              className="h-8"
             >
               {loading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
               ) : (
-                <Square className="mr-2 h-4 w-4" />
+                <Square className="mr-2 h-3 w-3" />
               )}
               Finalizar Rota
             </Button>

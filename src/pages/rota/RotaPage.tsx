@@ -43,7 +43,7 @@ export default function RotaPage() {
         const [active, last, empRes] = await Promise.all([
           rotaService.getActiveRota(),
           rotaService.getLastRota(),
-          employeesService.getEmployees(1, 100), // Assuming enough for all sellers
+          employeesService.getEmployees(1, 100),
         ])
         setActiveRota(active)
         setLastRota(last)
@@ -71,9 +71,6 @@ export default function RotaPage() {
     try {
       const newRota = await rotaService.startRota()
       setActiveRota(newRota)
-      // Reset items state or fetch fresh
-      // Since rota just started, previous items are not linked yet unless we copy
-      // For now, we just refresh the view which links new items to new rota ID as they are edited
       toast({ title: 'Rota Iniciada', className: 'bg-green-600 text-white' })
     } catch (error) {
       toast({
@@ -123,7 +120,6 @@ export default function RotaPage() {
       return
     }
 
-    // Optimistic Update
     setRows((prev) =>
       prev.map((r) =>
         r.client.CODIGO === clientId ? { ...r, [field]: value } : r,
@@ -138,7 +134,6 @@ export default function RotaPage() {
       })
     } catch (error) {
       console.error(error)
-      // Revert not implemented for simplicity, but could be added
       toast({
         title: 'Erro',
         description: 'Falha ao salvar alteração.',
@@ -219,31 +214,36 @@ export default function RotaPage() {
   )
 
   return (
-    <div className="space-y-6 animate-fade-in pb-10">
-      <RotaHeader
-        activeRota={activeRota}
-        lastRota={lastRota}
-        onStart={handleStartRota}
-        onEnd={handleEndRota}
-        loading={loading}
-      />
+    <div className="flex flex-col h-[calc(100vh-4rem)] gap-2 p-2 animate-fade-in">
+      <div className="flex-none space-y-2">
+        <RotaHeader
+          activeRota={activeRota}
+          lastRota={lastRota}
+          onStart={handleStartRota}
+          onEnd={handleEndRota}
+          loading={loading}
+        />
 
-      <RotaLegend />
+        <div className="flex flex-col gap-2">
+          <RotaLegend />
+          <RotaFilters
+            filters={filters}
+            setFilters={setFilters}
+            sellers={sellers}
+            municipios={uniqueMunicipios as string[]}
+            clientTypes={uniqueTypes as string[]}
+          />
+        </div>
+      </div>
 
-      <RotaFilters
-        filters={filters}
-        setFilters={setFilters}
-        sellers={sellers}
-        municipios={uniqueMunicipios as string[]}
-        clientTypes={uniqueTypes as string[]}
-      />
-
-      <RotaTable
-        rows={filteredRows}
-        sellers={sellers}
-        onUpdateRow={handleUpdateRow}
-        disabled={!activeRota}
-      />
+      <div className="flex-1 overflow-hidden">
+        <RotaTable
+          rows={filteredRows}
+          sellers={sellers}
+          onUpdateRow={handleUpdateRow}
+          disabled={!activeRota}
+        />
+      </div>
     </div>
   )
 }

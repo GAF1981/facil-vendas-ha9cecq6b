@@ -489,6 +489,76 @@ export type Database = {
           },
         ]
       }
+      ROTA: {
+        Row: {
+          data_fim: string | null
+          data_inicio: string
+          id: number
+        }
+        Insert: {
+          data_fim?: string | null
+          data_inicio: string
+          id?: number
+        }
+        Update: {
+          data_fim?: string | null
+          data_inicio?: string
+          id?: number
+        }
+        Relationships: []
+      }
+      ROTA_ITEMS: {
+        Row: {
+          agregado: boolean | null
+          boleto: boolean | null
+          cliente_id: number | null
+          id: number
+          rota_id: number | null
+          vendedor_id: number | null
+          x_na_rota: number | null
+        }
+        Insert: {
+          agregado?: boolean | null
+          boleto?: boolean | null
+          cliente_id?: number | null
+          id?: number
+          rota_id?: number | null
+          vendedor_id?: number | null
+          x_na_rota?: number | null
+        }
+        Update: {
+          agregado?: boolean | null
+          boleto?: boolean | null
+          cliente_id?: number | null
+          id?: number
+          rota_id?: number | null
+          vendedor_id?: number | null
+          x_na_rota?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'ROTA_ITEMS_cliente_id_fkey'
+            columns: ['cliente_id']
+            isOneToOne: false
+            referencedRelation: 'CLIENTES'
+            referencedColumns: ['CODIGO']
+          },
+          {
+            foreignKeyName: 'ROTA_ITEMS_rota_id_fkey'
+            columns: ['rota_id']
+            isOneToOne: false
+            referencedRelation: 'ROTA'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'ROTA_ITEMS_vendedor_id_fkey'
+            columns: ['vendedor_id']
+            isOneToOne: false
+            referencedRelation: 'FUNCIONARIOS'
+            referencedColumns: ['id']
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
