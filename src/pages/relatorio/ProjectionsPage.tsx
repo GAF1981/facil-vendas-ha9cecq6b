@@ -83,7 +83,7 @@ const ProjectionsPage = () => {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <CardTitle className="text-lg font-medium flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-blue-600" />
-              Histórico de Pedidos Recentes
+              Histórico de Pedidos e Projeções
             </CardTitle>
             <div className="relative w-full sm:w-72">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -102,16 +102,41 @@ const ProjectionsPage = () => {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
-            <div className="rounded-md border overflow-hidden">
+            <div className="rounded-md border overflow-auto max-h-[70vh]">
               <Table>
-                <TableHeader className="bg-muted/50">
+                <TableHeader className="bg-muted/50 sticky top-0 z-10">
                   <TableRow>
-                    <TableHead className="w-[120px]">Cód. Cliente</TableHead>
-                    <TableHead>Nome do Cliente</TableHead>
-                    <TableHead className="w-[120px]">Nº Pedido</TableHead>
-                    <TableHead className="w-[150px]">Data do Pedido</TableHead>
-                    <TableHead className="text-right">
-                      Valor Total de Venda
+                    <TableHead className="w-[80px]">Cód.</TableHead>
+                    <TableHead className="min-w-[200px]">
+                      Nome do Cliente
+                    </TableHead>
+                    <TableHead className="w-[100px]">Nº Pedido</TableHead>
+                    <TableHead className="w-[120px]">Data</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">
+                      Valor Venda
+                    </TableHead>
+                    <TableHead className="text-center whitespace-nowrap bg-blue-50/50">
+                      Dias entre
+                      <br />
+                      acertos
+                    </TableHead>
+                    <TableHead className="text-center whitespace-nowrap bg-blue-50/50">
+                      Índice
+                      <br />
+                      (Meses)
+                    </TableHead>
+                    <TableHead className="text-right whitespace-nowrap bg-green-50/50">
+                      Média
+                      <br />
+                      Mensal
+                    </TableHead>
+                    <TableHead className="text-center whitespace-nowrap bg-orange-50/50">
+                      Dias para
+                      <br />
+                      Projeção
+                    </TableHead>
+                    <TableHead className="text-right whitespace-nowrap bg-orange-100/50 font-bold">
+                      PROJEÇÃO
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -119,7 +144,7 @@ const ProjectionsPage = () => {
                   {filteredData.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={5}
+                        colSpan={10}
                         className="h-24 text-center text-muted-foreground"
                       >
                         Nenhum registro encontrado.
@@ -128,24 +153,51 @@ const ProjectionsPage = () => {
                   ) : (
                     filteredData.map((row) => (
                       <TableRow key={row.orderId} className="hover:bg-muted/30">
-                        <TableCell className="font-mono">
+                        <TableCell className="font-mono text-xs">
                           {row.clientCode}
                         </TableCell>
-                        <TableCell className="font-medium">
+                        <TableCell className="font-medium text-sm">
                           {row.clientName}
                         </TableCell>
-                        <TableCell className="font-mono text-muted-foreground">
+                        <TableCell className="font-mono text-muted-foreground text-xs">
                           #{row.orderId}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-sm">
                           {row.orderDate
-                            ? format(parseISO(row.orderDate), 'dd/MM/yyyy', {
+                            ? format(parseISO(row.orderDate), 'dd/MM/yy', {
                                 locale: ptBR,
                               })
                             : '-'}
                         </TableCell>
-                        <TableCell className="text-right font-semibold text-green-600">
+                        <TableCell className="text-right font-medium">
                           R$ {formatCurrency(row.totalValue)}
+                        </TableCell>
+
+                        {/* New Calculated Columns */}
+                        <TableCell className="text-center bg-blue-50/20">
+                          {row.daysBetweenOrders !== null
+                            ? row.daysBetweenOrders
+                            : '-'}
+                        </TableCell>
+                        <TableCell className="text-center bg-blue-50/20">
+                          {row.indexDays !== null
+                            ? row.indexDays.toFixed(2).replace('.', ',')
+                            : '-'}
+                        </TableCell>
+                        <TableCell className="text-right bg-green-50/20 font-medium text-green-700">
+                          {row.monthlyAverage !== null
+                            ? `R$ ${formatCurrency(row.monthlyAverage)}`
+                            : '-'}
+                        </TableCell>
+                        <TableCell className="text-center bg-orange-50/20 text-muted-foreground">
+                          {row.daysSinceLastOrder !== null
+                            ? row.daysSinceLastOrder
+                            : '-'}
+                        </TableCell>
+                        <TableCell className="text-right bg-orange-100/30 font-bold text-orange-700">
+                          {row.projection !== null
+                            ? `R$ ${formatCurrency(row.projection)}`
+                            : '-'}
                         </TableCell>
                       </TableRow>
                     ))
