@@ -18,19 +18,19 @@ export default function RotaPage() {
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
 
-  // Filter State
+  // Filter State - Default to 'Ativo' and Projection > 50
   const [filters, setFilters] = useState<RotaFilterState>({
     search: '',
     x_na_rota: 'todos',
     agregado: 'todos',
     vendedor: 'todos',
     municipio: 'todos',
-    tipo_cliente: 'todos',
+    tipo_cliente: 'Ativo',
     debito_min: '',
     debito_max: '',
     data_acerto_start: '',
     data_acerto_end: '',
-    projecao_min: '',
+    projecao_min: '50',
     projecao_max: '',
     estoque_min: '',
     estoque_max: '',
@@ -38,8 +38,8 @@ export default function RotaPage() {
 
   // Sorting State
   const [sortConfig, setSortConfig] = useState<SortConfig>({
-    key: 'rowNumber',
-    direction: 'asc',
+    key: 'projecao', // Default sort by projection for value focus
+    direction: 'desc',
   })
 
   // Load Initial Data
@@ -357,18 +357,16 @@ export default function RotaPage() {
   )
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] gap-2 p-2 animate-fade-in">
-      <div className="flex-none space-y-2">
-        <RotaHeader
-          activeRota={activeRota}
-          lastRota={lastRota}
-          onStart={handleStartRota}
-          onEnd={handleEndRota}
-          loading={loading}
-        />
-
-        <div className="flex flex-col gap-2">
-          <RotaLegend />
+    <div className="flex flex-col h-[calc(100vh-1rem)] gap-1 p-1 animate-fade-in bg-background">
+      <div className="flex-none space-y-1">
+        <div className="flex flex-col lg:flex-row gap-1">
+          <RotaHeader
+            activeRota={activeRota}
+            lastRota={lastRota}
+            onStart={handleStartRota}
+            onEnd={handleEndRota}
+            loading={loading}
+          />
           <RotaFilters
             filters={filters}
             setFilters={setFilters}
@@ -377,6 +375,7 @@ export default function RotaPage() {
             clientTypes={uniqueTypes as string[]}
           />
         </div>
+        <RotaLegend />
       </div>
 
       <div className="flex-1 overflow-hidden">

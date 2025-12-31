@@ -110,6 +110,8 @@ export const rotaService = {
     const map = new Map<number, number>()
     if (data) {
       ;(data as any[]).forEach((d) => {
+        // Validation implicitly happens here: RPC calculates based on DB history
+        // which corresponds to latest data_acerto.
         map.set(d.client_id, d.projecao)
       })
     }
@@ -145,8 +147,6 @@ export const rotaService = {
     const projectionMap = await this.getClientProjections()
 
     // 6. Fetch basic Summary Stats (Latest Date and Stock)
-    // Using simple limit query for now as per legacy logic, but we could improve this later.
-    // For now, we reuse the existing strategy to get Last Date for "Data Acerto" column
     const { data: dbStats } = await supabase
       .from('BANCO_DE_DADOS')
       .select(
@@ -200,6 +200,11 @@ export const rotaService = {
       const rotaItem = rotaItemsMap.get(cid)
       const stats = statsMap.get(cid)
 
+      // Ensure projection is only shown if it matches the client
+      // (Map lookup ensures Client Code match)
+      // The RPC already ensures calculation based on latest available data (Data Acerto)
+      const projecao = projectionMap.get(cid) || 0
+
       return {
         rowNumber: index + 1,
         client,
@@ -210,7 +215,7 @@ export const rotaService = {
         debito: debtInfo?.totalDebt || 0,
         quant_debito: debtInfo?.orderCount || 0,
         data_acerto: stats?.lastDate || null,
-        projecao: projectionMap.get(cid) || 0, // Using automated calculation
+        projecao: projecao,
         estoque: stats?.stock || 0,
         has_pendency: pendencyMap.has(cid),
         is_completed: completedSet.has(cid),

@@ -23,31 +23,27 @@ export function RotaHeader({
   const displayRota = activeRota || lastRota
 
   return (
-    <Card className="border-l-4 border-l-primary shadow-sm bg-muted/20">
-      <CardContent className="p-3 flex flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <h2 className="text-lg font-bold tracking-tight whitespace-nowrap">
+    <Card className="flex-1 border-l-4 border-l-primary shadow-sm bg-muted/20">
+      <CardContent className="p-2 flex flex-row items-center justify-between gap-2 h-full">
+        <div className="flex items-center gap-2 overflow-hidden">
+          <h2 className="text-sm font-bold tracking-tight whitespace-nowrap">
             Controle de Rota
           </h2>
           {displayRota ? (
-            <div className="text-sm text-muted-foreground flex items-center gap-2">
-              <span className="bg-primary/10 text-primary px-2 py-0.5 rounded font-mono font-bold">
-                ID {displayRota.id}
+            <div className="text-xs text-muted-foreground flex items-center gap-2 truncate">
+              <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded font-mono font-bold">
+                #{displayRota.id}
               </span>
-              <span>
-                {format(
-                  parseISO(displayRota.data_inicio),
-                  "dd/MM/yyyy 'às' HH:mm",
-                  { locale: ptBR },
-                )}
+              <span className="truncate">
+                {format(parseISO(displayRota.data_inicio), 'dd/MM HH:mm', {
+                  locale: ptBR,
+                })}
                 {displayRota.data_fim ? (
                   <>
-                    {' a '}
-                    {format(
-                      parseISO(displayRota.data_fim),
-                      "dd/MM/yyyy 'às' HH:mm",
-                      { locale: ptBR },
-                    )}
+                    {' -> '}
+                    {format(parseISO(displayRota.data_fim), 'dd/MM HH:mm', {
+                      locale: ptBR,
+                    })}
                   </>
                 ) : (
                   <span className="text-green-600 font-semibold ml-1">
@@ -57,26 +53,24 @@ export function RotaHeader({
               </span>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              Nenhuma rota ativa ou recente.
-            </p>
+            <p className="text-xs text-muted-foreground">Sem rota.</p>
           )}
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-1 shrink-0">
           {!activeRota ? (
             <Button
               onClick={onStart}
               disabled={loading}
               size="sm"
-              className="bg-green-600 hover:bg-green-700 h-8"
+              className="bg-green-600 hover:bg-green-700 h-7 px-2 text-xs"
             >
               {loading ? (
-                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
               ) : (
-                <Play className="mr-2 h-3 w-3" />
+                <Play className="mr-1 h-3 w-3" />
               )}
-              Iniciar Rota
+              Iniciar
             </Button>
           ) : (
             <Button
@@ -84,14 +78,14 @@ export function RotaHeader({
               disabled={loading}
               size="sm"
               variant="destructive"
-              className="h-8"
+              className="h-7 px-2 text-xs"
             >
               {loading ? (
-                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
               ) : (
-                <Square className="mr-2 h-3 w-3" />
+                <Square className="mr-1 h-3 w-3" />
               )}
-              Finalizar Rota
+              Finalizar
             </Button>
           )}
         </div>
