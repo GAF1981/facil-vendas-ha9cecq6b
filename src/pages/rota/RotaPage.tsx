@@ -382,23 +382,31 @@ export default function RotaPage() {
   )
 
   const handleExportExcel = () => {
+    // Headers updated to match new column order and Stock Value
     const headers = [
       'Código',
       'Nome',
       'Fantasia',
-      'Rota',
+      'Projeção',
+      'Vendedor',
+      'Débito',
+      'Qtd. Debito',
+      'Data Acerto',
+      'Estoque (R$)',
       'Endereço',
       'Bairro',
       'Município',
       'CEP',
-      'Projeção',
-      'Débito',
-      'Vendedor',
+      'Tipo',
+      'N. Pedido',
       'X na Rota',
+      'Nota Fiscal',
+      'Boleto',
       'Agregado',
+      'Rota',
     ]
 
-    const rowsToExport = sortedRows.slice(0, 150)
+    const rowsToExport = sortedRows.slice(0, 500) // Increased limit slightly for export
 
     const csvContent = [
       headers.join(';'),
@@ -409,16 +417,23 @@ export default function RotaPage() {
           row.client.CODIGO,
           `"${(row.client['NOME CLIENTE'] || '').replace(/"/g, '""')}"`,
           `"${(row.client['RAZÃO SOCIAL'] || '').replace(/"/g, '""')}"`,
-          `"${(row.client['GRUPO ROTA'] || '').replace(/"/g, '""')}"`,
+          row.projecao.toFixed(2).replace('.', ','),
+          `"${sellerName}"`,
+          row.debito.toFixed(2).replace('.', ','),
+          row.quant_debito,
+          row.data_acerto || '',
+          row.estoque.toFixed(2).replace('.', ','), // Stock Value
           `"${(row.client.ENDEREÇO || '').replace(/"/g, '""')}"`,
           `"${(row.client.BAIRRO || '').replace(/"/g, '""')}"`,
           `"${(row.client.MUNICÍPIO || '').replace(/"/g, '""')}"`,
           `"${(row.client['CEP OFICIO'] || '').replace(/"/g, '""')}"`,
-          row.projecao.toFixed(2).replace('.', ','),
-          row.debito.toFixed(2).replace('.', ','),
-          `"${sellerName}"`,
+          `"${(row.client['TIPO DE CLIENTE'] || '').replace(/"/g, '""')}"`,
+          row.numero_pedido || '',
           row.x_na_rota,
+          `"${(row.client['NOTA FISCAL'] || '').replace(/"/g, '""')}"`,
+          row.boleto ? 'Sim' : 'Não',
           row.agregado ? 'Sim' : 'Não',
+          `"${(row.client['GRUPO ROTA'] || '').replace(/"/g, '""')}"`,
         ].join(';')
       }),
     ].join('\n')

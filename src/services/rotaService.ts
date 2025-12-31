@@ -143,14 +143,12 @@ export const rotaService = {
     }
 
     // 5. Fetch Projections and Order Info from Report Logic
-    // This ensures consistency with the Projections Page
     const reportData = await reportsService.getProjectionsReport()
     const projectionMap = new Map<
       number,
       { projection: number; orderId: number }
     >()
 
-    // Since reportData is sorted by Date DESC, the first occurrence for a client is the latest
     reportData.forEach((row) => {
       if (!projectionMap.has(row.clientCode)) {
         projectionMap.set(row.clientCode, {
@@ -160,18 +158,29 @@ export const rotaService = {
       }
     })
 
-    // 6. Fetch basic Summary Stats (Latest Date and Stock)
+    // 6. Fetch Products for pricing
+    const { data: products } = await supabase
+      .from('PRODUTOS')
+      .select('CODIGO, PREÇO')
+
+    const priceMap = new Map<number, number>()
+    products?.forEach((p) => {
+      if (p.CODIGO) priceMap.set(p.CODIGO, parseCurrency(p.PREÇO))
+    })
+
+    // 7. Fetch basic Summary Stats (Latest Date and Stock Value)
+    // We fetch more rows to ensure we cover enough history for calculations
     const { data: dbStats } = await supabase
       .from('BANCO_DE_DADOS')
       .select(
-        '"CÓDIGO DO CLIENTE", "DATA DO ACERTO", "SALDO FINAL", "VALOR VENDIDO"',
+        '"CÓDIGO DO CLIENTE", "DATA DO ACERTO", "SALDO FINAL", "VALOR VENDIDO", "COD. PRODUTO"',
       )
       .order('"DATA DO ACERTO"', { ascending: false })
-      .limit(2000)
+      .limit(10000)
 
     const statsMap = new Map<
       number,
-      { lastDate: string | null; stock: number; history: any[] }
+      { lastDate: string | null; stockValue: number; history: Set<string> }
     >()
 
     dbStats?.forEach((row: any) => {
@@ -179,29 +188,39 @@ export const rotaService = {
       if (!cid) return
 
       if (!statsMap.has(cid)) {
-        statsMap.set(cid, { lastDate: null, stock: 0, history: [] })
+        statsMap.set(cid, { lastDate: null, stockValue: 0, history: new Set() })
       }
       const entry = statsMap.get(cid)!
 
+      // Capture history dates
+      if (row['DATA DO ACERTO']) {
+        entry.history.add(row['DATA DO ACERTO'])
+      }
+
+      // Logic for Stock Value:
+      // We identify the latest "Acerto" date for this client (first one encountered since sorted DESC)
       if (!entry.lastDate) {
         entry.lastDate = row['DATA DO ACERTO']
-        entry.stock = row['SALDO FINAL'] || 0
       }
-      entry.history.push({
-        date: row['DATA DO ACERTO'],
-        value: parseCurrency(row['VALOR VENDIDO']),
-      })
+
+      // Accumulate stock value ONLY for the products belonging to the latest date
+      if (row['DATA DO ACERTO'] === entry.lastDate) {
+        const qty = row['SALDO FINAL'] || 0
+        const pid = row['COD. PRODUTO']
+        const price = priceMap.get(pid) || 0
+        entry.stockValue += qty * price
+      }
     })
 
-    // 7. Check for Completed Status
+    // 8. Check for Completed Status
     const completedSet = new Set<number>()
     if (rota) {
       const startDate = parseISO(rota.data_inicio)
       const endDate = rota.data_fim ? parseISO(rota.data_fim) : new Date()
 
       statsMap.forEach((val, key) => {
-        const hasRecent = val.history.some((h) => {
-          const d = parseISO(h.date)
+        const hasRecent = Array.from(val.history).some((dateStr) => {
+          const d = parseISO(dateStr)
           return d >= startDate && d <= endDate
         })
         if (hasRecent) completedSet.add(key)
@@ -230,7 +249,7 @@ export const rotaService = {
         data_acerto: stats?.lastDate || null,
         projecao: projecao,
         numero_pedido: numero_pedido,
-        estoque: stats?.stock || 0,
+        estoque: stats?.stockValue || 0, // Now represents Monetary Value (R$)
         has_pendency: pendencyMap.has(cid),
         is_completed: completedSet.has(cid),
       }

@@ -57,53 +57,6 @@ export const RotaTableRow = memo(function RotaTableRow({
         {row.projecao > 0 ? `R$ ${formatCurrency(row.projecao)}` : '-'}
       </TableCell>
 
-      {/* Order Number Column */}
-      <TableCell className="text-center font-mono text-[10px] py-0.5 px-2 bg-blue-50/30 border-r text-muted-foreground">
-        {row.numero_pedido ? `#${row.numero_pedido}` : '-'}
-      </TableCell>
-
-      <TableCell className="py-0.5 px-1 border-r">
-        <Input
-          type="number"
-          className="h-6 w-full text-center text-[10px] px-0 bg-transparent border-transparent hover:border-input focus:border-input"
-          value={row.x_na_rota}
-          disabled={disabled}
-          onChange={(e) =>
-            onUpdateRow(
-              row.client.CODIGO,
-              'x_na_rota',
-              parseInt(e.target.value) || 0,
-            )
-          }
-        />
-      </TableCell>
-
-      <TableCell className="text-[10px] py-0.5 px-2 border-r truncate max-w-[90px]">
-        {row.client['NOTA FISCAL'] || '-'}
-      </TableCell>
-
-      <TableCell className="text-center py-0.5 px-1 border-r">
-        <Checkbox
-          className="h-3.5 w-3.5"
-          checked={row.boleto}
-          disabled={disabled}
-          onCheckedChange={(c) =>
-            onUpdateRow(row.client.CODIGO, 'boleto', c as boolean)
-          }
-        />
-      </TableCell>
-
-      <TableCell className="text-center py-0.5 px-1 border-r">
-        <Checkbox
-          className="h-3.5 w-3.5"
-          checked={row.agregado}
-          disabled={disabled}
-          onCheckedChange={(c) =>
-            onUpdateRow(row.client.CODIGO, 'agregado', c as boolean)
-          }
-        />
-      </TableCell>
-
       <TableCell className="py-0.5 px-1 border-r">
         <Select
           value={row.vendedor_id?.toString() || 'none'}
@@ -170,12 +123,9 @@ export const RotaTableRow = memo(function RotaTableRow({
         </div>
       </TableCell>
 
-      <TableCell className="text-[10px] py-0.5 px-2 border-r truncate">
-        {row.client['GRUPO ROTA'] || '-'}
-      </TableCell>
-
+      {/* Stock Column - Now showing Monetary Value */}
       <TableCell className="text-right font-mono text-[10px] py-0.5 px-2 border-r">
-        {row.estoque > 0 ? row.estoque : '-'}
+        {row.estoque > 0 ? `R$ ${formatCurrency(row.estoque)}` : '-'}
       </TableCell>
 
       <TableCell
@@ -220,7 +170,7 @@ export const RotaTableRow = memo(function RotaTableRow({
         )}
       </TableCell>
 
-      <TableCell className="py-0.5 px-2">
+      <TableCell className="py-0.5 px-2 border-r">
         {row.client['FONE 2'] && (
           <a
             href={`https://wa.me/55${row.client['FONE 2'].replace(/\D/g, '')}`}
@@ -235,6 +185,57 @@ export const RotaTableRow = memo(function RotaTableRow({
             <ArrowUpRight className="h-2.5 w-2.5 opacity-50" />
           </a>
         )}
+      </TableCell>
+
+      {/* Moved Columns */}
+      <TableCell className="text-center font-mono text-[10px] py-0.5 px-2 bg-blue-50/30 border-r text-muted-foreground">
+        {row.numero_pedido ? `#${row.numero_pedido}` : '-'}
+      </TableCell>
+
+      <TableCell className="py-0.5 px-1 border-r">
+        <Input
+          type="number"
+          className="h-6 w-full text-center text-[10px] px-0 bg-transparent border-transparent hover:border-input focus:border-input"
+          value={row.x_na_rota}
+          disabled={disabled}
+          onChange={(e) =>
+            onUpdateRow(
+              row.client.CODIGO,
+              'x_na_rota',
+              parseInt(e.target.value) || 0,
+            )
+          }
+        />
+      </TableCell>
+
+      <TableCell className="text-[10px] py-0.5 px-2 border-r truncate max-w-[90px]">
+        {row.client['NOTA FISCAL'] || '-'}
+      </TableCell>
+
+      <TableCell className="text-center py-0.5 px-1 border-r">
+        <Checkbox
+          className="h-3.5 w-3.5"
+          checked={row.boleto}
+          disabled={disabled}
+          onCheckedChange={(c) =>
+            onUpdateRow(row.client.CODIGO, 'boleto', c as boolean)
+          }
+        />
+      </TableCell>
+
+      <TableCell className="text-center py-0.5 px-1 border-r">
+        <Checkbox
+          className="h-3.5 w-3.5"
+          checked={row.agregado}
+          disabled={disabled}
+          onCheckedChange={(c) =>
+            onUpdateRow(row.client.CODIGO, 'agregado', c as boolean)
+          }
+        />
+      </TableCell>
+
+      <TableCell className="text-[10px] py-0.5 px-2 border-r truncate">
+        {row.client['GRUPO ROTA'] || '-'}
       </TableCell>
     </TableRow>
   )

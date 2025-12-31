@@ -40,29 +40,22 @@ export function RotaTableHeader({ sortConfig, onSort }: RotaTableHeaderProps) {
   return (
     <TableHeader className="sticky top-0 z-20 shadow-sm bg-muted/80 backdrop-blur-sm">
       <TableRow className="hover:bg-transparent">
+        {/* Main Info Columns */}
         {renderHead('#', 'rowNumber', 'w-[40px] text-center')}
         {renderHead(
           'PROJEÇÃO',
           'projecao',
           'w-[90px] text-right text-blue-700 bg-blue-50/50',
         )}
-        {renderHead(
-          'N. Pedido',
-          'numero_pedido',
-          'w-[80px] text-center bg-blue-50/50',
-        )}
-        {renderHead('xRota', 'x_na_rota', 'w-[60px] text-center')}
-        {renderHead('N. Fiscal', 'nota_fiscal', 'w-[90px]')}
-        {renderHead('Bol.', 'boleto', 'w-[50px] text-center')}
-        {renderHead('Agreg.', 'agregado', 'w-[50px] text-center')}
         {renderHead('Vendedor', 'vendedor', 'w-[120px]')}
         {renderHead('Débito', 'debito', 'w-[90px] text-right')}
         {renderHead('Qtd.D.', 'quant_debito', 'w-[60px] text-center')}
         {renderHead('Dt. Acerto', 'data_acerto', 'w-[90px]')}
         {renderHead('CÓD.', 'codigo', 'w-[70px]')}
         {renderHead('NOME CLIENTE', 'nome', 'min-w-[180px]')}
-        {renderHead('Rota', 'rota', 'w-[100px]')}
-        {renderHead('Estoque', 'estoque', 'w-[70px] text-right')}
+        {renderHead('Estoque (R$)', 'estoque', 'w-[90px] text-right')}
+
+        {/* Address and Contact Info */}
         {renderHead('ENDEREÇO', 'endereco', 'min-w-[180px]')}
         {renderHead('BAIRRO', 'bairro', 'min-w-[120px]')}
         {renderHead('MUNICÍPIO', 'municipio', 'min-w-[120px]')}
@@ -72,6 +65,18 @@ export function RotaTableHeader({ sortConfig, onSort }: RotaTableHeaderProps) {
         {renderHead('TIPO', 'tipo', 'w-[100px]')}
         {renderHead('FONE 1', 'fone1', 'w-[120px]')}
         {renderHead('FONE 2', 'fone2', 'w-[120px]')}
+
+        {/* Route Specific & Status Columns (Moved to End) */}
+        {renderHead(
+          'N. Pedido',
+          'numero_pedido',
+          'w-[80px] text-center bg-blue-50/50',
+        )}
+        {renderHead('xRota', 'x_na_rota', 'w-[60px] text-center')}
+        {renderHead('N. Fiscal', 'nota_fiscal', 'w-[90px]')}
+        {renderHead('Bol.', 'boleto', 'w-[50px] text-center')}
+        {renderHead('Agreg.', 'agregado', 'w-[50px] text-center')}
+        {renderHead('Rota', 'rota', 'w-[100px]')}
       </TableRow>
     </TableHeader>
   )

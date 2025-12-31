@@ -39,7 +39,7 @@ export function RotaTable({
             {rows.length === 0 && (
               <tr>
                 <td
-                  colSpan={23}
+                  colSpan={24}
                   className="h-24 text-center text-sm text-muted-foreground"
                 >
                   Nenhum cliente encontrado com os filtros atuais.
