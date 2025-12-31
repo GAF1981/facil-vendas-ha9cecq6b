@@ -57,6 +57,11 @@ export const RotaTableRow = memo(function RotaTableRow({
         {row.projecao > 0 ? `R$ ${formatCurrency(row.projecao)}` : '-'}
       </TableCell>
 
+      {/* Order Number Column */}
+      <TableCell className="text-center font-mono text-[10px] py-0.5 px-2 bg-blue-50/30 border-r text-muted-foreground">
+        {row.numero_pedido ? `#${row.numero_pedido}` : '-'}
+      </TableCell>
+
       <TableCell className="py-0.5 px-1 border-r">
         <Input
           type="number"

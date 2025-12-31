@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase/client'
 import { Rota, RotaItem } from '@/types/rota'
 import { cobrancaService } from './cobrancaService'
 import { pendenciasService } from './pendenciasService'
+import { reportsService } from './reportsService'
 import { parseISO } from 'date-fns'
 import { parseCurrency } from '@/lib/formatters'
 
@@ -110,8 +111,6 @@ export const rotaService = {
     const map = new Map<number, number>()
     if (data) {
       ;(data as any[]).forEach((d) => {
-        // Validation implicitly happens here: RPC calculates based on DB history
-        // which corresponds to latest data_acerto.
         map.set(d.client_id, d.projecao)
       })
     }
@@ -143,8 +142,23 @@ export const rotaService = {
       items.forEach((i) => rotaItemsMap.set(i.cliente_id, i))
     }
 
-    // 5. Fetch Projections (Optimized via RPC)
-    const projectionMap = await this.getClientProjections()
+    // 5. Fetch Projections and Order Info from Report Logic
+    // This ensures consistency with the Projections Page
+    const reportData = await reportsService.getProjectionsReport()
+    const projectionMap = new Map<
+      number,
+      { projection: number; orderId: number }
+    >()
+
+    // Since reportData is sorted by Date DESC, the first occurrence for a client is the latest
+    reportData.forEach((row) => {
+      if (!projectionMap.has(row.clientCode)) {
+        projectionMap.set(row.clientCode, {
+          projection: row.projection || 0,
+          orderId: row.orderId,
+        })
+      }
+    })
 
     // 6. Fetch basic Summary Stats (Latest Date and Stock)
     const { data: dbStats } = await supabase
@@ -199,11 +213,10 @@ export const rotaService = {
       const debtInfo = debtMap.get(cid)
       const rotaItem = rotaItemsMap.get(cid)
       const stats = statsMap.get(cid)
+      const projInfo = projectionMap.get(cid)
 
-      // Ensure projection is only shown if it matches the client
-      // (Map lookup ensures Client Code match)
-      // The RPC already ensures calculation based on latest available data (Data Acerto)
-      const projecao = projectionMap.get(cid) || 0
+      const projecao = projInfo?.projection || 0
+      const numero_pedido = projInfo?.orderId || null
 
       return {
         rowNumber: index + 1,
@@ -216,6 +229,7 @@ export const rotaService = {
         quant_debito: debtInfo?.orderCount || 0,
         data_acerto: stats?.lastDate || null,
         projecao: projecao,
+        numero_pedido: numero_pedido,
         estoque: stats?.stock || 0,
         has_pendency: pendencyMap.has(cid),
         is_completed: completedSet.has(cid),

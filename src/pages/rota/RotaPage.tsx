@@ -288,6 +288,10 @@ export default function RotaPage() {
           valA = a.projecao
           valB = b.projecao
           break
+        case 'numero_pedido':
+          valA = a.numero_pedido || 0
+          valB = b.numero_pedido || 0
+          break
         case 'estoque':
           valA = a.estoque
           valB = b.estoque

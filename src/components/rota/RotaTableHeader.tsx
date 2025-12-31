@@ -46,6 +46,11 @@ export function RotaTableHeader({ sortConfig, onSort }: RotaTableHeaderProps) {
           'projecao',
           'w-[90px] text-right text-blue-700 bg-blue-50/50',
         )}
+        {renderHead(
+          'N. Pedido',
+          'numero_pedido',
+          'w-[80px] text-center bg-blue-50/50',
+        )}
         {renderHead('xRota', 'x_na_rota', 'w-[60px] text-center')}
         {renderHead('N. Fiscal', 'nota_fiscal', 'w-[90px]')}
         {renderHead('Bol.', 'boleto', 'w-[50px] text-center')}
