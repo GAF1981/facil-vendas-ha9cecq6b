@@ -215,7 +215,7 @@ export type Database = {
           'OBSERVAÇÃO FIXA': string | null
           'RAZÃO SOCIAL': string | null
           TIPO: string | null
-          'TIPO DE CLIENTE': string | null
+          'TIPO DE CLIENTE': string
         }
         Insert: {
           'ALTERAÇÃO CLIENTE'?: string | null
@@ -245,7 +245,7 @@ export type Database = {
           'OBSERVAÇÃO FIXA'?: string | null
           'RAZÃO SOCIAL'?: string | null
           TIPO?: string | null
-          'TIPO DE CLIENTE'?: string | null
+          'TIPO DE CLIENTE'?: string
         }
         Update: {
           'ALTERAÇÃO CLIENTE'?: string | null
@@ -275,7 +275,7 @@ export type Database = {
           'OBSERVAÇÃO FIXA'?: string | null
           'RAZÃO SOCIAL'?: string | null
           TIPO?: string | null
-          'TIPO DE CLIENTE'?: string | null
+          'TIPO DE CLIENTE'?: string
         }
         Relationships: []
       }

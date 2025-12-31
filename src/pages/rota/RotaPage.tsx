@@ -18,14 +18,14 @@ export default function RotaPage() {
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
 
-  // Filter State - Default to 'Ativo' and Projection > 50
+  // Filter State - Default to 'ATIVO' (Requirement) and Projection > 50
   const [filters, setFilters] = useState<RotaFilterState>({
     search: '',
     x_na_rota: 'todos',
     agregado: 'todos',
     vendedor: 'todos',
     municipio: 'todos',
-    tipo_cliente: 'Ativo',
+    tipo_cliente: 'ATIVO',
     grupo_rota: 'todos',
     debito_min: '',
     debito_max: '',
@@ -360,9 +360,12 @@ export default function RotaPage() {
     [rows],
   )
   const uniqueTypes = useMemo(
-    () => [
-      ...new Set(rows.map((r) => r.client['TIPO DE CLIENTE']).filter(Boolean)),
-    ],
+    () =>
+      [
+        ...new Set(
+          rows.map((r) => r.client['TIPO DE CLIENTE']).filter(Boolean),
+        ),
+      ].sort(),
     [rows],
   )
   const uniqueRoutes = useMemo(
@@ -387,9 +390,12 @@ export default function RotaPage() {
       'Agregado',
     ]
 
+    // Requirement: Limit export to 150 rows
+    const rowsToExport = sortedRows.slice(0, 150)
+
     const csvContent = [
       headers.join(';'),
-      ...sortedRows.map((row) => {
+      ...rowsToExport.map((row) => {
         const sellerName =
           sellers.find((s) => s.id === row.vendedor_id)?.nome_completo || ''
         return [
