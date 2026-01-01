@@ -17,6 +17,7 @@ import PlaceholderModule from '@/pages/PlaceholderModule'
 import LoginPage from '@/pages/auth/LoginPage'
 import AcertoPage from '@/pages/acerto/AcertoPage'
 import RecebimentoPage from '@/pages/recebimento/RecebimentoPage'
+import ConfirmacaoRecebimentosPage from '@/pages/confirmacao/ConfirmacaoRecebimentosPage'
 import CobrancaPage from '@/pages/cobranca/CobrancaPage'
 import NotaFiscalPage from '@/pages/nota-fiscal/NotaFiscalPage'
 import PendenciasPage from '@/pages/pendencias/PendenciasPage'
@@ -67,6 +68,10 @@ const App = () => (
 
               {/* Recebimento Module */}
               <Route path="/recebimento" element={<RecebimentoPage />} />
+              <Route
+                path="/confirmacao-recebimentos"
+                element={<ConfirmacaoRecebimentosPage />}
+              />
 
               {/* Cobranca Module */}
               <Route path="/cobranca" element={<CobrancaPage />} />

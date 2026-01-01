@@ -47,6 +47,8 @@ serve(async (req) => {
       monthlyAverage,
       preview,
       signature,
+      orderNumber,
+      isReceipt, // Flag for Receipt Mode
     } = await req.json()
 
     const pdfDoc = await PDFDocument.create()
@@ -80,7 +82,7 @@ serve(async (req) => {
       const cleanText = removeAccents(text || '')
       const textWidth = font.widthOfTextAtSize(cleanText, size)
       let xPos = x
-      // Alignment logic only applied if no rotation (or handle rotation alignment manually)
+      // Alignment logic only applied if no rotation
       if (!rotate) {
         if (align === 'right') xPos = x - textWidth
         if (align === 'center') xPos = x - textWidth / 2
@@ -116,8 +118,11 @@ serve(async (req) => {
     }
 
     // Header
+    const title = isReceipt
+      ? 'RECIBO DE PAGAMENTO'
+      : `Comprovante de ${acertoTipo}`
     drawText('FACIL VENDAS', margins.left, y, { size: 18, font: fontBold })
-    drawText(`Comprovante de ${acertoTipo}`, width - margins.right, y, {
+    drawText(title, width - margins.right, y, {
       size: 14,
       font: fontBold,
       align: 'right',
@@ -130,7 +135,18 @@ serve(async (req) => {
       size: 10,
       align: 'right',
     })
-    y -= 20
+    y -= 15
+
+    // Order Number in Header
+    if (orderNumber) {
+      drawText(`NUMERO DO PEDIDO: ${orderNumber}`, margins.left, y, {
+        size: 10,
+        font: fontBold,
+      })
+      y -= 20
+    } else {
+      y -= 5
+    }
 
     // Client Info Box
     checkPageBreak(80)
@@ -176,117 +192,123 @@ serve(async (req) => {
 
     y -= boxHeight + 20
 
-    // Products Table
-    drawText('ITENS DO PEDIDO', margins.left, y, { size: 12, font: fontBold })
-    y -= 15
+    // Skip items table for Receipt Mode to save space if not needed,
+    // BUT user story implies "detailing payment methods and order history" for receipt.
+    // Usually a receipt doesn't need line items of the sale unless it IS the sale receipt.
+    // The previous implementation included items. I'll keep it for Acerto,
+    // but maybe skip for "Confirmação Recebimento" if items are not passed (they might be empty).
+    if (items && items.length > 0) {
+      // Products Table
+      drawText('ITENS DO PEDIDO', margins.left, y, { size: 12, font: fontBold })
+      y -= 15
 
-    // Table Headers
-    const colX = {
-      prod: margins.left,
-      tipo: 220,
-      saldoIni: 300,
-      cont: 355,
-      venda: 415,
-      total: 485,
-      saldoFin: 555,
-    }
-
-    const headerHeight = 60
-
-    const drawHeaders = (currentY: number) => {
-      drawText('Produto', colX.prod, currentY, { size: 8, font: fontBold })
-      drawText('Tipo', colX.tipo, currentY, { size: 8, font: fontBold })
-
-      const headers = [
-        { text: 'Saldo Inicial', x: colX.saldoIni },
-        { text: 'Contagem', x: colX.cont },
-        { text: 'Qtd. Vendida', x: colX.venda },
-        { text: 'Valor Total', x: colX.total },
-        { text: 'Saldo Final', x: colX.saldoFin },
-      ]
-
-      headers.forEach((h) => {
-        drawText(h.text, h.x - 12, currentY, {
-          size: 8,
-          font: fontBold,
-          rotate: degrees(90),
-        })
-      })
-    }
-
-    y -= headerHeight
-    drawHeaders(y)
-
-    y -= 5
-    page.drawLine({
-      start: { x: margins.left, y },
-      end: { x: width - margins.right, y },
-      thickness: 1,
-      color: rgb(0.8, 0.8, 0.8),
-    })
-    y -= 15
-
-    for (const item of items) {
-      if (checkPageBreak(20)) {
-        y -= headerHeight
-        drawHeaders(y)
-        y -= 10
-        page.drawLine({
-          start: { x: margins.left, y },
-          end: { x: width - margins.right, y },
-          thickness: 1,
-          color: rgb(0.8, 0.8, 0.8),
-        })
-        y -= 15
+      // Table Headers
+      const colX = {
+        prod: margins.left,
+        tipo: 220,
+        saldoIni: 300,
+        cont: 355,
+        venda: 415,
+        total: 485,
+        saldoFin: 555,
       }
 
-      const name = (item.produtoNome || '').substring(0, 35)
-      drawText(`${item.produtoCodigo || '-'} ${name}`, colX.prod, y, {
-        size: 8,
-      })
+      const headerHeight = 60
 
-      drawText((item.tipo || '-').substring(0, 10), colX.tipo, y, {
-        size: 8,
-      })
+      const drawHeaders = (currentY: number) => {
+        drawText('Produto', colX.prod, currentY, { size: 8, font: fontBold })
+        drawText('Tipo', colX.tipo, currentY, { size: 8, font: fontBold })
 
-      drawText(String(item.saldoInicial), colX.saldoIni, y, {
-        size: 8,
-        align: 'right',
-      })
-      drawText(String(item.contagem), colX.cont, y, {
-        size: 8,
-        align: 'right',
-      })
-      drawText(String(item.quantVendida), colX.venda, y, {
-        size: 8,
-        align: 'right',
-      })
-      drawText(formatCurrency(item.valorVendido), colX.total, y, {
-        size: 8,
-        align: 'right',
-      })
-      drawText(String(item.saldoFinal), colX.saldoFin, y, {
-        size: 8,
-        align: 'right',
-      })
+        const headers = [
+          { text: 'Saldo Inicial', x: colX.saldoIni },
+          { text: 'Contagem', x: colX.cont },
+          { text: 'Qtd. Vendida', x: colX.venda },
+          { text: 'Valor Total', x: colX.total },
+          { text: 'Saldo Final', x: colX.saldoFin },
+        ]
 
-      y -= 12
+        headers.forEach((h) => {
+          drawText(h.text, h.x - 12, currentY, {
+            size: 8,
+            font: fontBold,
+            rotate: degrees(90),
+          })
+        })
+      }
+
+      y -= headerHeight
+      drawHeaders(y)
+
+      y -= 5
+      page.drawLine({
+        start: { x: margins.left, y },
+        end: { x: width - margins.right, y },
+        thickness: 1,
+        color: rgb(0.8, 0.8, 0.8),
+      })
+      y -= 15
+
+      for (const item of items) {
+        if (checkPageBreak(20)) {
+          y -= headerHeight
+          drawHeaders(y)
+          y -= 10
+          page.drawLine({
+            start: { x: margins.left, y },
+            end: { x: width - margins.right, y },
+            thickness: 1,
+            color: rgb(0.8, 0.8, 0.8),
+          })
+          y -= 15
+        }
+
+        const name = (item.produtoNome || '').substring(0, 35)
+        drawText(`${item.produtoCodigo || '-'} ${name}`, colX.prod, y, {
+          size: 8,
+        })
+
+        drawText((item.tipo || '-').substring(0, 10), colX.tipo, y, {
+          size: 8,
+        })
+
+        drawText(String(item.saldoInicial), colX.saldoIni, y, {
+          size: 8,
+          align: 'right',
+        })
+        drawText(String(item.contagem), colX.cont, y, {
+          size: 8,
+          align: 'right',
+        })
+        drawText(String(item.quantVendida), colX.venda, y, {
+          size: 8,
+          align: 'right',
+        })
+        drawText(formatCurrency(item.valorVendido), colX.total, y, {
+          size: 8,
+          align: 'right',
+        })
+        drawText(String(item.saldoFinal), colX.saldoFin, y, {
+          size: 8,
+          align: 'right',
+        })
+
+        y -= 12
+      }
+
+      y -= 10
+      page.drawLine({
+        start: { x: margins.left, y },
+        end: { x: width - margins.right, y },
+        thickness: 1,
+        color: rgb(0, 0, 0),
+      })
+      y -= 20
     }
-
-    y -= 10
-    page.drawLine({
-      start: { x: margins.left, y },
-      end: { x: width - margins.right, y },
-      thickness: 1,
-      color: rgb(0, 0, 0),
-    })
-    y -= 20
 
     // Financial Summary
     checkPageBreak(120)
 
-    // IMPROVED LAYOUT: Increased spacing for values
-    const valueX = margins.left + 140 // Increased from 100 to 140
+    const valueX = margins.left + 140
 
     drawText('RESUMO FINANCEIRO', margins.left, y, {
       size: 10,
@@ -433,9 +455,11 @@ serve(async (req) => {
       })
       y -= 15
 
+      // Adjusted columns to include "Pedido"
       const histX = {
-        data: margins.left,
-        vend: margins.left + 60,
+        id: margins.left,
+        data: margins.left + 40,
+        vend: margins.left + 90,
         media: margins.left + 260,
         venda: margins.left + 330,
         saldo: margins.left + 400,
@@ -443,6 +467,7 @@ serve(async (req) => {
         debito: margins.left + 540,
       }
 
+      drawText('Pedido', histX.id, y, { size: 7, font: fontBold })
       drawText('Data', histX.data, y, { size: 7, font: fontBold })
       drawText('Vendedor', histX.vend, y, { size: 7, font: fontBold })
       drawText('Média', histX.media, y, {
@@ -489,9 +514,10 @@ serve(async (req) => {
           y -= 15
         }
 
+        drawText(String(row.id || '-'), histX.id, y, { size: 7 })
         drawText(formatDate(row.data), histX.data, y, { size: 7 })
 
-        drawText((row.vendedor || '-').substring(0, 35), histX.vend, y, {
+        drawText((row.vendedor || '-').substring(0, 30), histX.vend, y, {
           size: 7,
         })
 

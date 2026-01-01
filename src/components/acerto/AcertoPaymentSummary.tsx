@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { formatCurrency } from '@/lib/formatters'
-import { Wallet, CreditCard, Calendar, DollarSign } from 'lucide-react'
+import { Wallet, CreditCard, Calendar, DollarSign, Check } from 'lucide-react'
 import {
   PaymentEntry,
   PaymentMethodType,
@@ -151,6 +151,19 @@ export function AcertoPaymentSummary({
     )
   }
 
+  const handleAutoFill = (method: PaymentMethodType, checked: boolean) => {
+    if (disabled) return
+    onPaymentsChange(
+      payments.map((p) => {
+        if (p.method !== method) return p
+        return {
+          ...p,
+          paidValue: checked ? p.value : p.paidValue,
+        }
+      }),
+    )
+  }
+
   return (
     <Card className="border-muted bg-muted/10">
       <CardHeader className="pb-2">
@@ -244,192 +257,234 @@ export function AcertoPaymentSummary({
               Detalhamento
             </h3>
             <div className="grid gap-4">
-              {payments.map((entry) => (
-                <div
-                  key={entry.method}
-                  className="bg-card border rounded-lg p-4 shadow-sm animate-slide-up space-y-4"
-                >
-                  <div className="flex flex-col md:flex-row gap-3 items-start md:items-end">
-                    <div className="w-full md:w-24 shrink-0">
-                      <Label className="text-xs text-muted-foreground font-bold uppercase mb-1.5 block">
-                        Método
-                      </Label>
-                      <div className="font-semibold text-primary flex items-center justify-center gap-2 h-10 px-2 bg-muted/50 rounded-md border text-sm text-center truncate">
-                        {entry.method}
-                      </div>
-                    </div>
+              {payments.map((entry) => {
+                const isOverpaid = entry.paidValue > entry.value + 0.01
+                const isFullyPaid =
+                  Math.abs(entry.paidValue - entry.value) < 0.01 &&
+                  entry.value > 0
 
-                    <div className="w-full md:flex-1">
-                      <Label className="text-xs font-medium mb-1.5 block">
-                        Valor Registrado
-                      </Label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">
-                          R$
-                        </span>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          className="pl-9 font-bold text-lg h-10"
-                          value={entry.value}
-                          disabled={disabled}
-                          onChange={(e) =>
-                            handleUpdateEntry(
-                              entry.method,
-                              'value',
-                              parseFloat(e.target.value) || 0,
-                            )
-                          }
-                          onBlur={() => handleBlur(entry.method, 'value')}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="w-full md:flex-1 space-y-2">
-                      <Label className="text-xs font-medium mb-1.5 block text-green-700">
-                        Valor Pago
-                      </Label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">
-                          R$
-                        </span>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          className="pl-9 font-bold text-lg h-10 border-green-200 bg-green-50/20 text-green-700"
-                          value={entry.paidValue}
-                          disabled={disabled}
-                          onChange={(e) =>
-                            handleUpdateEntry(
-                              entry.method,
-                              'paidValue',
-                              parseFloat(e.target.value) || 0,
-                            )
-                          }
-                          onBlur={() => handleBlur(entry.method, 'paidValue')}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="w-full md:w-20">
-                      <Label className="text-xs font-medium mb-1.5 block">
-                        Parcelas
-                      </Label>
-                      <Select
-                        value={entry.installments.toString()}
-                        disabled={disabled}
-                        onValueChange={(val) =>
-                          handleUpdateEntry(
-                            entry.method,
-                            'installments',
-                            parseInt(val),
-                          )
-                        }
-                      >
-                        <SelectTrigger className="h-10 px-2">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from({ length: 12 }, (_, i) => i + 1).map(
-                            (n) => (
-                              <SelectItem key={n} value={n.toString()}>
-                                {n}x
-                              </SelectItem>
-                            ),
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {entry.installments === 1 && (
-                      <div className="w-full md:w-32">
-                        <Label className="text-xs font-medium mb-1.5 flex items-center gap-1">
-                          <Calendar className="h-3 w-3" /> Vencimento
+                return (
+                  <div
+                    key={entry.method}
+                    className="bg-card border rounded-lg p-4 shadow-sm animate-slide-up space-y-4"
+                  >
+                    <div className="flex flex-col md:flex-row gap-3 items-start md:items-end">
+                      <div className="w-full md:w-24 shrink-0">
+                        <Label className="text-xs text-muted-foreground font-bold uppercase mb-1.5 block">
+                          Método
                         </Label>
-                        <Input
-                          type="date"
-                          className="h-10 px-2 text-xs"
-                          value={entry.dueDate}
+                        <div className="font-semibold text-primary flex items-center justify-center gap-2 h-10 px-2 bg-muted/50 rounded-md border text-sm text-center truncate">
+                          {entry.method}
+                        </div>
+                      </div>
+
+                      <div className="w-full md:flex-1">
+                        <Label className="text-xs font-medium mb-1.5 block">
+                          Valor Registrado
+                        </Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">
+                            R$
+                          </span>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            className="pl-9 font-bold text-lg h-10"
+                            value={entry.value}
+                            disabled={disabled}
+                            onChange={(e) =>
+                              handleUpdateEntry(
+                                entry.method,
+                                'value',
+                                parseFloat(e.target.value) || 0,
+                              )
+                            }
+                            onBlur={() => handleBlur(entry.method, 'value')}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="w-full md:flex-1 space-y-2">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <Label
+                            className={cn(
+                              'text-xs font-medium block',
+                              isOverpaid ? 'text-red-600' : 'text-green-700',
+                            )}
+                          >
+                            Valor Pago
+                          </Label>
+                          {!disabled && (
+                            <div className="flex items-center gap-1.5">
+                              <Checkbox
+                                id={`auto-${entry.method}`}
+                                checked={isFullyPaid}
+                                onCheckedChange={(c) =>
+                                  handleAutoFill(entry.method, c as boolean)
+                                }
+                                className="h-3.5 w-3.5 data-[state=checked]:bg-green-600 border-green-600"
+                              />
+                              <Label
+                                htmlFor={`auto-${entry.method}`}
+                                className="text-[10px] text-muted-foreground cursor-pointer font-normal"
+                              >
+                                Preencher
+                              </Label>
+                            </div>
+                          )}
+                        </div>
+                        <div className="relative">
+                          <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">
+                            R$
+                          </span>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            className={cn(
+                              'pl-9 font-bold text-lg h-10',
+                              isOverpaid
+                                ? 'border-red-300 bg-red-50 text-red-700 focus-visible:ring-red-200'
+                                : 'border-green-200 bg-green-50/20 text-green-700',
+                            )}
+                            value={entry.paidValue}
+                            disabled={disabled}
+                            onChange={(e) =>
+                              handleUpdateEntry(
+                                entry.method,
+                                'paidValue',
+                                parseFloat(e.target.value) || 0,
+                              )
+                            }
+                            onBlur={() => handleBlur(entry.method, 'paidValue')}
+                          />
+                        </div>
+                        {isOverpaid && (
+                          <span className="text-[10px] text-red-600 font-medium block mt-1 animate-fade-in">
+                            Erro: Valor pago excede o registrado.
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="w-full md:w-20">
+                        <Label className="text-xs font-medium mb-1.5 block">
+                          Parcelas
+                        </Label>
+                        <Select
+                          value={entry.installments.toString()}
                           disabled={disabled}
-                          onChange={(e) =>
+                          onValueChange={(val) =>
                             handleUpdateEntry(
                               entry.method,
-                              'dueDate',
-                              e.target.value,
+                              'installments',
+                              parseInt(val),
                             )
                           }
-                        />
+                        >
+                          <SelectTrigger className="h-10 px-2">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 12 }, (_, i) => i + 1).map(
+                              (n) => (
+                                <SelectItem key={n} value={n.toString()}>
+                                  {n}x
+                                </SelectItem>
+                              ),
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {entry.installments === 1 && (
+                        <div className="w-full md:w-32">
+                          <Label className="text-xs font-medium mb-1.5 flex items-center gap-1">
+                            <Calendar className="h-3 w-3" /> Vencimento
+                          </Label>
+                          <Input
+                            type="date"
+                            className="h-10 px-2 text-xs"
+                            value={entry.dueDate}
+                            disabled={disabled}
+                            onChange={(e) =>
+                              handleUpdateEntry(
+                                entry.method,
+                                'dueDate',
+                                e.target.value,
+                              )
+                            }
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {entry.installments > 1 && entry.details && (
+                      <div className="pl-4 border-l-2 border-muted space-y-3">
+                        <h4 className="text-xs font-semibold text-muted-foreground uppercase">
+                          Parcelas
+                        </h4>
+                        <div className="grid gap-3">
+                          {entry.details.map((inst, idx) => (
+                            <div
+                              key={idx}
+                              className="flex flex-col sm:flex-row gap-3 items-center bg-muted/20 p-2 rounded-md"
+                            >
+                              <div className="w-full sm:w-20 text-sm font-medium text-muted-foreground">
+                                {idx + 1}ª Parcela
+                              </div>
+                              <div className="w-full sm:flex-1 relative">
+                                <span className="absolute left-2.5 top-2 text-muted-foreground text-xs">
+                                  R$
+                                </span>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  className="h-8 pl-7 text-sm"
+                                  value={inst.value}
+                                  disabled={disabled}
+                                  onChange={(e) =>
+                                    handleUpdateInstallment(
+                                      entry.method,
+                                      idx,
+                                      'value',
+                                      parseFloat(e.target.value) || 0,
+                                    )
+                                  }
+                                  onBlur={() =>
+                                    handleUpdateInstallment(
+                                      entry.method,
+                                      idx,
+                                      'value',
+                                      Number(inst.value.toFixed(2)),
+                                    )
+                                  }
+                                />
+                              </div>
+                              <div className="w-full sm:w-32">
+                                <Input
+                                  type="date"
+                                  className="h-8 text-sm px-2"
+                                  value={inst.dueDate}
+                                  disabled={disabled}
+                                  onChange={(e) =>
+                                    handleUpdateInstallment(
+                                      entry.method,
+                                      idx,
+                                      'dueDate',
+                                      e.target.value,
+                                    )
+                                  }
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
-
-                  {entry.installments > 1 && entry.details && (
-                    <div className="pl-4 border-l-2 border-muted space-y-3">
-                      <h4 className="text-xs font-semibold text-muted-foreground uppercase">
-                        Parcelas
-                      </h4>
-                      <div className="grid gap-3">
-                        {entry.details.map((inst, idx) => (
-                          <div
-                            key={idx}
-                            className="flex flex-col sm:flex-row gap-3 items-center bg-muted/20 p-2 rounded-md"
-                          >
-                            <div className="w-full sm:w-20 text-sm font-medium text-muted-foreground">
-                              {idx + 1}ª Parcela
-                            </div>
-                            <div className="w-full sm:flex-1 relative">
-                              <span className="absolute left-2.5 top-2 text-muted-foreground text-xs">
-                                R$
-                              </span>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                className="h-8 pl-7 text-sm"
-                                value={inst.value}
-                                disabled={disabled}
-                                onChange={(e) =>
-                                  handleUpdateInstallment(
-                                    entry.method,
-                                    idx,
-                                    'value',
-                                    parseFloat(e.target.value) || 0,
-                                  )
-                                }
-                                onBlur={() =>
-                                  handleUpdateInstallment(
-                                    entry.method,
-                                    idx,
-                                    'value',
-                                    Number(inst.value.toFixed(2)),
-                                  )
-                                }
-                              />
-                            </div>
-                            <div className="w-full sm:w-32">
-                              <Input
-                                type="date"
-                                className="h-8 text-sm px-2"
-                                value={inst.dueDate}
-                                disabled={disabled}
-                                onChange={(e) =>
-                                  handleUpdateInstallment(
-                                    entry.method,
-                                    idx,
-                                    'dueDate',
-                                    e.target.value,
-                                  )
-                                }
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         )}

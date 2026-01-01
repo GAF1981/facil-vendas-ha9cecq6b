@@ -10,6 +10,7 @@ import { AcertoPaymentSummary } from '@/components/acerto/AcertoPaymentSummary'
 import { ClientRow } from '@/types/client'
 import { bancoDeDadosService } from '@/services/bancoDeDadosService'
 import { recebimentoService } from '@/services/recebimentoService'
+import { acertoService } from '@/services/acertoService'
 import { ArrowDownCircle, Save, Loader2, AlertCircle } from 'lucide-react'
 import { PaymentEntry } from '@/types/payment'
 import { useUserStore } from '@/stores/useUserStore'
@@ -104,7 +105,7 @@ export default function RecebimentoPage() {
           paidValue: order.debito,
           installments: 1,
           dueDate: dueDate,
-          autoFill: true,
+          // autoFill: true, // Removed as property doesn't exist on PaymentEntry anymore
         }
         setPayments([newEntry])
       } else {
@@ -166,6 +167,50 @@ export default function RecebimentoPage() {
         payments,
         selectedOrder.id,
       )
+
+      // Generate Receipt PDF
+      try {
+        const now = new Date()
+        // Prepare Data for Receipt (similar to AcertoPage but specifically for receipt)
+        const pdfData = {
+          client,
+          employee,
+          date: now.toISOString(),
+          acertoTipo: 'Recebimento',
+          totalVendido: selectedOrder.valorVendaTotal,
+          valorDesconto: 0, // Not relevant for receipt
+          valorAcerto: selectedOrder.saldoAPagar,
+          valorPago: totalPaid,
+          debito: Math.max(0, selectedOrder.debito - totalPaid),
+          payments,
+          history: historyData.slice(0, 12),
+          monthlyAverage,
+          orderNumber: selectedOrder.id,
+          isReceipt: true, // Flag for specific receipt layout
+        }
+
+        const pdfBlob = await acertoService.generatePdf(pdfData, {
+          preview: false,
+        })
+
+        // Download
+        const url = window.URL.createObjectURL(pdfBlob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `Recibo_Pedido_${selectedOrder.id}_${format(now, 'yyyyMMdd_HHmm')}.pdf`
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        window.URL.revokeObjectURL(url)
+      } catch (pdfError) {
+        console.error('Error generating receipt:', pdfError)
+        toast({
+          title: 'Erro ao gerar Recibo',
+          description:
+            'O pagamento foi salvo, mas o recibo não pôde ser gerado.',
+          variant: 'destructive',
+        })
+      }
 
       toast({
         title: 'Recebimento salvo',

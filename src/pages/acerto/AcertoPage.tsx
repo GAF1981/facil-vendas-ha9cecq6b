@@ -432,6 +432,17 @@ export default function AcertoPage() {
       return false
     }
 
+    // 4. Per-method Validation: Paid Value cannot exceed Registered Value
+    const hasInvalidPayment = payments.some((p) => p.paidValue > p.value + 0.01)
+    if (hasInvalidPayment) {
+      toast({
+        title: 'Erro no Pagamento',
+        description: 'O valor pago não pode ser maior que o valor registrado.',
+        variant: 'destructive',
+      })
+      return false
+    }
+
     return true
   }
 
@@ -462,6 +473,7 @@ export default function AcertoPage() {
       // New fields for PDF
       history: historyForPdf,
       monthlyAverage,
+      orderNumber: nextOrderNumber,
     }
   }
 
@@ -536,10 +548,13 @@ export default function AcertoPage() {
         })
 
         // Trigger Download
+        const orderNum = nextOrderNumber || 0
         const url = window.URL.createObjectURL(pdfBlob)
         const a = document.createElement('a')
         a.href = url
-        a.download = `Pedido_${client.CODIGO}_${format(now, 'yyyyMMdd_HHmm')}.pdf`
+        // Filename format: Pedido [NÚMERO DO PEDIDO] - [CÓDIGO DO CLIENTE] - [NOME CLIENTE] - [DATA DO ACERTO].pdf
+        const dateStr = format(now, 'yyyy-MM-dd')
+        a.download = `Pedido ${orderNum} - ${client.CODIGO} - ${client['NOME CLIENTE']} - ${dateStr}.pdf`
         document.body.appendChild(a)
         a.click()
         a.remove()
