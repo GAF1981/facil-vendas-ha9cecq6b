@@ -103,11 +103,11 @@ export const confirmationService = {
       order.registeredAmount += registered
 
       const method = (rec.forma_pagamento || '').toLowerCase()
-      // We store the registered value to know if checkboxes should be shown
-      if (method.includes('pix')) order.methods.pix += registered
-      if (method.includes('boleto')) order.methods.boleto += registered
-      if (method.includes('dinheiro')) order.methods.dinheiro += registered
-      if (method.includes('cheque')) order.methods.cheque += registered
+      // We store the PAID value to know if checkboxes should be shown (per requirement)
+      if (method.includes('pix')) order.methods.pix += paid
+      if (method.includes('boleto')) order.methods.boleto += paid
+      if (method.includes('dinheiro')) order.methods.dinheiro += paid
+      if (method.includes('cheque')) order.methods.cheque += paid
     })
 
     // Post-Process

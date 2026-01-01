@@ -1,10 +1,11 @@
 export interface NotaFiscalSettlement {
   orderId: number
+  clientName: string // Added for global view
   dataAcerto: string
   valorTotalVendido: number
   notaFiscalCadastro: string
   notaFiscalVenda: string
-  notaFiscalEmitida: string // Changed from boolean to string
+  notaFiscalEmitida: string
 }
 
 export type NotaFiscalStatusFilter =

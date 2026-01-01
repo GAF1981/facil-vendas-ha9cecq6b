@@ -2,9 +2,10 @@ import { ClientRow } from '@/types/client'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Clock, Calendar } from 'lucide-react'
+import { Clock, Calendar, MessageCircle } from 'lucide-react'
 
 interface ClientDetailsProps {
   client: ClientRow
@@ -46,6 +47,14 @@ export function ClientDetails({
     }
   }
 
+  const handleWhatsAppClick = () => {
+    if (!client['FONE 1']) return
+    const phone = client['FONE 1'].replace(/\D/g, '')
+    if (phone) {
+      window.open(`https://wa.me/${phone}`, '_blank')
+    }
+  }
+
   return (
     <Card className="bg-muted/30 border-primary/20">
       <CardContent className="p-4">
@@ -58,12 +67,25 @@ export function ClientDetails({
           </div>
           <div className="lg:col-span-2">
             <Label className="text-xs text-muted-foreground">Nome</Label>
-            <p
-              className="font-medium truncate text-lg"
-              title={client['NOME CLIENTE'] || ''}
-            >
-              {client['NOME CLIENTE']}
-            </p>
+            <div className="flex items-center gap-2">
+              <p
+                className="font-medium truncate text-lg"
+                title={client['NOME CLIENTE'] || ''}
+              >
+                {client['NOME CLIENTE']}
+              </p>
+              {client['FONE 1'] && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 w-7 p-0 rounded-full bg-green-50 text-green-600 border-green-200 hover:bg-green-100 hover:text-green-700"
+                  onClick={handleWhatsAppClick}
+                  title={`WhatsApp: ${client['FONE 1']}`}
+                >
+                  <MessageCircle className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </div>
           <div>
             <Label className="text-xs text-muted-foreground">Endereço</Label>

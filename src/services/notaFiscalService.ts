@@ -3,6 +3,21 @@ import { NotaFiscalSettlement } from '@/types/nota-fiscal'
 import { parseCurrency } from '@/lib/formatters'
 
 export const notaFiscalService = {
+  async getAllSettlements(): Promise<NotaFiscalSettlement[]> {
+    const { data, error } = await supabase
+      .from('BANCO_DE_DADOS')
+      .select(
+        '"NÚMERO DO PEDIDO", "DATA DO ACERTO", "VALOR VENDIDO", nota_fiscal_emitida, nota_fiscal_cadastro, nota_fiscal_venda, CLIENTE',
+      )
+      .not('"NÚMERO DO PEDIDO"', 'is', null)
+      .order('"DATA DO ACERTO"', { ascending: false })
+      .limit(1000)
+
+    if (error) throw error
+
+    return this.processSettlementData(data, '')
+  },
+
   async getSettlementsByClient(
     clientId: number,
     clientNotaFiscalInfo: string,
@@ -10,7 +25,7 @@ export const notaFiscalService = {
     const { data, error } = await supabase
       .from('BANCO_DE_DADOS')
       .select(
-        '"NÚMERO DO PEDIDO", "DATA DO ACERTO", "VALOR VENDIDO", nota_fiscal_emitida, nota_fiscal_cadastro, nota_fiscal_venda',
+        '"NÚMERO DO PEDIDO", "DATA DO ACERTO", "VALOR VENDIDO", nota_fiscal_emitida, nota_fiscal_cadastro, nota_fiscal_venda, CLIENTE',
       )
       .eq('"CÓDIGO DO CLIENTE"', clientId)
       .not('"NÚMERO DO PEDIDO"', 'is', null)
@@ -18,6 +33,13 @@ export const notaFiscalService = {
 
     if (error) throw error
 
+    return this.processSettlementData(data, clientNotaFiscalInfo)
+  },
+
+  processSettlementData(
+    data: any[] | null,
+    defaultNfInfo: string,
+  ): NotaFiscalSettlement[] {
     if (!data) return []
 
     // Aggregate by Order ID
@@ -30,10 +52,10 @@ export const notaFiscalService = {
       if (!ordersMap.has(orderId)) {
         ordersMap.set(orderId, {
           orderId: orderId,
+          clientName: row['CLIENTE'] || 'N/D',
           dataAcerto: row['DATA DO ACERTO'] || '',
           valorTotalVendido: 0,
-          notaFiscalCadastro:
-            row.nota_fiscal_cadastro || clientNotaFiscalInfo || '',
+          notaFiscalCadastro: row.nota_fiscal_cadastro || defaultNfInfo || '',
           notaFiscalVenda: row.nota_fiscal_venda || '',
           notaFiscalEmitida: row.nota_fiscal_emitida || 'Pendente',
         })

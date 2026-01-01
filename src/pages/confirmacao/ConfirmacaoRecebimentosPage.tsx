@@ -18,7 +18,6 @@ import {
 import { formatCurrency } from '@/lib/formatters'
 import { format, parseISO } from 'date-fns'
 import { useToast } from '@/hooks/use-toast'
-import { cn } from '@/lib/utils'
 
 export default function ConfirmacaoRecebimentosPage() {
   const [data, setData] = useState<ConfirmationRow[]>([])
@@ -174,7 +173,9 @@ export default function ConfirmacaoRecebimentosPage() {
                         {columns.map((method) => {
                           const key =
                             method.toLowerCase() as keyof typeof row.methods
+                          // Value comes from valor_pago as per service implementation
                           const value = row.methods[key]
+                          // Checkbox visible only if valor_pago > 0
                           const hasValue = value > 0
 
                           return (
