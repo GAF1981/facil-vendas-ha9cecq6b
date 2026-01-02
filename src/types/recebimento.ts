@@ -8,6 +8,7 @@ export interface RecebimentoInsert {
   funcionario_id: number
   forma_cobranca?: string | null
   data_combinada?: string | null
+  ID_da_fêmea?: number // New column for Order Number
 }
 
 export interface RecebimentoRow extends RecebimentoInsert {

@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase/client'
 import { ClientRow } from '@/types/client'
 import { Employee } from '@/types/employee'
 import { PaymentEntry } from '@/types/payment'
+import { RecebimentoInsert } from '@/types/recebimento'
 
 export const recebimentoService = {
   async saveRecebimento(
@@ -20,7 +21,7 @@ export const recebimentoService = {
 
     // 2. Prepare inserts for RECEBIMENTOS table
     // These records are the SOURCE OF TRUTH for calculations.
-    const recebimentosToInsert: any[] = []
+    const recebimentosToInsert: RecebimentoInsert[] = []
 
     payments.forEach((payment) => {
       // Handle installments
@@ -40,6 +41,7 @@ export const recebimentoService = {
             // Ensure 12:00 to avoid timezone shifts
             // Renamed data_pagamento to vencimento
             vencimento: new Date(`${detail.dueDate}T12:00:00`).toISOString(),
+            ID_da_fêmea: linkedOrderId, // Backfill with order number
           })
         })
       } else {
@@ -55,6 +57,7 @@ export const recebimentoService = {
           vencimento: payment.dueDate
             ? new Date(`${payment.dueDate}T12:00:00`).toISOString()
             : new Date().toISOString(),
+          ID_da_fêmea: linkedOrderId, // Backfill with order number
         })
       }
     })

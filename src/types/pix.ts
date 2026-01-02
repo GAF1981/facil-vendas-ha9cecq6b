@@ -3,7 +3,6 @@ import { z } from 'zod'
 export interface PixEntry {
   id: number
   recebimento_id: number
-  venda_id?: number | null
   nome_no_pix: string
   banco_pix: string
   data_pix_realizado: string | null
@@ -14,6 +13,8 @@ export interface PixEntry {
 export interface PixReceiptRow {
   id: number // recebimento_id
   venda_id: number
+  // Mapped from ID_da_fêmea
+  id_da_femea: number | null
   cliente_id: number
   forma_pagamento: string
   valor_pago: number

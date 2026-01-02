@@ -24,13 +24,14 @@ export function PixTable({ data, onConfer }: PixTableProps) {
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow>
-            <TableHead className="w-[80px]">Pedido</TableHead>
-            <TableHead>Cliente</TableHead>
-            <TableHead>Valor</TableHead>
+            <TableHead className="w-[100px]">Número do Pedido</TableHead>
+            <TableHead className="w-[80px]">Código Cliente</TableHead>
+            <TableHead>Nome Cliente</TableHead>
+            <TableHead className="text-right">Valor</TableHead>
             <TableHead>Forma Pagamento</TableHead>
             <TableHead>Nome no Pix</TableHead>
-            <TableHead>Banco</TableHead>
-            <TableHead>Data Realizada</TableHead>
+            <TableHead>Banco Pix</TableHead>
+            <TableHead>Data do Pix Realizado</TableHead>
             <TableHead>Conferido por</TableHead>
             <TableHead className="text-right">Ação</TableHead>
           </TableRow>
@@ -39,7 +40,7 @@ export function PixTable({ data, onConfer }: PixTableProps) {
           {data.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={9}
+                colSpan={10}
                 className="h-24 text-center text-muted-foreground"
               >
                 Nenhum recebimento via Pix encontrado.
@@ -48,18 +49,16 @@ export function PixTable({ data, onConfer }: PixTableProps) {
           ) : (
             data.map((row) => (
               <TableRow key={row.id} className="hover:bg-muted/30">
-                <TableCell className="font-mono font-medium">
-                  #{row.venda_id}
+                <TableCell className="font-mono font-medium text-blue-600">
+                  #{row.id_da_femea || row.venda_id}
+                </TableCell>
+                <TableCell className="font-mono text-xs">
+                  {row.cliente_id}
                 </TableCell>
                 <TableCell>
-                  <div className="flex flex-col">
-                    <span className="font-medium">{row.cliente_nome}</span>
-                    <span className="text-xs text-muted-foreground">
-                      Cód: {row.cliente_id}
-                    </span>
-                  </div>
+                  <span className="font-medium">{row.cliente_nome}</span>
                 </TableCell>
-                <TableCell className="font-medium text-green-600">
+                <TableCell className="text-right font-medium text-green-600">
                   R$ {formatCurrency(row.valor_pago || 0)}
                 </TableCell>
                 <TableCell className="text-sm">{row.forma_pagamento}</TableCell>
@@ -102,7 +101,7 @@ export function PixTable({ data, onConfer }: PixTableProps) {
                     ) : (
                       <>
                         <AlertCircle className="mr-2 h-3.5 w-3.5" />
-                        Conferir
+                        Registrar Conferência de Pix
                       </>
                     )}
                   </Button>

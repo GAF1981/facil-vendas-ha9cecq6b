@@ -507,6 +507,7 @@ export const bancoDeDadosService = {
             valor_registrado: detail.value,
             valor_pago: 0,
             vencimento: new Date(`${detail.dueDate}T12:00:00`).toISOString(),
+            ID_da_fêmea: nextPedido, // Backfill
           })
         })
       } else {
@@ -520,6 +521,7 @@ export const bancoDeDadosService = {
           vencimento: payment.dueDate
             ? new Date(`${payment.dueDate}T12:00:00`).toISOString()
             : new Date().toISOString(),
+          ID_da_fêmea: nextPedido, // Backfill
         })
       }
     })
@@ -536,9 +538,6 @@ export const bancoDeDadosService = {
     }
 
     // 6. Insert into NOTA_FISCAL if requested (Legacy Support or redundant now?)
-    // The requirement says "Data Persistence: ... saved into the 'Nota Fiscal Venda' field in the database."
-    // We did that in BANCO_DE_DADOS.
-    // The previous logic inserted into NOTA_FISCAL table. We should keep it if not asked to remove.
     if (notaFiscalVenda) {
       const { error: nfError } = await supabase.from('NOTA_FISCAL').insert({
         venda_id: nextPedido,

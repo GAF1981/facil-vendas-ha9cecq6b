@@ -6,6 +6,7 @@ export const pixService = {
     // Fetch receipts where forma_pagamento is 'Pix'
     // Joining with CLIENTES for name
     // Joining with PIX table to get conference details
+    // Selecting "ID_da_fêmea" specifically
     const { data, error } = await supabase
       .from('RECEBIMENTOS')
       .select(
@@ -23,7 +24,7 @@ export const pixService = {
         )
       `,
       )
-      .eq('forma_pagamento', 'Pix')
+      .ilike('forma_pagamento', 'pix') // Case-insensitive filter
       .order('created_at', { ascending: false })
       .limit(1000)
 
@@ -34,6 +35,8 @@ export const pixService = {
       return {
         id: row.id,
         venda_id: row.venda_id,
+        // Map ID_da_fêmea to internal prop
+        id_da_femea: row['ID_da_fêmea'] || row.venda_id, // Fallback to venda_id if null
         cliente_id: row.cliente_id,
         forma_pagamento: row.forma_pagamento,
         valor_pago: row.valor_pago,
@@ -60,7 +63,13 @@ export const pixService = {
     const { error } = await supabase.from('PIX').upsert(
       {
         recebimento_id: recebimentoId,
-        venda_id: vendaId,
+        // We can ignore venda_id in PIX table if column is not created,
+        // but migration in context didn't remove it, so it might exist.
+        // However, the new migration creates PIX without it explicitly.
+        // Let's omit it to be safe with the new schema unless it complains.
+        // The schema in 20260108170000 creates table without venda_id.
+        // But table might already exist with it.
+        // To be safe, I'll stick to required columns.
         nome_no_pix: data.nome_no_pix,
         banco_pix: data.banco_pix,
         data_pix_realizado: new Date(data.data_pix_realizado).toISOString(),

@@ -57,7 +57,9 @@ export default function PixPage() {
     const filtered = data.filter(
       (row) =>
         row.cliente_nome.toLowerCase().includes(lower) ||
-        row.venda_id.toString().includes(lower) ||
+        (row.id_da_femea?.toString() || row.venda_id.toString()).includes(
+          lower,
+        ) ||
         row.cliente_id.toString().includes(lower) ||
         (row.nome_no_pix && row.nome_no_pix.toLowerCase().includes(lower)),
     )
@@ -95,7 +97,7 @@ export default function PixPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Galeria de Recebimentos Pix</CardTitle>
+          <CardTitle>Conferência de Recebimentos via Pix</CardTitle>
           <CardDescription>
             Visualize e confira todos os pagamentos identificados como Pix.
           </CardDescription>

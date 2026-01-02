@@ -175,7 +175,7 @@ export function PixConferenceDialog({
                 value={employee?.nome_completo || 'Usuário'}
                 disabled
                 readOnly
-                className="bg-muted"
+                className="bg-muted text-muted-foreground"
               />
             </div>
 
