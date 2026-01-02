@@ -885,6 +885,10 @@ export type Database = {
         Args: { p_funcionario_id: number; p_items: Json; p_session_id: number }
         Returns: undefined
       }
+      safe_timestamp_combine: {
+        Args: { p_date: string; p_time: string }
+        Returns: string
+      }
       verify_employee_credentials: {
         Args: { p_email: string; p_senha: string }
         Returns: {

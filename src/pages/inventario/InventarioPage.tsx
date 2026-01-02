@@ -36,6 +36,8 @@ import { EmployeeSelectionDialog } from '@/components/inventario/EmployeeSelecti
 import { MovementDialog } from '@/components/inventario/MovementDialog'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { InventarioTableSkeleton } from '@/components/inventario/InventarioTableSkeleton'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export default function InventarioPage() {
   const [loading, setLoading] = useState(true)
@@ -65,7 +67,10 @@ export default function InventarioPage() {
     funcionarioId?: number,
     sessionId?: number | null,
   ) => {
-    setLoading(true)
+    // Only show full loading if we don't have data yet
+    if (data.length === 0) {
+      setLoading(true)
+    }
     setError(null)
     try {
       const targetId =
@@ -81,12 +86,23 @@ export default function InventarioPage() {
       console.error(error)
       const errorMessage =
         error instanceof Error ? error.message : 'Erro desconhecido'
-      setError(errorMessage)
-      toast({
-        title: 'Erro ao carregar',
-        description: 'Não foi possível buscar os dados de inventário.',
-        variant: 'destructive',
-      })
+
+      // If we have data, we just show a toast warning instead of hiding everything
+      if (data.length > 0) {
+        toast({
+          title: 'Aviso de Atualização',
+          description:
+            'Não foi possível atualizar os dados. Exibindo dados em cache.',
+          variant: 'destructive',
+        })
+      } else {
+        setError(errorMessage)
+        toast({
+          title: 'Erro ao carregar',
+          description: 'Não foi possível buscar os dados de inventário.',
+          variant: 'destructive',
+        })
+      }
     } finally {
       setLoading(false)
     }
@@ -295,6 +311,14 @@ export default function InventarioPage() {
     return 'Inventário de Mercadorias'
   }
 
+  const getFormattedDate = (dateString: string) => {
+    try {
+      return format(parseISO(dateString), 'dd/MM/yyyy HH:mm', { locale: ptBR })
+    } catch (e) {
+      return 'Data inválida'
+    }
+  }
+
   const renderActionButtons = () => {
     if (activeSession) {
       return (
@@ -389,10 +413,8 @@ export default function InventarioPage() {
                 <div className="flex items-center gap-1">
                   <Calendar className="h-3.5 w-3.5" />
                   Início:{' '}
-                  {format(
-                    parseISO(activeSession['Data de Início de Inventário']),
-                    'dd/MM/yyyy HH:mm',
-                    { locale: ptBR },
+                  {getFormattedDate(
+                    activeSession['Data de Início de Inventário'],
                   )}
                 </div>
               </div>
@@ -423,7 +445,26 @@ export default function InventarioPage() {
         </div>
       </div>
 
-      {error ? (
+      {loading && data.length === 0 ? (
+        <div className="space-y-6 animate-fade-in">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-32 w-full rounded-xl" />
+            ))}
+          </div>
+          <div className="bg-muted/20 p-4 rounded-lg border h-20 flex items-center justify-between">
+            <div className="flex gap-4">
+              <Skeleton className="h-8 w-40" />
+              <Skeleton className="h-8 w-40" />
+            </div>
+            <div className="flex gap-2">
+              <Skeleton className="h-9 w-32" />
+              <Skeleton className="h-9 w-32" />
+            </div>
+          </div>
+          <InventarioTableSkeleton />
+        </div>
+      ) : error && data.length === 0 ? (
         <Alert variant="destructive" className="animate-fade-in">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Erro de Carregamento</AlertTitle>
@@ -519,18 +560,12 @@ export default function InventarioPage() {
               </div>
             </CardHeader>
             <CardContent>
-              {loading ? (
-                <div className="flex justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-              ) : (
-                <InventarioTable
-                  data={processedData}
-                  onSort={handleSort}
-                  sortKey={sortKey}
-                  sortDirection={sortDirection}
-                />
-              )}
+              <InventarioTable
+                data={processedData}
+                onSort={handleSort}
+                sortKey={sortKey}
+                sortDirection={sortDirection}
+              />
             </CardContent>
           </Card>
         </>
