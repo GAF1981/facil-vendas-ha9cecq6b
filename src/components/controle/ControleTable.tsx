@@ -22,8 +22,7 @@ export function ControleTable({ data }: ControleTableProps) {
           <TableRow>
             <TableHead className="w-[180px]">Número do Controle</TableHead>
             <TableHead className="w-[150px]">Código Cliente</TableHead>
-            <TableHead>Nome do Cliente</TableHead>
-            <TableHead className="w-[200px]">Forma de pagamento</TableHead>
+            <TableHead>Forma de pagamento</TableHead>
             <TableHead className="text-right">Valor</TableHead>
           </TableRow>
         </TableHeader>
@@ -31,7 +30,7 @@ export function ControleTable({ data }: ControleTableProps) {
           {data.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={5}
+                colSpan={4}
                 className="h-32 text-center text-muted-foreground"
               >
                 <div className="flex flex-col items-center justify-center gap-2">
@@ -50,9 +49,6 @@ export function ControleTable({ data }: ControleTableProps) {
                 </TableCell>
                 <TableCell className="font-mono text-muted-foreground">
                   {row.cliente_id}
-                </TableCell>
-                <TableCell>
-                  <span className="font-medium">{row.cliente_nome}</span>
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline" className="font-normal">
