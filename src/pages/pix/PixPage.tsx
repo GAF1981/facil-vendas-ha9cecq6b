@@ -51,6 +51,7 @@ export default function PixPage() {
     return (
       r.orderId.toString().includes(s) ||
       r.clientCode.toString().includes(s) ||
+      r.clientName.toLowerCase().includes(s) ||
       (r.pixDetails?.nome_no_pix || '').toLowerCase().includes(s) ||
       (r.pixDetails?.banco_pix || '').toLowerCase().includes(s)
     )
@@ -76,7 +77,7 @@ export default function PixPage() {
         <div className="flex items-center bg-card p-2 rounded-lg border shadow-sm max-w-md w-full">
           <Search className="mr-2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por pedido, código, nome ou banco..."
+            placeholder="Buscar por cliente, pedido, nome no pix..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="border-none shadow-none focus-visible:ring-0 h-8"
@@ -101,6 +102,7 @@ export default function PixPage() {
                 <TableRow>
                   <TableHead className="w-[100px]">Pedido</TableHead>
                   <TableHead className="w-[80px]">Cód.</TableHead>
+                  <TableHead>Cliente</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
                   <TableHead>Nome no Pix</TableHead>
                   <TableHead>Banco Pix</TableHead>
@@ -112,7 +114,7 @@ export default function PixPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="h-24 text-center">
+                    <TableCell colSpan={9} className="h-24 text-center">
                       <div className="flex justify-center items-center">
                         <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
                         Carregando...
@@ -122,7 +124,7 @@ export default function PixPage() {
                 ) : filteredData.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={8}
+                      colSpan={9}
                       className="h-24 text-center text-muted-foreground"
                     >
                       Nenhum registro encontrado.
@@ -136,6 +138,9 @@ export default function PixPage() {
                       </TableCell>
                       <TableCell className="font-mono text-muted-foreground">
                         {row.clientCode}
+                      </TableCell>
+                      <TableCell className="text-sm font-medium">
+                        {row.clientName}
                       </TableCell>
                       <TableCell className="text-right font-mono font-medium">
                         R$ {formatCurrency(row.value)}

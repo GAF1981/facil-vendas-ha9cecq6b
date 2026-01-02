@@ -411,6 +411,44 @@ export type Database = {
           },
         ]
       }
+      PIX: {
+        Row: {
+          banco_pix: string
+          confirmado_por: string | null
+          created_at: string
+          data_realizada: string
+          id: number
+          nome_no_pix: string
+          recebimento_id: number
+        }
+        Insert: {
+          banco_pix: string
+          confirmado_por?: string | null
+          created_at?: string
+          data_realizada: string
+          id?: number
+          nome_no_pix: string
+          recebimento_id: number
+        }
+        Update: {
+          banco_pix?: string
+          confirmado_por?: string | null
+          created_at?: string
+          data_realizada?: string
+          id?: number
+          nome_no_pix?: string
+          recebimento_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'PIX_recebimento_id_fkey'
+            columns: ['recebimento_id']
+            isOneToOne: true
+            referencedRelation: 'RECEBIMENTOS'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       PRODUTOS: {
         Row: {
           CODIGO: number | null

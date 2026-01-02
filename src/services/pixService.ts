@@ -20,6 +20,9 @@ export const pixService = {
           data_realizada,
           confirmado_por,
           created_at
+        ),
+        CLIENTES (
+          "NOME CLIENTE"
         )
       `,
       )
@@ -33,6 +36,12 @@ export const pixService = {
       id: row.id,
       orderId: row.venda_id,
       clientCode: row.cliente_id,
+      // Handle relation to CLIENTES to get the name
+      // Safely handle if it returns as array or object
+      clientName:
+        (Array.isArray(row.CLIENTES) ? row.CLIENTES[0] : row.CLIENTES)?.[
+          'NOME CLIENTE'
+        ] || 'Cliente não encontrado',
       paymentMethod: row.forma_pagamento,
       value: row.valor_pago,
       // Handle the relation which comes as an array from Supabase

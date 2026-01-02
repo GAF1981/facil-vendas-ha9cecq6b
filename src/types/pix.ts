@@ -12,6 +12,7 @@ export interface PixRecebimentoRow {
   id: number // ID from Recebimentos
   orderId: number
   clientCode: number
+  clientName: string // Added field for customer name
   paymentMethod: string
   value: number
   pixDetails?: PixDetails | null

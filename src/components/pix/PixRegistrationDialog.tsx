@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { format } from 'date-fns'
-import { CalendarIcon, Loader2 } from 'lucide-react'
+import { CalendarIcon, Loader2, User } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -73,7 +73,7 @@ export function PixRegistrationDialog({
     resolver: zodResolver(formSchema),
     defaultValues: {
       nome_no_pix: existingDetails?.nome_no_pix || '',
-      banco_pix: existingDetails?.banco_pix || 'BS2',
+      banco_pix: (existingDetails?.banco_pix as any) || 'BS2',
       data_realizada: existingDetails?.data_realizada
         ? new Date(existingDetails.data_realizada)
         : new Date(),
@@ -137,10 +137,32 @@ export function PixRegistrationDialog({
         <DialogHeader>
           <DialogTitle>Registrar Conferência de Pix</DialogTitle>
           <DialogDescription>
-            Informe os detalhes da transação Pix para o recebimento #{row.id}{' '}
-            (Pedido #{row.orderId}).
+            Informe os detalhes da transação Pix para o pedido #{row.orderId}.
           </DialogDescription>
         </DialogHeader>
+
+        <div className="grid gap-4 py-4">
+          <div className="space-y-2">
+            <span className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+              Nome do Cliente
+            </span>
+            <div className="flex h-10 w-full items-center rounded-md border border-input bg-muted px-3 py-2 text-sm text-muted-foreground">
+              <User className="mr-2 h-4 w-4 opacity-50" />
+              {row.clientName}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+              Conferido Por
+            </span>
+            <div className="flex h-10 w-full items-center rounded-md border border-input bg-muted px-3 py-2 text-sm text-muted-foreground">
+              <User className="mr-2 h-4 w-4 opacity-50" />
+              {employee?.nome_completo || 'N/A'}
+            </div>
+          </div>
+        </div>
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
@@ -148,9 +170,9 @@ export function PixRegistrationDialog({
               name="nome_no_pix"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Nome no Pix</FormLabel>
+                  <FormLabel>Nome no Pix (Quem transferiu)</FormLabel>
                   <FormControl>
-                    <Input placeholder="Nome de quem transferiu" {...field} />
+                    <Input placeholder="Ex: João da Silva" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -162,7 +184,7 @@ export function PixRegistrationDialog({
               name="banco_pix"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Banco Pix</FormLabel>
+                  <FormLabel>Banco Destino</FormLabel>
                   <Select
                     onValueChange={field.onChange}
                     defaultValue={field.value}
@@ -188,7 +210,7 @@ export function PixRegistrationDialog({
               name="data_realizada"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Data do Pix Realizado</FormLabel>
+                  <FormLabel>Data da Transferência</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
