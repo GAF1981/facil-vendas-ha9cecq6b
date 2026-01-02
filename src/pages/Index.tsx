@@ -14,6 +14,7 @@ import {
   Package,
   Database,
   CheckCircle,
+  QrCode,
 } from 'lucide-react'
 
 export default function Index() {
@@ -52,6 +53,13 @@ export default function Index() {
       to: '/recebimento',
       description: 'Registrar recebimentos de valores',
       color: 'text-emerald-600',
+    },
+    {
+      title: 'Pix',
+      icon: QrCode,
+      to: '/pix',
+      description: 'Conferência de recebimentos via Pix',
+      color: 'text-purple-600',
     },
     {
       title: 'Confirmação',

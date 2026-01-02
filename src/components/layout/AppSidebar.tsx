@@ -27,6 +27,7 @@ import {
   Package,
   Database,
   CheckCircle,
+  QrCode,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 
@@ -64,6 +65,11 @@ export function AppSidebar() {
       title: 'Recebimento',
       url: '/recebimento',
       icon: ArrowDownCircle,
+    },
+    {
+      title: 'Pix',
+      url: '/pix',
+      icon: QrCode,
     },
     {
       title: 'Confirmação',
