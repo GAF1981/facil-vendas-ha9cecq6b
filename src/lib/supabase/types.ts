@@ -566,6 +566,58 @@ export type Database = {
           },
         ]
       }
+      'REPOSIÇÃO E DEVOLUÇÃO': {
+        Row: {
+          created_at: string | null
+          funcionario_id: number | null
+          id: number
+          produto_id: number | null
+          quantidade: number
+          session_id: number | null
+          TIPO: string
+        }
+        Insert: {
+          created_at?: string | null
+          funcionario_id?: number | null
+          id?: number
+          produto_id?: number | null
+          quantidade: number
+          session_id?: number | null
+          TIPO: string
+        }
+        Update: {
+          created_at?: string | null
+          funcionario_id?: number | null
+          id?: number
+          produto_id?: number | null
+          quantidade?: number
+          session_id?: number | null
+          TIPO?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'REPOSIÇÃO E DEVOLUÇÃO_funcionario_id_fkey'
+            columns: ['funcionario_id']
+            isOneToOne: false
+            referencedRelation: 'FUNCIONARIOS'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'REPOSIÇÃO E DEVOLUÇÃO_produto_id_fkey'
+            columns: ['produto_id']
+            isOneToOne: false
+            referencedRelation: 'PRODUTOS'
+            referencedColumns: ['ID']
+          },
+          {
+            foreignKeyName: 'REPOSIÇÃO E DEVOLUÇÃO_session_id_fkey'
+            columns: ['session_id']
+            isOneToOne: false
+            referencedRelation: 'DATAS DE INVENTÁRIO'
+            referencedColumns: ['ID INVENTÁRIO']
+          },
+        ]
+      }
       ROTA: {
         Row: {
           data_fim: string | null

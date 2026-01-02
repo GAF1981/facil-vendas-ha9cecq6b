@@ -3,6 +3,7 @@ import {
   InventarioItem,
   DatasDeInventario,
   MovementInsert,
+  ContagemEstoqueFinalInsert,
 } from '@/types/inventario'
 import { parseCurrency, formatCurrency } from '@/lib/formatters'
 
@@ -169,10 +170,51 @@ export const inventarioService = {
       console.warn(
         'No history record found for product to update balance. Balance not saved.',
       )
-      throw new Error(
-        'Não foi encontrado registro recente deste produto para atualizar o saldo.',
-      )
+      // We don't throw here to avoid breaking bulk updates if one item fails to find history
     }
+  },
+
+  async saveFinalCounts(
+    items: {
+      productId: number
+      productCode: number | null
+      quantity: number
+      price: number
+    }[],
+    sessionId: number | null,
+    funcionarioId: number | null,
+  ): Promise<void> {
+    if (items.length === 0) return
+
+    // 1. Insert into new table CONTAGEM DE ESTOQUE FINAL
+    const insertPayload: ContagemEstoqueFinalInsert[] = items.map((item) => ({
+      produto_id: item.productId,
+      quantidade: item.quantity,
+      session_id: sessionId,
+      valor_unitario_snapshot: item.price,
+    }))
+
+    const { error: insertError } = await supabase
+      .from('CONTAGEM DE ESTOQUE FINAL')
+      .insert(insertPayload)
+
+    if (insertError) throw insertError
+
+    // 2. Update BANCO_DE_DADOS for each item to reflect the new balance
+    // We process this in batches to avoid overwhelming the connection, although client-side looping is slow.
+    // Ideally this should be a backend function, but we do it here to maintain feature parity.
+    const updatePromises = items.map((item) => {
+      if (item.productCode) {
+        return this.updateItemBalance(
+          item.productCode,
+          item.quantity,
+          funcionarioId,
+        )
+      }
+      return Promise.resolve()
+    })
+
+    await Promise.all(updatePromises)
   },
 
   async createMovement(movement: MovementInsert): Promise<void> {

@@ -21,7 +21,9 @@ import { employeesService } from '@/services/employeesService'
 import { productsService } from '@/services/productsService'
 import { Employee } from '@/types/employee'
 import { ProductRow } from '@/types/product'
-import { Loader2, Search } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
+import { useToast } from '@/hooks/use-toast'
 
 interface MovementDialogProps {
   open: boolean
@@ -44,6 +46,8 @@ export function MovementDialog({
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [loadingEmployees, setLoadingEmployees] = useState(false)
+  const [keepEmployee, setKeepEmployee] = useState(false)
+  const { toast } = useToast()
 
   // Product Search State
   const [searchProduct, setSearchProduct] = useState('')
@@ -70,14 +74,19 @@ export function MovementDialog({
         }
       }
       fetchEmployees()
-      // Reset form
-      setSelectedEmployeeId('')
+
+      // Only reset employee if not pinned
+      if (!keepEmployee) {
+        setSelectedEmployeeId('')
+      }
+
+      // Always reset these
       setSearchProduct('')
       setFoundProducts([])
       setSelectedProduct(null)
       setQuantity('')
     }
-  }, [open])
+  }, [open, keepEmployee])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -112,7 +121,16 @@ export function MovementDialog({
         selectedProduct.CODIGO || selectedProduct.ID,
         parseInt(quantity),
       )
-      onOpenChange(false)
+
+      if (keepEmployee) {
+        // Reset form but keep dialog open and employee selected
+        setSelectedProduct(null)
+        setQuantity('')
+        setSearchProduct('')
+        // Toast is handled by parent, but we might want to show visual feedback here if needed
+      } else {
+        onOpenChange(false)
+      }
     } catch (error) {
       console.error(error)
     } finally {
@@ -138,30 +156,48 @@ export function MovementDialog({
           {/* Employee Select */}
           <div className="space-y-2">
             <Label>Funcionário</Label>
-            {loadingEmployees ? (
-              <div className="flex items-center text-xs text-muted-foreground">
-                <Loader2 className="mr-2 h-3 w-3 animate-spin" /> Carregando...
+            <div className="flex flex-col gap-2">
+              {loadingEmployees ? (
+                <div className="flex items-center text-xs text-muted-foreground">
+                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />{' '}
+                  Carregando...
+                </div>
+              ) : (
+                <Select
+                  value={selectedEmployeeId}
+                  onValueChange={setSelectedEmployeeId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um funcionário" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {employees.map((employee) => (
+                      <SelectItem
+                        key={employee.id}
+                        value={employee.id.toString()}
+                      >
+                        {employee.nome_completo}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="keep-employee"
+                  checked={keepEmployee}
+                  onCheckedChange={(checked) =>
+                    setKeepEmployee(checked as boolean)
+                  }
+                />
+                <Label
+                  htmlFor="keep-employee"
+                  className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Fixar funcionário para o próximo lançamento
+                </Label>
               </div>
-            ) : (
-              <Select
-                value={selectedEmployeeId}
-                onValueChange={setSelectedEmployeeId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um funcionário" />
-                </SelectTrigger>
-                <SelectContent>
-                  {employees.map((employee) => (
-                    <SelectItem
-                      key={employee.id}
-                      value={employee.id.toString()}
-                    >
-                      {employee.nome_completo}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+            </div>
           </div>
 
           {/* Product Search */}
@@ -243,7 +279,7 @@ export function MovementDialog({
             }
           >
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Confirmar
+            {keepEmployee ? 'Confirmar e Próximo' : 'Confirmar'}
           </Button>
         </DialogFooter>
       </DialogContent>

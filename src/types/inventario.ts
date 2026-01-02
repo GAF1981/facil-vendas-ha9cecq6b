@@ -47,3 +47,10 @@ export interface MovementInsert {
   quantidade: number
   session_id: number
 }
+
+export interface ContagemEstoqueFinalInsert {
+  produto_id: number
+  quantidade: number
+  session_id: number | null
+  valor_unitario_snapshot: number
+}
