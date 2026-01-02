@@ -23,26 +23,24 @@ export default function RotaPage() {
     search: '',
     x_na_rota: 'todos',
     agregado: 'todos',
-    vendedor: [], // Start empty
+    vendedor: [],
     municipio: 'todos',
-    tipo_cliente: 'todos', // Changed from 'ATIVO' to 'todos' for neutral default
+    tipo_cliente: 'todos',
     grupo_rota: 'todos',
     debito_min: '',
     debito_max: '',
     data_acerto_start: '',
     data_acerto_end: '',
-    projecao_min: '', // Changed from '50' to empty for neutral default
+    projecao_min: '',
     estoque_min: '',
     estoque_max: '',
   })
 
-  // Sorting State
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: 'projecao',
     direction: 'desc',
   })
 
-  // Load Initial Data
   useEffect(() => {
     const init = async () => {
       setLoading(true)
@@ -55,12 +53,9 @@ export default function RotaPage() {
         setActiveRota(active)
         setLastRota(last)
 
-        // List ALL employees
         const allEmployees = empRes.data
         setSellers(allEmployees)
 
-        // Fetch Row Data
-        // Now returns ALL clients with left-joined rota data
         const data = await rotaService.getFullRotaData(active)
         setRows(data)
       } catch (error) {
@@ -82,6 +77,9 @@ export default function RotaPage() {
     try {
       const newRota = await rotaService.startRota()
       setActiveRota(newRota)
+      // Refresh rows
+      const data = await rotaService.getFullRotaData(newRota)
+      setRows(data)
       toast({ title: 'Rota Iniciada', className: 'bg-green-600 text-white' })
     } catch (error) {
       toast({
@@ -96,20 +94,37 @@ export default function RotaPage() {
 
   const handleEndRota = async () => {
     if (!activeRota) return
-    if (!window.confirm('Tem certeza que deseja finalizar a rota atual?'))
+    if (
+      !window.confirm(
+        'Confirma o fechamento da rota atual e início de uma nova?',
+      )
+    )
       return
 
     setLoading(true)
     try {
-      await rotaService.endRota(activeRota.id)
-      const finishedRota = { ...activeRota, data_fim: new Date().toISOString() }
-      setLastRota(finishedRota)
-      setActiveRota(null)
-      toast({ title: 'Rota Finalizada', className: 'bg-blue-600 text-white' })
+      // New Logic: Finish current AND Start new
+      const newRota = await rotaService.finishAndStartNewRoute(activeRota.id)
+
+      // Update State: Previous active becomes last
+      setLastRota({ ...activeRota, data_fim: new Date().toISOString() })
+      // New active is the one just created
+      setActiveRota(newRota)
+
+      // Refresh Rows for new rota (should be clean state for x_na_rota etc if configured, but here we keep client list)
+      const data = await rotaService.getFullRotaData(newRota)
+      setRows(data)
+
+      toast({
+        title: 'Rota Finalizada e Nova Iniciada',
+        description: `Rota #${activeRota.id} fechada. Rota #${newRota.id} iniciada.`,
+        className: 'bg-blue-600 text-white',
+      })
     } catch (error) {
+      console.error(error)
       toast({
         title: 'Erro',
-        description: 'Não foi possível finalizar a rota.',
+        description: 'Não foi possível finalizar/iniciar a rota.',
         variant: 'destructive',
       })
     } finally {
@@ -161,10 +176,8 @@ export default function RotaPage() {
     }))
   }
 
-  // Filter Logic
   const filteredRows = useMemo(() => {
     return rows.filter((row) => {
-      // Search Text Filter
       if (filters.search) {
         const searchLower = filters.search.toLowerCase()
         const matchesName = row.client['NOME CLIENTE']
@@ -186,8 +199,6 @@ export default function RotaPage() {
         if (row.agregado !== boolVal) return false
       }
 
-      // Vendedor Multi-Select Filter Logic
-      // If filters.vendedor is empty, we show all (no filter applied)
       if (filters.vendedor.length > 0) {
         if (
           !row.vendedor_id ||
@@ -209,7 +220,6 @@ export default function RotaPage() {
         if (row.client['GRUPO ROTA'] !== filters.grupo_rota) return false
       }
 
-      // Ranges
       if (filters.debito_min && row.debito < Number(filters.debito_min))
         return false
       if (filters.debito_max && row.debito > Number(filters.debito_max))
@@ -240,7 +250,6 @@ export default function RotaPage() {
     })
   }, [rows, filters])
 
-  // Sorting Logic
   const sortedRows = useMemo(() => {
     const sorted = [...filteredRows]
 
@@ -363,7 +372,6 @@ export default function RotaPage() {
     return sorted
   }, [filteredRows, sortConfig, sellers])
 
-  // Extract unique values for filters
   const uniqueMunicipios = useMemo(
     () => [...new Set(rows.map((r) => r.client.MUNICÍPIO).filter(Boolean))],
     [rows],
@@ -383,7 +391,6 @@ export default function RotaPage() {
   )
 
   const handleExportExcel = () => {
-    // Headers updated to match new column order and Stock Value
     const headers = [
       'Código',
       'Nome',
@@ -407,7 +414,7 @@ export default function RotaPage() {
       'Rota',
     ]
 
-    const rowsToExport = sortedRows.slice(0, 500) // Increased limit slightly for export
+    const rowsToExport = sortedRows.slice(0, 500)
 
     const csvContent = [
       headers.join(';'),
@@ -423,7 +430,7 @@ export default function RotaPage() {
           row.debito.toFixed(2).replace('.', ','),
           row.quant_debito,
           row.data_acerto || '',
-          row.estoque.toFixed(2).replace('.', ','), // Stock Value
+          row.estoque.toFixed(2).replace('.', ','),
           `"${(row.client.ENDEREÇO || '').replace(/"/g, '""')}"`,
           `"${(row.client.BAIRRO || '').replace(/"/g, '""')}"`,
           `"${(row.client.MUNICÍPIO || '').replace(/"/g, '""')}"`,
@@ -457,7 +464,6 @@ export default function RotaPage() {
   return (
     <div className="flex flex-col h-screen gap-4 p-4 animate-fade-in bg-background">
       <div className="flex-none flex flex-col gap-4">
-        {/* Header Section */}
         <div className="w-full">
           <RotaHeader
             activeRota={activeRota}
@@ -468,8 +474,6 @@ export default function RotaPage() {
             loading={loading}
           />
         </div>
-
-        {/* Filter Strip - Dedicated full width section */}
         <div className="w-full">
           <RotaFilters
             filters={filters}
@@ -480,12 +484,8 @@ export default function RotaPage() {
             routes={uniqueRoutes as string[]}
           />
         </div>
-
-        {/* Legend */}
         <RotaLegend />
       </div>
-
-      {/* Table Section */}
       <div className="flex-1 overflow-hidden border rounded-md shadow-sm">
         <RotaTable
           rows={sortedRows}

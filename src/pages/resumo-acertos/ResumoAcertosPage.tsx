@@ -43,14 +43,14 @@ export default function ResumoAcertosPage() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      // 1. Get Latest Route
       const route = await resumoAcertosService.getLatestRoute()
       setRouteInfo(route)
 
       if (route && route.data_inicio) {
-        // 2. Get Settlements filtered by route start
+        // Pass data_fim if available to filter properly
         const settlements = await resumoAcertosService.getSettlements(
           route.data_inicio,
+          route.data_fim,
         )
         setData(settlements)
       } else {
@@ -116,12 +116,11 @@ export default function ResumoAcertosPage() {
         </Button>
       </div>
 
-      {/* Route Header */}
       <Card className="border-l-4 border-l-blue-600 bg-blue-50/20">
         <CardHeader className="pb-2">
           <CardTitle className="text-lg flex items-center gap-2">
             <MapIcon className="h-5 w-5 text-blue-600" />
-            Informações da Rota Atual
+            Informações da Rota Atual (ID Máximo)
           </CardTitle>
           <CardDescription>
             Detalhes da rota mais recente registrada no sistema.
@@ -175,7 +174,6 @@ export default function ResumoAcertosPage() {
         </CardContent>
       </Card>
 
-      {/* Settlements Table */}
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">

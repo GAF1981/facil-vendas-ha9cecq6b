@@ -34,9 +34,20 @@ export const rotaService = {
   },
 
   async startRota() {
+    // Determine next ID explicitly
+    const { data: maxIdData } = await supabase
+      .from('ROTA')
+      .select('id')
+      .order('id', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const nextId = (maxIdData?.id || 0) + 1
+
     const { data, error } = await supabase
       .from('ROTA')
       .insert({
+        id: nextId,
         data_inicio: new Date().toISOString(),
       })
       .select()
@@ -58,6 +69,43 @@ export const rotaService = {
 
     if (error) throw error
     return data as Rota
+  },
+
+  async finishAndStartNewRoute(currentRotaId: number) {
+    // 1. Close current route
+    const { error: endError } = await supabase
+      .from('ROTA')
+      .update({
+        data_fim: new Date().toISOString(),
+      })
+      .eq('id', currentRotaId)
+
+    if (endError) throw endError
+
+    // 2. Start new route with incremented ID
+    // Reusing startRota logic but ensuring we have the latest ID context
+    const { data: maxIdData } = await supabase
+      .from('ROTA')
+      .select('id')
+      .order('id', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    // Typically currentRotaId should be the max, but we fetch safely
+    const nextId = (maxIdData?.id || currentRotaId) + 1
+
+    const { data: newRota, error: startError } = await supabase
+      .from('ROTA')
+      .insert({
+        id: nextId,
+        data_inicio: new Date().toISOString(),
+      })
+      .select()
+      .single()
+
+    if (startError) throw startError
+
+    return newRota as Rota
   },
 
   async getRotaItems(rotaId: number) {
@@ -119,7 +167,6 @@ export const rotaService = {
 
   async getFullRotaData(rota: Rota | null) {
     // 1. Fetch all Clients
-    // Increased limit to 10000 to ensure we get ALL clients
     const { data: clients, error: clientsError } = await supabase
       .from('CLIENTES')
       .select('*')
@@ -129,7 +176,7 @@ export const rotaService = {
     if (clientsError) throw clientsError
     if (!clients) return []
 
-    // 2. Fetch Debts (Note: cobrancaService has been updated to fetch more rows)
+    // 2. Fetch Debts
     const allDebts = await cobrancaService.getDebts()
     const debtMap = new Map(allDebts.map((d) => [d.clientId, d]))
 
@@ -144,7 +191,7 @@ export const rotaService = {
       items.forEach((i) => rotaItemsMap.set(i.cliente_id, i))
     }
 
-    // 5. Fetch Projections and Order Info from Report Logic
+    // 5. Fetch Projections and Order Info
     const reportData = await reportsService.getProjectionsReport()
     const projectionMap = new Map<
       number,
@@ -161,7 +208,6 @@ export const rotaService = {
     })
 
     // 6. Fetch Products for pricing
-    // Increased limit to 10000 to ensure we have all product prices
     const { data: products } = await supabase
       .from('PRODUTOS')
       .select('CODIGO, PREÇO')
@@ -172,8 +218,7 @@ export const rotaService = {
       if (p.CODIGO) priceMap.set(p.CODIGO, parseCurrency(p.PREÇO))
     })
 
-    // 7. Fetch basic Summary Stats (Latest Date and Stock Value)
-    // We fetch more rows to ensure we cover enough history for calculations for ALL clients
+    // 7. Fetch basic Summary Stats
     const { data: dbStats } = await supabase
       .from('BANCO_DE_DADOS')
       .select(
@@ -196,18 +241,14 @@ export const rotaService = {
       }
       const entry = statsMap.get(cid)!
 
-      // Capture history dates
       if (row['DATA DO ACERTO']) {
         entry.history.add(row['DATA DO ACERTO'])
       }
 
-      // Logic for Stock Value:
-      // We identify the latest "Acerto" date for this client (first one encountered since sorted DESC)
       if (!entry.lastDate) {
         entry.lastDate = row['DATA DO ACERTO']
       }
 
-      // Accumulate stock value ONLY for the products belonging to the latest date
       if (row['DATA DO ACERTO'] === entry.lastDate) {
         const qty = row['SALDO FINAL'] || 0
         const pid = row['COD. PRODUTO']
@@ -244,7 +285,6 @@ export const rotaService = {
       return {
         rowNumber: index + 1,
         client,
-        // Default to 0/false/null if no rota item exists (Left Join logic)
         x_na_rota: rotaItem?.x_na_rota || 0,
         boleto: rotaItem?.boleto || false,
         agregado: rotaItem?.agregado || false,
@@ -254,7 +294,7 @@ export const rotaService = {
         data_acerto: stats?.lastDate || null,
         projecao: projecao,
         numero_pedido: numero_pedido,
-        estoque: stats?.stockValue || 0, // Now represents Monetary Value (R$)
+        estoque: stats?.stockValue || 0,
         has_pendency: pendencyMap.has(cid),
         is_completed: completedSet.has(cid),
       }

@@ -14,6 +14,7 @@ import {
   Package,
   Database,
   QrCode,
+  FileBarChart,
 } from 'lucide-react'
 
 export default function Index() {
@@ -95,6 +96,13 @@ export default function Index() {
       to: '/rota',
       description: 'Planejamento e gestão de rotas',
       color: 'text-fuchsia-600',
+    },
+    {
+      title: 'Resumo Acertos',
+      icon: FileBarChart,
+      to: '/resumo-acertos',
+      description: 'Monitoramento consolidado de acertos',
+      color: 'text-indigo-600',
     },
     {
       title: 'Relatório',

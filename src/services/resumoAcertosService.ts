@@ -19,6 +19,7 @@ export interface SettlementSummary {
 
 export const resumoAcertosService = {
   async getLatestRoute() {
+    // Get the route with the Highest ID
     const { data, error } = await supabase
       .from('ROTA')
       .select('*')
@@ -30,41 +31,55 @@ export const resumoAcertosService = {
     return data
   },
 
-  async getSettlements(routeStartDate: string) {
+  async getSettlements(routeStartDate: string, routeEndDate?: string | null) {
     const routeStart = parseISO(routeStartDate)
-    // Basic date filtering at DB level to reduce payload (>= date part)
-    const datePart = routeStartDate.split('T')[0]
+    // Basic date filtering at DB level
+    const datePartStart = routeStartDate.split('T')[0]
 
-    const { data: dbData, error: dbError } = await supabase
+    let query = supabase
       .from('BANCO_DE_DADOS')
       .select('*')
-      .gte('"DATA DO ACERTO"', datePart)
+      .gte('"DATA DO ACERTO"', datePartStart)
       .not('"NÚMERO DO PEDIDO"', 'is', null)
+
+    if (routeEndDate) {
+      const datePartEnd = routeEndDate.split('T')[0]
+      query = query.lte('"DATA DO ACERTO"', datePartEnd)
+    }
+
+    const { data: dbData, error: dbError } = await query
 
     if (dbError) throw dbError
 
-    // Group by Order ID and Aggregate Sales
     const ordersMap = new Map<number, SettlementSummary>()
 
+    // Filter by timestamp in JS for precision
     dbData?.forEach((row: any) => {
-      // Strict Time filtering
       const dateStr = row['DATA DO ACERTO']
       const timeStr = row['HORA DO ACERTO'] || '00:00:00'
       if (!dateStr) return
 
-      // Construct comparable date
-      // Handling potential format differences or just appending time
       const rowDateTimeStr = `${dateStr}T${timeStr}`
       let rowDateTime: Date
       try {
         rowDateTime = parseISO(rowDateTimeStr)
       } catch (e) {
-        // Fallback if parsing fails
         return
       }
 
-      // Check if strictly greater than route start
-      if (!isAfter(rowDateTime, routeStart)) return
+      // Check range strictly
+      if (
+        !isAfter(rowDateTime, routeStart) &&
+        rowDateTime.getTime() !== routeStart.getTime()
+      ) {
+        // Less than start?
+        if (rowDateTime < routeStart) return
+      }
+
+      if (routeEndDate) {
+        const routeEnd = parseISO(routeEndDate)
+        if (isAfter(rowDateTime, routeEnd)) return
+      }
 
       const orderId = row['NÚMERO DO PEDIDO']
       if (!ordersMap.has(orderId)) {
@@ -82,16 +97,13 @@ export const resumoAcertosService = {
       }
 
       const order = ordersMap.get(orderId)!
-      // Using specific column requested: "VALOR VENDA PRODUTO"
       order.totalSalesValue += parseCurrency(row['VALOR VENDA PRODUTO'])
     })
 
     const orderIds = Array.from(ordersMap.keys())
 
     if (orderIds.length > 0) {
-      // Fetch Payments for these orders
-      // Using batching logic if needed, but for "Resumo" usually manageable
-      // Supabase 'in' filter limits might apply if thousands of orders, but typically fine for "Active Route"
+      // Fetch Payments from RECEBIMENTOS
       const { data: payData, error: payError } = await supabase
         .from('RECEBIMENTOS')
         .select('venda_id, forma_pagamento, valor_pago')
@@ -111,7 +123,6 @@ export const resumoAcertosService = {
       })
     }
 
-    // Return sorted by Order ID descending (newest first)
     return Array.from(ordersMap.values()).sort((a, b) => b.orderId - a.orderId)
   },
 }
