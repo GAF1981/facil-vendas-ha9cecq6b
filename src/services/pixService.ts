@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase/client'
-import { PixRecebimentoRow, PixDetails } from '@/types/pix'
+import { PixRecebimentoRow } from '@/types/pix'
 
 export const pixService = {
   async getPixRecebimentos(): Promise<PixRecebimentoRow[]> {
@@ -13,15 +13,8 @@ export const pixService = {
         forma_pagamento,
         valor_pago,
         pix_recebimento_confirmado,
-        PIX (
-          id,
-          recebimento_id,
-          nome_no_pix,
-          banco_pix,
-          data_realizada,
-          confirmado_por,
-          created_at
-        ),
+        pix_confirmado_por,
+        created_at,
         CLIENTES (
           "NOME CLIENTE"
         )
@@ -29,7 +22,7 @@ export const pixService = {
       )
       .eq('forma_pagamento', 'Pix')
       .order('created_at', { ascending: false })
-      .limit(5000)
+      .limit(2000)
 
     if (error) throw error
 
@@ -37,8 +30,6 @@ export const pixService = {
       id: row.id,
       orderId: row.venda_id,
       clientCode: row.cliente_id,
-      // Handle relation to CLIENTES to get the name
-      // Safely handle if it returns as array or object
       clientName:
         (Array.isArray(row.CLIENTES) ? row.CLIENTES[0] : row.CLIENTES)?.[
           'NOME CLIENTE'
@@ -46,49 +37,22 @@ export const pixService = {
       paymentMethod: row.forma_pagamento,
       value: row.valor_pago,
       isConfirmed: row.pix_recebimento_confirmado,
-      // Handle the relation which comes as an array from Supabase
-      pixDetails:
-        Array.isArray(row.PIX) && row.PIX.length > 0
-          ? row.PIX[0]
-          : row.PIX || null,
+      confirmedBy: row.pix_confirmado_por,
+      createdAt: row.created_at,
     }))
   },
 
-  async registerPixConference(details: Omit<PixDetails, 'id' | 'created_at'>) {
-    // 1. Upsert PIX record
+  async confirmPixReceipt(id: number, employeeName: string) {
     const { data, error } = await supabase
-      .from('PIX')
-      .upsert(
-        {
-          recebimento_id: details.recebimento_id,
-          nome_no_pix: details.nome_no_pix,
-          banco_pix: details.banco_pix,
-          data_realizada: details.data_realizada,
-          confirmado_por: details.confirmado_por,
-        },
-        { onConflict: 'recebimento_id' },
-      )
+      .from('RECEBIMENTOS')
+      .update({
+        pix_recebimento_confirmado: true,
+        pix_confirmado_por: employeeName,
+      })
+      .eq('id', id)
       .select()
-      .single()
 
     if (error) throw error
-
-    // 2. Update RECEBIMENTOS status
-    const { error: updateError } = await supabase
-      .from('RECEBIMENTOS')
-      .update({ pix_recebimento_confirmado: true })
-      .eq('id', details.recebimento_id)
-
-    if (updateError) {
-      console.error('Failed to update receipt status', updateError)
-      // We still return data as PIX was saved, but we log the error.
-      // Ideally this should be a transaction but Supabase JS doesn't support transactions on client directly without RPC.
-      // Throwing here to alert the UI that something wasn't fully successful.
-      throw new Error(
-        'Pix salvo, mas falha ao atualizar status do recebimento.',
-      )
-    }
-
     return data
   },
 }
