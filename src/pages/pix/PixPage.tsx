@@ -15,8 +15,8 @@ import {
   RefreshCw,
   Search,
   QrCode,
-  CheckCircle2,
   ArrowRight,
+  ClipboardCheck,
 } from 'lucide-react'
 import { pixService } from '@/services/pixService'
 import { PixRecebimentoRow } from '@/types/pix'
@@ -24,25 +24,27 @@ import { useToast } from '@/hooks/use-toast'
 import { formatCurrency } from '@/lib/formatters'
 import { Badge } from '@/components/ui/badge'
 import { Link } from 'react-router-dom'
-import { useUserStore } from '@/stores/useUserStore'
+import { PixConferenceDialog } from '@/components/pix/PixConferenceDialog'
+import { format, parseISO } from 'date-fns'
 
 export default function PixPage() {
   const [data, setData] = useState<PixRecebimentoRow[]>([])
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  const [selectedRow, setSelectedRow] = useState<PixRecebimentoRow | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
   const { toast } = useToast()
-  const { employee } = useUserStore()
 
   const loadData = async () => {
     setLoading(true)
     try {
-      const result = await pixService.getPixRecebimentos()
+      const result = await pixService.getPixConferenceData()
       setData(result)
     } catch (error) {
       console.error(error)
       toast({
         title: 'Erro',
-        description: 'Não foi possível carregar os dados Pix.',
+        description: 'Não foi possível carregar os dados de conferência.',
         variant: 'destructive',
       })
     } finally {
@@ -54,45 +56,18 @@ export default function PixPage() {
     loadData()
   }, [])
 
-  const handleConfirm = async (row: PixRecebimentoRow) => {
-    if (!employee) {
-      toast({
-        title: 'Erro',
-        description: 'Funcionário não identificado.',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    try {
-      await pixService.confirmPixReceipt(
-        row.id,
-        employee.nome_completo || employee.apelido || 'Funcionário',
-      )
-      toast({
-        title: 'Sucesso',
-        description: 'Recebimento Pix confirmado!',
-        className: 'bg-green-600 text-white',
-      })
-      // Optimistic update or reload
-      loadData()
-    } catch (error) {
-      console.error(error)
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível confirmar o recebimento.',
-        variant: 'destructive',
-      })
-    }
+  const handleOpenConference = (row: PixRecebimentoRow) => {
+    setSelectedRow(row)
+    setDialogOpen(true)
   }
 
-  // Filter
   const filteredData = data.filter((r) => {
     const s = searchTerm.toLowerCase()
     return (
       r.orderId.toString().includes(s) ||
       r.clientCode.toString().includes(s) ||
-      r.clientName.toLowerCase().includes(s)
+      r.clientName.toLowerCase().includes(s) ||
+      r.pixName?.toLowerCase().includes(s)
     )
   })
 
@@ -107,16 +82,23 @@ export default function PixPage() {
             <div>
               <h1 className="text-3xl font-bold tracking-tight">Pix</h1>
               <p className="text-muted-foreground">
-                Gestão de recebimentos via Pix.
+                Central de Conferência e Confirmação.
               </p>
             </div>
           </div>
-          <Link to="/confirmacao-recebimentos">
-            <Button variant="secondary" className="gap-2">
-              Pix Acertos
-              <ArrowRight className="w-4 h-4" />
+          <div className="flex gap-2">
+            {/* Confirmar Pix Recebimento - Hidden by default per requirement */}
+            <Button variant="outline" className="hidden">
+              Confirmar Pix Recebimento
             </Button>
-          </Link>
+
+            <Link to="/confirmacao-recebimentos">
+              <Button className="bg-blue-600 hover:bg-blue-700 gap-2">
+                Confirmar Pix Acerto
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -124,7 +106,7 @@ export default function PixPage() {
         <div className="flex items-center bg-card p-2 rounded-lg border shadow-sm max-w-md w-full">
           <Search className="mr-2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por cliente, pedido..."
+            placeholder="Buscar por cliente, pedido, nome no pix..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="border-none shadow-none focus-visible:ring-0 h-8"
@@ -140,26 +122,30 @@ export default function PixPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Pix de Recebimentos Avulsos</CardTitle>
+          <CardTitle>Conferência de Recebimentos via Pix</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="rounded-md border overflow-auto">
             <Table>
               <TableHeader className="bg-muted/50">
                 <TableRow>
-                  <TableHead className="w-[100px]">Pedido</TableHead>
+                  <TableHead className="w-[80px]">Pedido</TableHead>
                   <TableHead className="w-[80px]">Cód.</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead className="text-right">Valor</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
-                  <TableHead>Confirmado Por</TableHead>
+                  <TableHead className="min-w-[150px]">Cliente</TableHead>
+                  <TableHead>Forma Pag.</TableHead>
+                  <TableHead className="text-right">Valor Avulso</TableHead>
+                  {/* Metadata Columns */}
+                  <TableHead>Nome no Pix</TableHead>
+                  <TableHead>Banco</TableHead>
+                  <TableHead>Data Realizada</TableHead>
+                  <TableHead>Conferido Por</TableHead>
                   <TableHead className="text-right">Ação</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
+                    <TableCell colSpan={10} className="h-24 text-center">
                       <div className="flex justify-center items-center">
                         <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
                         Carregando...
@@ -169,7 +155,7 @@ export default function PixPage() {
                 ) : filteredData.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={7}
+                      colSpan={10}
                       className="h-24 text-center text-muted-foreground"
                     >
                       Nenhum registro encontrado.
@@ -187,39 +173,46 @@ export default function PixPage() {
                       <TableCell className="text-sm font-medium">
                         {row.clientName}
                       </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {row.paymentMethod}
+                      </TableCell>
                       <TableCell className="text-right font-mono font-medium">
                         R$ {formatCurrency(row.value)}
                       </TableCell>
-                      <TableCell className="text-center">
-                        {row.isConfirmed ? (
-                          <Badge
-                            variant="outline"
-                            className="bg-green-50 text-green-700 border-green-200"
-                          >
-                            <CheckCircle2 className="w-3 h-3 mr-1" />
-                            Confirmado
-                          </Badge>
-                        ) : (
-                          <Badge
-                            variant="outline"
-                            className="text-muted-foreground"
-                          >
-                            Pendente
-                          </Badge>
-                        )}
+
+                      <TableCell className="text-xs">
+                        {row.pixName || '-'}
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
+                      <TableCell className="text-xs">
+                        {row.pixBank || '-'}
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {row.pixDate
+                          ? format(parseISO(row.pixDate), 'dd/MM/yyyy')
+                          : '-'}
+                      </TableCell>
+                      <TableCell className="text-xs">
                         {row.confirmedBy || '-'}
                       </TableCell>
+
                       <TableCell className="text-right">
-                        {!row.isConfirmed && (
+                        {!row.isConfirmed ? (
                           <Button
                             size="sm"
-                            onClick={() => handleConfirm(row)}
-                            className="bg-teal-600 hover:bg-teal-700"
+                            variant="outline"
+                            onClick={() => handleOpenConference(row)}
+                            className="h-8 border-teal-200 text-teal-700 hover:bg-teal-50"
                           >
-                            Confirmar
+                            <ClipboardCheck className="w-3.5 h-3.5 mr-1" />
+                            Registrar
                           </Button>
+                        ) : (
+                          <Badge
+                            variant="secondary"
+                            className="bg-green-100 text-green-700 hover:bg-green-200"
+                          >
+                            Conferido
+                          </Badge>
                         )}
                       </TableCell>
                     </TableRow>
@@ -230,6 +223,13 @@ export default function PixPage() {
           </div>
         </CardContent>
       </Card>
+
+      <PixConferenceDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        row={selectedRow}
+        onSuccess={loadData}
+      />
     </div>
   )
 }

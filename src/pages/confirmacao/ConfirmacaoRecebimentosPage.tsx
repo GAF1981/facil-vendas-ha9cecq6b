@@ -10,31 +10,32 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Loader2, RefreshCw } from 'lucide-react'
-import {
-  confirmationService,
-  ConfirmationRow,
-} from '@/services/confirmationService'
+import { Loader2, RefreshCw, ArrowLeft } from 'lucide-react'
+import { pixService } from '@/services/pixService'
+import { PixAcertoRow } from '@/types/pix'
 import { formatCurrency } from '@/lib/formatters'
-import { format, parseISO } from 'date-fns'
 import { useToast } from '@/hooks/use-toast'
+import { useUserStore } from '@/stores/useUserStore'
+import { useNavigate } from 'react-router-dom'
+import { cn } from '@/lib/utils'
 
 export default function ConfirmacaoRecebimentosPage() {
-  const [data, setData] = useState<ConfirmationRow[]>([])
+  const [data, setData] = useState<PixAcertoRow[]>([])
   const [loading, setLoading] = useState(true)
-  const [processing, setProcessing] = useState<number | null>(null)
   const { toast } = useToast()
+  const { employee } = useUserStore()
+  const navigate = useNavigate()
 
   const loadData = async () => {
     setLoading(true)
     try {
-      const result = await confirmationService.getConfirmationData()
+      const result = await pixService.getPixAcertos()
       setData(result)
     } catch (error) {
       console.error(error)
       toast({
         title: 'Erro',
-        description: 'Falha ao carregar dados de confirmação.',
+        description: 'Falha ao carregar dados de Pix Acerto.',
         variant: 'destructive',
       })
     } finally {
@@ -46,34 +47,96 @@ export default function ConfirmacaoRecebimentosPage() {
     loadData()
   }, [])
 
-  const handleConfirm = async (orderId: number) => {
-    setProcessing(orderId)
-    try {
-      // Only confirm Pix as requested
-      await confirmationService.confirmPayment(orderId, { pix: true })
+  const handleToggleAcerto = async (row: PixAcertoRow, checked: boolean) => {
+    if (!employee) {
       toast({
-        title: 'Confirmado',
-        description: `Pagamento via Pix confirmado para o pedido #${orderId}.`,
-        className: 'bg-green-50 border-green-200 text-green-900',
-      })
-      await loadData()
-    } catch (error) {
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível confirmar o pagamento.',
+        title: 'Acesso Negado',
+        description: 'Você precisa estar logado para confirmar.',
         variant: 'destructive',
       })
-    } finally {
-      setProcessing(null)
+      return
+    }
+    try {
+      // Optimistic update
+      setData((prev) =>
+        prev.map((r) =>
+          r.orderId === row.orderId
+            ? {
+                ...r,
+                acertoPixConfirmed: checked,
+                acertoPixConfirmedBy: checked
+                  ? employee.nome_completo || 'User'
+                  : null,
+              }
+            : r,
+        ),
+      )
+      await pixService.toggleAcertoConfirmation(
+        row.orderId,
+        checked,
+        employee.nome_completo || 'User',
+      )
+    } catch (error) {
+      console.error(error)
+      toast({ title: 'Erro ao atualizar', variant: 'destructive' })
+      loadData() // Revert on error
+    }
+  }
+
+  const handleToggleRecebimento = async (
+    row: PixAcertoRow,
+    checked: boolean,
+  ) => {
+    if (!employee) {
+      toast({
+        title: 'Acesso Negado',
+        description: 'Você precisa estar logado para confirmar.',
+        variant: 'destructive',
+      })
+      return
+    }
+    try {
+      // Optimistic update
+      setData((prev) =>
+        prev.map((r) =>
+          r.orderId === row.orderId
+            ? {
+                ...r,
+                recebimentoPixConfirmed: checked,
+                recebimentoPixConfirmedBy: checked
+                  ? employee.nome_completo || 'User'
+                  : null,
+              }
+            : r,
+        ),
+      )
+      await pixService.toggleRecebimentoConfirmation(
+        row.recebimentoIds,
+        checked,
+        employee.nome_completo || 'User',
+      )
+    } catch (error) {
+      console.error(error)
+      toast({ title: 'Erro ao atualizar', variant: 'destructive' })
+      loadData()
     }
   }
 
   return (
     <div className="space-y-6 animate-fade-in p-4 pb-20">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">
-          Confirmação de Recebimentos (Pix)
-        </h1>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => navigate('/pix')}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Recebimento Pix (Acertos)
+          </h1>
+        </div>
         <Button onClick={loadData} variant="outline" disabled={loading}>
           <RefreshCw
             className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
@@ -84,7 +147,7 @@ export default function ConfirmacaoRecebimentosPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Pagamentos Pix Pendentes de Confirmação</CardTitle>
+          <CardTitle>Confirmação de Pix em Acertos</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
@@ -97,32 +160,29 @@ export default function ConfirmacaoRecebimentosPage() {
                 <TableHeader className="bg-muted/50 sticky top-0 z-10">
                   <TableRow>
                     <TableHead className="w-[80px]">Pedido</TableHead>
-                    <TableHead className="w-[80px]">Cód. Cliente</TableHead>
-                    <TableHead className="w-[100px]">Data</TableHead>
+                    <TableHead className="w-[80px]">Cód.</TableHead>
+                    <TableHead className="min-w-[150px]">Cliente</TableHead>
                     <TableHead>Vendedor</TableHead>
-                    <TableHead className="text-right">Média Mensal</TableHead>
-                    <TableHead className="text-right">Valor Venda</TableHead>
-                    <TableHead className="text-right">Saldo a Pagar</TableHead>
-                    <TableHead className="text-right font-semibold text-blue-600">
-                      Valor Recebido Pix
-                    </TableHead>
-                    <TableHead className="">Pix (Descrição)</TableHead>
-                    <TableHead className="text-right text-red-600 font-bold bg-red-50">
-                      A Confirmar
-                    </TableHead>
+                    <TableHead>Valor Pix (Acerto)</TableHead>
                     <TableHead className="text-center w-[100px]">
-                      Confirmar
+                      Conf. Acerto
                     </TableHead>
+                    <TableHead>Valor Pix (Rec.)</TableHead>
+                    <TableHead className="text-center w-[100px]">
+                      Conf. Rec.
+                    </TableHead>
+                    <TableHead>Status Geral</TableHead>
+                    <TableHead>Confirmado Por</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {data.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={11}
+                        colSpan={10}
                         className="h-24 text-center text-muted-foreground"
                       >
-                        Nenhum pagamento Pix pendente de confirmação.
+                        Nenhum pagamento Pix em acertos encontrado.
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -137,47 +197,72 @@ export default function ConfirmacaoRecebimentosPage() {
                         <TableCell className="font-mono text-muted-foreground">
                           {row.clientCode}
                         </TableCell>
+                        <TableCell className="text-sm font-medium">
+                          {row.clientName}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {row.salesEmployee}
+                        </TableCell>
+
+                        {/* Acerto Column */}
                         <TableCell className="text-xs">
-                          {row.date
-                            ? format(parseISO(row.date), 'dd/MM/yyyy')
-                            : '-'}
-                        </TableCell>
-                        <TableCell className="text-sm truncate max-w-[150px]">
-                          {row.employee}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                          {row.monthlyAverage
-                            ? formatCurrency(row.monthlyAverage)
-                            : '-'}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-xs">
-                          {formatCurrency(row.totalSale)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-xs">
-                          {formatCurrency(row.amountToPay)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-xs font-semibold text-blue-600 bg-blue-50/50">
-                          {formatCurrency(row.pixAmount)}
-                        </TableCell>
-                        <TableCell
-                          className="text-xs text-muted-foreground max-w-[200px] truncate"
-                          title={row.pixDescription}
-                        >
-                          {row.pixDescription || '-'}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-xs font-bold text-red-600 bg-red-50/30">
-                          {formatCurrency(row.remainingAmount)}
-                        </TableCell>
-                        <TableCell className="text-center p-2">
-                          <div className="flex justify-center">
-                            <Checkbox
-                              checked={false} // Always unchecked initially
-                              onCheckedChange={() => handleConfirm(row.orderId)}
-                              disabled={processing === row.orderId}
-                              title="Confirmar Pix"
-                              className="data-[state=checked]:bg-green-600 border-green-600 w-5 h-5"
-                            />
+                          <div className="flex flex-col">
+                            <span
+                              className="truncate max-w-[150px] font-medium"
+                              title={row.acertoForma}
+                            >
+                              {row.acertoForma}
+                            </span>
                           </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Checkbox
+                            checked={row.acertoPixConfirmed}
+                            onCheckedChange={(c) =>
+                              handleToggleAcerto(row, c as boolean)
+                            }
+                          />
+                        </TableCell>
+
+                        {/* Recebimento Column */}
+                        <TableCell className="text-xs font-mono font-medium text-green-600">
+                          {row.recebimentoValue > 0
+                            ? `R$ ${formatCurrency(row.recebimentoValue)}`
+                            : '-'}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Checkbox
+                            checked={row.recebimentoPixConfirmed}
+                            onCheckedChange={(c) =>
+                              handleToggleRecebimento(row, c as boolean)
+                            }
+                            disabled={row.recebimentoValue === 0}
+                          />
+                        </TableCell>
+
+                        {/* Status Column */}
+                        <TableCell>
+                          <span
+                            className={cn(
+                              'text-xs font-bold uppercase',
+                              row.acertoPixConfirmed ||
+                                row.recebimentoPixConfirmed
+                                ? 'text-green-600'
+                                : 'text-red-500',
+                            )}
+                          >
+                            {row.acertoPixConfirmed ||
+                            row.recebimentoPixConfirmed
+                              ? 'CONFIRMADO'
+                              : 'A CONFIRMAR'}
+                          </span>
+                        </TableCell>
+
+                        {/* Employee Column */}
+                        <TableCell className="text-xs text-muted-foreground">
+                          {row.acertoPixConfirmedBy ||
+                            row.recebimentoPixConfirmedBy ||
+                            '-'}
                         </TableCell>
                       </TableRow>
                     ))
