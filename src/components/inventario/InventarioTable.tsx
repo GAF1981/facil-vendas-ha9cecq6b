@@ -9,8 +9,14 @@ import {
 import { InventarioItem } from '@/types/inventario'
 import { formatCurrency } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
-import { ArrowUpDown } from 'lucide-react'
+import { ArrowUpDown, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface InventarioTableProps {
   data: InventarioItem[]
@@ -113,15 +119,33 @@ export function InventarioTable({
               </TableRow>
             ) : (
               data.map((item) => (
-                <TableRow key={item.id} className="hover:bg-muted/30">
+                <TableRow
+                  key={item.id}
+                  className={cn(
+                    'hover:bg-muted/30',
+                    item.hasError && 'bg-red-50 hover:bg-red-100/50',
+                  )}
+                >
                   <TableCell className="font-mono text-xs">
                     {item.codigo_barras || '-'}
                   </TableCell>
                   <TableCell className="font-mono text-xs">
                     {item.codigo_produto}
                   </TableCell>
-                  <TableCell className="font-medium text-sm">
+                  <TableCell className="font-medium text-sm flex items-center gap-2">
                     {item.mercadoria}
+                    {item.hasError && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <AlertTriangle className="h-4 w-4 text-red-500" />
+                          </TooltipTrigger>
+                          <TooltipContent className="bg-destructive text-destructive-foreground">
+                            <p>Erro ao processar dados deste item.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
                   </TableCell>
                   <TableCell className="text-xs">{item.tipo || '-'}</TableCell>
                   <TableCell className="text-right font-medium text-xs">

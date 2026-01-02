@@ -25,6 +25,7 @@ import {
   RotateCcw,
   Filter,
   AlertCircle,
+  AlertTriangle,
 } from 'lucide-react'
 import { InventarioTable } from '@/components/inventario/InventarioTable'
 import { InventarioSummary } from '@/components/inventario/InventarioSummary'
@@ -34,8 +35,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Link, useNavigate } from 'react-router-dom'
 import { EmployeeSelectionDialog } from '@/components/inventario/EmployeeSelectionDialog'
 import { MovementDialog } from '@/components/inventario/MovementDialog'
-import { format, parseISO } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { safeFormatDate } from '@/lib/formatters'
 import { InventarioTableSkeleton } from '@/components/inventario/InventarioTableSkeleton'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -285,8 +285,8 @@ export default function InventarioPage() {
         const bVal = b[sortKey]
 
         // Handle nulls
-        if (aVal === null) return 1
-        if (bVal === null) return -1
+        if (aVal === null || aVal === undefined) return 1
+        if (bVal === null || bVal === undefined) return -1
 
         if (aVal === bVal) return 0
 
@@ -309,14 +309,6 @@ export default function InventarioPage() {
     if (activeSession?.TIPO === 'GERAL') return 'Inventário Estoque Geral'
     if (activeSession?.TIPO === 'FUNCIONARIO') return 'Inventário Funcionário'
     return 'Inventário de Mercadorias'
-  }
-
-  const getFormattedDate = (dateString: string) => {
-    try {
-      return format(parseISO(dateString), 'dd/MM/yyyy HH:mm', { locale: ptBR })
-    } catch (e) {
-      return 'Data inválida'
-    }
   }
 
   const renderActionButtons = () => {
@@ -413,7 +405,7 @@ export default function InventarioPage() {
                 <div className="flex items-center gap-1">
                   <Calendar className="h-3.5 w-3.5" />
                   Início:{' '}
-                  {getFormattedDate(
+                  {safeFormatDate(
                     activeSession['Data de Início de Inventário'],
                   )}
                 </div>
@@ -556,6 +548,12 @@ export default function InventarioPage() {
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {processedData.length} itens listados
+                  {data.some((i) => i.hasError) && (
+                    <span className="ml-2 text-red-500 font-medium flex items-center inline-flex">
+                      <AlertTriangle className="h-3 w-3 mr-1" />
+                      Alguns itens contêm erros
+                    </span>
+                  )}
                 </div>
               </div>
             </CardHeader>

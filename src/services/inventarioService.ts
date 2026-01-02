@@ -25,32 +25,56 @@ export const inventarioService = {
     if (!data) return []
 
     // Map RPC result to InventarioItem type
-    // Calculated fields like diferenca_quantidade and diferenca_valor are computed here
+    // Use defensive programming to handle malformed data in individual rows
     return data.map((item: any) => {
-      const saldoFinal = Number(item.saldo_final) || 0
-      const contagem = Number(item.contagem) || 0
-      const preco = Number(item.preco) || 0
+      try {
+        const saldoFinal = Number(item.saldo_final) || 0
+        const contagem = Number(item.contagem) || 0
+        const preco = Number(item.preco) || 0
 
-      // User Story: "Dif. (Qtd): Automated calculation of Contagem minus Saldo Final."
-      const diferencaQuantidade = contagem - saldoFinal
-      const diferencaValor = diferencaQuantidade * preco
+        // User Story: "Dif. (Qtd): Automated calculation of Contagem minus Saldo Final."
+        const diferencaQuantidade = contagem - saldoFinal
+        const diferencaValor = diferencaQuantidade * preco
 
-      return {
-        id: item.id,
-        codigo_barras: item.codigo_barras,
-        codigo_produto: item.codigo_produto,
-        mercadoria: item.mercadoria,
-        tipo: item.tipo,
-        preco: preco,
-        saldo_inicial: Number(item.saldo_inicial) || 0,
-        entrada_estoque_carro: Number(item.entrada_estoque_carro) || 0,
-        entrada_cliente_carro: Number(item.entrada_cliente_carro) || 0,
-        saida_carro_estoque: Number(item.saida_carro_estoque) || 0,
-        saida_carro_cliente: Number(item.saida_carro_cliente) || 0,
-        saldo_final: saldoFinal,
-        estoque_contagem_carro: contagem,
-        diferenca_quantidade: diferencaQuantidade,
-        diferenca_valor: diferencaValor,
+        return {
+          id: item.id,
+          codigo_barras: item.codigo_barras,
+          codigo_produto: item.codigo_produto,
+          mercadoria: item.mercadoria || 'Nome Indisponível',
+          tipo: item.tipo,
+          preco: preco,
+          saldo_inicial: Number(item.saldo_inicial) || 0,
+          entrada_estoque_carro: Number(item.entrada_estoque_carro) || 0,
+          entrada_cliente_carro: Number(item.entrada_cliente_carro) || 0,
+          saida_carro_estoque: Number(item.saida_carro_estoque) || 0,
+          saida_carro_cliente: Number(item.saida_carro_cliente) || 0,
+          saldo_final: saldoFinal,
+          estoque_contagem_carro: contagem,
+          diferenca_quantidade: diferencaQuantidade,
+          diferenca_valor: diferencaValor,
+          hasError: false,
+        }
+      } catch (rowError) {
+        console.error(`Error processing row for item ${item?.id}:`, rowError)
+        // Return a safe fallback object marked with error
+        return {
+          id: item?.id || Math.random(), // Ensure key
+          codigo_barras: null,
+          codigo_produto: item?.codigo_produto || null,
+          mercadoria: item?.mercadoria || 'Erro de Dados',
+          tipo: null,
+          preco: 0,
+          saldo_inicial: 0,
+          entrada_estoque_carro: 0,
+          entrada_cliente_carro: 0,
+          saida_carro_estoque: 0,
+          saida_carro_cliente: 0,
+          saldo_final: 0,
+          estoque_contagem_carro: 0,
+          diferenca_quantidade: 0,
+          diferenca_valor: 0,
+          hasError: true,
+        }
       }
     })
   },

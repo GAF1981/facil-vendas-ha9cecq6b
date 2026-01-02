@@ -14,6 +14,7 @@ export interface InventarioItem {
   estoque_contagem_carro: number
   diferenca_quantidade: number
   diferenca_valor: number
+  hasError?: boolean // Indicates if there was a data processing error for this item
 }
 
 // Deprecated in favor of DatasDeInventario but kept for reference if needed
