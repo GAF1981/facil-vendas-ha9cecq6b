@@ -28,7 +28,6 @@ import ProjectionsPage from '@/pages/relatorio/ProjectionsPage'
 import SalesReportsPage from '@/pages/relatorio/SalesReportsPage'
 import StockReportsPage from '@/pages/relatorio/StockReportsPage'
 import CaixaPage from '@/pages/caixa/CaixaPage'
-import PixPage from '@/pages/pix/PixPage'
 import { AuthProvider } from '@/hooks/use-auth'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 
@@ -73,9 +72,6 @@ const App = () => (
                 path="/confirmacao-recebimentos"
                 element={<ConfirmacaoRecebimentosPage />}
               />
-
-              {/* Pix Management Module */}
-              <Route path="/pix" element={<PixPage />} />
 
               {/* Cobranca Module */}
               <Route path="/cobranca" element={<CobrancaPage />} />
