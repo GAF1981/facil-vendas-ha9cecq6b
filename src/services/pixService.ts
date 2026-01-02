@@ -63,13 +63,6 @@ export const pixService = {
     const { error } = await supabase.from('PIX').upsert(
       {
         recebimento_id: recebimentoId,
-        // We can ignore venda_id in PIX table if column is not created,
-        // but migration in context didn't remove it, so it might exist.
-        // However, the new migration creates PIX without it explicitly.
-        // Let's omit it to be safe with the new schema unless it complains.
-        // The schema in 20260108170000 creates table without venda_id.
-        // But table might already exist with it.
-        // To be safe, I'll stick to required columns.
         nome_no_pix: data.nome_no_pix,
         banco_pix: data.banco_pix,
         data_pix_realizado: new Date(data.data_pix_realizado).toISOString(),

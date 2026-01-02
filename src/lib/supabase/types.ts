@@ -491,6 +491,7 @@ export type Database = {
           forma_pagamento: string
           funcionario_id: number
           id: number
+          ID_da_fêmea: number | null
           valor_pago: number
           valor_registrado: number | null
           vencimento: string | null
@@ -504,6 +505,7 @@ export type Database = {
           forma_pagamento: string
           funcionario_id: number
           id?: number
+          ID_da_fêmea?: number | null
           valor_pago: number
           valor_registrado?: number | null
           vencimento?: string | null
@@ -517,6 +519,7 @@ export type Database = {
           forma_pagamento?: string
           funcionario_id?: number
           id?: number
+          ID_da_fêmea?: number | null
           valor_pago?: number
           valor_registrado?: number | null
           vencimento?: string | null
