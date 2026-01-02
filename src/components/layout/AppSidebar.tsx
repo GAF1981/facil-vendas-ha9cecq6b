@@ -28,8 +28,6 @@ import {
   Database,
   CheckCircle,
   QrCode,
-  Banknote,
-  ClipboardList as ClipboardListIcon,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 
@@ -69,19 +67,9 @@ export function AppSidebar() {
       icon: ArrowDownCircle,
     },
     {
-      title: 'Pagamentos',
-      url: '/pagamentos',
-      icon: Banknote,
-    },
-    {
       title: 'Pix',
       url: '/pix',
       icon: QrCode,
-    },
-    {
-      title: 'Controle',
-      url: '/controle',
-      icon: ClipboardListIcon,
     },
     {
       title: 'Confirmação',

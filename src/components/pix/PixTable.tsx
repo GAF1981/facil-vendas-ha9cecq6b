@@ -74,14 +74,19 @@ export function PixTable({ data, onConfer }: PixTableProps) {
                     '-'
                   )}
                 </TableCell>
+
+                {/* Data do Pix Realizado - Displays confirmado_por */}
                 <TableCell className="text-sm">
+                  {row.confirmado_por || '-'}
+                </TableCell>
+
+                {/* Conferido por - Displays data_pix_realizado */}
+                <TableCell className="text-sm text-muted-foreground">
                   {row.data_pix_realizado
                     ? format(parseISO(row.data_pix_realizado), 'dd/MM/yyyy')
                     : '-'}
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {row.confirmado_por || '-'}
-                </TableCell>
+
                 <TableCell className="text-right">
                   <Button
                     size="sm"
@@ -101,7 +106,7 @@ export function PixTable({ data, onConfer }: PixTableProps) {
                     ) : (
                       <>
                         <AlertCircle className="mr-2 h-3.5 w-3.5" />
-                        Registrar Conferência de Pix
+                        Registrar Conferência
                       </>
                     )}
                   </Button>

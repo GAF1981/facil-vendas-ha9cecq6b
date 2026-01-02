@@ -3,24 +3,27 @@ import { PixReceiptRow, PixConferenceFormData } from '@/types/pix'
 
 export const pixService = {
   async getPixReceipts(): Promise<PixReceiptRow[]> {
-    // Fetch all receipts regardless of payment method
-    // Joining with CLIENTES for name
-    // Joining with PIX table to get conference details
-    // Selecting "ID_da_fêmea" specifically
+    // Fetch data directly from PIX table as required
+    // Join with RECEBIMENTOS for payment details
+    // Join with CLIENTES (via RECEBIMENTOS) for client name
     const { data, error } = await supabase
-      .from('RECEBIMENTOS')
+      .from('PIX')
       .select(
         `
         *,
-        CLIENTES (
-          "NOME CLIENTE"
-        ),
-        PIX (
+        RECEBIMENTOS (
           id,
-          nome_no_pix,
-          banco_pix,
-          data_pix_realizado,
-          confirmado_por
+          venda_id,
+          cliente_id,
+          forma_pagamento,
+          valor_pago,
+          valor_registrado,
+          vencimento,
+          created_at,
+          ID_da_fêmea,
+          CLIENTES (
+            "NOME CLIENTE"
+          )
         )
       `,
       )
@@ -30,24 +33,27 @@ export const pixService = {
     if (error) throw error
 
     return (data || []).map((row: any) => {
-      const pixData = row.PIX && row.PIX.length > 0 ? row.PIX[0] : null
+      const receipt = row.RECEBIMENTOS
+      const clientName = receipt?.CLIENTES?.['NOME CLIENTE'] || 'N/D'
+
       return {
-        id: row.id,
-        venda_id: row.venda_id,
+        id: receipt?.id || 0, // recebimento_id is the link, but for UI key we often use this
+        venda_id: receipt?.venda_id || 0,
         // Map ID_da_fêmea to internal prop
-        id_da_femea: row['ID_da_fêmea'] || row.venda_id, // Fallback to venda_id if null
-        cliente_id: row.cliente_id,
-        forma_pagamento: row.forma_pagamento,
-        valor_pago: row.valor_pago,
-        valor_registrado: row.valor_registrado,
-        vencimento: row.vencimento,
-        created_at: row.created_at,
-        cliente_nome: row.CLIENTES?.['NOME CLIENTE'] || 'N/D',
-        pix_id: pixData?.id,
-        nome_no_pix: pixData?.nome_no_pix,
-        banco_pix: pixData?.banco_pix,
-        data_pix_realizado: pixData?.data_pix_realizado,
-        confirmado_por: pixData?.confirmado_por,
+        id_da_femea: receipt?.ID_da_fêmea || receipt?.venda_id, // Fallback to venda_id if null
+        cliente_id: receipt?.cliente_id || 0,
+        forma_pagamento: receipt?.forma_pagamento || 'N/D',
+        valor_pago: receipt?.valor_pago || 0,
+        valor_registrado: receipt?.valor_registrado,
+        vencimento: receipt?.vencimento,
+        created_at: receipt?.created_at,
+        cliente_nome: clientName,
+        // Pix specific data from PIX table
+        pix_id: row.id,
+        nome_no_pix: row.nome_no_pix,
+        banco_pix: row.banco_pix,
+        data_pix_realizado: row.data_pix_realizado,
+        confirmado_por: row.confirmado_por,
       }
     })
   },
