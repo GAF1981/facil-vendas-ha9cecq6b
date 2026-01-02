@@ -48,13 +48,13 @@ export const inventarioService = {
     if (!data) return { data: [], totalCount: 0 }
 
     // Map data with resilience per row to isolate errors and prevent UI crashes
-    // Uses optional chaining and fallback values as requested in user story
     const mappedData = data.map((item: any) => {
       try {
         const saldoFinal = Number(item?.saldo_final ?? 0)
         const contagem = Number(item?.estoque_contagem_carro ?? 0)
         const preco = Number(item?.preco ?? 0)
 
+        // Calculate differences safely
         const diferencaQuantidade = contagem - saldoFinal
         const diferencaValor = diferencaQuantidade * preco
 
@@ -62,6 +62,7 @@ export const inventarioService = {
           id: Number(item?.id ?? 0),
           codigo_barras: item?.codigo_barras ?? '',
           codigo_produto: Number(item?.codigo_produto ?? 0),
+          // Graceful fallback for missing product name
           mercadoria: item?.mercadoria || 'Produto Não Identificado',
           tipo: item?.tipo ?? 'OUTROS',
           preco: preco,

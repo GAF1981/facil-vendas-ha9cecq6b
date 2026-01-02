@@ -144,7 +144,7 @@ export function InventarioTable({
                   colSpan={14}
                   className="h-32 text-center text-muted-foreground"
                 >
-                  Nenhum item de inventário encontrado.
+                  Nenhum dado encontrado
                 </TableCell>
               </TableRow>
             ) : (
@@ -185,16 +185,24 @@ export function InventarioTable({
                     {item.saldo_inicial}
                   </TableCell>
                   <TableCell className="text-center bg-green-50/20 text-green-700 font-mono">
-                    {item.entrada_estoque_carro}
+                    {item.entrada_estoque_carro === 0
+                      ? '-'
+                      : item.entrada_estoque_carro}
                   </TableCell>
                   <TableCell className="text-center bg-green-50/20 text-green-700 font-mono">
-                    {item.entrada_cliente_carro}
+                    {item.entrada_cliente_carro === 0
+                      ? '-'
+                      : item.entrada_cliente_carro}
                   </TableCell>
                   <TableCell className="text-center bg-red-50/20 text-red-700 font-mono">
-                    {item.saida_carro_estoque}
+                    {item.saida_carro_estoque === 0
+                      ? '-'
+                      : item.saida_carro_estoque}
                   </TableCell>
                   <TableCell className="text-center bg-red-50/20 text-red-700 font-mono">
-                    {item.saida_carro_cliente}
+                    {item.saida_carro_cliente === 0
+                      ? '-'
+                      : item.saida_carro_cliente}
                   </TableCell>
                   <TableCell className="text-center font-bold bg-muted/20 border-x border-border/50 font-mono">
                     {item.saldo_final}
