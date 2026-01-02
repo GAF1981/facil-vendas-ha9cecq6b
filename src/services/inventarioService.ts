@@ -47,7 +47,7 @@ export const inventarioService = {
 
     if (!data) return { data: [], totalCount: 0 }
 
-    // Map data with resilience per row
+    // Map data with resilience per row to isolate errors
     const mappedData = data.map((item: any) => {
       try {
         const saldoFinal = Number(item.saldo_final) || 0
@@ -76,12 +76,18 @@ export const inventarioService = {
           hasError: false,
         }
       } catch (rowError) {
-        console.error(`Error processing row for item ${item?.id}:`, rowError)
+        // Enhanced Diagnostic Logging
+        console.group('Row Parsing Error Isolation')
+        console.error(`Error processing row for item ID ${item?.id}:`, rowError)
+        console.error('Raw problematic item:', JSON.stringify(item))
+        console.groupEnd()
+
+        // Return a safe placeholder instead of crashing
         return {
           id: item?.id || Math.random(),
           codigo_barras: null,
           codigo_produto: item?.codigo_produto || null,
-          mercadoria: item?.mercadoria || 'Erro de Dados',
+          mercadoria: item?.mercadoria || 'ERRO DE DADOS',
           tipo: null,
           preco: 0,
           saldo_inicial: 0,
@@ -118,8 +124,6 @@ export const inventarioService = {
     })
 
     if (error) {
-      // We explicitly throw here to allow the Page to catch it and display an error state.
-      // Previously this returned zeroed data masking the error.
       console.error('Error fetching inventory summary RPC:', error)
       throw error
     }

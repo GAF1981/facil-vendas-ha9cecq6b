@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import {
   Card,
   CardContent,
@@ -521,7 +521,12 @@ export default function InventarioPage() {
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Erro na Tabela</AlertTitle>
               <AlertDescription>
-                Não foi possível carregar os itens do inventário: {tableError}
+                Não foi possível carregar os itens do inventário. Isso pode
+                ocorrer devido a dados corrompidos ou instabilidade na conexão.
+                <br />
+                <span className="font-mono text-xs mt-2 block opacity-80">
+                  {tableError}
+                </span>
                 <div className="mt-3">
                   <Button
                     variant="outline"
