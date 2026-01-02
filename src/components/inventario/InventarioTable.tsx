@@ -49,6 +49,42 @@ export function InventarioTable({
     if (onSort) onSort(key)
   }
 
+  const SortableHead = ({
+    title,
+    sortKey,
+    className,
+    children,
+  }: {
+    title: string
+    sortKey: keyof InventarioItem
+    className?: string
+    children?: React.ReactNode
+  }) => {
+    if (!onSort) {
+      return (
+        <TableHead className={cn('text-center font-bold p-2', className)}>
+          <div className="flex flex-col items-center justify-center h-full">
+            {title}
+            {children}
+          </div>
+        </TableHead>
+      )
+    }
+
+    return (
+      <TableHead className={cn('text-center p-0', className)}>
+        <Button
+          variant="ghost"
+          onClick={() => handleSort(sortKey)}
+          className="w-full h-full min-h-[48px] rounded-none hover:bg-black/5 font-bold"
+        >
+          {title}
+          {renderSortIcon(sortKey)}
+        </Button>
+      </TableHead>
+    )
+  }
+
   return (
     <div className="rounded-md border bg-card overflow-hidden shadow-sm">
       <div className="overflow-x-auto">
@@ -60,16 +96,13 @@ export function InventarioTable({
               <TableHead className="min-w-[200px]">Mercadoria</TableHead>
               <TableHead className="w-[80px]">Tipo</TableHead>
               <TableHead className="text-right">Preço</TableHead>
-              <TableHead className="text-center bg-blue-50/50 text-blue-700 p-0">
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort('saldo_inicial')}
-                  className="w-full h-12 rounded-none hover:bg-blue-100/50 hover:text-blue-800 font-semibold text-blue-700"
-                >
-                  Saldo Inicial
-                  {renderSortIcon('saldo_inicial')}
-                </Button>
-              </TableHead>
+
+              <SortableHead
+                title="Saldo Inicial"
+                sortKey="saldo_inicial"
+                className="bg-blue-50/50 text-blue-700"
+              />
+
               <TableHead className="text-center bg-green-50/50 text-green-700">
                 Movimentação
                 <br />
@@ -90,16 +123,13 @@ export function InventarioTable({
                 <br />
                 <span className="text-[10px]">(Carro &rarr; Cliente)</span>
               </TableHead>
-              <TableHead className="text-center font-bold bg-muted/50 min-w-[120px] border-x border-border/50 p-0">
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort('saldo_final')}
-                  className="w-full h-12 rounded-none hover:bg-muted/80 font-bold"
-                >
-                  Saldo Final
-                  {renderSortIcon('saldo_final')}
-                </Button>
-              </TableHead>
+
+              <SortableHead
+                title="Saldo Final"
+                sortKey="saldo_final"
+                className="bg-muted/50 border-x border-border/50 min-w-[120px]"
+              />
+
               <TableHead className="text-center font-bold bg-yellow-50/50 text-yellow-700 min-w-[100px]">
                 Contagem
               </TableHead>

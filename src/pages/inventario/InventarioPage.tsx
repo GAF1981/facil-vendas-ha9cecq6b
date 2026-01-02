@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import {
   Card,
   CardContent,
@@ -9,7 +9,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   ClipboardList,
@@ -23,14 +22,20 @@ import {
   ScanBarcode,
   Truck,
   RotateCcw,
-  Filter,
   AlertCircle,
   AlertTriangle,
+  Eraser,
+  Search,
 } from 'lucide-react'
 import { InventarioTable } from '@/components/inventario/InventarioTable'
 import { InventarioSummary } from '@/components/inventario/InventarioSummary'
+import { InventarioPagination } from '@/components/inventario/InventarioPagination'
 import { inventarioService } from '@/services/inventarioService'
-import { InventarioItem, DatasDeInventario } from '@/types/inventario'
+import {
+  InventarioItem,
+  DatasDeInventario,
+  InventarioSummaryData,
+} from '@/types/inventario'
 import { useToast } from '@/hooks/use-toast'
 import { Link, useNavigate } from 'react-router-dom'
 import { EmployeeSelectionDialog } from '@/components/inventario/EmployeeSelectionDialog'
@@ -42,9 +47,14 @@ import { Skeleton } from '@/components/ui/skeleton'
 export default function InventarioPage() {
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<InventarioItem[]>([])
+  const [summary, setSummary] = useState<InventarioSummaryData>({
+    initial: { qty: 0, value: 0 },
+    final: { qty: 0, value: 0 },
+    positiveDiff: { qty: 0, value: 0 },
+    negativeDiff: { qty: 0, value: 0 },
+  })
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
-  const navigate = useNavigate()
 
   const [activeSession, setActiveSession] = useState<DatasDeInventario | null>(
     null,
@@ -56,57 +66,80 @@ export default function InventarioPage() {
   const [isReposicaoOpen, setIsReposicaoOpen] = useState(false)
   const [isDevolucaoOpen, setIsDevolucaoOpen] = useState(false)
 
-  // Filters & Sort State
-  const [sortKey, setSortKey] = useState<keyof InventarioItem | null>(null)
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
-  const [minInitialBalance, setMinInitialBalance] = useState<string>('')
-  const [minFinalBalance, setMinFinalBalance] = useState<string>('')
-  const [showOnlyWithValues, setShowOnlyWithValues] = useState(false)
+  // Pagination & Filters State
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(50)
+  const [totalCount, setTotalCount] = useState(0)
+  const [searchTerm, setSearchTerm] = useState('')
 
-  const fetchData = async (
-    funcionarioId?: number,
-    sessionId?: number | null,
-  ) => {
-    // Only show full loading if we don't have data yet
-    if (data.length === 0) {
-      setLoading(true)
-    }
-    setError(null)
-    try {
-      const targetId =
-        funcionarioId ?? activeSession?.['CODIGO FUNCIONARIO'] ?? undefined
-      const targetSessionId = sessionId ?? activeSession?.['ID INVENTÁRIO']
+  // We debounce search in a real app, here we just useEffect on it or manual trigger
+  // For simplicity, we trigger on Enter or blur in Search Input
 
-      const result = await inventarioService.getInventory(
-        targetId,
-        targetSessionId,
-      )
-      setData(result)
-    } catch (error) {
-      console.error(error)
-      const errorMessage =
-        error instanceof Error ? error.message : 'Erro desconhecido'
+  const totalPages = Math.ceil(totalCount / pageSize)
 
-      // If we have data, we just show a toast warning instead of hiding everything
-      if (data.length > 0) {
-        toast({
-          title: 'Aviso de Atualização',
-          description:
-            'Não foi possível atualizar os dados. Exibindo dados em cache.',
-          variant: 'destructive',
-        })
-      } else {
-        setError(errorMessage)
-        toast({
-          title: 'Erro ao carregar',
-          description: 'Não foi possível buscar os dados de inventário.',
-          variant: 'destructive',
-        })
+  const fetchData = useCallback(
+    async (
+      funcionarioId?: number,
+      sessionId?: number | null,
+      currentPage: number = 1,
+      forceReload: boolean = false,
+    ) => {
+      // Only show full loading if we are forcing reload or have no data
+      if (forceReload || data.length === 0) {
+        setLoading(true)
       }
-    } finally {
-      setLoading(false)
-    }
-  }
+      setError(null)
+      try {
+        const targetId =
+          funcionarioId ?? activeSession?.['CODIGO FUNCIONARIO'] ?? undefined
+        const targetSessionId = sessionId ?? activeSession?.['ID INVENTÁRIO']
+
+        // 1. Fetch Paginated Data
+        const { data: items, totalCount: count } =
+          await inventarioService.getInventoryPaginated(
+            targetId,
+            targetSessionId,
+            currentPage,
+            pageSize,
+            searchTerm,
+          )
+
+        setData(items)
+        setTotalCount(count)
+
+        // 2. Fetch Summary (Aggregated) - This ensures summary is for ALL data, not just page
+        const summaryData = await inventarioService.getInventorySummary(
+          targetId,
+          targetSessionId,
+          searchTerm,
+        )
+        setSummary(summaryData)
+      } catch (error) {
+        console.error(error)
+        const errorMessage =
+          error instanceof Error ? error.message : 'Erro desconhecido'
+
+        if (data.length > 0) {
+          toast({
+            title: 'Aviso de Atualização',
+            description:
+              'Não foi possível atualizar os dados. Exibindo dados em cache.',
+            variant: 'destructive',
+          })
+        } else {
+          setError(errorMessage)
+          toast({
+            title: 'Erro ao carregar',
+            description: 'Não foi possível buscar os dados de inventário.',
+            variant: 'destructive',
+          })
+        }
+      } finally {
+        setLoading(false)
+      }
+    },
+    [activeSession, pageSize, searchTerm, toast, data.length],
+  )
 
   const fetchSession = async () => {
     try {
@@ -116,17 +149,50 @@ export default function InventarioPage() {
       fetchData(
         session?.['CODIGO FUNCIONARIO'] ?? undefined,
         session?.['ID INVENTÁRIO'],
+        1,
+        true,
       )
     } catch (error) {
       console.error(error)
       // Even if session fetch fails, try to fetch generic data
-      fetchData()
+      fetchData(undefined, undefined, 1, true)
     }
   }
 
   useEffect(() => {
     fetchSession()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Initial Load
+
+  // Effect to refetch when page/search changes
+  useEffect(() => {
+    if (activeSession !== undefined) {
+      fetchData(
+        activeSession?.['CODIGO FUNCIONARIO'] ?? undefined,
+        activeSession?.['ID INVENTÁRIO'],
+        page,
+        false,
+      )
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, searchTerm])
+
+  const handleClearCache = () => {
+    // Reset states and force reload
+    setPage(1)
+    setSearchTerm('')
+    setData([])
+    fetchData(
+      activeSession?.['CODIGO FUNCIONARIO'] ?? undefined,
+      activeSession?.['ID INVENTÁRIO'],
+      1,
+      true,
+    )
+    toast({
+      title: 'Cache Limpo',
+      description: 'Dados recarregados do servidor.',
+    })
+  }
 
   const handleStartGeneralInventory = async () => {
     setActionLoading(true)
@@ -134,7 +200,7 @@ export default function InventarioPage() {
     try {
       const session = await inventarioService.startSession('GERAL')
       setActiveSession(session)
-      fetchData(undefined, session['ID INVENTÁRIO'])
+      fetchData(undefined, session['ID INVENTÁRIO'], 1, true)
       toast({
         title: 'Inventário Geral Iniciado',
         description: `Sessão #${session['ID INVENTÁRIO']} iniciada.`,
@@ -163,7 +229,7 @@ export default function InventarioPage() {
         )
         setActiveSession(session)
         setIsEmployeeDialogOpen(false)
-        fetchData(employeeId, session['ID INVENTÁRIO'])
+        fetchData(employeeId, session['ID INVENTÁRIO'], 1, true)
         toast({
           title: 'Inventário de Funcionário Iniciado',
           description: `Sessão #${session['ID INVENTÁRIO']} iniciada para funcionário ${employeeId}.`,
@@ -190,7 +256,7 @@ export default function InventarioPage() {
     try {
       await inventarioService.closeSession(activeSession['ID INVENTÁRIO'])
       setActiveSession(null)
-      fetchData(undefined, null)
+      fetchData(undefined, null, 1, true)
       toast({
         title: 'Inventário Finalizado',
         description: 'A sessão de inventário foi encerrada com sucesso.',
@@ -234,6 +300,8 @@ export default function InventarioPage() {
       fetchData(
         activeSession['CODIGO FUNCIONARIO'] ?? undefined,
         activeSession['ID INVENTÁRIO'],
+        page,
+        true,
       )
     } catch (error) {
       console.error(error)
@@ -244,66 +312,6 @@ export default function InventarioPage() {
       })
     }
   }
-
-  const handleSort = (key: keyof InventarioItem) => {
-    if (sortKey === key) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
-    } else {
-      setSortKey(key)
-      setSortDirection('asc')
-    }
-  }
-
-  const processedData = useMemo(() => {
-    let filtered = [...data]
-
-    // Apply Filters
-    if (minInitialBalance) {
-      const min = parseFloat(minInitialBalance)
-      if (!isNaN(min)) {
-        filtered = filtered.filter((item) => item.saldo_inicial >= min)
-      }
-    }
-
-    if (minFinalBalance) {
-      const min = parseFloat(minFinalBalance)
-      if (!isNaN(min)) {
-        filtered = filtered.filter((item) => item.saldo_final >= min)
-      }
-    }
-
-    if (showOnlyWithValues) {
-      filtered = filtered.filter(
-        (item) => item.saldo_inicial > 0 || item.saldo_final > 0,
-      )
-    }
-
-    // Apply Sort
-    if (sortKey) {
-      filtered.sort((a, b) => {
-        const aVal = a[sortKey]
-        const bVal = b[sortKey]
-
-        // Handle nulls
-        if (aVal === null || aVal === undefined) return 1
-        if (bVal === null || bVal === undefined) return -1
-
-        if (aVal === bVal) return 0
-
-        const comparison = aVal > bVal ? 1 : -1
-        return sortDirection === 'asc' ? comparison : -comparison
-      })
-    }
-
-    return filtered
-  }, [
-    data,
-    sortKey,
-    sortDirection,
-    minInitialBalance,
-    minFinalBalance,
-    showOnlyWithValues,
-  ])
 
   const getHeaderTitle = () => {
     if (activeSession?.TIPO === 'GERAL') return 'Inventário Estoque Geral'
@@ -414,6 +422,16 @@ export default function InventarioPage() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleClearCache}
+            className="text-orange-700 border-orange-200 hover:bg-orange-50"
+            title="Limpar Cache e Recarregar"
+          >
+            <Eraser className="mr-2 h-4 w-4" />
+            Limpar Cache
+          </Button>
+
           <Button variant="outline" size="icon" asChild>
             <Link to="/">
               <ArrowLeft className="h-4 w-4" />
@@ -425,6 +443,8 @@ export default function InventarioPage() {
               fetchData(
                 activeSession?.['CODIGO FUNCIONARIO'] ?? undefined,
                 activeSession?.['ID INVENTÁRIO'],
+                page,
+                true,
               )
             }
             disabled={loading}
@@ -466,7 +486,7 @@ export default function InventarioPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => fetchSession()}
+                onClick={() => handleClearCache()}
                 className="border-red-200 hover:bg-red-50 text-red-900"
               >
                 <RefreshCw className="mr-2 h-3 w-3" />
@@ -477,58 +497,24 @@ export default function InventarioPage() {
         </Alert>
       ) : (
         <>
-          <InventarioSummary data={data} />
+          <InventarioSummary summary={summary} />
 
           <div className="flex flex-col xl:flex-row gap-4 justify-between items-start xl:items-center bg-muted/20 p-4 rounded-lg border">
             <div className="flex flex-wrap items-center gap-4 w-full xl:w-auto">
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Filtros:</span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Label
-                  htmlFor="min-initial"
-                  className="text-xs whitespace-nowrap"
-                >
-                  Saldo Inicial &ge;
-                </Label>
+              <div className="relative w-full max-w-sm">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  id="min-initial"
-                  type="number"
-                  className="h-8 w-20"
-                  placeholder="0"
-                  value={minInitialBalance}
-                  onChange={(e) => setMinInitialBalance(e.target.value)}
+                  type="search"
+                  placeholder="Buscar por produto..."
+                  className="pl-8 w-full md:w-[300px]"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      setPage(1) // Reset to first page on new search
+                    }
+                  }}
                 />
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Label
-                  htmlFor="min-final"
-                  className="text-xs whitespace-nowrap"
-                >
-                  Saldo Final &ge;
-                </Label>
-                <Input
-                  id="min-final"
-                  type="number"
-                  className="h-8 w-20"
-                  placeholder="0"
-                  value={minFinalBalance}
-                  onChange={(e) => setMinFinalBalance(e.target.value)}
-                />
-              </div>
-
-              <div className="flex items-center space-x-2 border-l pl-4 ml-2">
-                <Switch
-                  id="has-values"
-                  checked={showOnlyWithValues}
-                  onCheckedChange={setShowOnlyWithValues}
-                />
-                <Label htmlFor="has-values" className="cursor-pointer">
-                  Com Saldo (Inicial ou Final &gt; 0)
-                </Label>
               </div>
             </div>
 
@@ -546,10 +532,12 @@ export default function InventarioPage() {
                     Acompanhamento detalhado de entradas, saídas e saldo final.
                   </CardDescription>
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  {processedData.length} itens listados
+                <div className="text-xs text-muted-foreground flex flex-col items-end">
+                  <span>
+                    Exibindo {data.length} de {totalCount} itens
+                  </span>
                   {data.some((i) => i.hasError) && (
-                    <span className="ml-2 text-red-500 font-medium flex items-center inline-flex">
+                    <span className="text-red-500 font-medium flex items-center inline-flex mt-1">
                       <AlertTriangle className="h-3 w-3 mr-1" />
                       Alguns itens contêm erros
                     </span>
@@ -559,10 +547,17 @@ export default function InventarioPage() {
             </CardHeader>
             <CardContent>
               <InventarioTable
-                data={processedData}
-                onSort={handleSort}
-                sortKey={sortKey}
-                sortDirection={sortDirection}
+                data={data}
+                // Sorting logic is handled by server order (Name default),
+                // client sort is removed or can be kept for current page only
+                // For simplicity and correctness with pagination, we rely on server default order (Name)
+                // or we could implement server sort later.
+              />
+
+              <InventarioPagination
+                currentPage={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
               />
             </CardContent>
           </Card>

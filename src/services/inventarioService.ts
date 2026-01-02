@@ -3,36 +3,58 @@ import {
   InventarioItem,
   DatasDeInventario,
   MovementInsert,
+  InventarioSummaryData,
 } from '@/types/inventario'
 import { parseCurrency, formatCurrency } from '@/lib/formatters'
 
 export const inventarioService = {
+  // Legacy method kept for compatibility but implemented with pagination underneath if needed
+  // or explicitly deprecated. We'll update it to use the new V2 RPCs for resilience.
   async getInventory(
     funcionarioId?: number,
     sessionId?: number,
   ): Promise<InventarioItem[]> {
-    // Use the new RPC to get aggregated data efficiently
-    const { data, error } = await supabase.rpc('get_inventory_data', {
-      p_session_id: sessionId ?? null,
-      p_funcionario_id: funcionarioId ?? null,
-    })
+    // Fallback to fetch first 1000 items if called directly
+    const { data } = await this.getInventoryPaginated(
+      funcionarioId,
+      sessionId,
+      1,
+      1000,
+    )
+    return data
+  },
+
+  async getInventoryPaginated(
+    funcionarioId?: number | null,
+    sessionId?: number | null,
+    page: number = 1,
+    pageSize: number = 50,
+    search?: string,
+  ): Promise<{ data: InventarioItem[]; totalCount: number }> {
+    const { data, error } = await supabase.rpc(
+      'get_inventory_items_paginated',
+      {
+        p_session_id: sessionId ?? null,
+        p_funcionario_id: funcionarioId ?? null,
+        p_page: page,
+        p_page_size: pageSize,
+        p_search: search || null,
+      },
+    )
 
     if (error) {
-      console.error('Error fetching inventory data:', error)
+      console.error('Error fetching inventory data paginated:', error)
       throw error
     }
 
-    if (!data) return []
+    if (!data) return { data: [], totalCount: 0 }
 
-    // Map RPC result to InventarioItem type
-    // Use defensive programming to handle malformed data in individual rows
-    return data.map((item: any) => {
+    const mappedData = data.map((item: any) => {
       try {
         const saldoFinal = Number(item.saldo_final) || 0
-        const contagem = Number(item.contagem) || 0
+        const contagem = Number(item.estoque_contagem_carro) || 0
         const preco = Number(item.preco) || 0
 
-        // User Story: "Dif. (Qtd): Automated calculation of Contagem minus Saldo Final."
         const diferencaQuantidade = contagem - saldoFinal
         const diferencaValor = diferencaQuantidade * preco
 
@@ -56,9 +78,8 @@ export const inventarioService = {
         }
       } catch (rowError) {
         console.error(`Error processing row for item ${item?.id}:`, rowError)
-        // Return a safe fallback object marked with error
         return {
-          id: item?.id || Math.random(), // Ensure key
+          id: item?.id || Math.random(),
           codigo_barras: null,
           codigo_produto: item?.codigo_produto || null,
           mercadoria: item?.mercadoria || 'Erro de Dados',
@@ -77,6 +98,57 @@ export const inventarioService = {
         }
       }
     })
+
+    const totalCount = data[0]?.total_count || 0
+
+    return {
+      data: mappedData,
+      totalCount: Number(totalCount),
+    }
+  },
+
+  async getInventorySummary(
+    funcionarioId?: number | null,
+    sessionId?: number | null,
+    search?: string,
+  ): Promise<InventarioSummaryData> {
+    const { data, error } = await supabase.rpc('get_inventory_summary_v2', {
+      p_session_id: sessionId ?? null,
+      p_funcionario_id: funcionarioId ?? null,
+      p_search: search || null,
+    })
+
+    if (error) {
+      console.error('Error fetching inventory summary:', error)
+      // Return zeroed summary on error
+      return {
+        initial: { qty: 0, value: 0 },
+        final: { qty: 0, value: 0 },
+        positiveDiff: { qty: 0, value: 0 },
+        negativeDiff: { qty: 0, value: 0 },
+      }
+    }
+
+    const row = data?.[0] || {}
+
+    return {
+      initial: {
+        qty: Number(row.total_saldo_inicial_qtd) || 0,
+        value: Number(row.total_saldo_inicial_valor) || 0,
+      },
+      final: {
+        qty: Number(row.total_saldo_final_qtd) || 0,
+        value: Number(row.total_saldo_final_valor) || 0,
+      },
+      positiveDiff: {
+        qty: Number(row.total_diferenca_positiva_qtd) || 0,
+        value: Number(row.total_diferenca_positiva_valor) || 0,
+      },
+      negativeDiff: {
+        qty: Number(row.total_diferenca_negativa_qtd) || 0,
+        value: Number(row.total_diferenca_negativa_valor) || 0,
+      },
+    }
   },
 
   async getActiveSession(): Promise<DatasDeInventario | null> {
@@ -156,7 +228,6 @@ export const inventarioService = {
   ): Promise<void> {
     if (!sessionId) throw new Error('Session ID is required for saving counts.')
 
-    // Ensure items are properly formatted for JSONB
     const safeItems = items.map((i) => ({
       productId: i.productId,
       productCode: i.productCode,
@@ -178,15 +249,12 @@ export const inventarioService = {
   },
 
   async createMovement(movement: MovementInsert): Promise<void> {
-    // 1. Insert into new dedicated table
     const { error: logError } = await supabase
       .from('REPOSIÇÃO E DEVOLUÇÃO')
       .insert(movement as any)
 
     if (logError) throw logError
 
-    // 2. Update BANCO_DE_DADOS to reflect movement in Inventory Table
-    // Get latest record for product/employee
     const { data: dbData, error: dbError } = await supabase
       .from('BANCO_DE_DADOS')
       .select(
@@ -205,12 +273,10 @@ export const inventarioService = {
     const dateStr = now.toISOString().split('T')[0]
     const timeStr = now.toLocaleTimeString()
 
-    // Determine if we update existing record or create new one based on session
     const isCurrentSession =
       dbData && movement.session_id && dbData.session_id === movement.session_id
 
     if (isCurrentSession) {
-      // Calculate new values
       const currentSaldo = dbData['SALDO FINAL'] || 0
       const currentNovas = parseCurrency(dbData['NOVAS CONSIGNAÇÕES'])
       const currentRecolhido = parseCurrency(dbData['RECOLHIDO'])
@@ -227,7 +293,6 @@ export const inventarioService = {
         newSaldo -= movement.quantidade
       }
 
-      // Update
       const { error: updateError } = await supabase
         .from('BANCO_DE_DADOS')
         .update({
@@ -241,7 +306,6 @@ export const inventarioService = {
 
       if (updateError) throw updateError
     } else {
-      // Create NEW record for this session, linking to previous
       let prevSaldoFinal = 0
       if (dbData) {
         prevSaldoFinal = dbData['SALDO FINAL'] || 0
@@ -259,7 +323,6 @@ export const inventarioService = {
         newSaldo -= movement.quantidade
       }
 
-      // We need product name for insertion
       const { data: prod } = await supabase
         .from('PRODUTOS')
         .select('PRODUTO')
@@ -268,7 +331,6 @@ export const inventarioService = {
 
       const prodName = prod?.PRODUTO || ''
 
-      // Insert
       const { error: insertError } = await supabase
         .from('BANCO_DE_DADOS')
         .insert({

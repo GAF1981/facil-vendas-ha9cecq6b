@@ -17,6 +17,13 @@ export interface InventarioItem {
   hasError?: boolean // Indicates if there was a data processing error for this item
 }
 
+export interface InventarioSummaryData {
+  initial: { qty: number; value: number }
+  final: { qty: number; value: number }
+  positiveDiff: { qty: number; value: number }
+  negativeDiff: { qty: number; value: number }
+}
+
 // Deprecated in favor of DatasDeInventario but kept for reference if needed
 export interface InventorySession {
   id: number

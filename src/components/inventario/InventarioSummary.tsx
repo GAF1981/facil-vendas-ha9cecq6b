@@ -1,39 +1,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { InventarioItem } from '@/types/inventario'
+import { InventarioSummaryData } from '@/types/inventario'
 import { formatCurrency } from '@/lib/formatters'
-import { ArrowDownIcon, ArrowUpIcon, Scale, AlertCircle } from 'lucide-react'
+import { ArrowDownIcon, ArrowUpIcon, Scale } from 'lucide-react'
 
 interface InventarioSummaryProps {
-  data: InventarioItem[]
+  summary: InventarioSummaryData
 }
 
-export function InventarioSummary({ data }: InventarioSummaryProps) {
-  const totals = data.reduce(
-    (acc, item) => {
-      acc.initial.qty += item.saldo_inicial
-      acc.initial.value += item.saldo_inicial * item.preco
-
-      acc.final.qty += item.saldo_final
-      acc.final.value += item.saldo_final * item.preco
-
-      if (item.diferenca_quantidade > 0) {
-        acc.positiveDiff.qty += item.diferenca_quantidade
-        acc.positiveDiff.value += item.diferenca_valor
-      } else if (item.diferenca_quantidade < 0) {
-        acc.negativeDiff.qty += Math.abs(item.diferenca_quantidade)
-        acc.negativeDiff.value += Math.abs(item.diferenca_valor)
-      }
-
-      return acc
-    },
-    {
-      initial: { qty: 0, value: 0 },
-      final: { qty: 0, value: 0 },
-      positiveDiff: { qty: 0, value: 0 },
-      negativeDiff: { qty: 0, value: 0 },
-    },
-  )
-
+export function InventarioSummary({ summary }: InventarioSummaryProps) {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <Card className="bg-blue-50/50 border-blue-100">
@@ -45,10 +19,10 @@ export function InventarioSummary({ data }: InventarioSummaryProps) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-blue-900">
-            {totals.initial.qty.toLocaleString('pt-BR')}
+            {summary.initial.qty.toLocaleString('pt-BR')}
           </div>
           <p className="text-xs text-blue-600 font-medium">
-            R$ {formatCurrency(totals.initial.value)}
+            R$ {formatCurrency(summary.initial.value)}
           </p>
         </CardContent>
       </Card>
@@ -62,10 +36,10 @@ export function InventarioSummary({ data }: InventarioSummaryProps) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-gray-900">
-            {totals.final.qty.toLocaleString('pt-BR')}
+            {summary.final.qty.toLocaleString('pt-BR')}
           </div>
           <p className="text-xs text-gray-600 font-medium">
-            R$ {formatCurrency(totals.final.value)}
+            R$ {formatCurrency(summary.final.value)}
           </p>
         </CardContent>
       </Card>
@@ -79,10 +53,10 @@ export function InventarioSummary({ data }: InventarioSummaryProps) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-green-700">
-            +{totals.positiveDiff.qty.toLocaleString('pt-BR')}
+            +{summary.positiveDiff.qty.toLocaleString('pt-BR')}
           </div>
           <p className="text-xs text-green-600 font-medium">
-            + R$ {formatCurrency(totals.positiveDiff.value)}
+            + R$ {formatCurrency(summary.positiveDiff.value)}
           </p>
         </CardContent>
       </Card>
@@ -96,10 +70,10 @@ export function InventarioSummary({ data }: InventarioSummaryProps) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-red-700">
-            -{totals.negativeDiff.qty.toLocaleString('pt-BR')}
+            -{summary.negativeDiff.qty.toLocaleString('pt-BR')}
           </div>
           <p className="text-xs text-red-600 font-medium">
-            - R$ {formatCurrency(totals.negativeDiff.value)}
+            - R$ {formatCurrency(summary.negativeDiff.value)}
           </p>
         </CardContent>
       </Card>
