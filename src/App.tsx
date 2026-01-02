@@ -32,7 +32,8 @@ import PixPage from '@/pages/pix/PixPage'
 import PagamentosPage from '@/pages/pagamentos/PagamentosPage'
 import ControlePage from '@/pages/controle/ControlePage'
 import InventarioPage from '@/pages/inventario/InventarioPage'
-import ContagemPage from '@/pages/inventario/ContagemPage' // New Page
+import ContagemPage from '@/pages/inventario/ContagemPage'
+import ResumoAcertosPage from '@/pages/resumo-acertos/ResumoAcertosPage' // New Page
 import { AuthProvider } from '@/hooks/use-auth'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 
@@ -86,6 +87,8 @@ const App = () => (
               <Route path="/pendencias" element={<PendenciasPage />} />
               {/* Rota Module */}
               <Route path="/rota" element={<RotaPage />} />
+              {/* Resumo Acertos Module - NEW */}
+              <Route path="/resumo-acertos" element={<ResumoAcertosPage />} />
               {/* Backup & Export Module */}
               <Route path="/backup" element={<BackupPage />} />
               {/* Reports Module */}

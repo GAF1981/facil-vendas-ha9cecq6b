@@ -27,6 +27,7 @@ import {
   Package,
   Database,
   QrCode,
+  FileBarChart,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 
@@ -95,6 +96,11 @@ export function AppSidebar() {
       title: 'Rota',
       url: '/rota',
       icon: Map,
+    },
+    {
+      title: 'Resumo de Acertos',
+      url: '/resumo-acertos',
+      icon: FileBarChart,
     },
     {
       title: 'Relatório',
