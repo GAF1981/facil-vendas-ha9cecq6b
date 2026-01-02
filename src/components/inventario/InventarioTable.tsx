@@ -49,10 +49,10 @@ export function InventarioTable({ data }: InventarioTableProps) {
                 <br />
                 <span className="text-[10px]">(Carro &rarr; Cliente)</span>
               </TableHead>
-              <TableHead className="text-center font-bold bg-muted/50">
+              <TableHead className="text-center font-bold bg-muted/50 min-w-[100px] border-x border-border/50">
                 Saldo Final
               </TableHead>
-              <TableHead className="text-center font-bold bg-yellow-50/50 text-yellow-700">
+              <TableHead className="text-center font-bold bg-yellow-50/50 text-yellow-700 min-w-[100px]">
                 Contagem
               </TableHead>
               <TableHead className="text-center">Dif. (Qtd)</TableHead>
@@ -100,7 +100,7 @@ export function InventarioTable({ data }: InventarioTableProps) {
                   <TableCell className="text-center bg-red-50/20 text-red-700">
                     {item.saida_carro_cliente}
                   </TableCell>
-                  <TableCell className="text-center font-bold bg-muted/20">
+                  <TableCell className="text-center font-bold bg-muted/20 border-x border-border/50">
                     {item.saldo_final}
                   </TableCell>
                   <TableCell className="text-center font-bold bg-yellow-50/20 text-yellow-700">

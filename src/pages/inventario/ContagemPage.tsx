@@ -16,6 +16,7 @@ import {
   Calculator,
   DollarSign,
   Filter,
+  AlertTriangle,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { productsService } from '@/services/productsService'
@@ -78,8 +79,9 @@ export default function ContagemPage() {
       } catch (err) {
         console.error('Error initialization', err)
         toast({
-          title: 'Erro',
-          description: 'Não foi possível carregar os dados iniciais.',
+          title: 'Erro de Inicialização',
+          description:
+            'Não foi possível carregar os dados. Verifique a conexão e tente novamente.',
           variant: 'destructive',
         })
       } finally {
@@ -173,8 +175,7 @@ export default function ContagemPage() {
     if (itemsToSave.length === 0) {
       toast({
         title: 'Atenção',
-        description:
-          'Nenhuma contagem foi realizada. Insira quantidades para salvar.',
+        description: 'Nenhuma contagem válida foi encontrada para salvar.',
         variant: 'default',
       })
       return
@@ -192,17 +193,25 @@ export default function ContagemPage() {
 
       toast({
         title: 'Sucesso',
-        description: `${itemsToSave.length} itens foram processados e o saldo final foi atualizado com sucesso.`,
+        description: `${itemsToSave.length} itens processados. O saldo final foi atualizado.`,
         className: 'bg-green-600 text-white',
       })
-      // We don't clear counts here because user might want to continue editing
-      // Or we could reload to be safe, but local state is now synced
-    } catch (error) {
-      console.error(error)
+    } catch (error: any) {
+      console.error('Save error:', error)
+
+      let errorMessage =
+        'Ocorreu um erro ao processar a contagem. Tente novamente.'
+      if (error?.message?.includes('duplicate key')) {
+        errorMessage = 'Erro de duplicidade de chave ao salvar os dados.'
+      } else if (error?.message?.includes('network')) {
+        errorMessage = 'Erro de conexão. Verifique sua internet.'
+      } else if (error?.message) {
+        errorMessage = `Erro: ${error.message}`
+      }
+
       toast({
-        title: 'Erro ao salvar',
-        description:
-          'Ocorreu um erro ao processar a contagem em lote. Tente novamente.',
+        title: 'Falha ao Salvar',
+        description: errorMessage,
         variant: 'destructive',
       })
     } finally {
@@ -223,10 +232,21 @@ export default function ContagemPage() {
             <h1 className="text-3xl font-bold tracking-tight">
               Contagem de Saldo Final
             </h1>
-            <p className="text-muted-foreground">
-              {activeSession
-                ? `Sessão #${activeSession['ID INVENTÁRIO']} | Registre o saldo final de cada produto.`
-                : 'Nenhuma sessão ativa encontrada.'}
+            <p className="text-muted-foreground flex items-center gap-2">
+              {activeSession ? (
+                <>
+                  <span className="font-semibold text-primary">
+                    Sessão #{activeSession['ID INVENTÁRIO']}
+                  </span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                    {activeSession.TIPO}
+                  </span>
+                </>
+              ) : (
+                <span className="text-red-500 flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" /> Nenhuma sessão ativa
+                </span>
+              )}
             </p>
           </div>
         </div>
@@ -234,20 +254,20 @@ export default function ContagemPage() {
           size="lg"
           onClick={handleBulkSave}
           disabled={saving || !activeSession}
-          className="bg-green-600 hover:bg-green-700 font-bold shadow-md transition-all hover:scale-105"
+          className="bg-green-600 hover:bg-green-700 font-bold shadow-md transition-all hover:scale-105 min-w-[200px]"
         >
           {saving ? (
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           ) : (
             <Save className="mr-2 h-5 w-5" />
           )}
-          Gravar Contagem de Estoque Final
+          {saving ? 'Gravando...' : 'Gravar Contagem Final'}
         </Button>
       </div>
 
       {/* Summaries */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="bg-blue-50/50 border-blue-100">
+        <Card className="bg-blue-50/50 border-blue-100 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-blue-800">
               Quantidade Total Contada
@@ -255,15 +275,15 @@ export default function ContagemPage() {
             <Calculator className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-900">
+            <div className="text-3xl font-bold text-blue-900 tracking-tight">
               {summaries.totalQty}
             </div>
-            <p className="text-xs text-blue-600/80">
+            <p className="text-xs text-blue-600/80 mt-1">
               Soma das quantidades inseridas
             </p>
           </CardContent>
         </Card>
-        <Card className="bg-green-50/50 border-green-100">
+        <Card className="bg-green-50/50 border-green-100 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-green-800">
               Valor Total Contado
@@ -271,22 +291,22 @@ export default function ContagemPage() {
             <DollarSign className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-900">
+            <div className="text-3xl font-bold text-green-900 tracking-tight">
               R$ {formatCurrency(summaries.totalVal)}
             </div>
-            <p className="text-xs text-green-600/80">
-              Baseado no preço atual dos produtos
+            <p className="text-xs text-green-600/80 mt-1">
+              Valor de venda estimado do estoque contado
             </p>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
+      <Card className="border-t-4 border-t-primary">
         <CardHeader>
-          <CardTitle>Produtos</CardTitle>
+          <CardTitle>Produtos para Contagem</CardTitle>
           <CardDescription>
-            Listagem completa de produtos para contagem. Utilize os filtros para
-            facilitar.
+            Insira a quantidade física encontrada para cada produto. Os dados
+            são salvos localmente até que você clique em "Gravar".
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -329,10 +349,10 @@ export default function ContagemPage() {
             )}
           </div>
 
-          <div className="rounded-md border overflow-hidden">
-            <div className="overflow-x-auto">
-              <Table className="min-w-[800px]">
-                <TableHeader className="bg-muted/50">
+          <div className="rounded-md border overflow-hidden relative">
+            <div className="overflow-x-auto max-h-[600px]">
+              <Table className="min-w-[800px] relative">
+                <TableHeader className="bg-muted/90 sticky top-0 z-10 shadow-sm">
                   <TableRow>
                     <TableHead className="w-[80px]">Cód.</TableHead>
                     <TableHead>Produto</TableHead>
@@ -340,7 +360,7 @@ export default function ContagemPage() {
                       Barras
                     </TableHead>
                     <TableHead className="text-right">Preço</TableHead>
-                    <TableHead className="w-[180px] text-center bg-yellow-50/50 text-yellow-800 font-bold border-l">
+                    <TableHead className="w-[180px] text-center bg-yellow-100/80 text-yellow-900 font-extrabold border-l border-yellow-200">
                       Saldo Final (Qtd)
                     </TableHead>
                   </TableRow>
@@ -348,15 +368,18 @@ export default function ContagemPage() {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="h-24 text-center">
-                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
+                      <TableCell colSpan={5} className="h-32 text-center">
+                        <div className="flex flex-col items-center justify-center text-muted-foreground">
+                          <Loader2 className="h-8 w-8 animate-spin mb-2 text-primary" />
+                          <p>Carregando produtos...</p>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ) : filteredProducts.length === 0 ? (
                     <TableRow>
                       <TableCell
                         colSpan={5}
-                        className="h-24 text-center text-muted-foreground"
+                        className="h-32 text-center text-muted-foreground"
                       >
                         Nenhum produto encontrado com os filtros atuais.
                       </TableCell>
@@ -364,13 +387,13 @@ export default function ContagemPage() {
                   ) : (
                     filteredProducts.map((product) => (
                       <TableRow key={product.ID} className="hover:bg-muted/30">
-                        <TableCell className="font-mono">
+                        <TableCell className="font-mono text-xs">
                           {product.CODIGO || '-'}
                         </TableCell>
                         <TableCell className="font-medium">
                           <div className="flex flex-col">
                             <span>{product.PRODUTO}</span>
-                            <span className="text-xs text-muted-foreground md:hidden">
+                            <span className="text-xs text-muted-foreground md:hidden mt-0.5">
                               {product['CÓDIGO BARRAS']}
                             </span>
                           </div>
@@ -378,18 +401,18 @@ export default function ContagemPage() {
                         <TableCell className="hidden md:table-cell font-mono text-xs">
                           {product['CÓDIGO BARRAS'] || '-'}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right text-sm">
                           R$ {formatCurrency(parseCurrency(product.PREÇO))}
                         </TableCell>
-                        <TableCell className="border-l bg-yellow-50/10 p-2">
+                        <TableCell className="border-l border-yellow-100 bg-yellow-50/30 p-2">
                           <Input
                             type="number"
                             min="0"
                             className={cn(
-                              'text-center font-bold text-lg h-10 transition-colors',
+                              'text-center font-bold text-lg h-10 transition-all border-dashed border-2',
                               (counts[product.ID] || 0) > 0
-                                ? 'bg-yellow-100 border-yellow-300 text-yellow-900'
-                                : '',
+                                ? 'bg-yellow-100 border-yellow-400 text-yellow-900 shadow-sm'
+                                : 'bg-transparent border-muted-foreground/20 focus:bg-white focus:border-primary',
                             )}
                             placeholder="0"
                             value={
@@ -400,6 +423,7 @@ export default function ContagemPage() {
                             onChange={(e) =>
                               handleCountChange(product.ID, e.target.value)
                             }
+                            onFocus={(e) => e.target.select()}
                           />
                         </TableCell>
                       </TableRow>
@@ -410,11 +434,23 @@ export default function ContagemPage() {
             </div>
           </div>
 
-          <div className="flex justify-between items-center text-sm text-muted-foreground">
+          <div className="flex justify-between items-center text-sm text-muted-foreground px-2">
             <div>
-              Exibindo {filteredProducts.length} de {allProducts.length}{' '}
+              Exibindo{' '}
+              <span className="font-medium text-foreground">
+                {filteredProducts.length}
+              </span>{' '}
+              de{' '}
+              <span className="font-medium text-foreground">
+                {allProducts.length}
+              </span>{' '}
               produtos
             </div>
+            {Object.keys(counts).length > 0 && (
+              <div className="text-xs">
+                {Object.keys(counts).length} produtos com contagem registrada
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

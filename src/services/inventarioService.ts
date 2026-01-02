@@ -3,7 +3,6 @@ import {
   InventarioItem,
   DatasDeInventario,
   MovementInsert,
-  ContagemEstoqueFinalInsert,
 } from '@/types/inventario'
 import { parseCurrency, formatCurrency } from '@/lib/formatters'
 
@@ -79,8 +78,6 @@ export const inventarioService = {
           // Carry Over Logic
           // If we haven't touched this product in the current session yet,
           // the "Initial Balance" for this session is the "Final Balance" of the last record.
-          // And "Final Balance" remains same until moved/counted.
-          // Movements are 0 for this new session.
           saldoInicial = dbRow['SALDO FINAL'] || 0
           saldoFinal = dbRow['SALDO FINAL'] || 0
           contagem = 0 // Not counted in this session yet
@@ -91,13 +88,7 @@ export const inventarioService = {
         }
       }
 
-      const entradaClienteCarro = 0
-
       // Calculated Difference
-      // If contagem is 0 (not counted), difference implies missing everything?
-      // Usually difference is only relevant if counted.
-      // If contagem > 0 or if we want to show full loss if not counted?
-      // For now, simple diff.
       const diffQty = contagem > 0 ? saldoFinal - contagem : 0
       const diffVal = diffQty * price
 
@@ -112,7 +103,7 @@ export const inventarioService = {
         preco: price,
         saldo_inicial: saldoInicial,
         entrada_estoque_carro: entradaEstoqueCarro,
-        entrada_cliente_carro: entradaClienteCarro,
+        entrada_cliente_carro: 0,
         saida_carro_estoque: saidaCarroEstoque,
         saida_carro_cliente: saidaCarroCliente,
         saldo_final: saldoFinal,
@@ -202,14 +193,25 @@ export const inventarioService = {
   ): Promise<void> {
     if (!sessionId) throw new Error('Session ID is required for saving counts.')
 
-    // Use RPC for atomic batch processing
+    // Ensure items are properly formatted for JSONB
+    const safeItems = items.map((i) => ({
+      productId: i.productId,
+      productCode: i.productCode,
+      productName: i.productName,
+      quantity: i.quantity,
+      price: i.price,
+    }))
+
     const { error } = await supabase.rpc('process_inventory_batch', {
       p_session_id: sessionId,
-      p_items: items,
+      p_items: safeItems,
       p_funcionario_id: funcionarioId,
     })
 
-    if (error) throw error
+    if (error) {
+      console.error('RPC process_inventory_batch error:', error)
+      throw error
+    }
   },
 
   async createMovement(movement: MovementInsert): Promise<void> {
@@ -227,7 +229,7 @@ export const inventarioService = {
       .select(
         '"ID VENDA ITENS", "SALDO FINAL", "SALDO INICIAL", "NOVAS CONSIGNAÇÕES", "RECOLHIDO", "session_id"',
       )
-      .eq('COD. PRODUTO', movement.produto_id) // Assuming product_id matches COD. PRODUTO
+      .eq('COD. PRODUTO', movement.produto_id)
       .eq('CODIGO FUNCIONARIO', movement.funcionario_id)
       .order('DATA DO ACERTO', { ascending: false })
       .order('HORA DO ACERTO', { ascending: false })
@@ -269,7 +271,7 @@ export const inventarioService = {
           'SALDO FINAL': newSaldo,
           'NOVAS CONSIGNAÇÕES': formatCurrency(newNovas),
           RECOLHIDO: formatCurrency(newRecolhido),
-          'DATA DO ACERTO': dateStr, // Update timestamp
+          'DATA DO ACERTO': dateStr,
           'HORA DO ACERTO': timeStr,
         } as any)
         .eq('ID VENDA ITENS', dbData['ID VENDA ITENS'])
@@ -280,10 +282,6 @@ export const inventarioService = {
       let prevSaldoFinal = 0
       if (dbData) {
         prevSaldoFinal = dbData['SALDO FINAL'] || 0
-      } else {
-        // If not found by exact match, try finding any latest record for product
-        // Logic handled in createMovement is basic, process_inventory_batch has robust logic.
-        // For movements, we rely on existing employee record usually.
       }
 
       let newSaldo = prevSaldoFinal
@@ -302,7 +300,7 @@ export const inventarioService = {
       const { data: prod } = await supabase
         .from('PRODUTOS')
         .select('PRODUTO')
-        .eq('ID', movement.produto_id) // Map ID to ID
+        .eq('ID', movement.produto_id)
         .single()
 
       const prodName = prod?.PRODUTO || ''
@@ -311,7 +309,7 @@ export const inventarioService = {
       const { error: insertError } = await supabase
         .from('BANCO_DE_DADOS')
         .insert({
-          'COD. PRODUTO': movement.produto_id, // Map ID to COD. PRODUTO
+          'COD. PRODUTO': movement.produto_id,
           'CODIGO FUNCIONARIO': movement.funcionario_id,
           'SALDO FINAL': newSaldo,
           'SALDO INICIAL': prevSaldoFinal,
