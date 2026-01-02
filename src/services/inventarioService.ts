@@ -8,13 +8,11 @@ import {
 import { parseCurrency, formatCurrency } from '@/lib/formatters'
 
 export const inventarioService = {
-  // Legacy method kept for compatibility but implemented with pagination underneath if needed
-  // or explicitly deprecated. We'll update it to use the new V2 RPCs for resilience.
+  // Legacy method kept for compatibility
   async getInventory(
     funcionarioId?: number,
     sessionId?: number,
   ): Promise<InventarioItem[]> {
-    // Fallback to fetch first 1000 items if called directly
     const { data } = await this.getInventoryPaginated(
       funcionarioId,
       sessionId,
@@ -49,6 +47,7 @@ export const inventarioService = {
 
     if (!data) return { data: [], totalCount: 0 }
 
+    // Map data with resilience per row
     const mappedData = data.map((item: any) => {
       try {
         const saldoFinal = Number(item.saldo_final) || 0
@@ -119,14 +118,10 @@ export const inventarioService = {
     })
 
     if (error) {
-      console.error('Error fetching inventory summary:', error)
-      // Return zeroed summary on error
-      return {
-        initial: { qty: 0, value: 0 },
-        final: { qty: 0, value: 0 },
-        positiveDiff: { qty: 0, value: 0 },
-        negativeDiff: { qty: 0, value: 0 },
-      }
+      // We explicitly throw here to allow the Page to catch it and display an error state.
+      // Previously this returned zeroed data masking the error.
+      console.error('Error fetching inventory summary RPC:', error)
+      throw error
     }
 
     const row = data?.[0] || {}

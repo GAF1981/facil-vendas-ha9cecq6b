@@ -844,6 +844,48 @@ export type Database = {
           tipo: string
         }[]
       }
+      get_inventory_items_paginated: {
+        Args: {
+          p_funcionario_id?: number
+          p_page?: number
+          p_page_size?: number
+          p_search?: string
+          p_session_id?: number
+        }
+        Returns: {
+          codigo_barras: string
+          codigo_produto: number
+          entrada_cliente_carro: number
+          entrada_estoque_carro: number
+          estoque_contagem_carro: number
+          id: number
+          mercadoria: string
+          preco: number
+          saida_carro_cliente: number
+          saida_carro_estoque: number
+          saldo_final: number
+          saldo_inicial: number
+          tipo: string
+          total_count: number
+        }[]
+      }
+      get_inventory_summary_v2: {
+        Args: {
+          p_funcionario_id?: number
+          p_search?: string
+          p_session_id?: number
+        }
+        Returns: {
+          total_diferenca_negativa_qtd: number
+          total_diferenca_negativa_valor: number
+          total_diferenca_positiva_qtd: number
+          total_diferenca_positiva_valor: number
+          total_saldo_final_qtd: number
+          total_saldo_final_valor: number
+          total_saldo_inicial_qtd: number
+          total_saldo_inicial_valor: number
+        }[]
+      }
       get_unique_client_routes: {
         Args: never
         Returns: {
@@ -884,6 +926,10 @@ export type Database = {
       process_inventory_batch: {
         Args: { p_funcionario_id: number; p_items: Json; p_session_id: number }
         Returns: undefined
+      }
+      safe_cast_timestamp: {
+        Args: { p_date: string; p_time: string }
+        Returns: string
       }
       safe_timestamp_combine: {
         Args: { p_date: string; p_time: string }

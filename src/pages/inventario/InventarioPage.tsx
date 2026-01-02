@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import {
   Card,
   CardContent,
@@ -8,7 +8,6 @@ import {
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   ClipboardList,
@@ -37,170 +36,187 @@ import {
   InventarioSummaryData,
 } from '@/types/inventario'
 import { useToast } from '@/hooks/use-toast'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { EmployeeSelectionDialog } from '@/components/inventario/EmployeeSelectionDialog'
 import { MovementDialog } from '@/components/inventario/MovementDialog'
 import { safeFormatDate } from '@/lib/formatters'
 import { InventarioTableSkeleton } from '@/components/inventario/InventarioTableSkeleton'
-import { Skeleton } from '@/components/ui/skeleton'
 
 export default function InventarioPage() {
-  const [loading, setLoading] = useState(true)
-  const [data, setData] = useState<InventarioItem[]>([])
-  const [summary, setSummary] = useState<InventarioSummaryData>({
-    initial: { qty: 0, value: 0 },
-    final: { qty: 0, value: 0 },
-    positiveDiff: { qty: 0, value: 0 },
-    negativeDiff: { qty: 0, value: 0 },
-  })
-  const [error, setError] = useState<string | null>(null)
-  const { toast } = useToast()
-
+  // Session State
   const [activeSession, setActiveSession] = useState<DatasDeInventario | null>(
     null,
   )
+  const [sessionLoading, setSessionLoading] = useState(true)
+
+  // Decoupled Data States
+  const [tableData, setTableData] = useState<InventarioItem[]>([])
+  const [tableLoading, setTableLoading] = useState(true)
+  const [tableError, setTableError] = useState<string | null>(null)
+  const [totalCount, setTotalCount] = useState(0)
+
+  const [summaryData, setSummaryData] = useState<
+    InventarioSummaryData | undefined
+  >(undefined)
+  const [summaryLoading, setSummaryLoading] = useState(true)
+  const [summaryError, setSummaryError] = useState<string | null>(null)
+
+  const { toast } = useToast()
+
+  // Actions State
   const [isEmployeeDialogOpen, setIsEmployeeDialogOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
-
-  // Movement Dialogs State
   const [isReposicaoOpen, setIsReposicaoOpen] = useState(false)
   const [isDevolucaoOpen, setIsDevolucaoOpen] = useState(false)
 
   // Pagination & Filters State
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(50)
-  const [totalCount, setTotalCount] = useState(0)
   const [searchTerm, setSearchTerm] = useState('')
-
-  // We debounce search in a real app, here we just useEffect on it or manual trigger
-  // For simplicity, we trigger on Enter or blur in Search Input
 
   const totalPages = Math.ceil(totalCount / pageSize)
 
-  const fetchData = useCallback(
-    async (
-      funcionarioId?: number,
-      sessionId?: number | null,
-      currentPage: number = 1,
-      forceReload: boolean = false,
-    ) => {
-      // Only show full loading if we are forcing reload or have no data
-      if (forceReload || data.length === 0) {
-        setLoading(true)
-      }
-      setError(null)
-      try {
-        const targetId =
-          funcionarioId ?? activeSession?.['CODIGO FUNCIONARIO'] ?? undefined
-        const targetSessionId = sessionId ?? activeSession?.['ID INVENTÁRIO']
-
-        // 1. Fetch Paginated Data
-        const { data: items, totalCount: count } =
-          await inventarioService.getInventoryPaginated(
-            targetId,
-            targetSessionId,
-            currentPage,
-            pageSize,
-            searchTerm,
-          )
-
-        setData(items)
-        setTotalCount(count)
-
-        // 2. Fetch Summary (Aggregated) - This ensures summary is for ALL data, not just page
-        const summaryData = await inventarioService.getInventorySummary(
-          targetId,
-          targetSessionId,
-          searchTerm,
-        )
-        setSummary(summaryData)
-      } catch (error) {
-        console.error(error)
-        const errorMessage =
-          error instanceof Error ? error.message : 'Erro desconhecido'
-
-        if (data.length > 0) {
-          toast({
-            title: 'Aviso de Atualização',
-            description:
-              'Não foi possível atualizar os dados. Exibindo dados em cache.',
-            variant: 'destructive',
-          })
-        } else {
-          setError(errorMessage)
-          toast({
-            title: 'Erro ao carregar',
-            description: 'Não foi possível buscar os dados de inventário.',
-            variant: 'destructive',
-          })
-        }
-      } finally {
-        setLoading(false)
-      }
-    },
-    [activeSession, pageSize, searchTerm, toast, data.length],
-  )
-
+  // Initial Session Fetch
   const fetchSession = async () => {
+    setSessionLoading(true)
     try {
       const session = await inventarioService.getActiveSession()
       setActiveSession(session)
-      // If we have an active session, pass its ID to ensure continuity logic works
-      fetchData(
-        session?.['CODIGO FUNCIONARIO'] ?? undefined,
-        session?.['ID INVENTÁRIO'],
-        1,
-        true,
-      )
     } catch (error) {
-      console.error(error)
-      // Even if session fetch fails, try to fetch generic data
-      fetchData(undefined, undefined, 1, true)
+      console.error('Error fetching session:', error)
+      toast({
+        title: 'Aviso',
+        description: 'Não foi possível carregar a sessão ativa.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSessionLoading(false)
     }
   }
 
   useEffect(() => {
     fetchSession()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Initial Load
+  }, [])
 
-  // Effect to refetch when page/search changes
-  useEffect(() => {
-    if (activeSession !== undefined) {
-      fetchData(
-        activeSession?.['CODIGO FUNCIONARIO'] ?? undefined,
-        activeSession?.['ID INVENTÁRIO'],
-        page,
-        false,
-      )
+  // Independent Fetcher: Table Data
+  const fetchTableData = useCallback(async () => {
+    if (sessionLoading) return // Wait for session check
+
+    setTableLoading(true)
+    setTableError(null)
+
+    const targetId = activeSession?.['CODIGO FUNCIONARIO'] ?? undefined
+    const targetSessionId = activeSession?.['ID INVENTÁRIO']
+
+    try {
+      const { data, totalCount } =
+        await inventarioService.getInventoryPaginated(
+          targetId,
+          targetSessionId,
+          page,
+          pageSize,
+          searchTerm,
+        )
+      setTableData(data)
+      setTotalCount(totalCount)
+    } catch (error) {
+      console.error('Table Fetch Error:', error)
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erro ao buscar itens.'
+      setTableError(errorMessage)
+    } finally {
+      setTableLoading(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, searchTerm])
+  }, [activeSession, page, pageSize, searchTerm, sessionLoading])
+
+  // Independent Fetcher: Summary Data
+  const fetchSummaryData = useCallback(async () => {
+    if (sessionLoading) return // Wait for session check
+
+    setSummaryLoading(true)
+    setSummaryError(null)
+
+    const targetId = activeSession?.['CODIGO FUNCIONARIO'] ?? undefined
+    const targetSessionId = activeSession?.['ID INVENTÁRIO']
+
+    try {
+      const summary = await inventarioService.getInventorySummary(
+        targetId,
+        targetSessionId,
+        searchTerm,
+      )
+      setSummaryData(summary)
+    } catch (error) {
+      console.error('Summary Fetch Error:', error)
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erro ao calcular resumo.'
+      setSummaryError(errorMessage)
+    } finally {
+      setSummaryLoading(false)
+    }
+  }, [activeSession, searchTerm, sessionLoading])
+
+  // Trigger Fetches - Decoupled Effects
+  // 1. Table Fetch Trigger
+  useEffect(() => {
+    fetchTableData()
+  }, [fetchTableData])
+
+  // 2. Summary Fetch Trigger
+  // Note: Summary does NOT depend on 'page', preventing unnecessary re-fetches during pagination
+  useEffect(() => {
+    fetchSummaryData()
+  }, [fetchSummaryData])
+
+  // Diagnostic Logger
+  useEffect(() => {
+    if (tableError || summaryError) {
+      console.group('Inventario Page Diagnostics')
+      console.error('Errors detected on page:', {
+        tableError,
+        summaryError,
+      })
+      console.info('Current Context Params:', {
+        sessionId: activeSession?.['ID INVENTÁRIO'] || 'N/A',
+        employeeId: activeSession?.['CODIGO FUNCIONARIO'] || 'N/A',
+        page,
+        pageSize,
+        searchTerm,
+        timestamp: new Date().toISOString(),
+      })
+      console.groupEnd()
+    }
+  }, [tableError, summaryError, activeSession, page, pageSize, searchTerm])
 
   const handleClearCache = () => {
-    // Reset states and force reload
     setPage(1)
     setSearchTerm('')
-    setData([])
-    fetchData(
-      activeSession?.['CODIGO FUNCIONARIO'] ?? undefined,
-      activeSession?.['ID INVENTÁRIO'],
-      1,
-      true,
-    )
+    setTableData([])
+    setSummaryData(undefined)
+    // Re-trigger fetches by resetting states indirectly or calling explicilty
+    // Simply refreshing session is a good way to "soft reset" context
+    fetchSession().then(() => {
+      fetchTableData()
+      fetchSummaryData()
+    })
     toast({
       title: 'Cache Limpo',
       description: 'Dados recarregados do servidor.',
     })
   }
 
+  const handleRefresh = () => {
+    fetchTableData()
+    fetchSummaryData()
+  }
+
   const handleStartGeneralInventory = async () => {
     setActionLoading(true)
-    setError(null)
     try {
       const session = await inventarioService.startSession('GERAL')
       setActiveSession(session)
-      fetchData(undefined, session['ID INVENTÁRIO'], 1, true)
+      // activeSession change will trigger useEffects for data
       toast({
         title: 'Inventário Geral Iniciado',
         description: `Sessão #${session['ID INVENTÁRIO']} iniciada.`,
@@ -221,7 +237,6 @@ export default function InventarioPage() {
   const handleStartEmployeeInventory = (employeeId: number) => {
     const start = async () => {
       setActionLoading(true)
-      setError(null)
       try {
         const session = await inventarioService.startSession(
           'FUNCIONARIO',
@@ -229,7 +244,6 @@ export default function InventarioPage() {
         )
         setActiveSession(session)
         setIsEmployeeDialogOpen(false)
-        fetchData(employeeId, session['ID INVENTÁRIO'], 1, true)
         toast({
           title: 'Inventário de Funcionário Iniciado',
           description: `Sessão #${session['ID INVENTÁRIO']} iniciada para funcionário ${employeeId}.`,
@@ -252,11 +266,9 @@ export default function InventarioPage() {
   const handleCloseInventory = async () => {
     if (!activeSession) return
     setActionLoading(true)
-    setError(null)
     try {
       await inventarioService.closeSession(activeSession['ID INVENTÁRIO'])
       setActiveSession(null)
-      fetchData(undefined, null, 1, true)
       toast({
         title: 'Inventário Finalizado',
         description: 'A sessão de inventário foi encerrada com sucesso.',
@@ -297,12 +309,8 @@ export default function InventarioPage() {
         description: 'A movimentação foi salva com sucesso.',
         className: 'bg-green-600 text-white',
       })
-      fetchData(
-        activeSession['CODIGO FUNCIONARIO'] ?? undefined,
-        activeSession['ID INVENTÁRIO'],
-        page,
-        true,
-      )
+      // Refresh both to update stocks and totals
+      handleRefresh()
     } catch (error) {
       console.error(error)
       toast({
@@ -439,130 +447,106 @@ export default function InventarioPage() {
           </Button>
           <Button
             variant="outline"
-            onClick={() =>
-              fetchData(
-                activeSession?.['CODIGO FUNCIONARIO'] ?? undefined,
-                activeSession?.['ID INVENTÁRIO'],
-                page,
-                true,
-              )
-            }
-            disabled={loading}
+            onClick={handleRefresh}
+            disabled={tableLoading || summaryLoading}
           >
             <RefreshCw
-              className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+              className={`mr-2 h-4 w-4 ${tableLoading || summaryLoading ? 'animate-spin' : ''}`}
             />
             Atualizar
           </Button>
         </div>
       </div>
 
-      {loading && data.length === 0 ? (
-        <div className="space-y-6 animate-fade-in">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-32 w-full rounded-xl" />
-            ))}
+      {/* Independent Summary Section */}
+      <InventarioSummary
+        summary={summaryData}
+        loading={summaryLoading}
+        error={summaryError}
+      />
+
+      {/* Filters and Actions */}
+      <div className="flex flex-col xl:flex-row gap-4 justify-between items-start xl:items-center bg-muted/20 p-4 rounded-lg border">
+        <div className="flex flex-wrap items-center gap-4 w-full xl:w-auto">
+          <div className="relative w-full max-w-sm">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Buscar por produto..."
+              className="pl-8 w-full md:w-[300px]"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  setPage(1)
+                }
+              }}
+            />
           </div>
-          <div className="bg-muted/20 p-4 rounded-lg border h-20 flex items-center justify-between">
-            <div className="flex gap-4">
-              <Skeleton className="h-8 w-40" />
-              <Skeleton className="h-8 w-40" />
-            </div>
-            <div className="flex gap-2">
-              <Skeleton className="h-9 w-32" />
-              <Skeleton className="h-9 w-32" />
-            </div>
-          </div>
-          <InventarioTableSkeleton />
         </div>
-      ) : error && data.length === 0 ? (
-        <Alert variant="destructive" className="animate-fade-in">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Erro de Carregamento</AlertTitle>
-          <AlertDescription>
-            Ocorreu um problema ao buscar os dados do inventário: {error}
-            <div className="mt-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleClearCache()}
-                className="border-red-200 hover:bg-red-50 text-red-900"
-              >
-                <RefreshCw className="mr-2 h-3 w-3" />
-                Tentar Novamente
-              </Button>
-            </div>
-          </AlertDescription>
-        </Alert>
-      ) : (
-        <>
-          <InventarioSummary summary={summary} />
 
-          <div className="flex flex-col xl:flex-row gap-4 justify-between items-start xl:items-center bg-muted/20 p-4 rounded-lg border">
-            <div className="flex flex-wrap items-center gap-4 w-full xl:w-auto">
-              <div className="relative w-full max-w-sm">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="search"
-                  placeholder="Buscar por produto..."
-                  className="pl-8 w-full md:w-[300px]"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      setPage(1) // Reset to first page on new search
-                    }
-                  }}
-                />
-              </div>
-            </div>
+        <div className="flex flex-wrap gap-2 justify-end w-full xl:w-auto">
+          {renderActionButtons()}
+        </div>
+      </div>
 
-            <div className="flex flex-wrap gap-2 justify-end w-full xl:w-auto">
-              {renderActionButtons()}
+      {/* Main Content (Table) */}
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle>{getHeaderTitle()}</CardTitle>
+              <CardDescription>
+                Acompanhamento detalhado de entradas, saídas e saldo final.
+              </CardDescription>
+            </div>
+            <div className="text-xs text-muted-foreground flex flex-col items-end">
+              <span>
+                Exibindo {tableData.length} de {totalCount} itens
+              </span>
+              {tableData.some((i) => i.hasError) && (
+                <span className="text-red-500 font-medium flex items-center inline-flex mt-1">
+                  <AlertTriangle className="h-3 w-3 mr-1" />
+                  Alguns itens contêm erros
+                </span>
+              )}
             </div>
           </div>
-
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <div>
-                  <CardTitle>{getHeaderTitle()}</CardTitle>
-                  <CardDescription>
-                    Acompanhamento detalhado de entradas, saídas e saldo final.
-                  </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {tableLoading ? (
+            <InventarioTableSkeleton />
+          ) : tableError ? (
+            <Alert variant="destructive" className="animate-fade-in">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Erro na Tabela</AlertTitle>
+              <AlertDescription>
+                Não foi possível carregar os itens do inventário: {tableError}
+                <div className="mt-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fetchTableData()}
+                    className="border-red-200 hover:bg-red-50 text-red-900"
+                  >
+                    <RefreshCw className="mr-2 h-3 w-3" />
+                    Tentar Novamente
+                  </Button>
                 </div>
-                <div className="text-xs text-muted-foreground flex flex-col items-end">
-                  <span>
-                    Exibindo {data.length} de {totalCount} itens
-                  </span>
-                  {data.some((i) => i.hasError) && (
-                    <span className="text-red-500 font-medium flex items-center inline-flex mt-1">
-                      <AlertTriangle className="h-3 w-3 mr-1" />
-                      Alguns itens contêm erros
-                    </span>
-                  )}
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <InventarioTable
-                data={data}
-                // Sorting logic is handled by server order (Name default),
-                // client sort is removed or can be kept for current page only
-                // For simplicity and correctness with pagination, we rely on server default order (Name)
-                // or we could implement server sort later.
-              />
-
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <>
+              <InventarioTable data={tableData} />
               <InventarioPagination
                 currentPage={page}
                 totalPages={totalPages}
                 onPageChange={setPage}
               />
-            </CardContent>
-          </Card>
-        </>
-      )}
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       <EmployeeSelectionDialog
         open={isEmployeeDialogOpen}
