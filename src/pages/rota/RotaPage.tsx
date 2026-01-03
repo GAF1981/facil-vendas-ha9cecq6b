@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { RotaHeader } from '@/components/rota/RotaHeader'
 import { RotaLegend } from '@/components/rota/RotaLegend'
-import { RotaTable } from '@/components/rota/RotaTable'
+import { RotaGallery } from '@/components/rota/RotaGallery'
 import { RotaFilters } from '@/components/rota/RotaFilters'
 import { rotaService } from '@/services/rotaService'
 import { employeesService } from '@/services/employeesService'
@@ -36,6 +36,8 @@ export default function RotaPage() {
     estoque_max: '',
   })
 
+  // Although gallery doesn't have column headers, we keep sort capability if we want to add a sort selector later
+  // Defaulting to 'projecao' desc as per original requirement
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: 'projecao',
     direction: 'desc',
@@ -166,14 +168,6 @@ export default function RotaPage() {
         variant: 'destructive',
       })
     }
-  }
-
-  const handleSort = (key: string) => {
-    setSortConfig((current) => ({
-      key,
-      direction:
-        current.key === key && current.direction === 'asc' ? 'desc' : 'asc',
-    }))
   }
 
   const filteredRows = useMemo(() => {
@@ -320,42 +314,6 @@ export default function RotaPage() {
           valA = a.estoque
           valB = b.estoque
           break
-        case 'endereco':
-          valA = a.client.ENDEREÇO || ''
-          valB = b.client.ENDEREÇO || ''
-          break
-        case 'bairro':
-          valA = a.client.BAIRRO || ''
-          valB = b.client.BAIRRO || ''
-          break
-        case 'municipio':
-          valA = a.client.MUNICÍPIO || ''
-          valB = b.client.MUNICÍPIO || ''
-          break
-        case 'contato1':
-          valA = a.client['CONTATO 1'] || ''
-          valB = b.client['CONTATO 1'] || ''
-          break
-        case 'contato2':
-          valA = a.client['CONTATO 2'] || ''
-          valB = b.client['CONTATO 2'] || ''
-          break
-        case 'cep':
-          valA = a.client['CEP OFICIO'] || ''
-          valB = b.client['CEP OFICIO'] || ''
-          break
-        case 'tipo':
-          valA = a.client['TIPO DE CLIENTE'] || ''
-          valB = b.client['TIPO DE CLIENTE'] || ''
-          break
-        case 'fone1':
-          valA = a.client['FONE 1'] || ''
-          valB = b.client['FONE 1'] || ''
-          break
-        case 'fone2':
-          valA = a.client['FONE 2'] || ''
-          valB = b.client['FONE 2'] || ''
-          break
         default:
           return 0
       }
@@ -391,7 +349,7 @@ export default function RotaPage() {
   )
 
   const handleExportExcel = () => {
-    // Updated header order to match UI
+    // Reuse export logic from reference
     const headers = [
       'Código',
       'Nome',
@@ -415,7 +373,7 @@ export default function RotaPage() {
       'Fantasia',
     ]
 
-    const rowsToExport = sortedRows // Export all rows without limit
+    const rowsToExport = sortedRows
 
     const csvContent = [
       headers.join(';'),
@@ -463,8 +421,8 @@ export default function RotaPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen gap-4 p-4 animate-fade-in bg-background">
-      <div className="flex-none flex flex-col gap-4">
+    <div className="flex flex-col h-screen gap-0 bg-background overflow-hidden">
+      <div className="flex-none flex flex-col gap-3 p-4 pb-2 z-10 bg-background shadow-sm">
         <div className="w-full">
           <RotaHeader
             activeRota={activeRota}
@@ -487,14 +445,14 @@ export default function RotaPage() {
         </div>
         <RotaLegend />
       </div>
-      <div className="flex-1 overflow-hidden border rounded-md shadow-sm">
-        <RotaTable
+
+      {/* Main Content: Gallery with internal scroll */}
+      <div className="flex-1 overflow-hidden relative">
+        <RotaGallery
           rows={sortedRows}
           sellers={sellers}
           onUpdateRow={handleUpdateRow}
           disabled={!activeRota}
-          sortConfig={sortConfig}
-          onSort={handleSort}
         />
       </div>
     </div>
