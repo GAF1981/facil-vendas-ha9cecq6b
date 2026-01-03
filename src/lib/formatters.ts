@@ -35,12 +35,15 @@ export const parseCurrency = (
 }
 
 /**
- * Formats a number to a currency string for DB storage (e.g. 1234.50 -> "1234,50")
- * Uses 2 decimal places and comma as separator.
+ * Formats a number to a currency string for DB storage or Display (e.g. 1234.50 -> "1.234,50")
+ * Uses 2 decimal places, comma as separator, and dot as thousands separator.
  */
 export const formatCurrency = (value: number): string => {
   if (typeof value !== 'number' || isNaN(value)) return '0,00'
-  return value.toFixed(2).replace('.', ',')
+  return value.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
 }
 
 /**
