@@ -33,6 +33,10 @@ export function PixTable({ data, onConfer }: PixTableProps) {
             <TableHead>Nome no Pix</TableHead>
             <TableHead>Banco Pix</TableHead>
             <TableHead>Data do Pix Realizado</TableHead>
+            {/* New Columns */}
+            <TableHead>Data Acerto</TableHead>
+            <TableHead>Vendedor</TableHead>
+            {/* End New Columns */}
             <TableHead>Conferido por</TableHead>
             <TableHead className="text-center">Conferido</TableHead>
             <TableHead className="text-right">Ação</TableHead>
@@ -42,7 +46,7 @@ export function PixTable({ data, onConfer }: PixTableProps) {
           {data.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={11}
+                colSpan={13}
                 className="h-24 text-center text-muted-foreground"
               >
                 Nenhum recebimento encontrado.
@@ -82,6 +86,17 @@ export function PixTable({ data, onConfer }: PixTableProps) {
                     ? format(parseISO(row.data_pix_realizado), 'dd/MM/yyyy')
                     : '-'}
                 </TableCell>
+
+                {/* New Columns Data */}
+                <TableCell className="text-sm">
+                  {row.data_acerto
+                    ? format(parseISO(row.data_acerto), 'dd/MM/yyyy')
+                    : '-'}
+                </TableCell>
+                <TableCell className="text-sm truncate max-w-[120px]">
+                  {row.vendedor_pedido || '-'}
+                </TableCell>
+                {/* End New Columns Data */}
 
                 <TableCell className="text-sm text-muted-foreground">
                   {row.confirmado_por || '-'}

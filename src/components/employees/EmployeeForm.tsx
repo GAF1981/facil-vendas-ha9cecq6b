@@ -75,11 +75,27 @@ export function EmployeeForm({
       try {
         const sectorList = await permissionsService.getSectors()
         // Ensure default sectors are present
-        const defaults = ['Vendedor', 'Estoque', 'Motoqueiro', 'Financeiro']
+        const defaults = [
+          'Vendedor',
+          'Estoque',
+          'Motoqueiro',
+          'Financeiro',
+          'Administrador',
+          'Outros',
+        ]
         const merged = Array.from(new Set([...defaults, ...sectorList])).sort()
         setSectors(merged)
       } catch (error) {
         console.error('Failed to load sectors', error)
+        // Fallback defaults if fetch fails
+        setSectors([
+          'Vendedor',
+          'Estoque',
+          'Motoqueiro',
+          'Financeiro',
+          'Administrador',
+          'Outros',
+        ])
       }
     }
     loadSectors()

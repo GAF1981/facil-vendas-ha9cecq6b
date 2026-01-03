@@ -8,7 +8,6 @@ import { employeesService } from '@/services/employeesService'
 import { Rota, RotaRow, RotaFilterState, SortConfig } from '@/types/rota'
 import { Employee } from '@/types/employee'
 import { useToast } from '@/hooks/use-toast'
-import { parseISO } from 'date-fns'
 
 export default function RotaPage() {
   const [activeRota, setActiveRota] = useState<Rota | null>(null)
@@ -32,6 +31,7 @@ export default function RotaPage() {
     projecao_min: '',
     estoque_min: '',
     estoque_max: '',
+    vencimento_status: 'todos',
   })
 
   const [sortConfig, setSortConfig] = useState<SortConfig>({
@@ -200,6 +200,10 @@ export default function RotaPage() {
         if (row.client['GRUPO ROTA'] !== filters.grupo_rota) return false
       }
 
+      if (filters.vencimento_status !== 'todos') {
+        if (row.vencimento_status !== filters.vencimento_status) return false
+      }
+
       if (filters.debito_min && row.debito < Number(filters.debito_min))
         return false
       if (filters.debito_max && row.debito > Number(filters.debito_max))
@@ -326,8 +330,8 @@ export default function RotaPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen gap-0 bg-background overflow-hidden">
-      <div className="flex-none flex flex-col gap-3 p-4 pb-2 z-10 bg-background shadow-sm">
+    <div className="flex flex-col h-full gap-4 animate-fade-in p-4 pb-20">
+      <div className="flex-none flex flex-col gap-3">
         <div className="w-full">
           <RotaHeader
             activeRota={activeRota}
@@ -355,7 +359,7 @@ export default function RotaPage() {
         <RotaLegend />
       </div>
 
-      <div className="flex-1 overflow-hidden relative">
+      <div className="flex-1 min-h-[500px]">
         <RotaTable
           rows={sortedRows}
           sellers={sellers}

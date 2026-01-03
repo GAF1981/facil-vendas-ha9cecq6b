@@ -33,20 +33,15 @@ export default function PermissionsPage() {
     const init = async () => {
       try {
         const sectorsData = await permissionsService.getSectors()
-        // Ensure standard sectors exist in list if not in DB yet
-        const defaultSectors = [
-          'Vendedor',
-          'Estoque',
-          'Motoqueiro',
-          'Financeiro',
-        ]
-        const mergedSectors = Array.from(
-          new Set([...defaultSectors, ...sectorsData]),
-        ).sort()
-        setSectors(mergedSectors)
+        setSectors(sectorsData)
 
-        if (mergedSectors.length > 0) {
-          setSelectedSector('Financeiro') // Default to Admin/Financeiro
+        if (sectorsData.length > 0) {
+          // Default to 'Administrador' if present, otherwise first
+          if (sectorsData.includes('Administrador')) {
+            setSelectedSector('Administrador')
+          } else {
+            setSelectedSector(sectorsData[0])
+          }
         }
       } catch (error) {
         console.error(error)
@@ -91,13 +86,13 @@ export default function PermissionsPage() {
     // Hardcoded Safety check
     if (
       permission.modulo === 'Permissões' &&
-      selectedSector === 'Financeiro' &&
+      selectedSector === 'Administrador' &&
       permission.acesso === true
     ) {
       toast({
         title: 'Ação Bloqueada',
         description:
-          'Não é possível remover o acesso ao módulo de Permissões para o setor Financeiro.',
+          'Não é possível remover o acesso ao módulo de Permissões para o Administrador.',
         variant: 'destructive',
       })
       return
@@ -133,9 +128,9 @@ export default function PermissionsPage() {
 
     setUpdating(true)
     try {
-      // Filter out Permissões for Financeiro if disabling
+      // Filter out Permissões for Administrador if disabling
       let toUpdate = permissions
-      if (!enable && selectedSector === 'Financeiro') {
+      if (!enable && selectedSector === 'Administrador') {
         toUpdate = permissions.filter((p) => p.modulo !== 'Permissões')
       }
 
@@ -267,7 +262,7 @@ export default function PermissionsPage() {
                       onCheckedChange={() => handleToggle(perm)}
                       disabled={
                         perm.modulo === 'Permissões' &&
-                        selectedSector === 'Financeiro'
+                        selectedSector === 'Administrador'
                       }
                     />
                   </div>

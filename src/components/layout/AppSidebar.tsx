@@ -32,11 +32,13 @@ import {
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { usePermissions } from '@/hooks/use-permissions'
+import { useUserStore } from '@/stores/useUserStore'
 
 export function AppSidebar() {
   const location = useLocation()
   const { setOpenMobile } = useSidebar()
   const { canAccess } = usePermissions()
+  const { employee } = useUserStore()
 
   const items = [
     {
@@ -139,13 +141,17 @@ export function AppSidebar() {
       title: 'Permissões',
       url: '/permissoes',
       icon: Settings,
-      module: 'Permissões', // Special case, maybe check if admin/Financeiro? For now showing
+      module: 'Permissões',
     },
   ]
 
-  const visibleItems = items.filter(
-    (item) => item.module === 'Menu' || canAccess(item.module),
-  )
+  const visibleItems = items.filter((item) => {
+    if (item.module === 'Menu') return true
+    if (item.module === 'Permissões') {
+      return employee?.setor === 'Administrador'
+    }
+    return canAccess(item.module)
+  })
 
   return (
     <Sidebar collapsible="icon">

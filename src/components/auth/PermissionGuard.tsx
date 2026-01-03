@@ -25,8 +25,11 @@ export function PermissionGuard({ module, children }: PermissionGuardProps) {
     return <Navigate to="/login" replace />
   }
 
-  // Special case: Financeiro always has access to Permissões (Hardcoded safety at Guard level too)
-  if (module === 'Permissões' && employee.setor === 'Financeiro') {
+  // Special case: Only Administrador has access to Permissões
+  if (module === 'Permissões') {
+    if (employee.setor !== 'Administrador') {
+      return <Navigate to="/" replace />
+    }
     return children ? <>{children}</> : <Outlet />
   }
 

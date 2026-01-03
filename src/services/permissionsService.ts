@@ -39,13 +39,35 @@ export const permissionsService = {
   },
 
   async getSectors() {
-    const { data, error } = await supabase.from('permissoes').select('setor')
+    // Fetch unique sectors from PERMISSOES
+    const { data: permData, error: permError } = await supabase
+      .from('permissoes')
+      .select('setor')
 
-    if (error) throw error
+    if (permError) throw permError
 
-    // Extract unique sectors
-    const uniqueSectors = [...new Set(data.map((item) => item.setor))]
-    return uniqueSectors.sort()
+    // Fetch unique sectors from FUNCIONARIOS to ensure we capture all in use
+    const { data: empData, error: empError } = await supabase
+      .from('FUNCIONARIOS')
+      .select('setor')
+
+    if (empError) console.error('Error fetching employee sectors', empError)
+
+    const uniqueSectors = new Set<string>([
+      'Vendedor',
+      'Estoque',
+      'Motoqueiro',
+      'Financeiro',
+      'Administrador',
+      'Outros',
+    ])
+
+    permData?.forEach((p) => uniqueSectors.add(p.setor))
+    empData?.forEach((e) => {
+      if (e.setor) uniqueSectors.add(e.setor)
+    })
+
+    return Array.from(uniqueSectors).sort()
   },
 
   async updatePermission(id: number, acesso: boolean) {

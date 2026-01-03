@@ -89,7 +89,7 @@ export function RotaTable({
   }) => (
     <TableHead
       className={cn(
-        'cursor-pointer hover:bg-muted',
+        'cursor-pointer hover:bg-muted whitespace-nowrap',
         align === 'right'
           ? 'text-right'
           : align === 'center'
@@ -117,9 +117,9 @@ export function RotaTable({
   )
 
   return (
-    <div className="relative w-full h-full overflow-auto bg-background">
+    <div className="relative w-full h-full overflow-auto bg-background rounded-md border shadow-sm">
       <Table>
-        <TableHeader className="sticky top-0 z-20 bg-background shadow-sm">
+        <TableHeader className="sticky top-0 z-20 bg-background shadow-sm ring-1 ring-border">
           <TableRow>
             <TableHead className="w-[80px]">Código</TableHead>
             <TableHead className="min-w-[200px]">Cliente</TableHead>
@@ -228,7 +228,6 @@ export function RotaTable({
                     ? format(parseISO(row.data_acerto), 'dd/MM/yy')
                     : '-'}
                 </TableCell>
-                {/* Reordered Columns */}
                 <TableCell className="p-2">
                   <Select
                     value={row.vendedor_id?.toString() || 'none'}

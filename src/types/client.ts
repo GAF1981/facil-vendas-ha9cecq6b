@@ -56,8 +56,9 @@ export const clientSchema = z.object({
     .refine((val) => {
       if (!val) return true
       const num = parseFloat(val.replace('%', ''))
+      // Strict range validation: 30% to 50%
       return !isNaN(num) && num >= 30 && num <= 50
-    }, 'O desconto deve estar entre 30% e 50%'),
+    }, 'O desconto deve estar estritamente entre 30% e 50%'),
   'DESCONTO ACESSORIO CELULAR': z.string().optional().nullable(),
   'DESCONTO BRINQUEDO': z.string().optional().nullable(),
   'DESCONTO ACESSORIO': z.string().optional().nullable(),

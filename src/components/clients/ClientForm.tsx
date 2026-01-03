@@ -103,6 +103,7 @@ export function ClientForm({
           'OBSERVAÇÃO FIXA': '',
           'ALTERAÇÃO CLIENTE': '',
         },
+    mode: 'onChange', // Enable real-time validation
   })
 
   useEffect(() => {
@@ -669,10 +670,13 @@ export function ClientForm({
                       <FormLabel>Desconto Padrão (30% - 50%)</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="%"
+                          placeholder="Ex: 35%"
                           {...field}
                           value={field.value || ''}
-                          // ENABLED Editing
+                          className={cn(
+                            form.formState.errors.Desconto &&
+                              'border-destructive focus-visible:ring-destructive',
+                          )}
                         />
                       </FormControl>
                       <FormMessage />

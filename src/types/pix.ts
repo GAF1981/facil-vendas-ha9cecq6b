@@ -27,6 +27,9 @@ export interface PixReceiptRow {
   banco_pix?: string
   data_pix_realizado?: string
   confirmado_por?: string
+  // Enhanced info
+  data_acerto?: string | null
+  vendedor_pedido?: string | null
 }
 
 export const pixConferenceSchema = z.object({

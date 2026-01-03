@@ -7,7 +7,6 @@ import { PaymentEntry } from '@/types/payment'
 
 export const acertoService = {
   async saveAcerto(acerto: Acerto) {
-    // 1. Create Acerto Header
     const { data: acertoData, error: acertoError } = await supabase
       .from('ACERTOS')
       .insert({
@@ -23,7 +22,6 @@ export const acertoService = {
     if (acertoError) throw acertoError
     if (!acertoData) throw new Error('Falha ao criar acerto')
 
-    // 2. Create Items
     const itemsToInsert = acerto.itens.map((item) => ({
       ACERTO_ID: acertoData.ID,
       PRODUTO_ID: item.produtoId,
@@ -39,10 +37,7 @@ export const acertoService = {
       .from('ITENS_ACERTO')
       .insert(itemsToInsert)
 
-    if (itemsError) {
-      console.error('Error inserting items:', itemsError)
-      throw itemsError
-    }
+    if (itemsError) throw itemsError
 
     return acertoData
   },
@@ -59,9 +54,8 @@ export const acertoService = {
           preview: options?.preview ?? false,
           signature: options?.signature ?? null,
         },
-        // @ts-expect-error - responseType is valid in v2 but might be missing in types
-        responseType: 'blob',
-      },
+        responseType: 'blob', // Important for file download
+      } as any,
     )
 
     if (error) throw error
@@ -69,6 +63,30 @@ export const acertoService = {
   },
 
   async reprintOrder(orderId: number, issuerName?: string) {
+    return this.generateDocument(
+      orderId,
+      'ACERTO (REIMPRESSÃO)',
+      false,
+      issuerName,
+    )
+  },
+
+  async reprintReceipt(orderId: number, issuerName?: string) {
+    return this.generateDocument(
+      orderId,
+      'RECIBO DE PAGAMENTO',
+      true,
+      issuerName,
+    )
+  },
+
+  // Shared logic for generating document data structure from Order ID
+  async generateDocument(
+    orderId: number,
+    acertoTipo: string,
+    isReceipt: boolean,
+    issuerName?: string,
+  ) {
     const { items: dbItems, payments: dbPayments } =
       await bancoDeDadosService.getOrderDetails(orderId)
 
@@ -131,7 +149,7 @@ export const acertoService = {
       employee: { nome_completo: funcionarioName },
       items,
       date: dateStr,
-      acertoTipo: 'ACERTO (REIMPRESSÃO)',
+      acertoTipo,
       totalVendido,
       valorDesconto,
       valorAcerto,
@@ -141,7 +159,8 @@ export const acertoService = {
       orderNumber: orderId,
       preview: false,
       signature: null,
-      issuerName, // Pass issuer name for reprint
+      isReceipt, // Flag for PDF generator
+      issuerName,
     }
 
     return this.generatePdf(data)
