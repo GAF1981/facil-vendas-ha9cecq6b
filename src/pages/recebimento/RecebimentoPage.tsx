@@ -188,13 +188,13 @@ export default function RecebimentoPage() {
         })
 
         const url = window.URL.createObjectURL(pdfBlob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `Recibo_Pedido_${selectedOrder.id}_${format(now, 'yyyyMMdd_HHmm')}.pdf`
-        document.body.appendChild(a)
-        a.click()
-        a.remove()
-        window.URL.revokeObjectURL(url)
+        // Automatically open in new tab instead of download
+        window.open(url, '_blank')
+
+        // Clean up URL object after a short delay to ensure it opened
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url)
+        }, 1000)
       } catch (pdfError) {
         console.error('Error generating receipt:', pdfError)
         toast({

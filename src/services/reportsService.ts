@@ -16,6 +16,13 @@ export interface ProjectionReportRow {
   projection: number | null
 }
 
+export interface TopSellingItem {
+  produto_nome: string
+  produto_codigo: number
+  quantidade_total: number
+  valor_total: number
+}
+
 export const reportsService = {
   async getProjectionsReport(): Promise<ProjectionReportRow[]> {
     // Fetch recent transactions
@@ -143,5 +150,18 @@ export const reportsService = {
       (a, b) =>
         new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime(),
     )
+  },
+
+  async getTopSellingItems(
+    startDate: string,
+    endDate: string,
+  ): Promise<TopSellingItem[]> {
+    const { data, error } = await supabase.rpc('get_top_selling_items', {
+      start_date: startDate,
+      end_date: endDate,
+    })
+
+    if (error) throw error
+    return data as TopSellingItem[]
   },
 }

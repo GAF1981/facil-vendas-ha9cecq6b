@@ -27,6 +27,7 @@ import RelatorioDashboard from '@/pages/relatorio/RelatorioDashboard'
 import ProjectionsPage from '@/pages/relatorio/ProjectionsPage'
 import SalesReportsPage from '@/pages/relatorio/SalesReportsPage'
 import StockReportsPage from '@/pages/relatorio/StockReportsPage'
+import TopSellingReportsPage from '@/pages/relatorio/TopSellingReportsPage'
 import CaixaPage from '@/pages/caixa/CaixaPage'
 import PixPage from '@/pages/pix/PixPage'
 import PagamentosPage from '@/pages/pagamentos/PagamentosPage'
@@ -152,6 +153,10 @@ const App = () => (
                   <Route
                     path="/relatorio/estoque"
                     element={<StockReportsPage />}
+                  />
+                  <Route
+                    path="/relatorio/itens-mais-vendidos"
+                    element={<TopSellingReportsPage />}
                   />
                 </Route>
 

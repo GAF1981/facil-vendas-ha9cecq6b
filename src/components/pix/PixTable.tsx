@@ -11,32 +11,81 @@ import { Badge } from '@/components/ui/badge'
 import { PixReceiptRow } from '@/types/pix'
 import { formatCurrency } from '@/lib/formatters'
 import { format, parseISO } from 'date-fns'
-import { CheckCircle2, AlertCircle, Edit2 } from 'lucide-react'
+import {
+  CheckCircle2,
+  AlertCircle,
+  Edit2,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface PixTableProps {
   data: PixReceiptRow[]
   onConfer: (receipt: PixReceiptRow) => void
+  onSort: (key: string) => void
+  sortConfig: {
+    key: string
+    direction: 'asc' | 'desc'
+  }
 }
 
-export function PixTable({ data, onConfer }: PixTableProps) {
+export function PixTable({
+  data,
+  onConfer,
+  onSort,
+  sortConfig,
+}: PixTableProps) {
+  const SortIcon = ({ columnKey }: { columnKey: string }) => {
+    if (sortConfig.key !== columnKey)
+      return <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />
+    return sortConfig.direction === 'asc' ? (
+      <ArrowUp className="ml-2 h-4 w-4 text-primary" />
+    ) : (
+      <ArrowDown className="ml-2 h-4 w-4 text-primary" />
+    )
+  }
+
+  const renderSortableHead = (
+    label: string,
+    key: string,
+    className?: string,
+  ) => (
+    <TableHead
+      className={cn(
+        'cursor-pointer hover:bg-muted/80 transition-colors select-none',
+        className,
+      )}
+      onClick={() => onSort(key)}
+    >
+      <div
+        className={cn(
+          'flex items-center',
+          className?.includes('text-right') && 'justify-end',
+        )}
+      >
+        {label}
+        <SortIcon columnKey={key} />
+      </div>
+    </TableHead>
+  )
+
   return (
     <div className="rounded-md border bg-card overflow-hidden">
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow>
-            <TableHead className="w-[100px]">Número do Pedido</TableHead>
+            {renderSortableHead('Número do Pedido', 'id_da_femea', 'w-[140px]')}
+            {renderSortableHead('Data Acerto', 'data_acerto')}
+            <TableHead>Vendedor</TableHead>
             <TableHead className="w-[80px]">Código Cliente</TableHead>
             <TableHead>Nome Cliente</TableHead>
-            <TableHead className="text-right">Valor</TableHead>
+            {renderSortableHead('Valor', 'valor_pago', 'text-right')}
             <TableHead>Forma Pagamento</TableHead>
             <TableHead>Nome no Pix</TableHead>
             <TableHead>Banco Pix</TableHead>
-            <TableHead>Data do Pix Realizado</TableHead>
-            {/* New Columns */}
-            <TableHead>Data Acerto</TableHead>
-            <TableHead>Vendedor</TableHead>
-            {/* End New Columns */}
+            {renderSortableHead('Data Pix Realizado', 'data_pix_realizado')}
             <TableHead>Conferido por</TableHead>
             <TableHead className="text-center">Conferido</TableHead>
             <TableHead className="text-right">Ação</TableHead>
@@ -57,6 +106,14 @@ export function PixTable({ data, onConfer }: PixTableProps) {
               <TableRow key={row.id} className="hover:bg-muted/30">
                 <TableCell className="font-mono font-medium text-blue-600">
                   #{row.id_da_femea || row.venda_id}
+                </TableCell>
+                <TableCell className="text-sm">
+                  {row.data_acerto
+                    ? format(parseISO(row.data_acerto), 'dd/MM/yyyy')
+                    : '-'}
+                </TableCell>
+                <TableCell className="text-sm truncate max-w-[120px]">
+                  {row.vendedor_pedido || '-'}
                 </TableCell>
                 <TableCell className="font-mono text-xs">
                   {row.cliente_id}
@@ -86,17 +143,6 @@ export function PixTable({ data, onConfer }: PixTableProps) {
                     ? format(parseISO(row.data_pix_realizado), 'dd/MM/yyyy')
                     : '-'}
                 </TableCell>
-
-                {/* New Columns Data */}
-                <TableCell className="text-sm">
-                  {row.data_acerto
-                    ? format(parseISO(row.data_acerto), 'dd/MM/yyyy')
-                    : '-'}
-                </TableCell>
-                <TableCell className="text-sm truncate max-w-[120px]">
-                  {row.vendedor_pedido || '-'}
-                </TableCell>
-                {/* End New Columns Data */}
 
                 <TableCell className="text-sm text-muted-foreground">
                   {row.confirmado_por || '-'}

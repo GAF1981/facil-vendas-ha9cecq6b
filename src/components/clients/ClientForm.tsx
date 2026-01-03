@@ -93,7 +93,7 @@ export function ClientForm({
           'FORMA DE PAGAMENTO': 'BOLETO', // Default
           'NOTA FISCAL': 'NÃO',
           EXPOSITOR: 'OUTROS', // Default
-          Desconto: '30%',
+          Desconto: '30%', // Default for new entries as per requirement
           'DESCONTO ACESSORIO CELULAR': '',
           'DESCONTO BRINQUEDO': '',
           'DESCONTO ACESSORIO': '',
@@ -165,6 +165,30 @@ export function ClientForm({
     } catch (error) {
       console.error(error)
     }
+  }
+
+  // Handle Discount formatting
+  const handleDiscountBlur = (
+    e: React.FocusEvent<HTMLInputElement>,
+    onChange: (val: string) => void,
+  ) => {
+    let val = e.target.value.replace(/[^0-9.]/g, '')
+    if (val) {
+      // Ensure percentage is not > 100
+      if (parseFloat(val) > 100) val = '100'
+      // Append % symbol
+      onChange(`${val}%`)
+    } else {
+      onChange('')
+    }
+  }
+
+  const handleDiscountFocus = (
+    e: React.FocusEvent<HTMLInputElement>,
+    onChange: (val: string) => void,
+  ) => {
+    const val = e.target.value.replace('%', '')
+    onChange(val)
   }
 
   const onSubmit = async (data: ClientFormData) => {
@@ -669,15 +693,28 @@ export function ClientForm({
                     <FormItem>
                       <FormLabel>Desconto Padrão (30% - 50%)</FormLabel>
                       <FormControl>
-                        <Input
-                          placeholder="Ex: 35%"
-                          {...field}
-                          value={field.value || ''}
-                          className={cn(
-                            form.formState.errors.Desconto &&
-                              'border-destructive focus-visible:ring-destructive',
-                          )}
-                        />
+                        <div className="relative">
+                          <Input
+                            placeholder="30"
+                            {...field}
+                            value={field.value || ''}
+                            onChange={field.onChange}
+                            onBlur={(e) =>
+                              handleDiscountBlur(e, field.onChange)
+                            }
+                            onFocus={(e) =>
+                              handleDiscountFocus(e, field.onChange)
+                            }
+                            className={cn(
+                              'pr-8',
+                              form.formState.errors.Desconto &&
+                                'border-destructive focus-visible:ring-destructive',
+                            )}
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium pointer-events-none">
+                            %
+                          </span>
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>

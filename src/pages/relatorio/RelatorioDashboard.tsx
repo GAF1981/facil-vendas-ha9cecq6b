@@ -5,7 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { TrendingUp, Package, ShoppingCart } from 'lucide-react'
+import { TrendingUp, Package, ShoppingCart, BarChart3 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 const RelatorioDashboard = () => {
@@ -33,6 +33,14 @@ const RelatorioDashboard = () => {
       to: '/relatorio/estoque',
       color: 'text-orange-600',
       bg: 'bg-orange-100',
+    },
+    {
+      title: 'Itens mais Vendidos',
+      description: 'Análise de produtos com maior volume de vendas.',
+      icon: BarChart3,
+      to: '/relatorio/itens-mais-vendidos',
+      color: 'text-purple-600',
+      bg: 'bg-purple-100',
     },
   ]
 

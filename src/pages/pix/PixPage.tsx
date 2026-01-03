@@ -22,17 +22,35 @@ import { PixConferenceDialog } from '@/components/pix/PixConferenceDialog'
 import { pixService } from '@/services/pixService'
 import { PixReceiptRow, PixFilters } from '@/types/pix'
 import { useToast } from '@/hooks/use-toast'
+import { parseISO } from 'date-fns'
 
 export default function PixPage() {
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<PixReceiptRow[]>([])
   const [filteredData, setFilteredData] = useState<PixReceiptRow[]>([])
+
+  // Filters State
   const [filters, setFilters] = useState<PixFilters>({
     orderId: '',
-    name: '',
+    name: '', // Now acts as "Nome ou Código"
     bank: 'todos',
     status: 'todos',
   })
+
+  // Sort State
+  const [sortConfig, setSortConfig] = useState<{
+    key:
+      | keyof PixReceiptRow
+      | 'valor_pago'
+      | 'id_da_femea'
+      | 'data_acerto'
+      | 'data_pix_realizado'
+    direction: 'asc' | 'desc'
+  }>({
+    key: 'id_da_femea',
+    direction: 'desc', // Default sort desc by order number
+  })
+
   const [selectedReceipt, setSelectedReceipt] = useState<PixReceiptRow | null>(
     null,
   )
@@ -44,12 +62,6 @@ export default function PixPage() {
     try {
       const result = await pixService.getPixReceipts()
       setData(result)
-      // Apply filters after fetch (or keep current if reloading)
-      // We pass the current filter state to applyFilters
-      // However, we need to call setFilteredData with the result of applyFilters
-      // This is better handled in a useEffect or by calling applyFilters immediately
-      // But applyFilters depends on the 'data' state if we pass it, or we can pass result directly
-      setFilteredData(applyFiltersLogic(result, filters))
     } catch (error) {
       console.error(error)
       toast({
@@ -62,51 +74,83 @@ export default function PixPage() {
     }
   }
 
-  // Extracted logic to use both in useEffect and fetchData
-  const applyFiltersLogic = (
-    rows: PixReceiptRow[],
-    currentFilters: PixFilters,
-  ) => {
-    let res = [...rows]
+  // Filter and Sort Logic
+  useEffect(() => {
+    let result = [...data]
 
-    if (currentFilters.orderId) {
-      res = res.filter((row) =>
+    // 1. Filters
+    if (filters.orderId) {
+      result = result.filter((row) =>
         (row.id_da_femea?.toString() || row.venda_id.toString()).includes(
-          currentFilters.orderId,
+          filters.orderId,
         ),
       )
     }
 
-    if (currentFilters.name) {
-      const lowerName = currentFilters.name.toLowerCase()
-      res = res.filter(
+    if (filters.name) {
+      const lowerQuery = filters.name.toLowerCase()
+      result = result.filter(
         (row) =>
-          row.nome_no_pix && row.nome_no_pix.toLowerCase().includes(lowerName),
+          (row.cliente_nome &&
+            row.cliente_nome.toLowerCase().includes(lowerQuery)) ||
+          (row.cliente_id && row.cliente_id.toString().includes(lowerQuery)),
       )
     }
 
-    if (currentFilters.bank && currentFilters.bank !== 'todos') {
-      res = res.filter((row) => row.banco_pix === currentFilters.bank)
+    if (filters.bank && filters.bank !== 'todos') {
+      result = result.filter((row) => row.banco_pix === filters.bank)
     }
 
-    if (currentFilters.status && currentFilters.status !== 'todos') {
-      if (currentFilters.status === 'SIM') {
-        res = res.filter((row) => !!row.confirmado_por)
-      } else if (currentFilters.status === 'NÃO') {
-        res = res.filter((row) => !row.confirmado_por)
+    if (filters.status && filters.status !== 'todos') {
+      if (filters.status === 'SIM') {
+        result = result.filter((row) => !!row.confirmado_por)
+      } else if (filters.status === 'NÃO') {
+        result = result.filter((row) => !row.confirmado_por)
       }
     }
 
-    return res
-  }
+    // 2. Sorting
+    result.sort((a, b) => {
+      let aValue: any = a[sortConfig.key as keyof PixReceiptRow]
+      let bValue: any = b[sortConfig.key as keyof PixReceiptRow]
+
+      // Handle specific column mapping if key doesn't match directly
+      if (sortConfig.key === 'id_da_femea') {
+        aValue = a.id_da_femea || a.venda_id
+        bValue = b.id_da_femea || b.venda_id
+      }
+
+      // Handle Dates
+      if (
+        sortConfig.key === 'data_acerto' ||
+        sortConfig.key === 'data_pix_realizado'
+      ) {
+        const timeA = aValue ? parseISO(aValue).getTime() : 0
+        const timeB = bValue ? parseISO(bValue).getTime() : 0
+        return sortConfig.direction === 'asc' ? timeA - timeB : timeB - timeA
+      }
+
+      // Handle Numbers/Strings
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return sortConfig.direction === 'asc'
+          ? aValue - bValue
+          : bValue - aValue
+      }
+
+      const strA = String(aValue || '').toLowerCase()
+      const strB = String(bValue || '').toLowerCase()
+
+      if (strA < strB) return sortConfig.direction === 'asc' ? -1 : 1
+      if (strA > strB) return sortConfig.direction === 'asc' ? 1 : -1
+      return 0
+    })
+
+    setFilteredData(result)
+  }, [data, filters, sortConfig])
 
   useEffect(() => {
     fetchData()
   }, [])
-
-  useEffect(() => {
-    setFilteredData(applyFiltersLogic(data, filters))
-  }, [filters, data])
 
   const handleFilterChange = (key: keyof PixFilters, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }))
@@ -114,6 +158,14 @@ export default function PixPage() {
 
   const clearFilters = () => {
     setFilters({ orderId: '', name: '', bank: 'todos', status: 'todos' })
+  }
+
+  const handleSort = (key: string) => {
+    setSortConfig((current) => ({
+      key: key as any,
+      direction:
+        current.key === key && current.direction === 'desc' ? 'asc' : 'desc',
+    }))
   }
 
   const handleConfer = (receipt: PixReceiptRow) => {
@@ -164,10 +216,10 @@ export default function PixPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="pixName">Nome no Pix</Label>
+              <Label htmlFor="pixName">Cliente (Nome ou Código)</Label>
               <Input
                 id="pixName"
-                placeholder="Ex: Maria Silva"
+                placeholder="Buscar cliente..."
                 value={filters.name}
                 onChange={(e) => handleFilterChange('name', e.target.value)}
               />
@@ -220,7 +272,12 @@ export default function PixPage() {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
-            <PixTable data={filteredData} onConfer={handleConfer} />
+            <PixTable
+              data={filteredData}
+              onConfer={handleConfer}
+              onSort={handleSort}
+              sortConfig={sortConfig}
+            />
           )}
         </CardContent>
       </Card>
