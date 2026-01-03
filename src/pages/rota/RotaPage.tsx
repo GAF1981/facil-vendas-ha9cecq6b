@@ -18,7 +18,6 @@ export default function RotaPage() {
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
 
-  // Filter State - Removed tipo_cliente as per requirement
   const [filters, setFilters] = useState<RotaFilterState>({
     search: '',
     x_na_rota: 'todos',
@@ -35,7 +34,6 @@ export default function RotaPage() {
     estoque_max: '',
   })
 
-  // Sort Config
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: 'projecao',
     direction: 'desc',
@@ -48,7 +46,7 @@ export default function RotaPage() {
         const [active, last, empRes] = await Promise.all([
           rotaService.getActiveRota(),
           rotaService.getLastRota(),
-          employeesService.getEmployees(1, 1000), // Increased limit to ensure all sellers are available
+          employeesService.getEmployees(1, 1000),
         ])
         setActiveRota(active)
         setLastRota(last)
@@ -56,7 +54,7 @@ export default function RotaPage() {
         const allEmployees = empRes.data
         setSellers(allEmployees)
 
-        // Ensure we fetch full data which now internally filters by 'ATIVO'
+        // Fetch data (auto-filtered by ATIVO in service)
         const data = await rotaService.getFullRotaData(active)
         setRows(data)
       } catch (error) {
@@ -78,7 +76,6 @@ export default function RotaPage() {
     try {
       const newRota = await rotaService.startRota()
       setActiveRota(newRota)
-      // Refresh rows
       const data = await rotaService.getFullRotaData(newRota)
       setRows(data)
       toast({ title: 'Rota Iniciada', className: 'bg-green-600 text-white' })
@@ -104,15 +101,9 @@ export default function RotaPage() {
 
     setLoading(true)
     try {
-      // New Logic: Finish current AND Start new
       const newRota = await rotaService.finishAndStartNewRoute(activeRota.id)
-
-      // Update State: Previous active becomes last
       setLastRota({ ...activeRota, data_fim: new Date().toISOString() })
-      // New active is the one just created
       setActiveRota(newRota)
-
-      // Refresh Rows for new rota
       const data = await rotaService.getFullRotaData(newRota)
       setRows(data)
 
@@ -205,8 +196,6 @@ export default function RotaPage() {
         if (row.client.MUNICÍPIO !== filters.municipio) return false
       }
 
-      // REMOVED tipo_cliente check since it's hardcoded to ATIVO in query
-
       if (filters.grupo_rota !== 'todos') {
         if (row.client['GRUPO ROTA'] !== filters.grupo_rota) return false
       }
@@ -224,19 +213,6 @@ export default function RotaPage() {
       if (filters.estoque_max && row.estoque > Number(filters.estoque_max))
         return false
 
-      if (
-        filters.data_acerto_start &&
-        (!row.data_acerto ||
-          parseISO(row.data_acerto) < parseISO(filters.data_acerto_start))
-      )
-        return false
-      if (
-        filters.data_acerto_end &&
-        (!row.data_acerto ||
-          parseISO(row.data_acerto) > parseISO(filters.data_acerto_end))
-      )
-        return false
-
       return true
     })
   }, [rows, filters])
@@ -249,67 +225,25 @@ export default function RotaPage() {
       let valB: any = ''
 
       switch (sortConfig.key) {
-        case 'rowNumber':
-          valA = a.rowNumber
-          valB = b.rowNumber
+        case 'projecao':
+          valA = a.projecao
+          valB = b.projecao
+          break
+        case 'estoque':
+          valA = a.estoque
+          valB = b.estoque
           break
         case 'x_na_rota':
           valA = a.x_na_rota
           valB = b.x_na_rota
           break
-        case 'nota_fiscal':
-          valA = a.client['NOTA FISCAL'] || ''
-          valB = b.client['NOTA FISCAL'] || ''
-          break
-        case 'boleto':
-          valA = a.boleto ? 1 : 0
-          valB = b.boleto ? 1 : 0
-          break
-        case 'agregado':
-          valA = a.agregado ? 1 : 0
-          valB = b.agregado ? 1 : 0
-          break
-        case 'vendedor':
-          valA =
-            sellers.find((s) => s.id === a.vendedor_id)?.nome_completo || ''
-          valB =
-            sellers.find((s) => s.id === b.vendedor_id)?.nome_completo || ''
-          break
-        case 'debito':
-          valA = a.debito
-          valB = b.debito
-          break
-        case 'quant_debito':
-          valA = a.quant_debito
-          valB = b.quant_debito
-          break
         case 'data_acerto':
           valA = a.data_acerto || ''
           valB = b.data_acerto || ''
           break
-        case 'codigo':
-          valA = a.client.CODIGO
-          valB = b.client.CODIGO
-          break
-        case 'nome':
-          valA = a.client['NOME CLIENTE'] || ''
-          valB = b.client['NOME CLIENTE'] || ''
-          break
-        case 'rota':
-          valA = a.client['GRUPO ROTA'] || ''
-          valB = b.client['GRUPO ROTA'] || ''
-          break
-        case 'projecao':
-          valA = a.projecao
-          valB = b.projecao
-          break
-        case 'numero_pedido':
-          valA = a.numero_pedido || 0
-          valB = b.numero_pedido || 0
-          break
-        case 'estoque':
-          valA = a.estoque
-          valB = b.estoque
+        case 'debito':
+          valA = a.debito
+          valB = b.debito
           break
         default:
           return 0
@@ -325,7 +259,7 @@ export default function RotaPage() {
       sorted.reverse()
     }
     return sorted
-  }, [filteredRows, sortConfig, sellers])
+  }, [filteredRows, sortConfig])
 
   const uniqueMunicipios = useMemo(
     () => [...new Set(rows.map((r) => r.client.MUNICÍPIO).filter(Boolean))],
@@ -338,35 +272,21 @@ export default function RotaPage() {
   )
 
   const handleExportExcel = () => {
-    // Reuse export logic from reference
     const headers = [
       'Código',
       'Nome',
       'Projeção',
       'Vendedor',
       'Débito',
-      'Qtd. Debito',
       'Data Acerto',
       'Estoque (R$)',
-      'Endereço',
-      'Bairro',
       'Município',
-      'CEP',
-      'Tipo',
-      'N. Pedido',
-      'x na Rota',
-      'Nota Fiscal',
-      'Boleto',
-      'Agregado',
       'Rota',
-      'Fantasia',
     ]
-
-    const rowsToExport = sortedRows
 
     const csvContent = [
       headers.join(';'),
-      ...rowsToExport.map((row) => {
+      ...sortedRows.map((row) => {
         const sellerName =
           sellers.find((s) => s.id === row.vendedor_id)?.nome_completo || ''
         return [
@@ -375,21 +295,10 @@ export default function RotaPage() {
           row.projecao.toFixed(2).replace('.', ','),
           `"${sellerName}"`,
           row.debito.toFixed(2).replace('.', ','),
-          row.quant_debito,
           row.data_acerto || '',
           row.estoque.toFixed(2).replace('.', ','),
-          `"${(row.client.ENDEREÇO || '').replace(/"/g, '""')}"`,
-          `"${(row.client.BAIRRO || '').replace(/"/g, '""')}"`,
           `"${(row.client.MUNICÍPIO || '').replace(/"/g, '""')}"`,
-          `"${(row.client['CEP OFICIO'] || '').replace(/"/g, '""')}"`,
-          `"${(row.client['TIPO DE CLIENTE'] || '').replace(/"/g, '""')}"`,
-          row.numero_pedido || '',
-          row.x_na_rota,
-          `"${(row.client['NOTA FISCAL'] || '').replace(/"/g, '""')}"`,
-          row.boleto ? 'Sim' : 'Não',
-          row.agregado ? 'Sim' : 'Não',
           `"${(row.client['GRUPO ROTA'] || '').replace(/"/g, '""')}"`,
-          `"${(row.client['RAZÃO SOCIAL'] || '').replace(/"/g, '""')}"`,
         ].join(';')
       }),
     ].join('\n')
@@ -409,6 +318,13 @@ export default function RotaPage() {
     document.body.removeChild(link)
   }
 
+  const handleSort = (key: string) => {
+    setSortConfig((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc',
+    }))
+  }
+
   return (
     <div className="flex flex-col h-screen gap-0 bg-background overflow-hidden">
       <div className="flex-none flex flex-col gap-3 p-4 pb-2 z-10 bg-background shadow-sm">
@@ -422,6 +338,11 @@ export default function RotaPage() {
             loading={loading}
           />
         </div>
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold bg-primary/10 text-primary px-3 py-1 rounded-full">
+            Total: {filteredRows.length} Clientes
+          </span>
+        </div>
         <div className="w-full">
           <RotaFilters
             filters={filters}
@@ -434,13 +355,14 @@ export default function RotaPage() {
         <RotaLegend />
       </div>
 
-      {/* Main Content: Table with internal scroll */}
       <div className="flex-1 overflow-hidden relative">
         <RotaTable
           rows={sortedRows}
           sellers={sellers}
           onUpdateRow={handleUpdateRow}
           disabled={!activeRota}
+          onSort={handleSort}
+          sortConfig={sortConfig}
         />
       </div>
     </div>

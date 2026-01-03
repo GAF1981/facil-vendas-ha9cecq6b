@@ -47,7 +47,6 @@ export function RotaFilters({
   }
 
   const clearFilters = () => {
-    // Reset to neutral state (empty/all)
     setFilters({
       search: '',
       x_na_rota: 'todos',
@@ -91,9 +90,8 @@ export function RotaFilters({
   return (
     <Card className="w-full bg-card border-b shadow-sm rounded-none sm:rounded-md">
       <CardContent className="p-4">
-        {/* Responsive Grid Layout optimized for space */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-12 gap-3 items-end">
-          {/* Search + Clear - Larger prominence */}
+          {/* Search + Clear */}
           <div className="col-span-2 md:col-span-4 lg:col-span-3 xl:col-span-3 flex flex-col gap-1.5">
             <Label htmlFor="search" className="text-xs font-semibold">
               Buscar Cliente
@@ -116,12 +114,12 @@ export function RotaFilters({
                 title="Limpar todos os filtros"
               >
                 <Eraser className="w-4 h-4 mr-2" />
-                Limpar Filtros
+                Limpar
               </Button>
             </div>
           </div>
 
-          {/* Rota - New Filter */}
+          {/* Rota */}
           <div className="col-span-1 md:col-span-2 lg:col-span-1 xl:col-span-2 flex flex-col gap-1.5">
             <Label className="text-xs font-semibold">Rota</Label>
             <Select
@@ -142,7 +140,7 @@ export function RotaFilters({
             </Select>
           </div>
 
-          {/* Vendedor - Multi-Select */}
+          {/* Vendedor */}
           <div className="col-span-1 md:col-span-2 lg:col-span-2 xl:col-span-2 flex flex-col gap-1.5">
             <Label className="text-xs font-semibold">Vendedor(es)</Label>
             <Popover>
@@ -222,6 +220,20 @@ export function RotaFilters({
             </Popover>
           </div>
 
+          {/* Debito Filter - NEW */}
+          <div className="col-span-1 md:col-span-2 lg:col-span-1 xl:col-span-1 flex flex-col gap-1.5">
+            <Label className="text-xs font-semibold truncate">
+              Débito Min (R$)
+            </Label>
+            <Input
+              className="h-9 text-xs text-center"
+              placeholder="0.00"
+              type="number"
+              value={filters.debito_min}
+              onChange={(e) => handleChange('debito_min', e.target.value)}
+            />
+          </div>
+
           {/* Projeção Min */}
           <div className="col-span-1 md:col-span-2 lg:col-span-1 xl:col-span-1 flex flex-col gap-1.5">
             <Label className="text-xs font-semibold truncate">
@@ -236,7 +248,7 @@ export function RotaFilters({
             />
           </div>
 
-          {/* X na Rota - Compact */}
+          {/* X na Rota */}
           <div className="col-span-1 md:col-span-1 lg:col-span-1 xl:col-span-1 flex flex-col gap-1.5">
             <Label className="text-xs font-semibold truncate">xRota</Label>
             <Select
@@ -256,7 +268,7 @@ export function RotaFilters({
             </Select>
           </div>
 
-          {/* Agregado - Compact */}
+          {/* Agregado */}
           <div className="col-span-1 md:col-span-1 lg:col-span-1 xl:col-span-1 flex flex-col gap-1.5">
             <Label className="text-xs font-semibold truncate">Agreg.</Label>
             <Select

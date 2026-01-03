@@ -71,7 +71,6 @@ export function EmployeeTable({ employees, onUpdate }: EmployeeTableProps) {
             <TableRow>
               <TableHead className="w-[80px]">ID</TableHead>
               <TableHead>Nome</TableHead>
-              <TableHead className="hidden md:table-cell">Setor</TableHead>
               <TableHead className="hidden md:table-cell">Email</TableHead>
               <TableHead>Situação</TableHead>
               <TableHead className="w-[50px]"></TableHead>
@@ -89,15 +88,19 @@ export function EmployeeTable({ employees, onUpdate }: EmployeeTableProps) {
                     <span className="font-medium">
                       {employee.nome_completo}
                     </span>
-                    {employee.apelido && (
-                      <span className="text-xs text-muted-foreground">
-                        ({employee.apelido})
-                      </span>
-                    )}
+                    {/* Display Setor directly below name as requested */}
+                    <span className="text-xs text-muted-foreground flex gap-1 items-center">
+                      {employee.apelido && <span>({employee.apelido})</span>}
+                      {employee.setor && (
+                        <Badge
+                          variant="outline"
+                          className="h-4 px-1 text-[10px] font-normal border-muted-foreground/30"
+                        >
+                          {employee.setor}
+                        </Badge>
+                      )}
+                    </span>
                   </div>
-                </TableCell>
-                <TableCell className="hidden md:table-cell">
-                  {employee.setor || '-'}
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
                   {employee.email}

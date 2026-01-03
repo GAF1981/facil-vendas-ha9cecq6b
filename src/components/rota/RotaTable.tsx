@@ -16,20 +16,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { RotaRow } from '@/types/rota'
+import { RotaRow, SortConfig } from '@/types/rota'
 import { Employee } from '@/types/employee'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/formatters'
 import { format, parseISO } from 'date-fns'
-import { AlertCircle, FileText, User } from 'lucide-react'
+import { AlertCircle, ArrowUpDown } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 
 interface RotaTableProps {
   rows: RotaRow[]
   sellers: Employee[]
   onUpdateRow: (clientId: number, field: string, value: any) => void
   disabled: boolean
+  onSort: (key: string) => void
+  sortConfig: SortConfig
 }
 
 const getRowColorClass = (row: RotaRow) => {
@@ -46,11 +49,12 @@ export function RotaTable({
   sellers,
   onUpdateRow,
   disabled,
+  onSort,
+  sortConfig,
 }: RotaTableProps) {
   const [visibleCount, setVisibleCount] = useState(50)
   const loadMoreRef = useRef<HTMLTableRowElement>(null)
 
-  // Reset visible count when rows change (e.g. filters applied)
   useEffect(() => {
     setVisibleCount(50)
   }, [rows])
@@ -74,6 +78,44 @@ export function RotaTable({
 
   const visibleRows = rows.slice(0, visibleCount)
 
+  const SortableHeader = ({
+    label,
+    sortKey,
+    align = 'left',
+  }: {
+    label: string
+    sortKey: string
+    align?: string
+  }) => (
+    <TableHead
+      className={cn(
+        'cursor-pointer hover:bg-muted',
+        align === 'right'
+          ? 'text-right'
+          : align === 'center'
+            ? 'text-center'
+            : 'text-left',
+      )}
+      onClick={() => onSort(sortKey)}
+    >
+      <div
+        className={cn(
+          'flex items-center gap-1',
+          align === 'right' && 'justify-end',
+          align === 'center' && 'justify-center',
+        )}
+      >
+        {label}
+        <ArrowUpDown
+          className={cn(
+            'h-3 w-3',
+            sortConfig.key === sortKey ? 'opacity-100' : 'opacity-30',
+          )}
+        />
+      </div>
+    </TableHead>
+  )
+
   return (
     <div className="relative w-full h-full overflow-auto bg-background">
       <Table>
@@ -81,14 +123,18 @@ export function RotaTable({
           <TableRow>
             <TableHead className="w-[80px]">Código</TableHead>
             <TableHead className="min-w-[200px]">Cliente</TableHead>
-            <TableHead className="w-[100px] text-right">Projeção</TableHead>
-            <TableHead className="w-[100px] text-right">Estoque</TableHead>
-            <TableHead className="w-[80px] text-center">x Rota</TableHead>
+            <SortableHeader label="Projeção" sortKey="projecao" align="right" />
+            <SortableHeader label="Estoque" sortKey="estoque" align="right" />
+            <SortableHeader label="x Rota" sortKey="x_na_rota" align="center" />
             <TableHead className="w-[160px]">Vendedor</TableHead>
             <TableHead className="w-[80px] text-center">Boleto</TableHead>
             <TableHead className="w-[80px] text-center">Agreg.</TableHead>
             <TableHead className="w-[100px] text-right">Débito</TableHead>
-            <TableHead className="w-[100px] text-center">Data Acerto</TableHead>
+            <SortableHeader
+              label="Data Acerto"
+              sortKey="data_acerto"
+              align="center"
+            />
             <TableHead className="w-[50px]"></TableHead>
           </TableRow>
         </TableHeader>
@@ -237,7 +283,6 @@ export function RotaTable({
               </TableRow>
             ))
           )}
-          {/* Sentinel row for loading more */}
           {visibleCount < rows.length && (
             <TableRow ref={loadMoreRef}>
               <TableCell

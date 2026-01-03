@@ -82,7 +82,6 @@ export const rotaService = {
     if (endError) throw endError
 
     // 2. Start new route with incremented ID
-    // Reusing startRota logic but ensuring we have the latest ID context
     const { data: maxIdData } = await supabase
       .from('ROTA')
       .select('id')
@@ -90,7 +89,6 @@ export const rotaService = {
       .limit(1)
       .maybeSingle()
 
-    // Typically currentRotaId should be the max, but we fetch safely
     const nextId = (maxIdData?.id || currentRotaId) + 1
 
     const { data: newRota, error: startError } = await supabase
@@ -165,15 +163,14 @@ export const rotaService = {
   },
 
   async getFullRotaData(rota: Rota | null) {
-    // 1. Fetch all Clients with significantly increased limit to ensure full visibility
-    // The requirement is to see ALL clients, specifically ones like ID 67 that might be at the end of the list
-    // FILTERED BY 'ATIVO' AS PER NEW USER STORY
+    // 1. Fetch all Clients (FILTERED BY 'ATIVO' AS REQUIRED)
+    // IMPORTANT: User story requires filtering strict to 'ATIVO'
     const { data: clients, error: clientsError } = await supabase
       .from('CLIENTES')
       .select('*')
-      .eq('TIPO DE CLIENTE', 'ATIVO')
+      .eq('TIPO DE CLIENTE', 'ATIVO') // ENFORCED FILTER
       .order('CODIGO', { ascending: false })
-      .limit(50000) // Increased to 50k to cover all possible clients
+      .limit(50000)
 
     if (clientsError) throw clientsError
     if (!clients) return []
@@ -193,7 +190,7 @@ export const rotaService = {
       items.forEach((i) => rotaItemsMap.set(i.cliente_id, i))
     }
 
-    // 5. Fetch Projections (Using RPC as requested)
+    // 5. Fetch Projections
     const projectionMap = await this.getClientProjections()
 
     // 6. Fetch Products for pricing

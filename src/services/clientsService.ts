@@ -2,7 +2,6 @@ import { supabase } from '@/lib/supabase/client'
 import { ClientRow, ClientInsert, ClientUpdate } from '@/types/client'
 
 export const clientsService = {
-  // Now supports filtering by TIPO DE CLIENTE
   async getClients(
     page: number = 1,
     pageSize: number = 20,
@@ -25,7 +24,6 @@ export const clientsService = {
     }
 
     if (typeFilter && typeFilter !== 'all') {
-      // Assuming the column is "TIPO DE CLIENTE"
       query = query.eq('TIPO DE CLIENTE', typeFilter)
     }
 
@@ -74,7 +72,6 @@ export const clientsService = {
       .limit(1)
       .single()
 
-    // PGRST116 is the error code for "The result contains 0 rows" when using single()
     if (error && error.code !== 'PGRST116') throw error
 
     const maxCode = data?.CODIGO || 0
@@ -194,5 +191,21 @@ export const clientsService = {
       console.error('Error fetching address:', error)
       return null
     }
+  },
+
+  async checkDuplicateCpfCnpj(doc: string, excludeId?: number) {
+    let query = supabase
+      .from('CLIENTES')
+      .select('CODIGO, "NOME CLIENTE"')
+      .eq('CNPJ', doc)
+
+    if (excludeId) {
+      query = query.neq('CODIGO', excludeId)
+    }
+
+    const { data, error } = await query.maybeSingle()
+
+    if (error) throw error
+    return data
   },
 }

@@ -15,7 +15,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
-import { MoreHorizontal, Edit, Trash2, History } from 'lucide-react'
+import {
+  MoreHorizontal,
+  Edit,
+  Trash2,
+  History,
+  MessageCircle,
+} from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useToast } from '@/hooks/use-toast'
 import {
@@ -63,6 +69,14 @@ export function ClientTable({ clients, onUpdate }: ClientTableProps) {
     }
   }
 
+  const handleWhatsApp = (phone: string | null) => {
+    if (!phone) return
+    const cleanPhone = phone.replace(/\D/g, '')
+    if (cleanPhone) {
+      window.open(`https://wa.me/${cleanPhone}`, '_blank')
+    }
+  }
+
   return (
     <>
       <div className="rounded-md border bg-card">
@@ -71,7 +85,7 @@ export function ClientTable({ clients, onUpdate }: ClientTableProps) {
             <TableRow>
               <TableHead className="w-[80px]">Código</TableHead>
               <TableHead>Nome</TableHead>
-              <TableHead>Tipo</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead className="hidden md:table-cell">CPF/CNPJ</TableHead>
               <TableHead className="hidden lg:table-cell">Cidade</TableHead>
               <TableHead className="hidden md:table-cell">Telefone</TableHead>
@@ -84,7 +98,17 @@ export function ClientTable({ clients, onUpdate }: ClientTableProps) {
                 key={client.CODIGO}
                 className="group hover:bg-muted/50 transition-colors"
               >
-                <TableCell className="font-medium">{client.CODIGO}</TableCell>
+                <TableCell>
+                  <div className="flex flex-col gap-1">
+                    <span className="font-medium">{client.CODIGO}</span>
+                    <Badge
+                      variant="outline"
+                      className="w-fit text-[10px] px-1 py-0 h-4"
+                    >
+                      {client['TIPO DE CLIENTE'] || 'N/D'}
+                    </Badge>
+                  </div>
+                </TableCell>
                 <TableCell>
                   <div className="flex flex-col">
                     <span className="font-medium">
@@ -114,7 +138,20 @@ export function ClientTable({ clients, onUpdate }: ClientTableProps) {
                   {client.MUNICÍPIO || '-'}
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
-                  {client['FONE 1'] || client['FONE 2'] || '-'}
+                  <div className="flex items-center gap-2">
+                    <span>{client['FONE 1'] || client['FONE 2'] || '-'}</span>
+                    {client['FONE 1'] && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6 text-green-600 hover:text-green-700 hover:bg-green-100"
+                        onClick={() => handleWhatsApp(client['FONE 1'])}
+                        title="Abrir WhatsApp"
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <DropdownMenu>

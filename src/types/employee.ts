@@ -7,7 +7,7 @@ export interface Employee {
   cpf: string | null
   email: string
   setor: string | null
-  senha?: string // Optional because RPC login doesn't return it for security
+  senha?: string
   foto_url?: string | null
   created_at?: string
   situacao: 'ATIVO' | 'INATIVO'
@@ -16,7 +16,7 @@ export interface Employee {
 export type EmployeeInsert = Omit<Employee, 'id' | 'created_at'>
 export type EmployeeUpdate = Partial<EmployeeInsert>
 
-// Schema for employee form (management)
+// Schema for employee form
 export const employeeSchema = z.object({
   nome_completo: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
   apelido: z.string().optional().nullable(),
@@ -29,22 +29,28 @@ export const employeeSchema = z.object({
       message: 'O email deve conter o caractere @',
     }),
   setor: z.string().optional().nullable(),
-  senha: z
-    .string()
-    .length(4, 'A senha deve ter exatamente 4 dígitos')
-    .regex(/^\d+$/, 'A senha deve conter apenas números'),
+  // Password optional and looser validation for legacy/updates
+  senha: z.string().optional().nullable().or(z.literal('')),
+  // Allow Data URLs (starting with data:) or standard URLs, or empty
   foto_url: z
     .string()
-    .url('URL inválida')
     .optional()
     .nullable()
-    .or(z.literal('')),
+    .refine(
+      (val) =>
+        !val ||
+        val === '' ||
+        val.startsWith('http') ||
+        val.startsWith('data:image'),
+      {
+        message: 'URL inválida ou formato de imagem não suportado',
+      },
+    ),
   situacao: z.enum(['ATIVO', 'INATIVO'], {
     required_error: 'Situação é obrigatória',
   }),
 })
 
-// Schema for login
 export const loginSchema = z.object({
   email: z.string().email('Insira um email válido'),
 })
