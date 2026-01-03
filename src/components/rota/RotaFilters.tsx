@@ -32,7 +32,6 @@ interface RotaFiltersProps {
   setFilters: (filters: RotaFilterState) => void
   sellers: Employee[]
   municipios: string[]
-  clientTypes: string[]
   routes: string[]
 }
 
@@ -41,7 +40,6 @@ export function RotaFilters({
   setFilters,
   sellers,
   municipios,
-  clientTypes,
   routes,
 }: RotaFiltersProps) {
   const handleChange = (key: keyof RotaFilterState, value: any) => {
@@ -56,7 +54,6 @@ export function RotaFilters({
       agregado: 'todos',
       vendedor: [],
       municipio: 'todos',
-      tipo_cliente: 'todos',
       grupo_rota: 'todos',
       debito_min: '',
       debito_max: '',
@@ -223,27 +220,6 @@ export function RotaFilters({
                 </Command>
               </PopoverContent>
             </Popover>
-          </div>
-
-          {/* Tipo de Cliente */}
-          <div className="col-span-1 md:col-span-2 lg:col-span-1 xl:col-span-1 flex flex-col gap-1.5">
-            <Label className="text-xs font-semibold">Tipo</Label>
-            <Select
-              value={filters.tipo_cliente}
-              onValueChange={(v) => handleChange('tipo_cliente', v)}
-            >
-              <SelectTrigger className="h-9 text-xs">
-                <SelectValue placeholder="Todos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos</SelectItem>
-                {clientTypes.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           {/* Projeção Min */}

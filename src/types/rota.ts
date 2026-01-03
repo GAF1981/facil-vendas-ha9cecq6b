@@ -44,7 +44,7 @@ export interface RotaFilterState {
   agregado: string | 'todos' // 'SIM', 'NÃO'
   vendedor: string[] // Multi-select ID strings
   municipio: string | 'todos'
-  tipo_cliente: string | 'todos'
+  // tipo_cliente removed as it is auto-filtered to 'ATIVO'
   grupo_rota: string | 'todos'
   debito_min: string
   debito_max: string

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { RotaHeader } from '@/components/rota/RotaHeader'
 import { RotaLegend } from '@/components/rota/RotaLegend'
-import { RotaGallery } from '@/components/rota/RotaGallery'
+import { RotaTable } from '@/components/rota/RotaTable'
 import { RotaFilters } from '@/components/rota/RotaFilters'
 import { rotaService } from '@/services/rotaService'
 import { employeesService } from '@/services/employeesService'
@@ -18,14 +18,13 @@ export default function RotaPage() {
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
 
-  // Filter State
+  // Filter State - Removed tipo_cliente as per requirement
   const [filters, setFilters] = useState<RotaFilterState>({
     search: '',
     x_na_rota: 'todos',
     agregado: 'todos',
     vendedor: [],
     municipio: 'todos',
-    tipo_cliente: 'todos',
     grupo_rota: 'todos',
     debito_min: '',
     debito_max: '',
@@ -36,8 +35,7 @@ export default function RotaPage() {
     estoque_max: '',
   })
 
-  // Although gallery doesn't have column headers, we keep sort capability if we want to add a sort selector later
-  // Defaulting to 'projecao' desc as per original requirement
+  // Sort Config
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: 'projecao',
     direction: 'desc',
@@ -58,6 +56,7 @@ export default function RotaPage() {
         const allEmployees = empRes.data
         setSellers(allEmployees)
 
+        // Ensure we fetch full data which now internally filters by 'ATIVO'
         const data = await rotaService.getFullRotaData(active)
         setRows(data)
       } catch (error) {
@@ -113,7 +112,7 @@ export default function RotaPage() {
       // New active is the one just created
       setActiveRota(newRota)
 
-      // Refresh Rows for new rota (should be clean state for x_na_rota etc if configured, but here we keep client list)
+      // Refresh Rows for new rota
       const data = await rotaService.getFullRotaData(newRota)
       setRows(data)
 
@@ -206,9 +205,7 @@ export default function RotaPage() {
         if (row.client.MUNICÍPIO !== filters.municipio) return false
       }
 
-      if (filters.tipo_cliente !== 'todos') {
-        if (row.client['TIPO DE CLIENTE'] !== filters.tipo_cliente) return false
-      }
+      // REMOVED tipo_cliente check since it's hardcoded to ATIVO in query
 
       if (filters.grupo_rota !== 'todos') {
         if (row.client['GRUPO ROTA'] !== filters.grupo_rota) return false
@@ -334,15 +331,7 @@ export default function RotaPage() {
     () => [...new Set(rows.map((r) => r.client.MUNICÍPIO).filter(Boolean))],
     [rows],
   )
-  const uniqueTypes = useMemo(
-    () =>
-      [
-        ...new Set(
-          rows.map((r) => r.client['TIPO DE CLIENTE']).filter(Boolean),
-        ),
-      ].sort(),
-    [rows],
-  )
+
   const uniqueRoutes = useMemo(
     () => [...new Set(rows.map((r) => r.client['GRUPO ROTA']).filter(Boolean))],
     [rows],
@@ -439,16 +428,15 @@ export default function RotaPage() {
             setFilters={setFilters}
             sellers={sellers}
             municipios={uniqueMunicipios as string[]}
-            clientTypes={uniqueTypes as string[]}
             routes={uniqueRoutes as string[]}
           />
         </div>
         <RotaLegend />
       </div>
 
-      {/* Main Content: Gallery with internal scroll */}
+      {/* Main Content: Table with internal scroll */}
       <div className="flex-1 overflow-hidden relative">
-        <RotaGallery
+        <RotaTable
           rows={sortedRows}
           sellers={sellers}
           onUpdateRow={handleUpdateRow}
