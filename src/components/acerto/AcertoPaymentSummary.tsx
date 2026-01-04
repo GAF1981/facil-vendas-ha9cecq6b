@@ -46,8 +46,9 @@ export function AcertoPaymentSummary({
       const dueDateDate = method === 'Boleto' ? addDays(today, 10) : today
       const dueDate = format(dueDateDate, 'yyyy-MM-dd')
 
-      // Auto-fill logic for Cheque (Value = Paid Value)
-      const initialPaidValue = method === 'Cheque' ? defaultValue : 0
+      // Auto-fill logic for Cheque (Value = Paid Value) -> No, requirement 3 says PaidValue = 0 for Cheque
+      // Logic for PIX/Dinheiro: PaidValue = Value initially, unless Sem Entrada is checked (but defaults to false)
+      const initialPaidValue = method === 'Cheque' ? 0 : defaultValue
 
       const newEntry: PaymentEntry = {
         method,
@@ -55,6 +56,7 @@ export function AcertoPaymentSummary({
         paidValue: initialPaidValue,
         installments: 1,
         dueDate: dueDate,
+        hasZeroDownPayment: false,
       }
       onPaymentsChange([...payments, newEntry])
     } else {
@@ -66,27 +68,54 @@ export function AcertoPaymentSummary({
     totalValue: number,
     count: number,
     method: PaymentMethodType,
+    hasZeroDownPayment: boolean = false,
   ): PaymentInstallment[] => {
-    const installmentValue = Number((totalValue / count).toFixed(2))
+    // Redistribution Logic:
+    // If hasZeroDownPayment (for Pix/Dinheiro), the entry installment (idx 0) is forced to 0.
+    // The total value is then redistributed among the remaining installments.
+    let effectiveCount = count
+    if (hasZeroDownPayment && (method === 'Pix' || method === 'Dinheiro')) {
+      effectiveCount = count - 1
+    }
+    if (effectiveCount < 1) effectiveCount = 1
+
+    const installmentValue =
+      effectiveCount > 0
+        ? Number((totalValue / effectiveCount).toFixed(2))
+        : totalValue
+
+    // Simple remainder handling could be added here, but simple division is standard for now.
+
     const today = new Date()
     return Array.from({ length: count }, (_, i) => {
       let dueDate = format(addDays(today, (i + 1) * 30), 'yyyy-MM-dd')
       let paidValue = 0
+      let value = installmentValue
 
       // Logic for ENTRADA (Index 0 for PIX/Dinheiro)
       if (i === 0 && (method === 'Pix' || method === 'Dinheiro')) {
         dueDate = format(today, 'yyyy-MM-dd')
-        paidValue = installmentValue
+
+        if (hasZeroDownPayment) {
+          // Requirement 2: Force 0
+          value = 0
+          paidValue = 0
+        } else {
+          // Normal entry: fully paid by default
+          // Wait, if not zero down payment, value is installmentValue.
+          // Is it automatically paid? Usually yes for Entry.
+          paidValue = value
+        }
       }
 
-      // Logic for Cheque installments (Paid Value = Value)
+      // Logic for Cheque installments (Paid Value = 0 per requirement 3)
       if (method === 'Cheque') {
-        paidValue = installmentValue
+        paidValue = 0
       }
 
       return {
         number: i + 1,
-        value: installmentValue,
+        value: value,
         paidValue: paidValue,
         dueDate: dueDate,
       }
@@ -107,24 +136,45 @@ export function AcertoPaymentSummary({
         const updated = { ...p, [field]: value }
 
         if (field === 'value') {
-          // If method is Cheque, auto-sync paidValue if installments=1
-          if (method === 'Cheque' && updated.installments === 1) {
-            updated.paidValue = value as number
-          }
-
+          // For Cheque, paidValue stays 0.
+          // For Pix/Dinheiro, if installments=1, paidValue = value (unless hasZeroDownPayment, handled by re-gen?)
+          // Actually if installments=1, details might be undefined.
+          // But if hasZeroDownPayment is allowed, we might need details even for 1x to show the 0 entry?
+          // Let's assume user behavior: Type value -> Update Details if they exist.
           if (updated.installments > 1) {
             updated.details = generateInstallments(
               value as number,
               updated.installments,
               method,
+              updated.hasZeroDownPayment,
             )
+          } else {
+            // 1x Logic
+            if (method === 'Cheque') {
+              updated.paidValue = 0
+            } else {
+              // Pix/Dinheiro
+              if (updated.hasZeroDownPayment) {
+                updated.paidValue = 0
+                // If 1x and Sem Entrada, effectively value should be 0? Or just paidValue?
+                // If value is 100, 1x, Sem Entrada. Entry is 0. Total paid 0.
+                // It means debt is 100.
+              } else {
+                updated.paidValue = value as number
+              }
+            }
           }
         }
 
         if (field === 'installments') {
           const count = value as number
           if (count > 1) {
-            updated.details = generateInstallments(p.value, count, method)
+            updated.details = generateInstallments(
+              p.value,
+              count,
+              method,
+              p.hasZeroDownPayment,
+            )
           } else {
             updated.details = undefined
             const today = new Date()
@@ -133,11 +183,47 @@ export function AcertoPaymentSummary({
 
             // Re-apply single payment logic
             if (method === 'Cheque') {
-              updated.paidValue = updated.value
+              updated.paidValue = 0
             } else {
-              updated.paidValue = 0 // Reset or keep previous? Resetting seems safer for consistency
+              // Pix/Dinheiro
+              if (p.hasZeroDownPayment) {
+                updated.paidValue = 0
+              } else {
+                updated.paidValue = p.value
+              }
             }
           }
+        }
+
+        if (field === 'hasZeroDownPayment') {
+          // Regenerate details if they exist or if we switch to/from 1x logic
+          const hasZero = value as boolean
+          if (updated.installments > 1) {
+            updated.details = generateInstallments(
+              p.value,
+              updated.installments,
+              method,
+              hasZero,
+            )
+          } else {
+            // 1x logic update
+            if (hasZero && (method === 'Pix' || method === 'Dinheiro')) {
+              updated.paidValue = 0
+            } else if (
+              !hasZero &&
+              (method === 'Pix' || method === 'Dinheiro')
+            ) {
+              updated.paidValue = updated.value
+            }
+          }
+        }
+
+        // Recalculate main paidValue for Pix/Dinheiro from details if they exist
+        if ((method === 'Pix' || method === 'Dinheiro') && updated.details) {
+          updated.paidValue = updated.details.reduce(
+            (acc, d) => acc + d.paidValue,
+            0,
+          )
         }
 
         return updated
@@ -159,10 +245,21 @@ export function AcertoPaymentSummary({
         const newDetails = [...p.details]
         newDetails[index] = { ...newDetails[index], [field]: value }
 
-        // Check constraints inside installments?
-        // For Cheque, if user changes value, should we sync paidValue?
-        if (method === 'Cheque' && field === 'value') {
-          newDetails[index].paidValue = value
+        // Enforce Cheque paidValue = 0 constraint (Requirement 3)
+        if (method === 'Cheque' && field === 'paidValue') {
+          newDetails[index].paidValue = 0
+        }
+
+        // Enforce Sem Entrada constraint (Requirement 2)
+        if (
+          p.hasZeroDownPayment &&
+          (method === 'Pix' || method === 'Dinheiro') &&
+          index === 0
+        ) {
+          if (field === 'value' || field === 'paidValue') {
+            newDetails[index].value = 0
+            newDetails[index].paidValue = 0
+          }
         }
 
         // Recalculate parent value from sum of installments
@@ -172,7 +269,25 @@ export function AcertoPaymentSummary({
             newDetails.reduce((acc, curr) => acc + curr.value, 0).toFixed(2),
           )
         }
-        return { ...p, details: newDetails, value: newValue }
+
+        // Recalculate parent paidValue (Requirement 4)
+        let newPaidValue = p.paidValue
+        if (method === 'Pix' || method === 'Dinheiro') {
+          newPaidValue = Number(
+            newDetails
+              .reduce((acc, curr) => acc + curr.paidValue, 0)
+              .toFixed(2),
+          )
+        } else if (method === 'Cheque') {
+          newPaidValue = 0
+        }
+
+        return {
+          ...p,
+          details: newDetails,
+          value: newValue,
+          paidValue: newPaidValue,
+        }
       }),
     )
   }
@@ -195,6 +310,9 @@ export function AcertoPaymentSummary({
     onPaymentsChange(
       payments.map((p) => {
         if (p.method !== method) return p
+        // If Cheque, never auto-fill paid value
+        if (method === 'Cheque') return { ...p, paidValue: 0 }
+
         return {
           ...p,
           paidValue: checked ? p.value : 0,
@@ -303,8 +421,17 @@ export function AcertoPaymentSummary({
                   Math.abs(entry.paidValue - entry.value) < 0.01 &&
                   entry.value > 0
 
+                const isCheque = entry.method === 'Cheque'
+                const isPixOrDinheiro =
+                  entry.method === 'Pix' || entry.method === 'Dinheiro'
+
                 const isPaidDisabled =
-                  entry.method === 'Boleto' || entry.method === 'Cheque'
+                  entry.method === 'Boleto' ||
+                  isCheque ||
+                  (isPixOrDinheiro &&
+                    entry.installments > 1 &&
+                    !!entry.details) ||
+                  (isPixOrDinheiro && entry.hasZeroDownPayment)
 
                 return (
                   <div
@@ -312,13 +439,40 @@ export function AcertoPaymentSummary({
                     className="bg-card border rounded-lg p-4 shadow-sm animate-slide-up space-y-4"
                   >
                     <div className="flex flex-col md:flex-row gap-3 items-start md:items-end">
-                      <div className="w-full md:w-24 shrink-0">
-                        <Label className="text-xs text-muted-foreground font-bold uppercase mb-1.5 block">
-                          Método
-                        </Label>
-                        <div className="font-semibold text-primary flex items-center justify-center gap-2 h-10 px-2 bg-muted/50 rounded-md border text-sm text-center truncate">
-                          {entry.method}
+                      <div className="w-full md:w-24 shrink-0 space-y-2">
+                        <div>
+                          <Label className="text-xs text-muted-foreground font-bold uppercase mb-1.5 block">
+                            Método
+                          </Label>
+                          <div className="font-semibold text-primary flex items-center justify-center gap-2 h-10 px-2 bg-muted/50 rounded-md border text-sm text-center truncate">
+                            {entry.method}
+                          </div>
                         </div>
+
+                        {/* Sem ENTRADA Checkbox for Pix/Dinheiro (Requirement 2) */}
+                        {isPixOrDinheiro && (
+                          <div className="flex items-center gap-2 pt-1">
+                            <Checkbox
+                              id={`no-entry-${entry.method}`}
+                              checked={!!entry.hasZeroDownPayment}
+                              disabled={disabled}
+                              onCheckedChange={(c) =>
+                                handleUpdateEntry(
+                                  entry.method,
+                                  'hasZeroDownPayment',
+                                  c as boolean,
+                                )
+                              }
+                              className="h-3.5 w-3.5"
+                            />
+                            <Label
+                              htmlFor={`no-entry-${entry.method}`}
+                              className="text-[10px] cursor-pointer"
+                            >
+                              Sem ENTRADA
+                            </Label>
+                          </div>
+                        )}
                       </div>
 
                       <div className="w-full md:flex-1">
@@ -390,7 +544,7 @@ export function AcertoPaymentSummary({
                               isOverpaid
                                 ? 'border-red-300 bg-red-50 text-red-700 focus-visible:ring-red-200'
                                 : 'border-green-200 bg-green-50/20 text-green-700',
-                              disabled ? 'bg-muted' : '',
+                              disabled || isPaidDisabled ? 'bg-muted' : '',
                             )}
                             value={entry.paidValue}
                             disabled={disabled || isPaidDisabled}
@@ -414,11 +568,23 @@ export function AcertoPaymentSummary({
                             Boleto não permite entrada de valor pago imediato.
                           </span>
                         )}
-                        {entry.method === 'Cheque' && (
+                        {isCheque && (
                           <span className="text-[10px] text-muted-foreground font-medium block mt-1">
-                            Valor pago é preenchido automaticamente.
+                            Cheque: Valor pago sempre zero.
                           </span>
                         )}
+                        {isPixOrDinheiro && entry.hasZeroDownPayment && (
+                          <span className="text-[10px] text-muted-foreground font-medium block mt-1">
+                            Sem ENTRADA: Valor pago bloqueado.
+                          </span>
+                        )}
+                        {isPixOrDinheiro &&
+                          entry.installments > 1 &&
+                          !entry.hasZeroDownPayment && (
+                            <span className="text-[10px] text-muted-foreground font-medium block mt-1">
+                              Valor pago: Soma das parcelas.
+                            </span>
+                          )}
                       </div>
 
                       <div className="w-full md:w-20">
@@ -485,7 +651,11 @@ export function AcertoPaymentSummary({
                               idx === 0 &&
                               (entry.method === 'Pix' ||
                                 entry.method === 'Dinheiro')
-                            const isCheque = entry.method === 'Cheque'
+
+                            const isReadOnlyInstallment =
+                              (isEntrada && entry.hasZeroDownPayment) ||
+                              isCheque ||
+                              entry.method === 'Boleto'
 
                             return (
                               <div
@@ -518,7 +688,10 @@ export function AcertoPaymentSummary({
                                     step="0.01"
                                     className="h-8 pl-7 text-sm"
                                     value={inst.value}
-                                    disabled={disabled}
+                                    disabled={
+                                      disabled ||
+                                      (isEntrada && !!entry.hasZeroDownPayment)
+                                    }
                                     onChange={(e) =>
                                       handleUpdateInstallment(
                                         entry.method,
@@ -548,14 +721,13 @@ export function AcertoPaymentSummary({
                                     step="0.01"
                                     className={cn(
                                       'h-8 pl-16 text-sm',
-                                      isCheque ? 'bg-muted' : '',
+                                      isCheque ||
+                                        (isEntrada && entry.hasZeroDownPayment)
+                                        ? 'bg-muted'
+                                        : '',
                                     )}
                                     value={inst.paidValue}
-                                    disabled={
-                                      disabled ||
-                                      isCheque ||
-                                      entry.method === 'Boleto'
-                                    }
+                                    disabled={disabled || isReadOnlyInstallment}
                                     onChange={(e) =>
                                       handleUpdateInstallment(
                                         entry.method,

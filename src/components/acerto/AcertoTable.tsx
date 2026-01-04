@@ -40,6 +40,7 @@ interface AcertoTableProps {
   loading?: boolean
   clientId?: number
   clientName?: string
+  orderNumber?: number | null
 }
 
 const VerticalHeader = ({
@@ -123,6 +124,7 @@ export function AcertoTable({
   loading = false,
   clientId,
   clientName,
+  orderNumber,
 }: AcertoTableProps) {
   const { employee } = useUserStore()
   const { toast } = useToast()
@@ -173,6 +175,8 @@ export function AcertoTable({
         saldo_anterior: editingItem.saldoInicial || 0,
         saldo_novo: newSaldoInicial,
         produto_id: editingItem.produtoId,
+        numero_pedido: orderNumber,
+        data_acerto: new Date().toISOString(),
       })
 
       if (onUpdateSaldoInicial) {

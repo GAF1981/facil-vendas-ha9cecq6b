@@ -157,6 +157,7 @@ export default function AcertoPage() {
           paidValue: 0, // Initially 0, user confirms or auto-fills
           installments: 1,
           dueDate: format(new Date(), 'yyyy-MM-dd'),
+          hasZeroDownPayment: false,
         },
       ])
     }
@@ -454,6 +455,7 @@ export default function AcertoPage() {
             acertoTipo="Acerto"
             clientId={client.CODIGO}
             clientName={client['NOME CLIENTE'] || 'Desconhecido'}
+            orderNumber={nextOrderNumber}
           />
 
           <div className="space-y-6">

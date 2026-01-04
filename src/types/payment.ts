@@ -14,6 +14,7 @@ export interface PaymentEntry {
   installments: number
   dueDate: string
   details?: PaymentInstallment[] // For granular control
+  hasZeroDownPayment?: boolean // New field for "Sem Entrada" logic
 }
 
 // Reordered to prioritize PIX

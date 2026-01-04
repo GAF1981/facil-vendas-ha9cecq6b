@@ -380,12 +380,14 @@ export const bancoDeDadosService = {
     saldo_anterior: number
     saldo_novo: number
     produto_id: number
+    data_acerto?: string // Add this
   }) {
     const quantity = payload.saldo_novo - payload.saldo_anterior
 
     const { error } = await supabase.from('AJUSTE_SALDO_INICIAL').insert({
       ...payload,
       quantidade_alterada: quantity,
+      data_acerto: payload.data_acerto || new Date().toISOString(), // Ensure date
     } as any)
 
     if (error) throw error
