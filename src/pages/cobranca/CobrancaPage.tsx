@@ -35,13 +35,14 @@ import { ClientDebt } from '@/types/cobranca'
 import { useToast } from '@/hooks/use-toast'
 import { formatCurrency } from '@/lib/formatters'
 import { parseISO, isSameDay } from 'date-fns'
-import { ScrollArea } from '@/components/ui/scroll-area' // Imported ScrollArea
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 export default function CobrancaPage() {
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<ClientDebt[]>([])
   const [filteredData, setFilteredData] = useState<ClientDebt[]>([])
   const [searchTerm, setSearchTerm] = useState('')
+  // statusFilter controls filtering. Defaults to 'todos' but effectively we show > 1.00 by default logic below
   const [statusFilter, setStatusFilter] = useState<string>('todos')
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [groupFilter, setGroupFilter] = useState<string>('all')
@@ -139,7 +140,7 @@ export default function CobrancaPage() {
     }
 
     // Default Filter: Show only debts > 1.00
-    // We apply this filter *before* others unless specifically looking for 'SEM DÉBITO' or Paid items
+    // Applied unless user specifically asks for 'SEM DÉBITO' (Paid) or 'PAGO' context
     if (statusFilter !== 'SEM DÉBITO') {
       res.forEach((client) => {
         client.orders.forEach((order) => {

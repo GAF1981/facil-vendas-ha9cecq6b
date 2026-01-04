@@ -31,6 +31,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Save, Printer, Loader2 } from 'lucide-react'
 import { parseCurrency } from '@/lib/formatters'
+import { format } from 'date-fns'
 
 export default function AcertoPage() {
   const { employee: loggedInUser } = useUserStore()
@@ -135,6 +136,30 @@ export default function AcertoPage() {
   const discountFactor = discountVal > 1 ? discountVal / 100 : discountVal
   const discountAmount = totalSalesValue * discountFactor
   const amountToPay = totalSalesValue - discountAmount
+
+  // Auto-select PIX logic (Requirement: Default to PIX)
+  useEffect(() => {
+    // Only auto-add if:
+    // 1. We have a payable amount > 0
+    // 2. No payments are currently selected
+    // 3. We are not loading (client data is ready)
+    if (
+      amountToPay > 0.01 &&
+      payments.length === 0 &&
+      !loadingAcerto &&
+      client
+    ) {
+      setPayments([
+        {
+          method: 'Pix',
+          value: Number(amountToPay.toFixed(2)),
+          paidValue: 0, // Initially 0, user confirms or auto-fills
+          installments: 1,
+          dueDate: format(new Date(), 'yyyy-MM-dd'),
+        },
+      ])
+    }
+  }, [amountToPay, loadingAcerto, client])
 
   // Handlers for AcertoTable
   const handleUpdateContagem = (uid: string, newContagem: number) => {

@@ -49,7 +49,8 @@ export function AcertoPaymentSummary({
       const newEntry: PaymentEntry = {
         method,
         value: defaultValue,
-        paidValue: 0, // Initial paid value is 0
+        paidValue:
+          method === 'Boleto' || method === 'Cheque' ? 0 : defaultValue, // Auto-fill paid value for non-delayed methods
         installments: 1,
         dueDate: dueDate,
       }
@@ -143,17 +144,7 @@ export function AcertoPaymentSummary({
     onPaymentsChange(
       payments.map((p) => {
         if (p.method !== method) return p
-
-        let updated = { ...p, [field]: Number(p[field].toFixed(2)) }
-
-        // Value Synchronization Logic:
-        // Automatically sync registered vs paid logic if needed
-        if (field === 'paidValue') {
-          // If we want paidValue never to exceed value by logic?
-          // For now we allow it but show error UI if overpaid
-        }
-
-        return updated
+        return { ...p, [field]: Number(p[field].toFixed(2)) }
       }),
     )
   }
@@ -165,7 +156,7 @@ export function AcertoPaymentSummary({
         if (p.method !== method) return p
         return {
           ...p,
-          paidValue: checked ? p.value : p.paidValue,
+          paidValue: checked ? p.value : 0,
         }
       }),
     )
@@ -269,8 +260,6 @@ export function AcertoPaymentSummary({
                 const isFullyPaid =
                   Math.abs(entry.paidValue - entry.value) < 0.01 &&
                   entry.value > 0
-                // Removed Boleto restriction for 'Valor Pago' editing
-                // Removed special 'isBoleto' variable usage for disabling
 
                 return (
                   <div
@@ -358,7 +347,6 @@ export function AcertoPaymentSummary({
                                 : 'border-green-200 bg-green-50/20 text-green-700',
                             )}
                             value={entry.paidValue}
-                            // Enabled for all methods including Boleto now
                             disabled={disabled}
                             onChange={(e) =>
                               handleUpdateEntry(
