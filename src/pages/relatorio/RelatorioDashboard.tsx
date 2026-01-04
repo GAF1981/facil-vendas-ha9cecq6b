@@ -5,7 +5,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { TrendingUp, Package, ShoppingCart, BarChart3 } from 'lucide-react'
+import {
+  TrendingUp,
+  Package,
+  ShoppingCart,
+  BarChart3,
+  RotateCcw,
+} from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 const RelatorioDashboard = () => {
@@ -41,6 +47,14 @@ const RelatorioDashboard = () => {
       to: '/relatorio/itens-mais-vendidos',
       color: 'text-purple-600',
       bg: 'bg-purple-100',
+    },
+    {
+      title: 'Ajustes Saldo Inicial',
+      description: 'Histórico de ajustes manuais de saldo inicial.',
+      icon: RotateCcw,
+      to: '/relatorio/ajustes-saldo',
+      color: 'text-red-600',
+      bg: 'bg-red-100',
     },
   ]
 

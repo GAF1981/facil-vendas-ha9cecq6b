@@ -23,11 +23,23 @@ export interface TopSellingItem {
   valor_total: number
 }
 
+export interface AdjustmentReportRow {
+  id: number
+  numero_pedido: number | null
+  cliente_id: number
+  cliente_nome: string
+  vendedor_id: number | null
+  vendedor_nome: string | null
+  data_acerto: string
+  saldo_anterior: number
+  saldo_novo: number
+  quantidade_alterada: number
+  produto_id: number
+}
+
 export const reportsService = {
   async getProjectionsReport(): Promise<ProjectionReportRow[]> {
     // Fetch recent transactions
-    // Fetching enough data to perform client-side analysis
-    // Increased limit to 20000 to improve projection coverage
     const { data, error } = await supabase
       .from('BANCO_DE_DADOS')
       .select(
@@ -163,5 +175,16 @@ export const reportsService = {
 
     if (error) throw error
     return data as TopSellingItem[]
+  },
+
+  async getInitialBalanceAdjustments(): Promise<AdjustmentReportRow[]> {
+    const { data, error } = await supabase
+      .from('AJUSTE_SALDO_INICIAL')
+      .select('*')
+      .order('data_acerto', { ascending: false })
+      .limit(1000)
+
+    if (error) throw error
+    return data as AdjustmentReportRow[]
   },
 }

@@ -8,7 +8,14 @@ import {
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Minus, Plus, Trash2, Loader2, Lock } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Minus, Plus, Trash2, Loader2, Lock, Edit2 } from 'lucide-react'
 import { AcertoItem } from '@/types/acerto'
 import { cn } from '@/lib/utils'
 import {
@@ -17,15 +24,22 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { useState } from 'react'
+import { useUserStore } from '@/stores/useUserStore'
+import { bancoDeDadosService } from '@/services/bancoDeDadosService'
+import { useToast } from '@/hooks/use-toast'
 
 interface AcertoTableProps {
   items: AcertoItem[]
   onUpdateContagem?: (uid: string, newContagem: number) => void
   onUpdateSaldoFinal?: (uid: string, newSaldo: number) => void
   onRemoveItem?: (uid: string) => void
+  onUpdateSaldoInicial?: (uid: string, newSaldo: number) => void
   mode?: 'ACERTO' | 'CAPTACAO'
   acertoTipo?: string
   loading?: boolean
+  clientId?: number
+  clientName?: string
 }
 
 const VerticalHeader = ({
@@ -104,9 +118,20 @@ export function AcertoTable({
   onUpdateContagem,
   onUpdateSaldoFinal,
   onRemoveItem,
+  onUpdateSaldoInicial,
   acertoTipo,
   loading = false,
+  clientId,
+  clientName,
 }: AcertoTableProps) {
+  const { employee } = useUserStore()
+  const { toast } = useToast()
+
+  // State for Edit Saldo Inicial Modal
+  const [editingItem, setEditingItem] = useState<AcertoItem | null>(null)
+  const [newSaldoInicial, setNewSaldoInicial] = useState<number>(0)
+  const [savingEdit, setSavingEdit] = useState(false)
+
   // Determine if Contagem is editable based on acertoTipo
   const isContagemDisabled =
     acertoTipo === 'CAPTAÇÃO' || acertoTipo === 'COMPLEMENTO'
@@ -115,24 +140,59 @@ export function AcertoTable({
   const safeUpdateContagem = (uid: string, val: number) => {
     if (typeof onUpdateContagem === 'function') {
       onUpdateContagem(uid, val)
-    } else {
-      console.warn('onUpdateContagem callback is not defined')
     }
   }
 
   const safeUpdateSaldoFinal = (uid: string, val: number) => {
     if (typeof onUpdateSaldoFinal === 'function') {
       onUpdateSaldoFinal(uid, val)
-    } else {
-      console.warn('onUpdateSaldoFinal callback is not defined')
     }
   }
 
   const safeRemoveItem = (uid: string) => {
     if (typeof onRemoveItem === 'function') {
       onRemoveItem(uid)
-    } else {
-      console.warn('onRemoveItem callback is not defined')
+    }
+  }
+
+  const openEditSaldoInicial = (item: AcertoItem) => {
+    setEditingItem(item)
+    setNewSaldoInicial(item.saldoInicial || 0)
+  }
+
+  const handleSaveSaldoInicial = async () => {
+    if (!editingItem || !employee || !clientId || !clientName) return
+
+    setSavingEdit(true)
+    try {
+      await bancoDeDadosService.logInitialBalanceAdjustment({
+        cliente_id: clientId,
+        cliente_nome: clientName,
+        vendedor_id: employee.id,
+        vendedor_nome: employee.nome_completo,
+        saldo_anterior: editingItem.saldoInicial || 0,
+        saldo_novo: newSaldoInicial,
+        produto_id: editingItem.produtoId,
+      })
+
+      if (onUpdateSaldoInicial) {
+        onUpdateSaldoInicial(editingItem.uid, newSaldoInicial)
+      }
+
+      toast({
+        title: 'Saldo Atualizado',
+        description: 'Ajuste de saldo inicial registrado com sucesso.',
+      })
+      setEditingItem(null)
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: 'Erro ao atualizar',
+        description: 'Falha ao registrar ajuste de saldo.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingEdit(false)
     }
   }
 
@@ -148,130 +208,190 @@ export function AcertoTable({
   }
 
   return (
-    <div className="rounded-md border bg-card overflow-hidden">
-      <Table>
-        <TableHeader className="bg-muted/30">
-          <TableRow>
-            <VerticalHeader className="w-[50px]">ID VENDA ITENS</VerticalHeader>
-            <VerticalHeader className="w-[50px]">CÓDIGO</VerticalHeader>
-            <VerticalHeader>TIPO</VerticalHeader>
-            <VerticalHeader className="w-[300px] items-start justify-start">
-              PRODUTO
-            </VerticalHeader>
-            <VerticalHeader>SALDO INICIAL</VerticalHeader>
-            <VerticalHeader className="bg-blue-50/50 font-bold text-blue-700">
-              CONTAGEM
-            </VerticalHeader>
-            <VerticalHeader>QUANT. VENDIDA</VerticalHeader>
-            <VerticalHeader>VALOR VENDIDO</VerticalHeader>
-            <VerticalHeader className="bg-primary/5 font-bold text-primary">
-              SALDO FINAL
-            </VerticalHeader>
-            <TableHead className="w-[50px]"></TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {items.length === 0 ? (
+    <>
+      <div className="rounded-md border bg-card overflow-hidden">
+        <Table>
+          <TableHeader className="bg-muted/30">
             <TableRow>
-              <TableCell
-                colSpan={10}
-                className="h-24 text-center text-muted-foreground"
-              >
-                Nenhum produto adicionado. Clique em "Inserir Produto" para
-                começar.
-              </TableCell>
+              <VerticalHeader className="w-[50px]">
+                ID VENDA ITENS
+              </VerticalHeader>
+              <VerticalHeader className="w-[50px]">CÓDIGO</VerticalHeader>
+              <VerticalHeader>TIPO</VerticalHeader>
+              <VerticalHeader className="w-[300px] items-start justify-start">
+                PRODUTO
+              </VerticalHeader>
+              <VerticalHeader>SALDO INICIAL</VerticalHeader>
+              <VerticalHeader className="bg-blue-50/50 font-bold text-blue-700">
+                CONTAGEM
+              </VerticalHeader>
+              <VerticalHeader>QUANT. VENDIDA</VerticalHeader>
+              <VerticalHeader>VALOR VENDIDO</VerticalHeader>
+              <VerticalHeader className="bg-primary/5 font-bold text-primary">
+                SALDO FINAL
+              </VerticalHeader>
+              <TableHead className="w-[50px]"></TableHead>
             </TableRow>
-          ) : (
-            items.map((item) => {
-              const isDeleteDisabled = (item.saldoInicial || 0) > 0
+          </TableHeader>
+          <TableBody>
+            {items.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={10}
+                  className="h-24 text-center text-muted-foreground"
+                >
+                  Nenhum produto adicionado. Clique em "Inserir Produto" para
+                  começar.
+                </TableCell>
+              </TableRow>
+            ) : (
+              items.map((item) => {
+                const isDeleteDisabled = (item.saldoInicial || 0) > 0
 
-              return (
-                <TableRow key={item.uid} className="hover:bg-muted/50">
-                  <TableCell className="font-mono text-xs text-center text-muted-foreground">
-                    {item.idVendaItens || '-'}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs text-center p-0 align-middle">
-                    <div className="flex justify-center items-center h-full py-2">
-                      <span
-                        className="writing-mode-vertical-rl rotate-180 block"
-                        style={{ writingMode: 'vertical-rl' }}
-                      >
-                        {item.produtoCodigo || '-'}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-center text-xs text-muted-foreground">
-                    {item.tipo || '-'}
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    {item.produtoNome}
-                  </TableCell>
-                  <TableCell className="text-center font-mono">
-                    {item.saldoInicial}
-                  </TableCell>
-                  <TableCell className="p-2 bg-blue-50/30">
-                    <NumberInputControl
-                      value={item.contagem}
-                      onChange={(val) => safeUpdateContagem(item.uid, val)}
-                      disabled={isContagemDisabled}
-                    />
-                  </TableCell>
-                  <TableCell className="text-center font-bold">
-                    {item.quantVendida}
-                  </TableCell>
-                  <TableCell className="text-center font-mono text-green-600">
-                    R$ {item.valorVendido.toFixed(2).replace('.', ',')}
-                  </TableCell>
-                  <TableCell className="p-2 bg-primary/5">
-                    <NumberInputControl
-                      value={item.saldoFinal}
-                      onChange={(val) => safeUpdateSaldoFinal(item.uid, val)}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="inline-block" tabIndex={-1}>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className={cn(
-                                'h-8 w-8',
-                                isDeleteDisabled
-                                  ? 'text-muted-foreground opacity-30 cursor-not-allowed hover:bg-transparent'
-                                  : 'text-destructive hover:text-destructive hover:bg-destructive/10',
-                              )}
-                              onClick={() =>
-                                !isDeleteDisabled && safeRemoveItem(item.uid)
-                              }
-                              tabIndex={-1}
-                              disabled={isDeleteDisabled}
-                            >
-                              {isDeleteDisabled ? (
-                                <Lock className="h-4 w-4" />
-                              ) : (
-                                <Trash2 className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </span>
-                        </TooltipTrigger>
-                        {isDeleteDisabled && (
-                          <TooltipContent side="left">
-                            <p>
-                              Não é possível remover produto com saldo inicial.
-                            </p>
-                          </TooltipContent>
-                        )}
-                      </Tooltip>
-                    </TooltipProvider>
-                  </TableCell>
-                </TableRow>
-              )
-            })
-          )}
-        </TableBody>
-      </Table>
-    </div>
+                return (
+                  <TableRow key={item.uid} className="hover:bg-muted/50">
+                    <TableCell className="font-mono text-xs text-center text-muted-foreground">
+                      {item.idVendaItens || '-'}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-center p-0 align-middle">
+                      <div className="flex justify-center items-center h-full py-2">
+                        <span
+                          className="writing-mode-vertical-rl rotate-180 block"
+                          style={{ writingMode: 'vertical-rl' }}
+                        >
+                          {item.produtoCodigo || '-'}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center text-xs text-muted-foreground">
+                      {item.tipo || '-'}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {item.produtoNome}
+                    </TableCell>
+                    <TableCell className="text-center font-mono">
+                      <div className="flex items-center justify-center gap-2">
+                        <span>{item.saldoInicial}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-primary"
+                          onClick={() => openEditSaldoInicial(item)}
+                        >
+                          <Edit2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                    <TableCell className="p-2 bg-blue-50/30">
+                      <NumberInputControl
+                        value={item.contagem}
+                        onChange={(val) => safeUpdateContagem(item.uid, val)}
+                        disabled={isContagemDisabled}
+                      />
+                    </TableCell>
+                    <TableCell className="text-center font-bold">
+                      {item.quantVendida}
+                    </TableCell>
+                    <TableCell className="text-center font-mono text-green-600">
+                      R$ {item.valorVendido.toFixed(2).replace('.', ',')}
+                    </TableCell>
+                    <TableCell className="p-2 bg-primary/5">
+                      <NumberInputControl
+                        value={item.saldoFinal}
+                        onChange={(val) => safeUpdateSaldoFinal(item.uid, val)}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="inline-block" tabIndex={-1}>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className={cn(
+                                  'h-8 w-8',
+                                  isDeleteDisabled
+                                    ? 'text-muted-foreground opacity-30 cursor-not-allowed hover:bg-transparent'
+                                    : 'text-destructive hover:text-destructive hover:bg-destructive/10',
+                                )}
+                                onClick={() =>
+                                  !isDeleteDisabled && safeRemoveItem(item.uid)
+                                }
+                                tabIndex={-1}
+                                disabled={isDeleteDisabled}
+                              >
+                                {isDeleteDisabled ? (
+                                  <Lock className="h-4 w-4" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </span>
+                          </TooltipTrigger>
+                          {isDeleteDisabled && (
+                            <TooltipContent side="left">
+                              <p>
+                                Não é possível remover produto com saldo
+                                inicial.
+                              </p>
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
+                      </TooltipProvider>
+                    </TableCell>
+                  </TableRow>
+                )
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog
+        open={!!editingItem}
+        onOpenChange={(open) => !open && setEditingItem(null)}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Ajustar Saldo Inicial</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="flex flex-col gap-4">
+              <div className="space-y-1">
+                <p className="text-sm font-medium">
+                  {editingItem?.produtoNome}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Saldo Anterior: {editingItem?.saldoInicial}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium">Novo Saldo</label>
+                <Input
+                  type="number"
+                  value={newSaldoInicial}
+                  onChange={(e) => setNewSaldoInicial(Number(e.target.value))}
+                  autoFocus
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditingItem(null)}
+              disabled={savingEdit}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveSaldoInicial} disabled={savingEdit}>
+              {savingEdit && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirmar Ajuste
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

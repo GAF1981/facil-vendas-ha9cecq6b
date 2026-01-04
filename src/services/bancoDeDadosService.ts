@@ -130,8 +130,7 @@ export const bancoDeDadosService = {
       .eq('"HORA DO ACERTO"', time)
 
     if (dbError) throw dbError
-    if (!dbItems || dbItems.length === 0)
-      return { items: [], nextId: (await this.getMaxIdVendaItens()) + 1 }
+    if (!dbItems || dbItems.length === 0) return { items: [], nextId: 1 }
 
     const productCodes = [
       ...new Set(
@@ -150,16 +149,12 @@ export const bancoDeDadosService = {
       if (productsData) products = productsData
     }
 
-    let currentMaxId = await this.getMaxIdVendaItens()
-
     const items: AcertoItem[] = dbItems
       .map((dbItem) => {
         const product = products.find(
           (p) => p.CODIGO === dbItem['COD. PRODUTO'],
         )
         if (!product) return null
-
-        currentMaxId++
 
         const saldoInicial = dbItem['SALDO FINAL'] || 0
         const contagem = 0
@@ -179,12 +174,12 @@ export const bancoDeDadosService = {
           quantVendida: quantVendida,
           valorVendido: valorVendido,
           saldoFinal: 0,
-          idVendaItens: currentMaxId,
+          idVendaItens: null, // Let DB handle identity
         }
       })
       .filter((i) => i !== null) as AcertoItem[]
 
-    return { items, nextId: currentMaxId + 1 }
+    return { items, nextId: 0 }
   },
 
   async getMonthlyAverage(clienteId: number): Promise<number> {
@@ -244,21 +239,7 @@ export const bancoDeDadosService = {
       ),
     ] as number[]
 
-    let paymentsMap = new Map<
-      number,
-      {
-        total: number
-        methods: Set<string>
-        details: {
-          method: string
-          value: number
-          registeredValue: number
-          date: string
-          employeeName: string
-          createdAt: string
-        }[]
-      }
-    >()
+    let paymentsMap = new Map<number, any>()
 
     if (orderIds.length > 0) {
       const { data: paymentsData, error: paymentsError } = await supabase
@@ -380,10 +361,6 @@ export const bancoDeDadosService = {
 
     if (itemsError) throw itemsError
 
-    // It's possible to have orders without items (e.g. only payments in some legacy cases), but rare.
-    // If no items, we might still want to print payments?
-    // Let's assume we need at least one row to get client/date info from items usually.
-
     const { data: paymentsData, error: paymentsError } = await supabase
       .from('RECEBIMENTOS')
       .select('*')
@@ -392,6 +369,26 @@ export const bancoDeDadosService = {
     if (paymentsError) throw paymentsError
 
     return { items: itemsData || [], payments: paymentsData || [] }
+  },
+
+  async logInitialBalanceAdjustment(payload: {
+    numero_pedido?: number | null
+    cliente_id: number
+    cliente_nome: string
+    vendedor_id: number
+    vendedor_nome: string
+    saldo_anterior: number
+    saldo_novo: number
+    produto_id: number
+  }) {
+    const quantity = payload.saldo_novo - payload.saldo_anterior
+
+    const { error } = await supabase.from('AJUSTE_SALDO_INICIAL').insert({
+      ...payload,
+      quantidade_alterada: quantity,
+    } as any)
+
+    if (error) throw error
   },
 
   async saveTransaction(
@@ -405,8 +402,6 @@ export const bancoDeDadosService = {
     customOrderNumber?: number,
   ) {
     // 1. Get Context (Order Number)
-    // If customOrderNumber is passed (e.g. reserved via sequence), use it.
-    // Otherwise fallback to reserveNextOrderNumber (safest)
     const nextPedido =
       customOrderNumber ?? (await this.reserveNextOrderNumber())
 
@@ -482,8 +477,9 @@ export const bancoDeDadosService = {
 
       const itemDebt = valorVendidoVal * (1 - discountFactor)
 
+      // Exclude ID VENDA ITENS to allow DB identity to generate it
       return {
-        'ID VENDA ITENS': item.idVendaItens,
+        // 'ID VENDA ITENS': item.idVendaItens, // OMITTED to fix identity issue
         'NÚMERO DO PEDIDO': nextPedido,
         'DATA DO ACERTO': dataAcertoStr,
         'HORA DO ACERTO': horaAcerto,
@@ -575,7 +571,7 @@ export const bancoDeDadosService = {
       }
     }
 
-    // 6. Insert into NOTA_FISCAL if requested (Legacy Support or redundant now?)
+    // 6. Insert into NOTA_FISCAL if requested
     if (notaFiscalVenda) {
       const { error: nfError } = await supabase.from('NOTA_FISCAL').insert({
         venda_id: nextPedido,
@@ -587,12 +583,11 @@ export const bancoDeDadosService = {
       }
     }
 
-    // 7. Check Rota and Decrement x_na_rota if applicable (New Feature)
+    // 7. Check Rota and Decrement x_na_rota
     try {
       await rotaService.checkAndDecrementXNaRota(client.CODIGO, date)
     } catch (rotaError) {
       console.error('Error updating Rota counter on settlement:', rotaError)
-      // Do not block the transaction success
     }
   },
 }

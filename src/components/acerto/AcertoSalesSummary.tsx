@@ -26,28 +26,28 @@ export function AcertoSalesSummary({ items, client }: AcertoSalesSummaryProps) {
 
   return (
     <Card className="border-muted bg-muted/10">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-lg font-semibold flex items-center gap-2">
-          <Calculator className="h-5 w-5 text-primary" />
+      <CardHeader className="py-2 px-4 min-h-[40px]">
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          <Calculator className="h-4 w-4 text-primary" />
           Resumos de Venda
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="flex flex-col space-y-1 p-3 bg-white dark:bg-card rounded-lg border shadow-sm">
-            <span className="text-sm text-muted-foreground font-medium flex items-center gap-1">
-              <Tag className="h-3.5 w-3.5" /> Valor Total Vendido
+      <CardContent className="p-3">
+        <div className="grid grid-cols-1 gap-2">
+          <div className="flex justify-between items-center p-2 bg-white dark:bg-card rounded border shadow-sm h-8">
+            <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
+              <Tag className="h-3 w-3" /> Valor Vendido
             </span>
-            <span className="text-2xl font-bold">
+            <span className="text-sm font-bold">
               R$ {formatCurrency(totalVendido)}
             </span>
           </div>
 
-          <div className="flex flex-col space-y-1 p-3 bg-white dark:bg-card rounded-lg border shadow-sm">
-            <span className="text-sm text-muted-foreground font-medium flex items-center gap-1">
-              <Percent className="h-3.5 w-3.5" /> Valor do Desconto
+          <div className="flex justify-between items-center p-2 bg-white dark:bg-card rounded border shadow-sm h-8">
+            <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
+              <Percent className="h-3 w-3" /> Desconto
               {descontoVal > 0 && (
-                <span className="text-xs ml-1 bg-red-100 text-red-700 px-1.5 rounded-full">
+                <span className="text-[9px] ml-1 bg-red-100 text-red-700 px-1 rounded-full">
                   {descontoStr.includes('%')
                     ? descontoStr
                     : `${(discountFactor * 100).toFixed(0)}%`}
@@ -56,7 +56,7 @@ export function AcertoSalesSummary({ items, client }: AcertoSalesSummaryProps) {
             </span>
             <span
               className={cn(
-                'text-2xl font-bold',
+                'text-sm font-bold',
                 valorDesconto > 0 ? 'text-red-600' : '',
               )}
             >
@@ -64,11 +64,11 @@ export function AcertoSalesSummary({ items, client }: AcertoSalesSummaryProps) {
             </span>
           </div>
 
-          <div className="flex flex-col space-y-1 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-900 shadow-sm">
-            <span className="text-sm text-green-700 dark:text-green-400 font-medium flex items-center gap-1">
-              <DollarSign className="h-3.5 w-3.5" /> Valor do Acerto
+          <div className="flex justify-between items-center p-2 bg-green-50 dark:bg-green-950/20 rounded border border-green-200 dark:border-green-900 shadow-sm h-9">
+            <span className="text-[10px] text-green-700 dark:text-green-400 font-medium flex items-center gap-1">
+              <DollarSign className="h-3 w-3" /> Valor Acerto
             </span>
-            <span className="text-2xl font-bold text-green-700 dark:text-green-400">
+            <span className="text-lg font-bold text-green-700 dark:text-green-400">
               R$ {formatCurrency(valorAcerto)}
             </span>
           </div>

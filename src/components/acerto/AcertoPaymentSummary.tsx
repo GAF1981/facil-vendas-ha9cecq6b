@@ -50,7 +50,7 @@ export function AcertoPaymentSummary({
         method,
         value: defaultValue,
         paidValue:
-          method === 'Boleto' || method === 'Cheque' ? 0 : defaultValue, // Auto-fill paid value for non-delayed methods
+          method === 'Boleto' || method === 'Cheque' ? 0 : defaultValue, // Initially 0 for delayed methods unless autofill logic kicks in later
         installments: 1,
         dueDate: dueDate,
       }
@@ -99,11 +99,17 @@ export function AcertoPaymentSummary({
           const count = value as number
           if (count > 1) {
             updated.details = generateInstallments(p.value, count)
+            // Auto-Fill Logic: If Check/Money/Pix AND Installments > 1 => Paid Value = Registered Value
+            if (['Cheque', 'Dinheiro', 'Pix'].includes(method)) {
+              updated.paidValue = updated.value
+            }
           } else {
             updated.details = undefined
             const today = new Date()
             const dueDateDate = method === 'Boleto' ? addDays(today, 10) : today
             updated.dueDate = format(dueDateDate, 'yyyy-MM-dd')
+            // Revert auto-fill logic? Keeping previous state might be safer or reset to default logic.
+            // For now, let's leave it as is, user can edit if needed.
           }
         }
 
@@ -163,27 +169,27 @@ export function AcertoPaymentSummary({
   }
 
   return (
-    <Card className="border-muted bg-muted/10">
+    <Card className="border-muted bg-muted/10 h-full">
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg font-semibold flex items-center gap-2">
-          <Wallet className="h-5 w-5 text-primary" />
+        <CardTitle className="text-xl font-semibold flex items-center gap-2">
+          <Wallet className="h-6 w-6 text-primary" />
           Resumos de Recebimento
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <div className="flex flex-col space-y-1 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-900 shadow-sm">
+          <div className="flex flex-col space-y-1 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-900 shadow-sm">
             <span className="text-sm text-blue-700 dark:text-blue-400 font-medium flex items-center gap-1">
-              <DollarSign className="h-3.5 w-3.5" /> Saldo a Pagar
+              <DollarSign className="h-4 w-4" /> Saldo a Pagar
             </span>
-            <span className="text-3xl font-bold text-blue-700 dark:text-blue-400">
+            <span className="text-4xl font-bold text-blue-700 dark:text-blue-400">
               R$ {formatCurrency(saldoAPagar)}
             </span>
           </div>
 
           <div
             className={cn(
-              'flex flex-col space-y-1 p-3 rounded-lg border shadow-sm',
+              'flex flex-col space-y-1 p-4 rounded-lg border shadow-sm',
               disabled
                 ? 'bg-gray-100 border-gray-200 text-gray-500 opacity-70'
                 : isComplete
@@ -192,10 +198,10 @@ export function AcertoPaymentSummary({
             )}
           >
             <span className="text-sm font-medium flex items-center gap-1">
-              <CreditCard className="h-3.5 w-3.5" /> Total Selecionado
+              <CreditCard className="h-4 w-4" /> Total Selecionado
             </span>
             <div className="flex items-end justify-between">
-              <span className="text-3xl font-bold">
+              <span className="text-4xl font-bold">
                 R$ {formatCurrency(totalRegistered)}
               </span>
               {!isComplete && !disabled && (
@@ -208,15 +214,15 @@ export function AcertoPaymentSummary({
         </div>
 
         <div className="space-y-4 pt-4 border-t">
-          <Label className="text-base font-semibold">Formas de Pagamento</Label>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Label className="text-lg font-semibold">Formas de Pagamento</Label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {PAYMENT_METHODS.map((method) => {
               const isSelected = payments.some((p) => p.method === method)
               return (
                 <div
                   key={method}
                   className={cn(
-                    'flex items-center space-x-2 border rounded-md p-3 transition-colors',
+                    'flex items-center space-x-3 border rounded-md p-4 transition-colors',
                     disabled
                       ? 'cursor-not-allowed opacity-50 bg-muted/50'
                       : 'cursor-pointer hover:bg-muted',
@@ -233,11 +239,12 @@ export function AcertoPaymentSummary({
                     onCheckedChange={(c) =>
                       handleToggleMethod(method, c as boolean)
                     }
+                    className="h-5 w-5"
                   />
                   <Label
                     htmlFor={`chk-${method}`}
                     className={cn(
-                      'font-medium text-sm',
+                      'font-medium text-base',
                       disabled ? 'cursor-not-allowed' : 'cursor-pointer',
                     )}
                   >
@@ -260,6 +267,8 @@ export function AcertoPaymentSummary({
                 const isFullyPaid =
                   Math.abs(entry.paidValue - entry.value) < 0.01 &&
                   entry.value > 0
+
+                const isPaidDisabled = entry.method === 'Boleto'
 
                 return (
                   <div
@@ -313,7 +322,7 @@ export function AcertoPaymentSummary({
                           >
                             Valor Pago
                           </Label>
-                          {!disabled && (
+                          {!disabled && !isPaidDisabled && (
                             <div className="flex items-center gap-1.5">
                               <Checkbox
                                 id={`auto-${entry.method}`}
@@ -347,7 +356,7 @@ export function AcertoPaymentSummary({
                                 : 'border-green-200 bg-green-50/20 text-green-700',
                             )}
                             value={entry.paidValue}
-                            disabled={disabled}
+                            disabled={disabled || isPaidDisabled}
                             onChange={(e) =>
                               handleUpdateEntry(
                                 entry.method,
@@ -361,6 +370,11 @@ export function AcertoPaymentSummary({
                         {isOverpaid && (
                           <span className="text-[10px] text-red-600 font-medium block mt-1 animate-fade-in">
                             Aviso: Valor pago maior que registrado.
+                          </span>
+                        )}
+                        {isPaidDisabled && (
+                          <span className="text-[10px] text-muted-foreground font-medium block mt-1">
+                            Boleto não permite entrada de valor pago imediato.
                           </span>
                         )}
                       </div>

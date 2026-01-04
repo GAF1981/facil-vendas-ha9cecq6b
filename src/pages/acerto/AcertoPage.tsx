@@ -9,12 +9,12 @@ import { AcertoPaymentSummary } from '@/components/acerto/AcertoPaymentSummary'
 import { AcertoFiscalSection } from '@/components/acerto/AcertoFiscalSection'
 import { SignatureModal } from '@/components/acerto/SignatureModal'
 import { AcertoHistoryTable } from '@/components/acerto/AcertoHistoryTable'
-import { ProductSelector } from '@/components/acerto/ProductSelector' // Imported
+import { ProductSelector } from '@/components/acerto/ProductSelector'
 import { ClientRow } from '@/types/client'
 import { Employee } from '@/types/employee'
 import { AcertoItem } from '@/types/acerto'
 import { PaymentEntry } from '@/types/payment'
-import { ProductRow } from '@/types/product' // Imported
+import { ProductRow } from '@/types/product'
 import { bancoDeDadosService } from '@/services/bancoDeDadosService'
 import { acertoService } from '@/services/acertoService'
 import { employeesService } from '@/services/employeesService'
@@ -188,6 +188,25 @@ export default function AcertoPage() {
     )
   }
 
+  const handleUpdateSaldoInicial = (uid: string, newSaldo: number) => {
+    setItems((prevItems) =>
+      prevItems.map((item) => {
+        if (item.uid === uid) {
+          // Recalculate based on new initial balance
+          const quantVendida = newSaldo - item.contagem
+          const valorVendido = quantVendida * item.precoUnitario
+          return {
+            ...item,
+            saldoInicial: newSaldo,
+            quantVendida,
+            valorVendido,
+          }
+        }
+        return item
+      }),
+    )
+  }
+
   const handleRemoveItem = (uid: string) => {
     setItems((prevItems) => prevItems.filter((item) => item.uid !== uid))
   }
@@ -209,7 +228,7 @@ export default function AcertoPage() {
       quantVendida: 0,
       valorVendido: 0,
       saldoFinal: 0,
-      idVendaItens: null, // New items don't have this yet
+      idVendaItens: null,
     }))
 
     setItems((prev) => [...prev, ...newItems])
@@ -417,29 +436,36 @@ export default function AcertoPage() {
             onUpdateContagem={handleUpdateContagem}
             onUpdateSaldoFinal={handleUpdateSaldoFinal}
             onRemoveItem={handleRemoveItem}
+            onUpdateSaldoInicial={handleUpdateSaldoInicial}
             loading={loadingAcerto}
             mode="ACERTO"
             acertoTipo="Acerto"
+            clientId={client.CODIGO}
+            clientName={client['NOME CLIENTE'] || 'Desconhecido'}
           />
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="space-y-6">
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <AcertoStockSummary items={items} />
               <AcertoSalesSummary items={items} client={client} />
             </div>
-            <div className="space-y-6">
-              <AcertoPaymentSummary
-                saldoAPagar={amountToPay}
-                payments={payments}
-                onPaymentsChange={setPayments}
-                disabled={saving}
-              />
-              <AcertoFiscalSection
-                clientNotaFiscal={client['NOTA FISCAL']}
-                notaFiscalVenda={notaFiscal}
-                onNotaFiscalVendaChange={setNotaFiscal}
-                disabled={saving}
-              />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <AcertoPaymentSummary
+                  saldoAPagar={amountToPay}
+                  payments={payments}
+                  onPaymentsChange={setPayments}
+                  disabled={saving}
+                />
+              </div>
+              <div className="lg:col-span-1">
+                <AcertoFiscalSection
+                  clientNotaFiscal={client['NOTA FISCAL']}
+                  notaFiscalVenda={notaFiscal}
+                  onNotaFiscalVendaChange={setNotaFiscal}
+                  disabled={saving}
+                />
+              </div>
             </div>
           </div>
 
