@@ -41,7 +41,7 @@ export function RevenueGallery({ items }: RevenueGalleryProps) {
     listTotal: number,
   ) => (
     <div className="flex flex-col h-full">
-      <ScrollArea className="flex-1 h-[350px]">
+      <ScrollArea className="flex-1 h-[500px]">
         <div className="divide-y">
           {listItems.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground text-sm">

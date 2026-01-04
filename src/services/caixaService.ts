@@ -69,9 +69,10 @@ export const caixaService = {
       })
     })
 
+    // Added forma_pagamento to selection to filter out Boletos
     const { data: receipts, error: recError } = await supabase
       .from('RECEBIMENTOS')
-      .select('funcionario_id, valor_pago, created_at')
+      .select('funcionario_id, valor_pago, created_at, forma_pagamento')
       .gte('created_at', rota.data_inicio)
       .gt('valor_pago', 0)
 
@@ -79,6 +80,10 @@ export const caixaService = {
 
     receipts?.forEach((rec) => {
       if (!rec.created_at) return
+
+      // Filter out Boleto payments from employee balance
+      if (rec.forma_pagamento === 'Boleto') return
+
       const recDate = parseISO(rec.created_at)
 
       const isAfterStart =
