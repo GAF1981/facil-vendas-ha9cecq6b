@@ -49,7 +49,6 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
       const statusMap = new Map<number, boolean>()
       for (const item of data) {
         if (item.status !== 'Fechado') {
-          // Check Pix status for this employee/route
           try {
             const allConfirmed = await pixService.areAllPixConfirmedForEmployee(
               item.rota_id,
@@ -104,7 +103,6 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
 
     setLoadingIds((prev) => new Set(prev).add(item.id))
     try {
-      // 1. Confirm closing in DB
       await fechamentoService.confirmClosing(item.id, employee.id)
 
       toast({
@@ -113,9 +111,7 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
         className: 'bg-green-600 text-white',
       })
 
-      // 2. Generate PDF
-      await generatePdf(item, true) // Force true status for PDF
-
+      await generatePdf(item, true)
       onRefresh()
     } catch (error) {
       console.error(error)
@@ -210,36 +206,21 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
           ) : (
             data.map((item) => {
               const isClosed = item.status === 'Fechado'
-
-              // Logic for PIX Auto-Check
-              // If all confirmed via pix service, it should be auto checked and potentially readonly if we enforce it.
-              // Requirement: "If all PIX records ... have status 'Conferido', the 'Pix' checkbox ... must be automatically checked and disabled for manual editing"
               const allPixConfirmed = pixStatusMap.get(item.id) || false
+
+              // Automated PIX Logic: Checked if approved manually OR all items confirmed
               const isPixCheckboxChecked = isClosed
                 ? item.pix_aprovado
                 : allPixConfirmed || item.pix_aprovado
+
               const isPixCheckboxDisabled = isClosed || allPixConfirmed
 
-              // Effect to sync state if auto-check happened but state is false (needs persist to DB)
-              // NOTE: We cannot easily trigger DB update inside render loop.
-              // Ideally this state sync happens on mount/refresh or we rely on UI state.
-              // For now, we display it checked visually. The user still needs to click Confirm to finalize which uses DB state.
-              // To ensure consistency, if allPixConfirmed is true, we should treat it as approved.
-              // However, the `handleConfirm` logic relies on `item` state.
-              // Let's rely on the user clicking Confirm to save the state, or manually updating it if needed.
-              // To follow requirement strictly, visual check + disabled is key.
-              // But 'Confirmar' button logic depends on state variables.
-              // We'll trust `allPixConfirmed` as an override for the checkbox visual and validation.
-
-              // Validate all sections
-              const hasExpenses = (item.valor_despesas || 0) > 0
-              const expensesOk = hasExpenses ? item.despesas_aprovadas : true // Must be checked if expenses exist
-
+              // Validation Logic: Stricter - REQUIRE ALL CHECKBOXES
               const canConfirm =
                 item.dinheiro_aprovado &&
-                (isPixCheckboxChecked || item.pix_aprovado) && // Use derived checked state
+                (isPixCheckboxChecked || item.pix_aprovado) &&
                 item.cheque_aprovado &&
-                expensesOk &&
+                item.despesas_aprovadas && // Explicitly require expense approval even if 0
                 !isClosed
 
               const isLoading = loadingIds.has(item.id)
@@ -399,11 +380,7 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
                         <Button
                           size="sm"
                           onClick={() => {
-                            // If auto-checked but not saved in DB, save it first before confirming?
-                            // No, confirmClosing just updates status. We need to ensure approvals are saved.
-                            // If allPixConfirmed is true, we assume approval is implicit for the confirmation logic.
-                            // But `dinheiro_aprovado` etc are fields in DB.
-                            // We should probably update `pix_aprovado` to true if `allPixConfirmed` is true just before confirming.
+                            // If auto-checked due to Pix Conference, update the DB state before confirming
                             if (allPixConfirmed && !item.pix_aprovado) {
                               fechamentoService
                                 .updateApproval(item.id, 'pix_aprovado', true)

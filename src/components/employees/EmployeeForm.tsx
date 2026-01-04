@@ -27,6 +27,7 @@ import { permissionsService } from '@/services/permissionsService'
 import { useToast } from '@/hooks/use-toast'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { CameraCapture } from '@/components/common/CameraCapture'
+import { MultiSelect } from '@/components/common/MultiSelect'
 
 interface EmployeeFormProps {
   initialData?: Employee
@@ -44,6 +45,15 @@ export function EmployeeForm({
   const [sectors, setSectors] = useState<string[]>([])
   const { toast } = useToast()
 
+  // Handle legacy sector (string) vs new sector (string[])
+  const defaultSector = initialData
+    ? Array.isArray(initialData.setor)
+      ? initialData.setor
+      : initialData.setor
+        ? [initialData.setor] // Convert legacy string to array
+        : []
+    : []
+
   const form = useForm<EmployeeFormData>({
     resolver: zodResolver(employeeSchema),
     defaultValues: initialData
@@ -52,7 +62,7 @@ export function EmployeeForm({
           apelido: initialData.apelido || '',
           cpf: initialData.cpf || '',
           email: initialData.email,
-          setor: initialData.setor || '',
+          setor: defaultSector,
           senha: initialData.senha || '',
           foto_url: initialData.foto_url || '',
           situacao: initialData.situacao || 'ATIVO',
@@ -62,7 +72,7 @@ export function EmployeeForm({
           apelido: '',
           cpf: '',
           email: '',
-          setor: '',
+          setor: [],
           senha: '',
           foto_url: '',
           situacao: 'ATIVO',
@@ -74,26 +84,26 @@ export function EmployeeForm({
     const loadSectors = async () => {
       try {
         const sectorList = await permissionsService.getSectors()
-        // Ensure default sectors are present
         const defaults = [
           'Vendedor',
           'Estoque',
           'Motoqueiro',
           'Financeiro',
           'Administrador',
+          'Gerente', // Added per requirement
           'Outros',
         ]
         const merged = Array.from(new Set([...defaults, ...sectorList])).sort()
         setSectors(merged)
       } catch (error) {
         console.error('Failed to load sectors', error)
-        // Fallback defaults if fetch fails
         setSectors([
           'Vendedor',
           'Estoque',
           'Motoqueiro',
           'Financeiro',
           'Administrador',
+          'Gerente',
           'Outros',
         ])
       }
@@ -125,9 +135,11 @@ export function EmployeeForm({
         })
       } else {
         await employeesService.create(data)
-        // Ensure permissions are initialized for this sector
-        if (data.setor) {
-          await permissionsService.initPermissionsForSetor(data.setor)
+        // Ensure permissions are initialized for these sectors
+        if (data.setor && data.setor.length > 0) {
+          for (const s of data.setor) {
+            await permissionsService.initPermissionsForSetor(s)
+          }
         }
         toast({
           title: 'Funcionário cadastrado',
@@ -147,6 +159,8 @@ export function EmployeeForm({
       setLoading(false)
     }
   }
+
+  const sectorOptions = sectors.map((s) => ({ label: s, value: s }))
 
   return (
     <>
@@ -173,9 +187,6 @@ export function EmployeeForm({
                 <Camera className="h-4 w-4" />
                 Tirar Foto
               </Button>
-              <div className="text-xs text-muted-foreground text-center max-w-[200px]">
-                Ou cole a URL abaixo
-              </div>
             </div>
 
             <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -280,25 +291,15 @@ export function EmployeeForm({
                 name="setor"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Setor</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value || undefined}
-                      value={field.value || undefined}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione um setor" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {sectors.map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {s}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormLabel>Setor(es)</FormLabel>
+                    <FormControl>
+                      <MultiSelect
+                        options={sectorOptions}
+                        selected={field.value || []}
+                        onChange={field.onChange}
+                        placeholder="Selecione os setores"
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

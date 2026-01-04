@@ -17,7 +17,7 @@ const MODULES_LIST = [
   'Cobrança',
   'Nota Fiscal',
   'Caixa',
-  'Fechamentos', // Added new module
+  'Fechamentos',
   'Inventário',
   'Rota',
   'Resumo Acertos',
@@ -25,6 +25,8 @@ const MODULES_LIST = [
   'Pendências',
   'Backup',
   'Permissões',
+  'Pagamentos', // Ensuring all modules are listed
+  'Controle',
 ]
 
 export const permissionsService = {
@@ -47,26 +49,17 @@ export const permissionsService = {
 
     if (permError) throw permError
 
-    // Fetch unique sectors from FUNCIONARIOS to ensure we capture all in use
-    const { data: empData, error: empError } = await supabase
-      .from('FUNCIONARIOS')
-      .select('setor')
-
-    if (empError) console.error('Error fetching employee sectors', empError)
-
     const uniqueSectors = new Set<string>([
       'Vendedor',
       'Estoque',
       'Motoqueiro',
       'Financeiro',
       'Administrador',
+      'Gerente', // Added new sector
       'Outros',
     ])
 
     permData?.forEach((p) => uniqueSectors.add(p.setor))
-    empData?.forEach((e) => {
-      if (e.setor) uniqueSectors.add(e.setor)
-    })
 
     return Array.from(uniqueSectors).sort()
   },
@@ -101,6 +94,8 @@ export const permissionsService = {
 
   // Helper to init permissions if missing for a sector
   async initPermissionsForSetor(setor: string) {
+    // If sector is array or comma separated, we should init for each?
+    // This function handles a single sector string.
     const inserts = MODULES_LIST.map((m) => ({
       setor,
       modulo: m,

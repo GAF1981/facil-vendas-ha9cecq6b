@@ -17,8 +17,10 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Lock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useUserStore } from '@/stores/useUserStore'
 
 interface PixTableProps {
   data: PixReceiptRow[]
@@ -36,6 +38,18 @@ export function PixTable({
   onSort,
   sortConfig,
 }: PixTableProps) {
+  const { employee } = useUserStore()
+
+  // Access Control Logic
+  const canConfer = (() => {
+    if (!employee || !employee.setor) return false
+    const allowedSectors = ['Administrador', 'Financeiro', 'Gerente']
+    const sectors = Array.isArray(employee.setor)
+      ? employee.setor
+      : [employee.setor]
+    return sectors.some((s) => allowedSectors.includes(s))
+  })()
+
   const SortIcon = ({ columnKey }: { columnKey: string }) => {
     if (sortConfig.key !== columnKey)
       return <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />
@@ -168,22 +182,32 @@ export function PixTable({
                   <Button
                     size="sm"
                     variant={row.confirmado_por ? 'ghost' : 'default'}
-                    className={
+                    disabled={!canConfer}
+                    className={cn(
                       row.confirmado_por
                         ? 'text-muted-foreground hover:text-foreground'
-                        : 'bg-blue-600 hover:bg-blue-700'
-                    }
+                        : 'bg-blue-600 hover:bg-blue-700',
+                      !canConfer && 'opacity-50 cursor-not-allowed',
+                    )}
                     onClick={() => onConfer(row)}
+                    title={
+                      !canConfer ? 'Você não tem permissão para conferir.' : ''
+                    }
                   >
                     {row.confirmado_por ? (
                       <>
                         <Edit2 className="mr-2 h-3.5 w-3.5" />
                         Editar
                       </>
-                    ) : (
+                    ) : canConfer ? (
                       <>
                         <CheckCircle2 className="mr-2 h-3.5 w-3.5" />
                         Conferir
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="mr-2 h-3.5 w-3.5" />
+                        Bloqueado
                       </>
                     )}
                   </Button>

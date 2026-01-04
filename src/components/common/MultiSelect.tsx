@@ -81,7 +81,7 @@ export function MultiSelect({
                       handleUnselect(item)
                     }}
                   >
-                    {options.find((opt) => opt.value === item)?.label}
+                    {options.find((opt) => opt.value === item)?.label || item}
                     <button
                       className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                       onKeyDown={(e) => {
@@ -121,7 +121,7 @@ export function MultiSelect({
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
-                  value={option.label} // Search by label
+                  value={option.label}
                   onSelect={() => handleSelect(option.value)}
                 >
                   <Check

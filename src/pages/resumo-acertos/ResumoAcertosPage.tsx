@@ -32,7 +32,6 @@ import {
   TrendingDown,
   TrendingUp,
   Receipt,
-  RotateCcw,
   User,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
@@ -40,16 +39,6 @@ import { Link } from 'react-router-dom'
 import { Rota } from '@/types/rota'
 import { Employee } from '@/types/employee'
 import { employeesService } from '@/services/employeesService'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { useUserStore } from '@/stores/useUserStore'
 
 export default function ResumoAcertosPage() {
@@ -63,8 +52,6 @@ export default function ResumoAcertosPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('todos')
 
-  const [showFinishDialog, setShowFinishDialog] = useState(false)
-  const [finishing, setFinishing] = useState(false)
   const { toast } = useToast()
 
   const fetchRoutes = async () => {
@@ -144,44 +131,7 @@ export default function ResumoAcertosPage() {
     )
   }, [data, selectedEmployeeId])
 
-  const handleFinishRoute = async () => {
-    setFinishing(true)
-    try {
-      const currentRoute = routes.find(
-        (r) => r.id.toString() === selectedRouteId,
-      )
-      if (!currentRoute) return
-
-      const newRoute = await resumoAcertosService.finishAndStartNewRoute(
-        currentRoute.id,
-      )
-
-      toast({
-        title: 'Rota Finalizada',
-        description: `Rota #${currentRoute.id} fechada. Nova rota #${newRoute.id} iniciada.`,
-        className: 'bg-green-600 text-white',
-      })
-
-      const updatedRoutes = await fetchRoutes()
-      if (updatedRoutes.length > 0) {
-        setSelectedRouteId(updatedRoutes[0].id.toString())
-      }
-      setShowFinishDialog(false)
-    } catch (error) {
-      console.error(error)
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível finalizar a rota.',
-        variant: 'destructive',
-      })
-    } finally {
-      setFinishing(false)
-    }
-  }
-
   const selectedRoute = routes.find((r) => r.id.toString() === selectedRouteId)
-  const isLatestRoute = routes.length > 0 && selectedRoute?.id === routes[0].id
-  const isRouteOpen = selectedRoute && !selectedRoute.data_fim
 
   // Financial Totals (Based on filtered data)
   const totalVendas = filteredData.reduce(
@@ -227,16 +177,6 @@ export default function ResumoAcertosPage() {
             />
             Atualizar
           </Button>
-          {isLatestRoute && isRouteOpen && (
-            <Button
-              variant="destructive"
-              onClick={() => setShowFinishDialog(true)}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              <RotateCcw className="mr-2 h-4 w-4" />
-              Finalizar Rota
-            </Button>
-          )}
         </div>
       </div>
 
@@ -497,38 +437,6 @@ export default function ResumoAcertosPage() {
           </div>
         </CardContent>
       </Card>
-
-      <AlertDialog open={showFinishDialog} onOpenChange={setShowFinishDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Finalizar Rota Atual?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação irá fechar a rota atual #{selectedRoute?.id} e iniciar
-              automaticamente uma nova rota.
-              <br />
-              <br />
-              Certifique-se de que todos os acertos do período foram lançados.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleFinishRoute}
-              disabled={finishing}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              {finishing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />{' '}
-                  Finalizando...
-                </>
-              ) : (
-                'Sim, Finalizar e Iniciar Nova'
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }

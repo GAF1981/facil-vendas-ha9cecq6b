@@ -6,7 +6,7 @@ export interface Employee {
   apelido: string | null
   cpf: string | null
   email: string
-  setor: string | null
+  setor: string[] | null // Updated to array
   senha?: string
   foto_url?: string | null
   created_at?: string
@@ -28,7 +28,8 @@ export const employeeSchema = z.object({
     .refine((val) => val.includes('@'), {
       message: 'O email deve conter o caractere @',
     }),
-  setor: z.string().optional().nullable(),
+  // Updated Sector Validation to Array
+  setor: z.array(z.string()).optional().nullable(),
   // Password optional and looser validation for legacy/updates
   senha: z.string().optional().nullable().or(z.literal('')),
   // Allow Data URLs (starting with data:) or standard URLs, or empty

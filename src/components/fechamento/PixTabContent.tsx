@@ -23,17 +23,22 @@ import { pixService } from '@/services/pixService'
 import { PixReceiptRow, PixFilters } from '@/types/pix'
 import { useToast } from '@/hooks/use-toast'
 import { parseISO } from 'date-fns'
+import { resumoAcertosService } from '@/services/resumoAcertosService'
+import { Rota } from '@/types/rota'
+import { safeFormatDate } from '@/lib/formatters'
 
 export function PixTabContent() {
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<PixReceiptRow[]>([])
   const [filteredData, setFilteredData] = useState<PixReceiptRow[]>([])
+  const [routes, setRoutes] = useState<Rota[]>([])
 
-  const [filters, setFilters] = useState<PixFilters>({
+  const [filters, setFilters] = useState<PixFilters & { routeId: string }>({
     orderId: '',
     name: '',
     bank: 'todos',
     status: 'todos',
+    routeId: 'todos',
   })
 
   const [sortConfig, setSortConfig] = useState<{
@@ -55,6 +60,15 @@ export function PixTabContent() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const { toast } = useToast()
 
+  const fetchRoutes = async () => {
+    try {
+      const all = await resumoAcertosService.getAllRoutes()
+      setRoutes(all)
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
   const fetchData = async () => {
     setLoading(true)
     try {
@@ -71,6 +85,11 @@ export function PixTabContent() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    fetchRoutes()
+    fetchData()
+  }, [])
 
   useEffect(() => {
     let result = [...data]
@@ -103,6 +122,12 @@ export function PixTabContent() {
       } else if (filters.status === 'NÃO') {
         result = result.filter((row) => !row.confirmado_por)
       }
+    }
+
+    if (filters.routeId && filters.routeId !== 'todos') {
+      result = result.filter(
+        (row) => row.rota_id?.toString() === filters.routeId,
+      )
     }
 
     result.sort((a, b) => {
@@ -140,16 +165,18 @@ export function PixTabContent() {
     setFilteredData(result)
   }, [data, filters, sortConfig])
 
-  useEffect(() => {
-    fetchData()
-  }, [])
-
-  const handleFilterChange = (key: keyof PixFilters, value: string) => {
+  const handleFilterChange = (key: string, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }))
   }
 
   const clearFilters = () => {
-    setFilters({ orderId: '', name: '', bank: 'todos', status: 'todos' })
+    setFilters({
+      orderId: '',
+      name: '',
+      bank: 'todos',
+      status: 'todos',
+      routeId: 'todos',
+    })
   }
 
   const handleSort = (key: string) => {
@@ -183,7 +210,26 @@ export function PixTabContent() {
           </Button>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
+            <div className="space-y-2">
+              <Label htmlFor="routeId">Número da Rota</Label>
+              <Select
+                value={filters.routeId}
+                onValueChange={(v) => handleFilterChange('routeId', v)}
+              >
+                <SelectTrigger id="routeId">
+                  <SelectValue placeholder="Todas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todas</SelectItem>
+                  {routes.map((r) => (
+                    <SelectItem key={r.id} value={r.id.toString()}>
+                      Rota #{r.id} ({safeFormatDate(r.data_inicio, 'dd/MM')})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="orderId">Número do Pedido</Label>
               <Input
@@ -194,7 +240,7 @@ export function PixTabContent() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="pixName">Cliente (Nome ou Código)</Label>
+              <Label htmlFor="pixName">Cliente (Nome/Cód)</Label>
               <Input
                 id="pixName"
                 placeholder="Buscar cliente..."
@@ -209,7 +255,7 @@ export function PixTabContent() {
                 onValueChange={(v) => handleFilterChange('bank', v)}
               >
                 <SelectTrigger id="bank">
-                  <SelectValue placeholder="Selecione" />
+                  <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos</SelectItem>
@@ -226,7 +272,7 @@ export function PixTabContent() {
                 onValueChange={(v) => handleFilterChange('status', v)}
               >
                 <SelectTrigger id="status">
-                  <SelectValue placeholder="Selecione" />
+                  <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos</SelectItem>
@@ -241,7 +287,7 @@ export function PixTabContent() {
               className="w-full"
             >
               <Eraser className="mr-2 h-4 w-4" />
-              Limpar Filtros
+              Limpar
             </Button>
           </div>
 

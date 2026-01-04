@@ -102,7 +102,7 @@ export default function CaixaPage() {
     if (loggedInUser) {
       setSelectedEmployeeIds([loggedInUser.id.toString()])
     }
-  }, []) // Empty dependency array to run once on mount
+  }, [])
 
   const fetchRoutes = async () => {
     try {
@@ -186,7 +186,7 @@ export default function CaixaPage() {
     )
   }, [summaryData, selectedEmployeeIds])
 
-  // Calculations
+  // Calculations (Ensuring correct subtractions)
   const totalRecebido = filteredReceipts.reduce((acc, r) => acc + r.valor, 0)
   const totalDespesas = filteredExpenses.reduce((acc, e) => acc + e.valor, 0)
   const totalSaldo = totalRecebido - totalDespesas
@@ -201,13 +201,12 @@ export default function CaixaPage() {
     .filter((r) => r.forma === 'Cheque')
     .reduce((acc, r) => acc + r.valor, 0)
 
-  // New Calculation: Saldo de Acerto = (Total Saldo - Total Pix)
+  // Saldo de Acerto = (Total Saldo - Total Pix)
   const saldoDeAcerto = totalSaldo - totalPix
 
   const handleOpenGeneralExpense = async () => {
     if (!loggedInUser || !selectedRouteId) return
 
-    // Block check
     try {
       const status = await fechamentoService.getClosureStatus(
         parseInt(selectedRouteId),
@@ -277,16 +276,6 @@ export default function CaixaPage() {
         finalTotalRecebido = empSummary?.totalRecebido || 0
         finalTotalDespesas = empSummary?.totalDespesas || 0
         finalTotalSaldo = empSummary?.saldo || 0
-      } else {
-        // If "Resumo Geral", calculate totals from all passed data
-        // which might be filtered by current selection if we wanted, but "Resumo Geral" usually means everything in view.
-        // The implementation uses totalRecebido derived from filteredReceipts if employeeId is undefined but filtered?
-        // Wait, handleGeneratePdf is called with params for specific employee, or without for global.
-        // If without params, we use the currently filtered totals (which might be just 1 employee if filtered).
-        // Let's stick to using the displayed totals.
-        finalTotalRecebido = totalRecebido
-        finalTotalDespesas = totalDespesas
-        finalTotalSaldo = totalSaldo
       }
 
       const { data: pdfBlob, error } = await supabase.functions.invoke(
@@ -294,7 +283,7 @@ export default function CaixaPage() {
         {
           body: {
             reportType,
-            summaryData: employeeId ? [] : filteredSummary, // Pass filtered summary
+            summaryData: employeeId ? [] : filteredSummary,
             receipts: receiptsToPass,
             expenses: expensesToPass,
             totalRecebido: finalTotalRecebido,
@@ -392,7 +381,6 @@ export default function CaixaPage() {
         </div>
       </div>
 
-      {/* Filters Card */}
       <Card className="border-l-4 border-l-blue-600 bg-blue-50/20">
         <CardHeader className="pb-2">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -463,9 +451,7 @@ export default function CaixaPage() {
         </CardContent>
       </Card>
 
-      {/* Totals Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-        {/* Recebimentos Cards */}
         <Card className="bg-white border-green-200 shadow-sm border-l-4 border-l-green-600">
           <CardHeader className="p-4 pb-2">
             <CardTitle className="text-xs font-medium text-green-700 flex items-center gap-1">
@@ -572,7 +558,6 @@ export default function CaixaPage() {
         <ExpenseGallery items={filteredExpenses} />
       </div>
 
-      {/* Moved to Bottom */}
       <Card>
         <CardHeader>
           <CardTitle>Resumo por Funcionário</CardTitle>

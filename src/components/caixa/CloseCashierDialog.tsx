@@ -22,6 +22,7 @@ import { fechamentoService } from '@/services/fechamentoService'
 import { Employee } from '@/types/employee'
 import { Rota } from '@/types/rota'
 import { Loader2 } from 'lucide-react'
+import { useUserStore } from '@/stores/useUserStore'
 
 interface CloseCashierDialogProps {
   open: boolean
@@ -40,15 +41,21 @@ export function CloseCashierDialog({
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
+  const { employee: loggedInUser } = useUserStore()
 
   useEffect(() => {
     if (open) {
       employeesService.getEmployees(1, 100).then(({ data }) => {
         setEmployees(data.filter((e) => e.situacao === 'ATIVO'))
       })
-      setSelectedEmployeeId('')
+      // Default to logged-in user if available
+      if (loggedInUser) {
+        setSelectedEmployeeId(loggedInUser.id.toString())
+      } else {
+        setSelectedEmployeeId('')
+      }
     }
-  }, [open])
+  }, [open, loggedInUser])
 
   const handleConfirm = async () => {
     if (!currentRoute) {
