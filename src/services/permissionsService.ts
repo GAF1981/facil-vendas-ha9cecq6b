@@ -17,6 +17,7 @@ const MODULES_LIST = [
   'Cobrança',
   'Nota Fiscal',
   'Caixa',
+  'Fechamentos', // Added new module
   'Inventário',
   'Rota',
   'Resumo Acertos',

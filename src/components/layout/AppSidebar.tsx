@@ -29,6 +29,7 @@ import {
   QrCode,
   FileBarChart,
   Settings,
+  Lock,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { usePermissions } from '@/hooks/use-permissions'
@@ -100,6 +101,12 @@ export function AppSidebar() {
       url: '/caixa',
       icon: Wallet,
       module: 'Caixa',
+    },
+    {
+      title: 'Fechamentos',
+      url: '/fechamentos',
+      icon: Lock,
+      module: 'Fechamentos',
     },
     {
       title: 'Inventário',

@@ -71,6 +71,8 @@ export function Header() {
         return 'Projeções'
       case 'estoque':
         return 'Estoque'
+      case 'fechamentos':
+        return 'Fechamentos'
       default:
         return path
     }

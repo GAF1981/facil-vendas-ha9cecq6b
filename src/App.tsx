@@ -31,6 +31,7 @@ import TopSellingReportsPage from '@/pages/relatorio/TopSellingReportsPage'
 import AdjustmentReportsPage from '@/pages/relatorio/AdjustmentReportsPage'
 import InactiveClientsPage from '@/pages/relatorio/InactiveClientsPage'
 import CaixaPage from '@/pages/caixa/CaixaPage'
+import FechamentosPage from '@/pages/fechamento/FechamentosPage'
 import PixPage from '@/pages/pix/PixPage'
 import PagamentosPage from '@/pages/pagamentos/PagamentosPage'
 import ControlePage from '@/pages/controle/ControlePage'
@@ -170,6 +171,10 @@ const App = () => (
 
                 <Route element={<PermissionGuard module="Caixa" />}>
                   <Route path="/caixa" element={<CaixaPage />} />
+                </Route>
+
+                <Route element={<PermissionGuard module="Fechamentos" />}>
+                  <Route path="/fechamentos" element={<FechamentosPage />} />
                 </Route>
 
                 <Route element={<PermissionGuard module="Inventário" />}>
