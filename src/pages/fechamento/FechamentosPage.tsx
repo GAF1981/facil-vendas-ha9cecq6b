@@ -1,82 +1,12 @@
-import { useEffect, useState } from 'react'
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { RefreshCw, LayoutTemplate, ArrowLeft } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
+import { ArrowLeft, Lock, QrCode, UserX, Wallet } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { Rota } from '@/types/rota'
-import { resumoAcertosService } from '@/services/resumoAcertosService'
-import { fechamentoService } from '@/services/fechamentoService'
-import { FechamentoCaixa } from '@/types/fechamento'
-import { FechamentoHeaderGallery } from '@/components/fechamento/FechamentoHeaderGallery'
-import { FechamentoTable } from '@/components/fechamento/FechamentoTable'
-import { safeFormatDate } from '@/lib/formatters'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { PixTabContent } from '@/components/fechamento/PixTabContent'
+import { InactiveClientsTabContent } from '@/components/fechamento/InactiveClientsTabContent'
+import { ClosingTabContent } from '@/components/fechamento/ClosingTabContent'
 
 export default function FechamentosPage() {
-  const [routes, setRoutes] = useState<Rota[]>([])
-  const [selectedRouteId, setSelectedRouteId] = useState<string>('')
-  const [data, setData] = useState<FechamentoCaixa[]>([])
-  const [loading, setLoading] = useState(false)
-  const { toast } = useToast()
-
-  const fetchRoutes = async () => {
-    try {
-      const allRoutes = await resumoAcertosService.getAllRoutes()
-      setRoutes(allRoutes)
-      if (allRoutes.length > 0 && !selectedRouteId) {
-        setSelectedRouteId(allRoutes[0].id.toString())
-      }
-    } catch (error) {
-      console.error(error)
-      toast({
-        title: 'Erro',
-        description: 'Falha ao carregar rotas.',
-        variant: 'destructive',
-      })
-    }
-  }
-
-  const fetchData = async () => {
-    if (!selectedRouteId) return
-    setLoading(true)
-    try {
-      const result = await fechamentoService.getByRoute(
-        parseInt(selectedRouteId),
-      )
-      setData(result)
-    } catch (error) {
-      console.error(error)
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível buscar os fechamentos.',
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchRoutes()
-  }, [])
-
-  useEffect(() => {
-    fetchData()
-  }, [selectedRouteId])
-
   return (
     <div className="space-y-6 animate-fade-in p-2 pb-20 sm:p-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -89,66 +19,43 @@ export default function FechamentosPage() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Fechamentos</h1>
             <p className="text-muted-foreground">
-              Conferência e fechamento oficial de caixa por rota.
+              Central de encerramento, conferência de PIX e inativos.
             </p>
           </div>
         </div>
-        <Button variant="outline" onClick={fetchData} disabled={loading}>
-          <RefreshCw
-            className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
-          />
-          Atualizar
-        </Button>
       </div>
 
-      <Card className="bg-muted/20 border-l-4 border-l-purple-600">
-        <CardHeader className="pb-2">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div className="space-y-1">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <LayoutTemplate className="h-5 w-5 text-purple-600" />
-                Seleção de Rota
-              </CardTitle>
-              <CardDescription>
-                Selecione a rota para visualizar os fechamentos.
-              </CardDescription>
-            </div>
-            <div className="w-full md:w-[300px]">
-              <Select
-                value={selectedRouteId}
-                onValueChange={setSelectedRouteId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {routes.map((route) => (
-                    <SelectItem key={route.id} value={route.id.toString()}>
-                      Rota #{route.id} (
-                      {safeFormatDate(route.data_inicio, 'dd/MM')})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
+      <Tabs defaultValue="fechamento" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 lg:w-[600px] mb-4">
+          <TabsTrigger value="fechamento" className="gap-2">
+            <Lock className="h-4 w-4" />
+            <span className="hidden sm:inline">Fechamento Caixa</span>
+            <span className="sm:hidden">Caixa</span>
+          </TabsTrigger>
+          <TabsTrigger value="pix" className="gap-2">
+            <QrCode className="h-4 w-4" />
+            <span className="hidden sm:inline">Conferência Pix</span>
+            <span className="sm:hidden">Pix</span>
+          </TabsTrigger>
+          <TabsTrigger value="inativos" className="gap-2">
+            <UserX className="h-4 w-4" />
+            <span className="hidden sm:inline">Clientes Inativos</span>
+            <span className="sm:hidden">Inativos</span>
+          </TabsTrigger>
+        </TabsList>
 
-      <FechamentoHeaderGallery items={data} />
+        <TabsContent value="fechamento" className="mt-0">
+          <ClosingTabContent />
+        </TabsContent>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Confirmar Caixa</CardTitle>
-          <CardDescription>
-            Valide os valores físicos (Dinheiro, PIX, Cheque) e confirme o
-            fechamento.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          <FechamentoTable data={data} onRefresh={fetchData} />
-        </CardContent>
-      </Card>
+        <TabsContent value="pix" className="mt-0">
+          <PixTabContent />
+        </TabsContent>
+
+        <TabsContent value="inativos" className="mt-0">
+          <InactiveClientsTabContent />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

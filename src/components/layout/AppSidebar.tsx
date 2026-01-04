@@ -26,7 +26,6 @@ import {
   AlertCircle,
   Package,
   Database,
-  QrCode,
   FileBarChart,
   Settings,
   Lock,
@@ -79,10 +78,10 @@ export function AppSidebar() {
       module: 'Recebimento',
     },
     {
-      title: 'Pix',
-      url: '/pix',
-      icon: QrCode,
-      module: 'Pix',
+      title: 'Fechamentos',
+      url: '/fechamentos',
+      icon: Lock,
+      module: 'Fechamentos',
     },
     {
       title: 'Cobrança',
@@ -101,12 +100,6 @@ export function AppSidebar() {
       url: '/caixa',
       icon: Wallet,
       module: 'Caixa',
-    },
-    {
-      title: 'Fechamentos',
-      url: '/fechamentos',
-      icon: Lock,
-      module: 'Fechamentos',
     },
     {
       title: 'Inventário',

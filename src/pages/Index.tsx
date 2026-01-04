@@ -13,9 +13,9 @@ import {
   AlertCircle,
   Package,
   Database,
-  QrCode,
   FileBarChart,
   Settings,
+  Lock,
 } from 'lucide-react'
 import { usePermissions } from '@/hooks/use-permissions'
 
@@ -64,12 +64,12 @@ export default function Index() {
       module: 'Recebimento',
     },
     {
-      title: 'Pix',
-      icon: QrCode,
-      to: '/pix',
-      description: 'Conferência de recebimentos via Pix',
+      title: 'Fechamentos',
+      icon: Lock,
+      to: '/fechamentos',
+      description: 'Caixa, Conferência Pix e Inativos',
       color: 'text-purple-600',
-      module: 'Pix',
+      module: 'Fechamentos',
     },
     {
       title: 'Cobrança',

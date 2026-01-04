@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -102,8 +102,20 @@ const App = () => (
                   />
                 </Route>
 
-                <Route element={<PermissionGuard module="Pix" />}>
-                  <Route path="/pix" element={<PixPage />} />
+                {/* Redirect old routes */}
+                <Route
+                  path="/pix"
+                  element={<Navigate to="/fechamentos" replace />}
+                />
+                <Route
+                  path="/relatorio/clientes-inativos"
+                  element={<Navigate to="/fechamentos" replace />}
+                />
+
+                {/* Keeping logic for Pix permission but routing to Fechamentos if needed, though permission is module based */}
+                {/* For Fechamentos we use Fechamentos module */}
+                <Route element={<PermissionGuard module="Fechamentos" />}>
+                  <Route path="/fechamentos" element={<FechamentosPage />} />
                 </Route>
 
                 <Route element={<PermissionGuard module="Pagamentos" />}>
@@ -163,18 +175,10 @@ const App = () => (
                     path="/relatorio/ajustes-saldo"
                     element={<AdjustmentReportsPage />}
                   />
-                  <Route
-                    path="/relatorio/clientes-inativos"
-                    element={<InactiveClientsPage />}
-                  />
                 </Route>
 
                 <Route element={<PermissionGuard module="Caixa" />}>
                   <Route path="/caixa" element={<CaixaPage />} />
-                </Route>
-
-                <Route element={<PermissionGuard module="Fechamentos" />}>
-                  <Route path="/fechamentos" element={<FechamentosPage />} />
                 </Route>
 
                 <Route element={<PermissionGuard module="Inventário" />}>

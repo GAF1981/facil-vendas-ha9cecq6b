@@ -460,6 +460,82 @@ export type Database = {
           },
         ]
       }
+      fechamento_caixa: {
+        Row: {
+          cheque_aprovado: boolean | null
+          created_at: string
+          desconto_total: number | null
+          dinheiro_aprovado: boolean | null
+          funcionario_id: number
+          id: number
+          pix_aprovado: boolean | null
+          responsavel_id: number | null
+          rota_id: number
+          status: string | null
+          valor_a_receber: number | null
+          valor_cheque: number | null
+          valor_dinheiro: number | null
+          valor_pix: number | null
+          venda_total: number | null
+        }
+        Insert: {
+          cheque_aprovado?: boolean | null
+          created_at?: string
+          desconto_total?: number | null
+          dinheiro_aprovado?: boolean | null
+          funcionario_id: number
+          id?: number
+          pix_aprovado?: boolean | null
+          responsavel_id?: number | null
+          rota_id: number
+          status?: string | null
+          valor_a_receber?: number | null
+          valor_cheque?: number | null
+          valor_dinheiro?: number | null
+          valor_pix?: number | null
+          venda_total?: number | null
+        }
+        Update: {
+          cheque_aprovado?: boolean | null
+          created_at?: string
+          desconto_total?: number | null
+          dinheiro_aprovado?: boolean | null
+          funcionario_id?: number
+          id?: number
+          pix_aprovado?: boolean | null
+          responsavel_id?: number | null
+          rota_id?: number
+          status?: string | null
+          valor_a_receber?: number | null
+          valor_cheque?: number | null
+          valor_dinheiro?: number | null
+          valor_pix?: number | null
+          venda_total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'fechamento_caixa_funcionario_id_fkey'
+            columns: ['funcionario_id']
+            isOneToOne: false
+            referencedRelation: 'FUNCIONARIOS'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'fechamento_caixa_responsavel_id_fkey'
+            columns: ['responsavel_id']
+            isOneToOne: false
+            referencedRelation: 'FUNCIONARIOS'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'fechamento_caixa_rota_id_fkey'
+            columns: ['rota_id']
+            isOneToOne: false
+            referencedRelation: 'ROTA'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       FUNCIONARIOS: {
         Row: {
           apelido: string | null
