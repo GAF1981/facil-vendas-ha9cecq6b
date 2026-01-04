@@ -402,7 +402,7 @@ export const bancoDeDadosService = {
     payments: PaymentEntry[],
     notaFiscalVenda: string, // Changed to string
     customOrderNumber?: number,
-  ) {
+  ): Promise<number> {
     // 1. Get Context (Order Number)
     const nextPedido =
       customOrderNumber ?? (await this.reserveNextOrderNumber())
@@ -413,7 +413,7 @@ export const bancoDeDadosService = {
     // 2. Fetch current product prices
     const productIds = items.map((i) => i.produtoId)
 
-    if (productIds.length === 0) return
+    if (productIds.length === 0) return nextPedido
 
     const { data: productsData, error: productsError } = await supabase
       .from('PRODUTOS')
@@ -593,5 +593,7 @@ export const bancoDeDadosService = {
     } catch (rotaError) {
       console.error('Error updating Rota counter on settlement:', rotaError)
     }
+
+    return nextPedido
   },
 }

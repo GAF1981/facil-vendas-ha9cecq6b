@@ -16,7 +16,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Minus, Plus, Trash2, Loader2, Lock, Edit2 } from 'lucide-react'
-import { AcertoItem } from '@/types/acerto'
+import { AcertoItem, PendingStockAdjustment } from '@/types/acerto'
 import { cn } from '@/lib/utils'
 import {
   Tooltip,
@@ -26,7 +26,6 @@ import {
 } from '@/components/ui/tooltip'
 import { useState } from 'react'
 import { useUserStore } from '@/stores/useUserStore'
-import { bancoDeDadosService } from '@/services/bancoDeDadosService'
 import { useToast } from '@/hooks/use-toast'
 
 interface AcertoTableProps {
@@ -35,6 +34,7 @@ interface AcertoTableProps {
   onUpdateSaldoFinal?: (uid: string, newSaldo: number) => void
   onRemoveItem?: (uid: string) => void
   onUpdateSaldoInicial?: (uid: string, newSaldo: number) => void
+  onQueueAdjustment?: (adjustment: PendingStockAdjustment) => void
   mode?: 'ACERTO' | 'CAPTACAO'
   acertoTipo?: string
   loading?: boolean
@@ -120,11 +120,11 @@ export function AcertoTable({
   onUpdateSaldoFinal,
   onRemoveItem,
   onUpdateSaldoInicial,
+  onQueueAdjustment,
   acertoTipo,
   loading = false,
   clientId,
   clientName,
-  orderNumber,
 }: AcertoTableProps) {
   const { employee } = useUserStore()
   const { toast } = useToast()
@@ -132,7 +132,6 @@ export function AcertoTable({
   // State for Edit Saldo Inicial Modal
   const [editingItem, setEditingItem] = useState<AcertoItem | null>(null)
   const [newSaldoInicial, setNewSaldoInicial] = useState<number>(0)
-  const [savingEdit, setSavingEdit] = useState(false)
 
   // Determine if Contagem is editable based on acertoTipo
   const isContagemDisabled =
@@ -162,42 +161,37 @@ export function AcertoTable({
     setNewSaldoInicial(item.saldoInicial || 0)
   }
 
-  const handleSaveSaldoInicial = async () => {
+  const handleConfirmSaldoInicial = () => {
     if (!editingItem || !employee || !clientId || !clientName) return
 
-    setSavingEdit(true)
-    try {
-      await bancoDeDadosService.logInitialBalanceAdjustment({
-        cliente_id: clientId,
-        cliente_nome: clientName,
-        vendedor_id: employee.id,
-        vendedor_nome: employee.nome_completo,
-        saldo_anterior: editingItem.saldoInicial || 0,
-        saldo_novo: newSaldoInicial,
-        produto_id: editingItem.produtoId,
-        numero_pedido: orderNumber,
-        data_acerto: new Date().toISOString(),
-      })
-
-      if (onUpdateSaldoInicial) {
-        onUpdateSaldoInicial(editingItem.uid, newSaldoInicial)
-      }
-
-      toast({
-        title: 'Saldo Atualizado',
-        description: 'Ajuste de saldo inicial registrado com sucesso.',
-      })
-      setEditingItem(null)
-    } catch (error) {
-      console.error(error)
-      toast({
-        title: 'Erro ao atualizar',
-        description: 'Falha ao registrar ajuste de saldo.',
-        variant: 'destructive',
-      })
-    } finally {
-      setSavingEdit(false)
+    // Create the adjustment object for the queue
+    const adjustment: PendingStockAdjustment = {
+      cliente_id: clientId,
+      cliente_nome: clientName,
+      vendedor_id: employee.id,
+      vendedor_nome: employee.nome_completo,
+      saldo_anterior: editingItem.saldoInicial || 0,
+      saldo_novo: newSaldoInicial,
+      produto_id: editingItem.produtoId,
+      data_acerto: new Date().toISOString(),
     }
+
+    // Queue it in parent state
+    if (onQueueAdjustment) {
+      onQueueAdjustment(adjustment)
+    }
+
+    // Update local UI immediately
+    if (onUpdateSaldoInicial) {
+      onUpdateSaldoInicial(editingItem.uid, newSaldoInicial)
+    }
+
+    toast({
+      title: 'Ajuste Registrado',
+      description: 'A alteração será salva ao finalizar o acerto.',
+      className: 'bg-blue-50 text-blue-900 border-blue-200',
+    })
+    setEditingItem(null)
   }
 
   if (loading) {
@@ -382,15 +376,10 @@ export function AcertoTable({
             </div>
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setEditingItem(null)}
-              disabled={savingEdit}
-            >
+            <Button variant="outline" onClick={() => setEditingItem(null)}>
               Cancelar
             </Button>
-            <Button onClick={handleSaveSaldoInicial} disabled={savingEdit}>
-              {savingEdit && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button onClick={handleConfirmSaldoInicial}>
               Confirmar Ajuste
             </Button>
           </DialogFooter>

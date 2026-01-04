@@ -24,3 +24,15 @@ export interface Acerto {
   observacoes?: string
   itens: AcertoItem[]
 }
+
+export interface PendingStockAdjustment {
+  cliente_id: number
+  cliente_nome: string
+  vendedor_id: number
+  vendedor_nome: string
+  saldo_anterior: number
+  saldo_novo: number
+  produto_id: number
+  data_acerto: string
+  // numero_pedido will be added at save time
+}

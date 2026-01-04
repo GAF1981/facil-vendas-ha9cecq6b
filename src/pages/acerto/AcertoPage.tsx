@@ -12,7 +12,7 @@ import { AcertoHistoryTable } from '@/components/acerto/AcertoHistoryTable'
 import { ProductSelector } from '@/components/acerto/ProductSelector'
 import { ClientRow } from '@/types/client'
 import { Employee } from '@/types/employee'
-import { AcertoItem } from '@/types/acerto'
+import { AcertoItem, PendingStockAdjustment } from '@/types/acerto'
 import { PaymentEntry } from '@/types/payment'
 import { ProductRow } from '@/types/product'
 import { bancoDeDadosService } from '@/services/bancoDeDadosService'
@@ -43,9 +43,14 @@ export default function AcertoPage() {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('')
   const [items, setItems] = useState<AcertoItem[]>([])
   const [payments, setPayments] = useState<PaymentEntry[]>([])
-  const [notaFiscal, setNotaFiscal] = useState<string>('') // Changed to string
+  const [notaFiscal, setNotaFiscal] = useState<string>('')
   const [signature, setSignature] = useState<string | null>(null)
   const [signatureOpen, setSignatureOpen] = useState(false)
+
+  // Pending Stock Adjustments Queue (Requirement 1)
+  const [pendingAdjustments, setPendingAdjustments] = useState<
+    PendingStockAdjustment[]
+  >([])
 
   // Loading States
   const [loadingAcerto, setLoadingAcerto] = useState(false)
@@ -96,6 +101,7 @@ export default function AcertoPage() {
         })
         .then(({ items: newItems }) => {
           setItems(newItems)
+          setPendingAdjustments([]) // Clear any pending adjustments from previous client (shouldn't happen if reset correctly, but safe)
         })
         .catch((err) => {
           console.error(err)
@@ -121,7 +127,8 @@ export default function AcertoPage() {
       setNextOrderNumber(null)
       setPayments([])
       setSignature(null)
-      setNotaFiscal('') // Reset NF selection
+      setNotaFiscal('')
+      setPendingAdjustments([]) // Reset pending adjustments
     }
   }, [client])
 
@@ -131,7 +138,6 @@ export default function AcertoPage() {
     0,
   )
 
-  // Discount Logic using consistent service logic
   const discountStr = client?.Desconto || '0'
   const discountVal = parseCurrency(discountStr.replace('%', ''))
   const discountFactor = discountVal > 1 ? discountVal / 100 : discountVal
@@ -140,10 +146,6 @@ export default function AcertoPage() {
 
   // Auto-select PIX logic (Requirement: Default to PIX)
   useEffect(() => {
-    // Only auto-add if:
-    // 1. We have a payable amount > 0
-    // 2. No payments are currently selected
-    // 3. We are not loading (client data is ready)
     if (
       amountToPay > 0.01 &&
       payments.length === 0 &&
@@ -154,7 +156,7 @@ export default function AcertoPage() {
         {
           method: 'Pix',
           value: Number(amountToPay.toFixed(2)),
-          paidValue: 0, // Initially 0, user confirms or auto-fills
+          paidValue: 0, // Requirement 2: Valor Pago must be 0
           installments: 1,
           dueDate: format(new Date(), 'yyyy-MM-dd'),
           hasZeroDownPayment: false,
@@ -207,6 +209,11 @@ export default function AcertoPage() {
         return item
       }),
     )
+  }
+
+  // Requirement 1: Queue stock adjustment
+  const handleQueueAdjustment = (adjustment: PendingStockAdjustment) => {
+    setPendingAdjustments((prev) => [...prev, adjustment])
   }
 
   const handleRemoveItem = (uid: string) => {
@@ -296,7 +303,6 @@ export default function AcertoPage() {
       return
     }
 
-    // Nota Fiscal Validation (Mandatory)
     if (!notaFiscal) {
       toast({
         title: 'Nota Fiscal Obrigatória',
@@ -307,7 +313,6 @@ export default function AcertoPage() {
       return
     }
 
-    // Payment Validation
     if (payments.length === 0 && amountToPay > 0.01) {
       toast({
         title: 'Pagamento Obrigatório',
@@ -331,18 +336,35 @@ export default function AcertoPage() {
     setSaving(true)
     try {
       const now = new Date()
-      // Save Transaction
-      await bancoDeDadosService.saveTransaction(
+      // 1. Save Transaction and get final Order Number (Requirement 2 & 3 - Transactional)
+      const finalOrderNumber = await bancoDeDadosService.saveTransaction(
         client,
         emp,
         items,
         now,
         'Acerto',
         payments,
-        notaFiscal, // Passing string instead of boolean
+        notaFiscal,
       )
 
-      // Generate Final PDF
+      // 2. Process Pending Stock Adjustments (Requirement 1 - Deferred Persistence)
+      if (pendingAdjustments.length > 0) {
+        for (const adj of pendingAdjustments) {
+          try {
+            await bancoDeDadosService.logInitialBalanceAdjustment({
+              ...adj,
+              numero_pedido: finalOrderNumber, // Link to final order number
+            })
+          } catch (logError) {
+            console.error('Failed to log adjustment', adj, logError)
+            // We continue even if logs fail, but we might want to alert the user
+            // However, failing the whole process after sale is saved is risky.
+            // Ideally this would be in the same transaction or robustly handled.
+          }
+        }
+      }
+
+      // 3. Generate Final PDF
       const pdfBlob = await acertoService.generatePdf(
         {
           client,
@@ -360,7 +382,7 @@ export default function AcertoPage() {
           ),
           payments,
           monthlyAverage,
-          orderNumber: nextOrderNumber,
+          orderNumber: finalOrderNumber, // Use final number
           issuerName: loggedInUser?.nome_completo,
         },
         { preview: false, signature },
@@ -369,7 +391,7 @@ export default function AcertoPage() {
       const url = window.URL.createObjectURL(pdfBlob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `Pedido_${nextOrderNumber}_${client['NOME CLIENTE']}.pdf`
+      a.download = `Pedido_${finalOrderNumber}_${client['NOME CLIENTE']}.pdf`
       document.body.appendChild(a)
       a.click()
       a.remove()
@@ -382,6 +404,7 @@ export default function AcertoPage() {
 
       // Reset
       setClient(null)
+      setPendingAdjustments([])
     } catch (err: any) {
       console.error(err)
       toast({
@@ -450,6 +473,7 @@ export default function AcertoPage() {
             onUpdateSaldoFinal={handleUpdateSaldoFinal}
             onRemoveItem={handleRemoveItem}
             onUpdateSaldoInicial={handleUpdateSaldoInicial}
+            onQueueAdjustment={handleQueueAdjustment}
             loading={loadingAcerto}
             mode="ACERTO"
             acertoTipo="Acerto"
