@@ -276,6 +276,7 @@ export type Database = {
           'NOTA FISCAL': string | null
           'OBSERVAÇÃO FIXA': string | null
           'RAZÃO SOCIAL': string | null
+          situacao: string | null
           TIPO: string | null
           'TIPO DE CLIENTE': string
         }
@@ -306,6 +307,7 @@ export type Database = {
           'NOTA FISCAL'?: string | null
           'OBSERVAÇÃO FIXA'?: string | null
           'RAZÃO SOCIAL'?: string | null
+          situacao?: string | null
           TIPO?: string | null
           'TIPO DE CLIENTE'?: string
         }
@@ -336,6 +338,7 @@ export type Database = {
           'NOTA FISCAL'?: string | null
           'OBSERVAÇÃO FIXA'?: string | null
           'RAZÃO SOCIAL'?: string | null
+          situacao?: string | null
           TIPO?: string | null
           'TIPO DE CLIENTE'?: string
         }

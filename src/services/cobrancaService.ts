@@ -13,12 +13,15 @@ export const cobrancaService = {
   async getDebts(): Promise<ClientDebt[]> {
     // 1. Fetch data from BANCO_DE_DADOS
     // Increased limit to 50000 to ensure we capture debts for the full client base
+    // Requirement: Ensure ordering by Order Number to guarantee the "Confirmar cliente INATIVO"
+    // report picks up the correct latest order.
     const { data: dbData, error: dbError } = await supabase
       .from('BANCO_DE_DADOS')
       .select(
         '"NÚMERO DO PEDIDO", "CÓDIGO DO CLIENTE", "CLIENTE", "VALOR VENDIDO", "DESCONTO POR GRUPO", "DATA DO ACERTO", "DETALHES_PAGAMENTO", "VALOR DEVIDO", "FORMA", "CODIGO FUNCIONARIO", "FUNCIONÁRIO", data_combinada',
       )
       .not('NÚMERO DO PEDIDO', 'is', null)
+      .order('NÚMERO DO PEDIDO', { ascending: true }) // Explicitly sort by Order ID
       .limit(50000)
 
     if (dbError) throw dbError
@@ -335,6 +338,11 @@ export const cobrancaService = {
           }
         }
       })
+    })
+
+    // Sort orders for each client to ensure latest is last
+    clientsMap.forEach((client) => {
+      client.orders.sort((a, b) => a.orderId - b.orderId)
     })
 
     return Array.from(clientsMap.values()).sort((a, b) => {

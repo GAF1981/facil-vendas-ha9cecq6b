@@ -31,6 +31,7 @@ import { caixaService } from '@/services/caixaService'
 import { employeesService } from '@/services/employeesService'
 import { Employee } from '@/types/employee'
 import { Loader2 } from 'lucide-react'
+import { useUserStore } from '@/stores/useUserStore'
 
 interface ExpenseFormDialogProps {
   open: boolean
@@ -48,6 +49,7 @@ export function ExpenseFormDialog({
   const [loading, setLoading] = useState(false)
   const [employees, setEmployees] = useState<Employee[]>([])
   const { toast } = useToast()
+  const { employee: loggedInUser } = useUserStore()
 
   const form = useForm<DespesaFormData>({
     resolver: zodResolver(despesaSchema),
@@ -64,6 +66,11 @@ export function ExpenseFormDialog({
 
   useEffect(() => {
     if (open) {
+      // Fetch employees list
+      employeesService.getEmployees(1, 100).then(({ data }) => {
+        setEmployees(data.filter((e) => e.situacao === 'ATIVO'))
+      })
+
       if (preselectedEmployee) {
         form.reset({
           data: new Date().toISOString().split('T')[0],
@@ -73,19 +80,17 @@ export function ExpenseFormDialog({
           funcionario_id: preselectedEmployee.id.toString(),
         })
       } else {
-        employeesService.getEmployees(1, 100).then(({ data }) => {
-          setEmployees(data.filter((e) => e.situacao === 'ATIVO'))
-        })
+        // Requirement: Auto-select logged in employee if available
         form.reset({
           data: new Date().toISOString().split('T')[0],
           grupo: 'Alimentação',
           detalhamento: 'Alimentação',
           valor: '',
-          funcionario_id: '',
+          funcionario_id: loggedInUser?.id.toString() || '',
         })
       }
     }
-  }, [open, form, preselectedEmployee])
+  }, [open, form, preselectedEmployee, loggedInUser])
 
   // Auto-fill detalhamento effect
   useEffect(() => {

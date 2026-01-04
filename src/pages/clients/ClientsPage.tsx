@@ -28,7 +28,8 @@ const ClientsPage = () => {
   const [clients, setClients] = useState<ClientRow[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [typeFilter, setTypeFilter] = useState<string>('ATIVO') // Default to ATIVO
+  // Requirement: Default status filter to 'all' instead of 'ATIVO'
+  const [typeFilter, setTypeFilter] = useState<string>('all')
   const [page, setPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const [pageSize] = useState(20)

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import {
   Card,
   CardContent,
@@ -35,6 +35,7 @@ import {
   Banknote,
   Landmark,
   QrCode,
+  Filter,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { Link } from 'react-router-dom'
@@ -46,6 +47,7 @@ import { ExpensesDetailDialog } from '@/components/caixa/ExpensesDetailDialog'
 import { supabase } from '@/lib/supabase/client'
 import { RevenueGallery } from '@/components/caixa/RevenueGallery'
 import { ExpenseGallery } from '@/components/caixa/ExpenseGallery'
+import { Label } from '@/components/ui/label'
 
 export default function CaixaPage() {
   const [loading, setLoading] = useState(true)
@@ -54,6 +56,9 @@ export default function CaixaPage() {
   const [summaryData, setSummaryData] = useState<CaixaSummaryRow[]>([])
   const [allReceipts, setAllReceipts] = useState<ReceiptDetail[]>([])
   const [allExpenses, setAllExpenses] = useState<ExpenseDetail[]>([])
+
+  // Requirement: Employee Filter for Cashier Totalizers
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('all')
 
   const { toast } = useToast()
 
@@ -136,25 +141,42 @@ export default function CaixaPage() {
 
   const selectedRoute = routes.find((r) => r.id.toString() === selectedRouteId)
 
-  // Totals for Cards
-  const totalRecebido = summaryData.reduce(
-    (acc, row) => acc + row.totalRecebido,
-    0,
-  )
-  const totalDespesas = summaryData.reduce(
-    (acc, row) => acc + row.totalDespesas,
-    0,
-  )
+  // FILTER LOGIC
+  const filteredReceipts = useMemo(() => {
+    if (selectedEmployeeId === 'all') return allReceipts
+    return allReceipts.filter(
+      (r) => r.funcionarioId === Number(selectedEmployeeId),
+    )
+  }, [allReceipts, selectedEmployeeId])
+
+  const filteredExpenses = useMemo(() => {
+    if (selectedEmployeeId === 'all') return allExpenses
+    return allExpenses.filter(
+      (e) => e.funcionarioId === Number(selectedEmployeeId),
+    )
+  }, [allExpenses, selectedEmployeeId])
+
+  // Get unique employees from summary data for the filter dropdown
+  const uniqueEmployees = useMemo(() => {
+    return summaryData.map((s) => ({
+      id: s.funcionarioId,
+      name: s.funcionarioNome,
+    }))
+  }, [summaryData])
+
+  // Calculated Totals based on Filtered Data
+  const totalRecebido = filteredReceipts.reduce((acc, r) => acc + r.valor, 0)
+  const totalDespesas = filteredExpenses.reduce((acc, e) => acc + e.valor, 0)
   const totalSaldo = totalRecebido - totalDespesas
 
-  // Segmented Totals
-  const totalPix = allReceipts
+  // Segmented Totals (Filtered)
+  const totalPix = filteredReceipts
     .filter((r) => r.forma === 'Pix')
     .reduce((acc, r) => acc + r.valor, 0)
-  const totalDinheiro = allReceipts
+  const totalDinheiro = filteredReceipts
     .filter((r) => r.forma === 'Dinheiro')
     .reduce((acc, r) => acc + r.valor, 0)
-  const totalCheque = allReceipts
+  const totalCheque = filteredReceipts
     .filter((r) => r.forma === 'Cheque')
     .reduce((acc, r) => acc + r.valor, 0)
 
@@ -203,23 +225,49 @@ export default function CaixaPage() {
         : allExpenses
 
       // If for employee, calculate their specific totals
-      let specificTotalRecebido = totalRecebido
-      let specificTotalDespesas = totalDespesas
-      let specificTotalSaldo = totalSaldo
+      let specificTotalRecebido =
+        summaryData.reduce((acc, row) => acc + row.totalRecebido, 0) -
+        (employeeId
+          ? summaryData.find((s) => s.funcionarioId !== employeeId)
+              ?.totalRecebido || 0
+          : 0) // Placeholder logic, actually we should use computed totals
 
+      // Correct logic for PDF totals
       if (employeeId) {
         const empSummary = summaryData.find(
           (s) => s.funcionarioId === employeeId,
         )
         if (empSummary) {
           specificTotalRecebido = empSummary.totalRecebido
-          specificTotalDespesas = empSummary.totalDespesas
-          specificTotalSaldo = empSummary.saldo
-        } else {
-          specificTotalRecebido = 0
-          specificTotalDespesas = 0
-          specificTotalSaldo = 0
+          // ... other totals would be similar but let's trust server logic or pass pre-calc
         }
+      } else {
+        // Global
+        specificTotalRecebido = summaryData.reduce(
+          (acc, row) => acc + row.totalRecebido,
+          0,
+        )
+      }
+      // Note: The original code had slightly confusing logic here, simplifying:
+      // We'll just pass what the function expects.
+      // If employeeId is present, we pass THAT employee's summary.
+
+      let finalTotalRecebido = totalRecebido
+      let finalTotalDespesas = totalDespesas
+      let finalTotalSaldo = totalSaldo
+
+      if (employeeId) {
+        const empSummary = summaryData.find(
+          (s) => s.funcionarioId === employeeId,
+        )
+        finalTotalRecebido = empSummary?.totalRecebido || 0
+        finalTotalDespesas = empSummary?.totalDespesas || 0
+        finalTotalSaldo = empSummary?.saldo || 0
+      } else {
+        // Use the globals calculated from raw data to ensure consistency
+        finalTotalRecebido = allReceipts.reduce((acc, r) => acc + r.valor, 0)
+        finalTotalDespesas = allExpenses.reduce((acc, e) => acc + e.valor, 0)
+        finalTotalSaldo = finalTotalRecebido - finalTotalDespesas
       }
 
       const { data: pdfBlob, error } = await supabase.functions.invoke(
@@ -230,9 +278,9 @@ export default function CaixaPage() {
             summaryData: employeeId ? [] : summaryData, // Only needed for general
             receipts: receiptsToPass,
             expenses: expensesToPass,
-            totalRecebido: specificTotalRecebido,
-            totalDespesas: specificTotalDespesas,
-            totalSaldo: specificTotalSaldo,
+            totalRecebido: finalTotalRecebido,
+            totalDespesas: finalTotalDespesas,
+            totalSaldo: finalTotalSaldo,
             periodo: {
               inicio: selectedRoute.data_inicio,
               fim: selectedRoute.data_fim,
@@ -400,7 +448,33 @@ export default function CaixaPage() {
         </CardContent>
       </Card>
 
-      {/* Segmented Financial Totalizers (New Feature) */}
+      {/* Requirement: Employee Filter */}
+      <div className="flex justify-end">
+        <div className="w-full sm:w-[300px] flex items-center gap-2 bg-card p-3 rounded-lg border shadow-sm">
+          <Label className="whitespace-nowrap flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            Filtrar Totais:
+          </Label>
+          <Select
+            value={selectedEmployeeId}
+            onValueChange={setSelectedEmployeeId}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Todos os Funcionários" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Funcionários</SelectItem>
+              {uniqueEmployees.map((emp) => (
+                <SelectItem key={emp.id} value={emp.id.toString()}>
+                  {emp.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Segmented Financial Totalizers (Filtered) */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="bg-white border-green-200 shadow-sm border-l-4 border-l-green-600">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -413,6 +487,11 @@ export default function CaixaPage() {
             <div className="text-2xl font-bold text-green-700">
               R$ {formatCurrency(totalPix)}
             </div>
+            {selectedEmployeeId !== 'all' && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Filtrado por funcionário
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -427,6 +506,11 @@ export default function CaixaPage() {
             <div className="text-2xl font-bold text-green-700">
               R$ {formatCurrency(totalDinheiro)}
             </div>
+            {selectedEmployeeId !== 'all' && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Filtrado por funcionário
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -441,11 +525,16 @@ export default function CaixaPage() {
             <div className="text-2xl font-bold text-green-700">
               R$ {formatCurrency(totalCheque)}
             </div>
+            {selectedEmployeeId !== 'all' && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Filtrado por funcionário
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Overall Financial Totalizers */}
+      {/* Overall Financial Totalizers (Filtered) */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="bg-green-50/50 border-green-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -490,10 +579,10 @@ export default function CaixaPage() {
         </Card>
       </div>
 
-      {/* Detail Galleries */}
+      {/* Detail Galleries (Filtered) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <RevenueGallery items={allReceipts} />
-        <ExpenseGallery items={allExpenses} />
+        <RevenueGallery items={filteredReceipts} />
+        <ExpenseGallery items={filteredExpenses} />
       </div>
 
       <ExpenseFormDialog
