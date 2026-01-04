@@ -97,11 +97,204 @@ serve(async (req) => {
       return false
     }
 
-    // --- CASH SUMMARY & EMPLOYEE REPORT LOGIC ---
-    if (
+    // --- CLOSING CONFIRMATION ---
+    if (reportType === 'closing-confirmation') {
+      const { data, date } = body
+
+      drawText('FACIL VENDAS', margins.left, y, { size: 18, font: fontBold })
+      drawText('COMPROVANTE DE FECHAMENTO', width - margins.right, y, {
+        size: 14,
+        font: fontBold,
+        align: 'right',
+      })
+      y -= 25
+
+      drawText(`Data Emissao: ${safeFormatDate(date)}`, margins.left, y, {
+        size: 10,
+      })
+      y -= 20
+
+      // Info Box
+      const boxHeight = 80
+      page.drawRectangle({
+        x: margins.left,
+        y: y - boxHeight,
+        width: width - margins.left - margins.right,
+        height: boxHeight,
+        borderColor: rgb(0.8, 0.8, 0.8),
+        borderWidth: 1,
+      })
+
+      const infoY = y - 20
+      drawText(`Rota: #${data.rota_id}`, margins.left + 10, infoY, {
+        size: 12,
+        font: fontBold,
+      })
+      drawText(
+        `Funcionario: ${data.funcionario?.nome_completo || 'N/D'}`,
+        margins.left + 10,
+        infoY - 20,
+        { size: 10 },
+      )
+
+      if (data.responsavel?.nome_completo) {
+        drawText(
+          `Responsavel (Conferencia): ${data.responsavel.nome_completo}`,
+          margins.left + 10,
+          infoY - 40,
+          { size: 10 },
+        )
+      }
+
+      drawText(
+        `Status: ${data.status.toUpperCase()}`,
+        width - margins.right - 10,
+        infoY,
+        { size: 12, font: fontBold, align: 'right', color: rgb(0, 0.5, 0) },
+      )
+
+      y -= boxHeight + 30
+
+      // Financials
+      drawText('RESUMO FINANCEIRO', margins.left, y, {
+        size: 12,
+        font: fontBold,
+      })
+      y -= 20
+
+      drawText('Venda Total:', margins.left, y, { size: 10 })
+      drawText(
+        `R$ ${formatCurrency(data.venda_total)}`,
+        width - margins.right,
+        y,
+        { size: 10, align: 'right', font: fontBold },
+      )
+      y -= 15
+
+      drawText('Descontos:', margins.left, y, { size: 10 })
+      drawText(
+        `R$ ${formatCurrency(data.desconto_total)}`,
+        width - margins.right,
+        y,
+        { size: 10, align: 'right', color: rgb(0.8, 0, 0) },
+      )
+      y -= 15
+
+      drawText('A Receber (Divida):', margins.left, y, {
+        size: 10,
+        font: fontBold,
+      })
+      drawText(
+        `R$ ${formatCurrency(data.valor_a_receber)}`,
+        width - margins.right,
+        y,
+        { size: 10, align: 'right', font: fontBold, color: rgb(0.8, 0, 0) },
+      )
+      y -= 30
+
+      // Conference
+      drawText('CONFERENCIA DE VALORES', margins.left, y, {
+        size: 12,
+        font: fontBold,
+      })
+      y -= 5
+      page.drawLine({
+        start: { x: margins.left, y },
+        end: { x: width - margins.right, y },
+        thickness: 1,
+        color: rgb(0, 0, 0),
+      })
+      y -= 20
+
+      const drawRow = (
+        label: string,
+        value: number,
+        approved: boolean,
+        colorOverride?: any,
+      ) => {
+        drawText(label, margins.left, y, { size: 10 })
+        drawText(`R$ ${formatCurrency(value)}`, width / 2, y, {
+          size: 10,
+          align: 'right',
+          font: fontBold,
+          color: colorOverride,
+        })
+        drawText(
+          approved ? '[ APROVADO ]' : '[ REPROVADO ]',
+          width - margins.right,
+          y,
+          {
+            size: 10,
+            align: 'right',
+            font: fontBold,
+            color: approved ? rgb(0, 0.5, 0) : rgb(0.8, 0, 0),
+          },
+        )
+        y -= 20
+      }
+
+      drawRow('Dinheiro Entregue', data.valor_dinheiro, data.dinheiro_aprovado)
+      drawRow(
+        'PIX Confirmado',
+        data.valor_pix,
+        data.pix_aprovado,
+        rgb(0.5, 0, 0.5),
+      )
+      drawRow(
+        'Cheques',
+        data.valor_cheque,
+        data.cheque_aprovado,
+        rgb(0, 0, 0.8),
+      )
+
+      if (data.valor_despesas > 0) {
+        drawRow(
+          'Despesas (Saidas)',
+          data.valor_despesas,
+          data.despesas_aprovadas,
+          rgb(0.8, 0, 0),
+        )
+      }
+
+      y -= 40
+
+      // Signatures
+      const sigLineLength = 200
+      const sigY = y
+      const sigTextY = y - 15
+
+      // Left Signature
+      page.drawLine({
+        start: { x: margins.left, y: sigY },
+        end: { x: margins.left + sigLineLength, y: sigY },
+        thickness: 1,
+        color: rgb(0, 0, 0),
+      })
+      drawText(
+        'Assinatura do Responsavel',
+        margins.left + sigLineLength / 2,
+        sigTextY,
+        { size: 9, align: 'center' },
+      )
+
+      // Right Signature
+      page.drawLine({
+        start: { x: width - margins.right - sigLineLength, y: sigY },
+        end: { x: width - margins.right, y: sigY },
+        thickness: 1,
+        color: rgb(0, 0, 0),
+      })
+      drawText(
+        'Assinatura do Funcionario',
+        width - margins.right - sigLineLength / 2,
+        sigTextY,
+        { size: 9, align: 'center' },
+      )
+    } else if (
       reportType === 'cash-summary' ||
       reportType === 'employee-cash-summary'
     ) {
+      // ... (Existing code for other reports)
       const {
         summaryData,
         receipts,
@@ -445,7 +638,7 @@ serve(async (req) => {
         y -= 15
       }
     } else {
-      // --- RECEIPT / ACERTO LOGIC ---
+      // --- RECEIPT / ACERTO LOGIC (Existing) ---
       const {
         client,
         employee,
@@ -463,7 +656,7 @@ serve(async (req) => {
         signature,
         orderNumber,
         isReceipt,
-        issuerName, // NEW: Passed for enhanced identification
+        issuerName,
       } = body
 
       // PDF Preview Warning

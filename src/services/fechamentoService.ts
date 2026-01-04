@@ -65,7 +65,11 @@ export const fechamentoService = {
       .filter((r) => r.forma === 'Cheque')
       .reduce((acc, r) => acc + r.valor, 0)
 
-    // 3. Insert Record
+    // 3. Calculate Expense Totals
+    const expenses = await caixaService.getEmployeeExpenses(funcionarioId, rota)
+    const valorDespesas = expenses.reduce((acc, e) => acc + e.valor, 0)
+
+    // 4. Insert Record
     const payload: FechamentoInsert = {
       rota_id: rota.id,
       funcionario_id: funcionarioId,
@@ -75,6 +79,7 @@ export const fechamentoService = {
       valor_dinheiro: valorDinheiro,
       valor_pix: valorPix,
       valor_cheque: valorCheque,
+      valor_despesas: valorDespesas,
       status: 'Aberto',
     }
 
@@ -90,7 +95,11 @@ export const fechamentoService = {
 
   async updateApproval(
     id: number,
-    field: 'dinheiro_aprovado' | 'pix_aprovado' | 'cheque_aprovado',
+    field:
+      | 'dinheiro_aprovado'
+      | 'pix_aprovado'
+      | 'cheque_aprovado'
+      | 'despesas_aprovadas',
     value: boolean,
   ) {
     const { error } = await supabase

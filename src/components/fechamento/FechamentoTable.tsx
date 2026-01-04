@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast'
 import { useUserStore } from '@/stores/useUserStore'
 import { Lock, Loader2, CheckCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { supabase } from '@/lib/supabase/client'
 
 interface FechamentoTableProps {
   data: FechamentoCaixa[]
@@ -29,7 +30,11 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
 
   const handleToggleApproval = async (
     item: FechamentoCaixa,
-    field: 'dinheiro_aprovado' | 'pix_aprovado' | 'cheque_aprovado',
+    field:
+      | 'dinheiro_aprovado'
+      | 'pix_aprovado'
+      | 'cheque_aprovado'
+      | 'despesas_aprovadas',
     value: boolean,
   ) => {
     if (item.status === 'Fechado') return
@@ -58,20 +63,60 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
 
     setLoadingIds((prev) => new Set(prev).add(item.id))
     try {
+      // 1. Confirm closing in DB
       await fechamentoService.confirmClosing(item.id, employee.id)
+
       toast({
         title: 'Caixa Fechado',
-        description: `Caixa de ${item.funcionario?.nome_completo} finalizado com sucesso.`,
+        description: `Caixa de ${item.funcionario?.nome_completo} finalizado com sucesso. Gerando comprovante...`,
         className: 'bg-green-600 text-white',
       })
+
+      // 2. Generate PDF
+      // Prepare data for PDF including the new status and responsible
+      const pdfData = {
+        ...item,
+        status: 'Fechado',
+        responsavel: {
+          nome_completo: employee.nome_completo,
+        },
+        // Ensure approvals are current (they should be as UI blocks unapproved confirmation)
+      }
+
+      const { data: pdfBlob, error } = await supabase.functions.invoke(
+        'generate-pdf',
+        {
+          body: {
+            reportType: 'closing-confirmation',
+            data: pdfData,
+            date: new Date().toISOString(),
+          },
+        },
+      )
+
+      if (error) throw error
+
+      if (pdfBlob) {
+        const blob = new Blob([pdfBlob], { type: 'application/pdf' })
+        const url = window.URL.createObjectURL(blob)
+        window.open(url, '_blank')
+
+        // Clean up
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url)
+        }, 1000)
+      }
+
       onRefresh()
     } catch (error) {
       console.error(error)
       toast({
-        title: 'Erro',
-        description: 'Não foi possível confirmar o fechamento.',
-        variant: 'destructive',
+        title: 'Atenção',
+        description: 'Caixa fechado, mas houve erro ao gerar o PDF.',
+        variant: 'warning',
       })
+      // Even if PDF fails, refresh to show Closed status
+      onRefresh()
     } finally {
       setLoadingIds((prev) => {
         const next = new Set(prev)
@@ -99,8 +144,11 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
             <TableHead className="text-center w-[100px] bg-purple-50/50 text-purple-700 font-bold">
               PIX
             </TableHead>
-            <TableHead className="text-center w-[100px] bg-blue-50/50 text-blue-700 font-bold border-r">
+            <TableHead className="text-center w-[100px] bg-blue-50/50 text-blue-700 font-bold">
               Cheque
+            </TableHead>
+            <TableHead className="text-center w-[100px] bg-red-50/50 text-red-700 font-bold border-r">
+              Despesas
             </TableHead>
             <TableHead className="text-center">Responsável</TableHead>
             <TableHead className="text-right">Ação</TableHead>
@@ -110,7 +158,7 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
           {data.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={10}
+                colSpan={11}
                 className="h-24 text-center text-muted-foreground"
               >
                 Nenhum fechamento iniciado para esta rota.
@@ -119,11 +167,18 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
           ) : (
             data.map((item) => {
               const isClosed = item.status === 'Fechado'
+
+              // Validate all sections
+              const hasExpenses = (item.valor_despesas || 0) > 0
+              const expensesOk = hasExpenses ? item.despesas_aprovadas : true
+
               const canConfirm =
                 item.dinheiro_aprovado &&
                 item.pix_aprovado &&
                 item.cheque_aprovado &&
+                expensesOk &&
                 !isClosed
+
               const isLoading = loadingIds.has(item.id)
 
               return (
@@ -191,7 +246,7 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
                     </div>
                   </TableCell>
 
-                  <TableCell className="border-r bg-blue-50/20 text-center p-2">
+                  <TableCell className="bg-blue-50/20 text-center p-2">
                     <div className="flex flex-col items-center gap-1">
                       <span className="text-xs font-semibold text-blue-700">
                         R$ {formatCurrency(item.valor_cheque)}
@@ -207,6 +262,26 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
                           )
                         }
                         className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                      />
+                    </div>
+                  </TableCell>
+
+                  <TableCell className="border-r bg-red-50/20 text-center p-2">
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-xs font-semibold text-red-700">
+                        R$ {formatCurrency(item.valor_despesas || 0)}
+                      </span>
+                      <Checkbox
+                        checked={item.despesas_aprovadas}
+                        disabled={isClosed || !hasExpenses}
+                        onCheckedChange={(c) =>
+                          handleToggleApproval(
+                            item,
+                            'despesas_aprovadas',
+                            c as boolean,
+                          )
+                        }
+                        className="data-[state=checked]:bg-red-600 data-[state=checked]:border-red-600"
                       />
                     </div>
                   </TableCell>
