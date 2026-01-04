@@ -134,6 +134,37 @@ export default function AcertoPage() {
   const discountAmount = totalSalesValue * discountFactor
   const amountToPay = totalSalesValue - discountAmount
 
+  // Handlers for AcertoTable
+  const handleUpdateContagem = (uid: string, newContagem: number) => {
+    setItems((prevItems) =>
+      prevItems.map((item) => {
+        if (item.uid === uid) {
+          const quantVendida = item.saldoInicial - newContagem
+          const valorVendido = quantVendida * item.precoUnitario
+          return {
+            ...item,
+            contagem: newContagem,
+            quantVendida,
+            valorVendido,
+          }
+        }
+        return item
+      }),
+    )
+  }
+
+  const handleUpdateSaldoFinal = (uid: string, newSaldo: number) => {
+    setItems((prevItems) =>
+      prevItems.map((item) =>
+        item.uid === uid ? { ...item, saldoFinal: newSaldo } : item,
+      ),
+    )
+  }
+
+  const handleRemoveItem = (uid: string) => {
+    setItems((prevItems) => prevItems.filter((item) => item.uid !== uid))
+  }
+
   const handleClientSelect = (c: ClientRow) => {
     setClient(c)
   }
@@ -318,9 +349,12 @@ export default function AcertoPage() {
 
           <AcertoTable
             items={items}
-            setItems={setItems}
-            clientId={client.CODIGO}
+            onUpdateContagem={handleUpdateContagem}
+            onUpdateSaldoFinal={handleUpdateSaldoFinal}
+            onRemoveItem={handleRemoveItem}
             loading={loadingAcerto}
+            mode="ACERTO"
+            acertoTipo="Acerto"
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

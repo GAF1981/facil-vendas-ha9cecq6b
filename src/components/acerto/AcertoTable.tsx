@@ -8,17 +8,18 @@ import {
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Minus, Plus, Trash2 } from 'lucide-react'
+import { Minus, Plus, Trash2, Loader2 } from 'lucide-react'
 import { AcertoItem } from '@/types/acerto'
 import { cn } from '@/lib/utils'
 
 interface AcertoTableProps {
   items: AcertoItem[]
-  onUpdateContagem: (uid: string, newContagem: number) => void
-  onUpdateSaldoFinal: (uid: string, newSaldo: number) => void
-  onRemoveItem: (uid: string) => void
-  mode: 'ACERTO' | 'CAPTACAO'
-  acertoTipo: string
+  onUpdateContagem?: (uid: string, newContagem: number) => void
+  onUpdateSaldoFinal?: (uid: string, newSaldo: number) => void
+  onRemoveItem?: (uid: string) => void
+  mode?: 'ACERTO' | 'CAPTACAO'
+  acertoTipo?: string
+  loading?: boolean
 }
 
 const VerticalHeader = ({
@@ -98,13 +99,47 @@ export function AcertoTable({
   onUpdateSaldoFinal,
   onRemoveItem,
   acertoTipo,
+  loading = false,
 }: AcertoTableProps) {
   // Determine if Contagem is editable based on acertoTipo
-  // ACERTO: Editable
-  // CAPTAÇÃO: Read-only
-  // COMPLEMENTO: Read-only
   const isContagemDisabled =
     acertoTipo === 'CAPTAÇÃO' || acertoTipo === 'COMPLEMENTO'
+
+  // Safety wrappers for callbacks
+  const safeUpdateContagem = (uid: string, val: number) => {
+    if (typeof onUpdateContagem === 'function') {
+      onUpdateContagem(uid, val)
+    } else {
+      console.warn('onUpdateContagem callback is not defined')
+    }
+  }
+
+  const safeUpdateSaldoFinal = (uid: string, val: number) => {
+    if (typeof onUpdateSaldoFinal === 'function') {
+      onUpdateSaldoFinal(uid, val)
+    } else {
+      console.warn('onUpdateSaldoFinal callback is not defined')
+    }
+  }
+
+  const safeRemoveItem = (uid: string) => {
+    if (typeof onRemoveItem === 'function') {
+      onRemoveItem(uid)
+    } else {
+      console.warn('onRemoveItem callback is not defined')
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="rounded-md border bg-card p-12 flex justify-center items-center">
+        <div className="flex flex-col items-center gap-2 text-muted-foreground">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p>Carregando itens...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="rounded-md border bg-card overflow-hidden">
@@ -168,7 +203,7 @@ export function AcertoTable({
                 <TableCell className="p-2 bg-blue-50/30">
                   <NumberInputControl
                     value={item.contagem}
-                    onChange={(val) => onUpdateContagem(item.uid, val)}
+                    onChange={(val) => safeUpdateContagem(item.uid, val)}
                     disabled={isContagemDisabled}
                   />
                 </TableCell>
@@ -181,7 +216,7 @@ export function AcertoTable({
                 <TableCell className="p-2 bg-primary/5">
                   <NumberInputControl
                     value={item.saldoFinal}
-                    onChange={(val) => onUpdateSaldoFinal(item.uid, val)}
+                    onChange={(val) => safeUpdateSaldoFinal(item.uid, val)}
                   />
                 </TableCell>
                 <TableCell>
@@ -189,7 +224,7 @@ export function AcertoTable({
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => onRemoveItem(item.uid)}
+                    onClick={() => safeRemoveItem(item.uid)}
                     tabIndex={-1}
                   >
                     <Trash2 className="h-4 w-4" />
