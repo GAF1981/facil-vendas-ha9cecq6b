@@ -164,7 +164,7 @@ export function AcertoTable({
   const handleConfirmSaldoInicial = () => {
     if (!editingItem || !employee || !clientId || !clientName) return
 
-    // Create the adjustment object for the queue
+    // Requirement 4: Queue adjustment instead of immediate save
     const adjustment: PendingStockAdjustment = {
       cliente_id: clientId,
       cliente_nome: clientName,
@@ -181,14 +181,14 @@ export function AcertoTable({
       onQueueAdjustment(adjustment)
     }
 
-    // Update local UI immediately
+    // Update local UI immediately for visual feedback
     if (onUpdateSaldoInicial) {
       onUpdateSaldoInicial(editingItem.uid, newSaldoInicial)
     }
 
     toast({
       title: 'Ajuste Registrado',
-      description: 'A alteração será salva ao finalizar o acerto.',
+      description: 'A alteração será salva no banco ao finalizar o acerto.',
       className: 'bg-blue-50 text-blue-900 border-blue-200',
     })
     setEditingItem(null)

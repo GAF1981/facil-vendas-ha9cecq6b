@@ -380,14 +380,14 @@ export const bancoDeDadosService = {
     saldo_anterior: number
     saldo_novo: number
     produto_id: number
-    data_acerto?: string // Add this
+    data_acerto?: string
   }) {
     const quantity = payload.saldo_novo - payload.saldo_anterior
 
     const { error } = await supabase.from('AJUSTE_SALDO_INICIAL').insert({
       ...payload,
       quantidade_alterada: quantity,
-      data_acerto: payload.data_acerto || new Date().toISOString(), // Ensure date
+      data_acerto: payload.data_acerto || new Date().toISOString(),
     } as any)
 
     if (error) throw error
@@ -400,7 +400,7 @@ export const bancoDeDadosService = {
     date: Date,
     acertoTipo: string,
     payments: PaymentEntry[],
-    notaFiscalVenda: string, // Changed to string
+    notaFiscalVenda: string,
     customOrderNumber?: number,
   ): Promise<number> {
     // 1. Get Context (Order Number)
@@ -439,7 +439,6 @@ export const bancoDeDadosService = {
 
     // Determine Status NF
     const nfCadastro = client['NOTA FISCAL'] || 'NÃO'
-    // notaFiscalVenda is now passed as string 'SIM' or 'NÃO' or empty
     const nfVenda = notaFiscalVenda || 'NÃO'
     let statusNf = 'Pendente'
 
@@ -480,7 +479,6 @@ export const bancoDeDadosService = {
 
       const itemDebt = valorVendidoVal * (1 - discountFactor)
 
-      // Exclude ID VENDA ITENS to allow DB identity to generate it
       return {
         // 'ID VENDA ITENS': item.idVendaItens, // OMITTED to fix identity issue
         'NÚMERO DO PEDIDO': nextPedido,
@@ -530,37 +528,31 @@ export const bancoDeDadosService = {
     const recebimentosToInsert: RecebimentoInsert[] = []
 
     payments.forEach((payment) => {
-      if (
-        payment.installments > 1 &&
-        payment.details &&
-        payment.details.length > 0
-      ) {
-        payment.details.forEach((detail) => {
-          recebimentosToInsert.push({
-            venda_id: nextPedido,
-            cliente_id: client.CODIGO,
-            funcionario_id: employee.id,
-            forma_pagamento: payment.method,
-            valor_registrado: detail.value,
-            valor_pago: detail.paidValue || 0, // Use the specific paidValue for this installment (e.g. ENTRADA)
-            vencimento: new Date(`${detail.dueDate}T12:00:00`).toISOString(),
-            ID_da_fêmea: nextPedido, // Backfill
-          })
-        })
-      } else {
+      // Use details if available (even for 1x to capture correct calculated paid values)
+      // Fallback to main payment object if details missing (legacy safety)
+      const detailsToUse =
+        payment.details && payment.details.length > 0
+          ? payment.details
+          : [
+              {
+                value: payment.value,
+                paidValue: payment.paidValue,
+                dueDate: payment.dueDate,
+              },
+            ]
+
+      detailsToUse.forEach((detail) => {
         recebimentosToInsert.push({
           venda_id: nextPedido,
           cliente_id: client.CODIGO,
           funcionario_id: employee.id,
           forma_pagamento: payment.method,
-          valor_registrado: payment.value,
-          valor_pago: payment.paidValue,
-          vencimento: payment.dueDate
-            ? new Date(`${payment.dueDate}T12:00:00`).toISOString()
-            : new Date().toISOString(),
-          ID_da_fêmea: nextPedido, // Backfill
+          valor_registrado: detail.value,
+          valor_pago: detail.paidValue || 0, // Ensure we use the granular paidValue (e.g. 0 for future installments or check)
+          vencimento: new Date(`${detail.dueDate}T12:00:00`).toISOString(),
+          ID_da_fêmea: nextPedido,
         })
-      }
+      })
     })
 
     if (recebimentosToInsert.length > 0) {
@@ -575,7 +567,6 @@ export const bancoDeDadosService = {
     }
 
     // 6. Insert into NOTA_FISCAL if requested
-    // Since we changed to string check
     if (nfVenda === 'SIM') {
       const { error: nfError } = await supabase.from('NOTA_FISCAL').insert({
         venda_id: nextPedido,

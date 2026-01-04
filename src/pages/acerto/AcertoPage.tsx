@@ -47,7 +47,7 @@ export default function AcertoPage() {
   const [signature, setSignature] = useState<string | null>(null)
   const [signatureOpen, setSignatureOpen] = useState(false)
 
-  // Pending Stock Adjustments Queue (Requirement 1)
+  // Pending Stock Adjustments Queue (Requirement 4)
   const [pendingAdjustments, setPendingAdjustments] = useState<
     PendingStockAdjustment[]
   >([])
@@ -101,7 +101,7 @@ export default function AcertoPage() {
         })
         .then(({ items: newItems }) => {
           setItems(newItems)
-          setPendingAdjustments([]) // Clear any pending adjustments from previous client (shouldn't happen if reset correctly, but safe)
+          setPendingAdjustments([]) // Clear any pending adjustments from previous client
         })
         .catch((err) => {
           console.error(err)
@@ -144,7 +144,7 @@ export default function AcertoPage() {
   const discountAmount = totalSalesValue * discountFactor
   const amountToPay = totalSalesValue - discountAmount
 
-  // Auto-select PIX logic (Requirement: Default to PIX)
+  // Auto-select PIX logic (Requirement: Default to PIX with full payment)
   useEffect(() => {
     if (
       amountToPay > 0.01 &&
@@ -152,14 +152,26 @@ export default function AcertoPage() {
       !loadingAcerto &&
       client
     ) {
+      const today = format(new Date(), 'yyyy-MM-dd')
+      const paymentValue = Number(amountToPay.toFixed(2))
+
       setPayments([
         {
           method: 'Pix',
-          value: Number(amountToPay.toFixed(2)),
-          paidValue: 0, // Requirement 2: Valor Pago must be 0
+          value: paymentValue,
+          paidValue: paymentValue, // Default to full payment for Pix (Pay Now)
           installments: 1,
-          dueDate: format(new Date(), 'yyyy-MM-dd'),
+          dueDate: today,
           hasZeroDownPayment: false,
+          details: [
+            {
+              // Always add details for consistency
+              number: 1,
+              value: paymentValue,
+              paidValue: paymentValue,
+              dueDate: today,
+            },
+          ],
         },
       ])
     }
@@ -211,7 +223,7 @@ export default function AcertoPage() {
     )
   }
 
-  // Requirement 1: Queue stock adjustment
+  // Requirement 4: Queue stock adjustment (Temporary local state)
   const handleQueueAdjustment = (adjustment: PendingStockAdjustment) => {
     setPendingAdjustments((prev) => [...prev, adjustment])
   }
@@ -303,6 +315,7 @@ export default function AcertoPage() {
       return
     }
 
+    // Requirement 5: Finalization Validation (Mandatory Nota Fiscal)
     if (!notaFiscal) {
       toast({
         title: 'Nota Fiscal Obrigatória',
@@ -336,7 +349,8 @@ export default function AcertoPage() {
     setSaving(true)
     try {
       const now = new Date()
-      // 1. Save Transaction and get final Order Number (Requirement 2 & 3 - Transactional)
+      // 1. Save Transaction and get final Order Number
+      // Requirement 5 & 6: Consolidated Data Persistence
       const finalOrderNumber = await bancoDeDadosService.saveTransaction(
         client,
         emp,
@@ -347,7 +361,7 @@ export default function AcertoPage() {
         notaFiscal,
       )
 
-      // 2. Process Pending Stock Adjustments (Requirement 1 - Deferred Persistence)
+      // 2. Process Pending Stock Adjustments (Requirement 4 & 5 - Batch Persistence)
       if (pendingAdjustments.length > 0) {
         for (const adj of pendingAdjustments) {
           try {
@@ -357,9 +371,7 @@ export default function AcertoPage() {
             })
           } catch (logError) {
             console.error('Failed to log adjustment', adj, logError)
-            // We continue even if logs fail, but we might want to alert the user
-            // However, failing the whole process after sale is saved is risky.
-            // Ideally this would be in the same transaction or robustly handled.
+            // Error handling strategy: Log and continue, or notify user.
           }
         }
       }
