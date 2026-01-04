@@ -103,7 +103,12 @@ export function SignatureModal({
   const handleSave = () => {
     if (canvasRef.current) {
       const dataUrl = canvasRef.current.toDataURL('image/png')
-      onSave(dataUrl)
+      // Defensive check to prevent crash if onSave is not provided or not a function
+      if (typeof onSave === 'function') {
+        onSave(dataUrl)
+      } else {
+        console.error('onSave callback is missing or not a function')
+      }
       onOpenChange(false)
     }
   }

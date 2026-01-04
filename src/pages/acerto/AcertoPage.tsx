@@ -370,8 +370,9 @@ export default function AcertoPage() {
                 disabled={saving}
               />
               <AcertoFiscalSection
-                notaFiscal={notaFiscal}
-                setNotaFiscal={setNotaFiscal}
+                clientNotaFiscal={client['NOTA FISCAL']}
+                notaFiscalVenda={notaFiscal}
+                onNotaFiscalVendaChange={setNotaFiscal}
                 disabled={saving}
               />
             </div>
@@ -432,7 +433,7 @@ export default function AcertoPage() {
       <SignatureModal
         open={signatureOpen}
         onOpenChange={setSignatureOpen}
-        onConfirm={setSignature}
+        onSave={setSignature}
       />
     </div>
   )
