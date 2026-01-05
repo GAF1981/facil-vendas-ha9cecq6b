@@ -1,12 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Receipt } from 'lucide-react'
 
 interface AcertoFiscalSectionProps {
@@ -41,26 +35,37 @@ export function AcertoFiscalSection({
             </span>
           </div>
 
-          <div className="flex flex-col space-y-2 p-3 bg-white dark:bg-card rounded-lg border shadow-sm">
-            <Label htmlFor="notaFiscalVenda" className="font-medium">
+          <div className="flex flex-col space-y-3 p-3 bg-white dark:bg-card rounded-lg border shadow-sm">
+            <Label className="font-medium">
               Nota Fiscal Venda <span className="text-red-500">*</span>
             </Label>
-            <Select
+
+            <RadioGroup
               value={notaFiscalVenda}
               onValueChange={onNotaFiscalVendaChange}
               disabled={disabled}
+              className="flex flex-row space-x-4 pt-1"
             >
-              <SelectTrigger
-                id="notaFiscalVenda"
-                className={notaFiscalVenda === '' ? 'border-red-300' : ''}
-              >
-                <SelectValue placeholder="Selecione..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="SIM">SIM</SelectItem>
-                <SelectItem value="NÃO">NÃO</SelectItem>
-              </SelectContent>
-            </Select>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="SIM" id="nf-venda-sim" />
+                <Label
+                  htmlFor="nf-venda-sim"
+                  className="cursor-pointer font-normal"
+                >
+                  SIM
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="NÃO" id="nf-venda-nao" />
+                <Label
+                  htmlFor="nf-venda-nao"
+                  className="cursor-pointer font-normal"
+                >
+                  NÃO
+                </Label>
+              </div>
+            </RadioGroup>
+
             <p className="text-xs text-muted-foreground">
               Obrigatório para finalizar o acerto.
             </p>

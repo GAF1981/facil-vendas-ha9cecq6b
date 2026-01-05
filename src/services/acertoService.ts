@@ -114,7 +114,11 @@ export const acertoService = {
 
     const client = await clientsService.getById(clientId)
 
-    // Fetch Last Order Info (Previous to current one)
+    // Fetch last Acerto Date for this client
+    const lastAcertoInfo = await bancoDeDadosService.getLastAcerto(clientId)
+    const lastAcertoDate = lastAcertoInfo?.date || null
+
+    // Fetch History
     const history = await bancoDeDadosService.getAcertoHistory(clientId)
     const previousOrders = history.filter((h) => h.id !== orderId)
     const lastOrder = previousOrders.length > 0 ? previousOrders[0] : null
@@ -136,13 +140,30 @@ export const acertoService = {
       saldoFinal: item['SALDO FINAL'] || 0,
     }))
 
-    const payments: PaymentEntry[] = dbPayments.map((p) => ({
-      method: p.forma_pagamento as any,
-      value: p.valor_registrado || 0,
-      paidValue: p.valor_pago || 0,
-      installments: 1,
-      dueDate: p.vencimento ? p.vencimento.split('T')[0] : '',
-    }))
+    const payments: PaymentEntry[] = dbPayments.map((p) => {
+      // Logic to recreate granular details if possible or assume logic
+      // Ideally if details were stored in JSON we'd use them.
+      // But dbPayments comes from RECEBIMENTOS row
+      // We'll map as a single installment per row, but group if needed.
+      // Current implementation in bancoDeDadosService handles JSON details at save time,
+      // but only RECEBIMENTOS rows are retrieved here.
+      return {
+        method: p.forma_pagamento as any,
+        value: p.valor_registrado || 0,
+        paidValue: p.valor_pago || 0,
+        installments: 1, // Assumption unless we can infer from DB
+        dueDate: p.vencimento ? p.vencimento.split('T')[0] : '',
+        // If granular info needed, we can construct `details` here if available
+        details: [
+          {
+            number: 1,
+            value: p.valor_registrado || 0,
+            paidValue: p.valor_pago || 0,
+            dueDate: p.vencimento ? p.vencimento.split('T')[0] : '',
+          },
+        ],
+      }
+    })
 
     const totalVendido = items.reduce((acc, i) => acc + i.valorVendido, 0)
     const descontoVal = parseCurrency(descontoStr.replace('%', ''))
@@ -155,8 +176,9 @@ export const acertoService = {
     const data = {
       client: {
         ...client,
-        // Ensure explicit fields are present if needed, but client already has them from service
       },
+      clientMunicipio: client.MUNICÍPIO, // Explicitly pass municipality
+      lastAcertoDate: lastAcertoDate,
       employee: { nome_completo: funcionarioName },
       items,
       date: dateStr,
@@ -170,10 +192,10 @@ export const acertoService = {
       orderNumber: orderId,
       preview: false,
       signature: null,
-      isReceipt, // Flag for PDF generator
+      isReceipt,
       issuerName,
       lastOrder: lastOrder ? { id: lastOrder.id, date: lastOrder.data } : null,
-      history: recentHistory, // Pass explicit history
+      history: recentHistory,
     }
 
     return this.generatePdf(data)

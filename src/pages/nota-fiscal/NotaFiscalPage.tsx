@@ -57,6 +57,7 @@ export default function NotaFiscalPage() {
   const [loading, setLoading] = useState(false)
   const [statusFilter, setStatusFilter] =
     useState<NotaFiscalStatusFilter>('all')
+  const [orderFilter, setOrderFilter] = useState('')
   const { toast } = useToast()
   const { employee } = useUserStore()
 
@@ -152,21 +153,12 @@ export default function NotaFiscalPage() {
         requestDialog.item.solicitacaoNf,
       )
 
-      // Update local state
-      setSettlements((prev) =>
-        prev.map((s) =>
-          s.orderId === requestDialog.item!.orderId
-            ? {
-                ...s,
-                solicitacaoNf: newVal,
-                notaFiscalEmitida:
-                  newVal === 'SIM' && s.notaFiscalEmitida === 'Resolvida'
-                    ? 'Pendente'
-                    : s.notaFiscalEmitida,
-              }
-            : s,
-        ),
-      )
+      // Refresh data to apply logic
+      if (selectedClient) {
+        await fetchClientSettlements(selectedClient)
+      } else {
+        await fetchAllSettlements()
+      }
 
       toast({ title: 'Solicitação atualizada' })
       setRequestDialog({ open: false, item: null })
@@ -221,10 +213,15 @@ export default function NotaFiscalPage() {
 
   const filteredSettlements = useMemo(() => {
     return settlements.filter((item) => {
-      if (statusFilter === 'all') return true
-      return item.notaFiscalEmitida === statusFilter
+      if (statusFilter !== 'all' && item.notaFiscalEmitida !== statusFilter) {
+        return false
+      }
+      if (orderFilter && !item.orderId.toString().includes(orderFilter)) {
+        return false
+      }
+      return true
     })
-  }, [settlements, statusFilter])
+  }, [settlements, statusFilter, orderFilter])
 
   const formatDate = (dateStr: string) => {
     try {
@@ -250,7 +247,7 @@ export default function NotaFiscalPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle>Filtrar por Cliente (Opcional)</CardTitle>
@@ -296,6 +293,20 @@ export default function NotaFiscalPage() {
                 ))}
               </SelectContent>
             </Select>
+          </CardContent>
+        </Card>
+
+        {/* Order Filter */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Buscar Pedido</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Input
+              placeholder="Número do Pedido"
+              value={orderFilter}
+              onChange={(e) => setOrderFilter(e.target.value)}
+            />
           </CardContent>
         </Card>
       </div>
@@ -344,6 +355,7 @@ export default function NotaFiscalPage() {
                           size="icon"
                           className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
                           onClick={() => handleDownloadPdf(item.orderId)}
+                          title="Baixar PDF"
                         >
                           <FileText className="h-4 w-4" />
                         </Button>

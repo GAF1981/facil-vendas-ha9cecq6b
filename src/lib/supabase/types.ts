@@ -1095,6 +1095,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      auto_finalize_overdue_routes: { Args: never; Returns: Json }
       get_client_projections: {
         Args: never
         Returns: {

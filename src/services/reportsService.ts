@@ -50,6 +50,7 @@ export interface DebitoReportRow {
   saldo_a_pagar: number
   valor_pago: number
   debito: number
+  desconto?: number // Added field
 }
 
 export const reportsService = {

@@ -70,21 +70,23 @@ export const notaFiscalService = {
       if (!orderId) return
 
       if (!ordersMap.has(orderId)) {
+        // Normalize inputs
         const nfCadastro = row.nota_fiscal_cadastro || defaultNfInfo || 'NÃO'
         const nfVenda = row.nota_fiscal_venda || 'NÃO'
         const solicitacao = row.solicitacao_nf || 'NÃO'
         let status = row.nota_fiscal_emitida || 'Pendente'
 
-        // Status Logic
+        // Strict Status Automation Logic (Resolvido vs Pendente)
+        // Only override if not already Emitida
         if (status !== 'Emitida') {
-          if (
-            nfCadastro === 'NÃO' &&
-            nfVenda === 'NÃO' &&
-            solicitacao === 'NÃO'
-          ) {
-            status = 'Resolvida'
-          } else {
+          // Helper to check for "SIM"
+          const isSim = (val: string | null) => val === 'SIM'
+
+          // Logic: If ANY is SIM, then Pendente. Else Resolvido.
+          if (isSim(nfCadastro) || isSim(nfVenda) || isSim(solicitacao)) {
             status = 'Pendente'
+          } else {
+            status = 'Resolvida'
           }
         }
 

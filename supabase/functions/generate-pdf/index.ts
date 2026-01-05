@@ -7,7 +7,10 @@ const removeAccents = (str: string) => {
 }
 
 const formatCurrency = (value: number) => {
-  return value.toFixed(2).replace('.', ',')
+  return value.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
 }
 
 const safeFormatDate = (dateString: string | null | undefined): string => {
@@ -105,6 +108,8 @@ serve(async (req) => {
         isReceipt,
         issuerName,
         lastOrder,
+        clientMunicipio, // NEW
+        lastAcertoDate, // NEW
       } = body
 
       if (preview) {
@@ -148,7 +153,7 @@ serve(async (req) => {
       y -= 15
 
       // Client Box with Extra Info
-      const boxHeight = 75
+      const boxHeight = 85 // Increased height for new fields
       page.drawRectangle({
         x: margins.left,
         y: y - boxHeight,
@@ -164,6 +169,14 @@ serve(async (req) => {
         textY,
         { size: 10, font: fontBold },
       )
+
+      // New Header Fields
+      const city = clientMunicipio || client.MUNICÍPIO || client.city || '-'
+      drawText(`Municipio: ${city}`, width - margins.right - 10, textY, {
+        size: 10,
+        align: 'right',
+      })
+
       drawText(
         `CNPJ/CPF: ${client.CNPJ || '-'}`,
         margins.left + 10,
@@ -184,12 +197,19 @@ serve(async (req) => {
       )
 
       // Last Order Info
-      if (lastOrder) {
+      if (lastAcertoDate) {
         drawText(
-          `Ultimo Pedido: #${lastOrder.id} (${safeFormatDate(lastOrder.date)})`,
+          `Data ultimo acerto: ${safeFormatDate(lastAcertoDate)}`,
           width - margins.right - 10,
-          textY,
-          { size: 9, align: 'right', font: fontBold },
+          textY - 15,
+          { size: 9, align: 'right' },
+        )
+      } else if (lastOrder) {
+        drawText(
+          `Data ultimo acerto: ${safeFormatDate(lastOrder.date)}`,
+          width - margins.right - 10,
+          textY - 15,
+          { size: 9, align: 'right' },
         )
       }
 
@@ -308,26 +328,48 @@ serve(async (req) => {
 
         // Headers
         drawText('Metodo', margins.left, y, { size: 9, font: fontBold })
-        drawText('Valor', margins.left + 100, y, { size: 9, font: fontBold })
-        drawText('Vencimento', margins.left + 200, y, {
+        drawText('Valor', margins.left + 150, y, { size: 9, font: fontBold })
+        drawText('Vencimento', margins.left + 250, y, {
           size: 9,
           font: fontBold,
         })
 
         y -= 12
 
+        // Detailed Payment Listing (Installments)
         for (const p of payments) {
-          drawText(p.method, margins.left, y, { size: 9 })
-          drawText(
-            `R$ ${formatCurrency(p.value)} (${p.installments}x)`,
-            margins.left + 100,
-            y,
-            { size: 9 },
-          )
-          drawText(safeFormatDate(p.dueDate), margins.left + 200, y, {
-            size: 9,
-          })
-          y -= 12
+          // Check for detailed installments (passed as 'details')
+          if (p.details && p.details.length > 0) {
+            for (const inst of p.details) {
+              if (checkPageBreak(20)) y -= 20
+              const desc = `${p.method} (${inst.number || 1}/${p.installments})`
+              drawText(desc, margins.left, y, { size: 9 })
+              drawText(
+                `R$ ${formatCurrency(inst.value)}`,
+                margins.left + 150,
+                y,
+                { size: 9 },
+              )
+              drawText(safeFormatDate(inst.dueDate), margins.left + 250, y, {
+                size: 9,
+              })
+              y -= 12
+            }
+          } else {
+            // Fallback to legacy
+            if (checkPageBreak(20)) y -= 20
+            drawText(p.method, margins.left, y, { size: 9 })
+            drawText(
+              `R$ ${formatCurrency(p.value)} (${p.installments}x)`,
+              margins.left + 150,
+              y,
+              { size: 9 },
+            )
+            drawText(safeFormatDate(p.dueDate), margins.left + 250, y, {
+              size: 9,
+            })
+            y -= 12
+          }
         }
         y -= 20
       }
@@ -395,20 +437,22 @@ serve(async (req) => {
         )
         y -= 20
 
-        // Revised Columns per User Story: Venda Total, Desconto, Total a Pagar, Vendedor
+        // Revised Columns per User Story: Pedido, Data, Venda Total, Desconto, Valor Pago, Débito
         const hCol = {
-          date: margins.left,
-          total: margins.left + 80,
-          desc: margins.left + 160,
-          pay: margins.left + 240, // Total a Pagar
-          seller: margins.left + 320,
+          pedido: margins.left,
+          date: margins.left + 60,
+          total: margins.left + 140,
+          desc: margins.left + 220,
+          pago: margins.left + 300,
+          debito: margins.left + 380,
         }
 
+        drawText('Pedido', hCol.pedido, y, { size: 8, font: fontBold })
         drawText('Data', hCol.date, y, { size: 8, font: fontBold })
         drawText('Venda Total', hCol.total, y, { size: 8, font: fontBold })
         drawText('Desconto', hCol.desc, y, { size: 8, font: fontBold })
-        drawText('Total a Pagar', hCol.pay, y, { size: 8, font: fontBold })
-        drawText('Vendedor', hCol.seller, y, { size: 8, font: fontBold })
+        drawText('Valor Pago', hCol.pago, y, { size: 8, font: fontBold })
+        drawText('Débito', hCol.debito, y, { size: 8, font: fontBold })
 
         y -= 5
         page.drawLine({
@@ -421,23 +465,28 @@ serve(async (req) => {
         for (const h of history) {
           if (checkPageBreak(20)) y -= 20
 
-          // Calculate values for display
           // h object comes from acertoService.generateDocument -> history array
-          // In acertoService, history comes from bancoDeDadosService.getAcertoHistory
-          // items have: valorVendaTotal (Venda Total), saldoAPagar (Total a Pagar), vendedor (Name)
-          // Desconto is implicit diff or needs to be calculated
-
+          // mapped from bancoDeDadosService.getAcertoHistory
           const vendaTotal = h.valorVendaTotal
           const totalAPagar = h.saldoAPagar
           const desconto = vendaTotal - totalAPagar
+          const pago = h.valorPago
+          const debito = h.debito
 
+          drawText(`#${h.id}`, hCol.pedido, y, { size: 8 })
           drawText(safeFormatDate(h.data), hCol.date, y, { size: 8 })
           drawText(formatCurrency(vendaTotal), hCol.total, y, { size: 8 })
           drawText(formatCurrency(desconto), hCol.desc, y, { size: 8 })
-          drawText(formatCurrency(totalAPagar), hCol.pay, y, { size: 8 })
-          drawText((h.vendedor || '-').substring(0, 25), hCol.seller, y, {
-            size: 8,
-          })
+          drawText(formatCurrency(pago), hCol.pago, y, { size: 8 })
+
+          if (debito > 0) {
+            drawText(formatCurrency(debito), hCol.debito, y, {
+              size: 8,
+              color: rgb(1, 0, 0),
+            })
+          } else {
+            drawText(formatCurrency(0), hCol.debito, y, { size: 8 })
+          }
 
           y -= 12
         }
