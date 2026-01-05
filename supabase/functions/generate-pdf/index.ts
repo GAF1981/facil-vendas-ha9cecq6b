@@ -1,9 +1,5 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import {
-  PDFDocument,
-  StandardFonts,
-  rgb,
-} from 'https://cdn.skypack.dev/pdf-lib@1.17.1?dts'
+import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
+import { PDFDocument, StandardFonts, rgb } from 'https://esm.sh/pdf-lib@1.17.1'
 import { corsHeaders } from '../_shared/cors.ts'
 
 const removeAccents = (str: string) => {
@@ -42,7 +38,7 @@ const safeFormatTime = (dateString: string | null | undefined): string => {
   }
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
