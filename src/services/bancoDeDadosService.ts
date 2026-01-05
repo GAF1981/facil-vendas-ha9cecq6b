@@ -354,6 +354,32 @@ export const bancoDeDadosService = {
     return result
   },
 
+  async getHistoryForPdf(clienteId: number) {
+    // Specifically fetches history from 'debitos_historico' for PDF report generation
+    // to ensure consistency with the reports module and include Média Mensal/Pedido fields.
+    const { data, error } = await supabase
+      .from('debitos_historico')
+      .select('*')
+      .eq('cliente_codigo', clienteId)
+      .order('data_acerto', { ascending: false })
+      .order('pedido_id', { ascending: false })
+      .limit(10)
+
+    if (error) throw error
+
+    return data.map((row) => ({
+      id: row.pedido_id,
+      data: row.data_acerto,
+      valorVendaTotal: row.valor_venda || 0,
+      saldoAPagar: row.saldo_a_pagar || 0,
+      valorPago: row.valor_pago || 0,
+      debito: row.debito || 0,
+      vendedor: row.vendedor_nome || '-',
+      mediaMensal: row.media_mensal || 0,
+      desconto: row.desconto || 0,
+    }))
+  },
+
   async getOrderDetails(orderId: number) {
     const { data: itemsData, error: itemsError } = await supabase
       .from('BANCO_DE_DADOS')

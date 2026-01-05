@@ -125,13 +125,16 @@ export const acertoService = {
     const lastAcertoInfo = await bancoDeDadosService.getLastAcerto(clientId)
     const lastAcertoDate = lastAcertoInfo?.date || null
 
-    // Fetch History
-    const history = await bancoDeDadosService.getAcertoHistory(clientId)
+    // Fetch History using the optimized PDF-specific method
+    // This ensures data comes from 'debitos_historico' with correct columns (media_mensal, etc)
+    const history = await bancoDeDadosService.getHistoryForPdf(clientId)
+
+    // Filter out current order from history if present (though usually history is past)
     const previousOrders = history.filter((h) => h.id !== orderId)
     const lastOrder = previousOrders.length > 0 ? previousOrders[0] : null
 
-    // Filter history to last 10 (excluding current) for display
-    const recentHistory = previousOrders.slice(0, 10)
+    // Use the history fetched from debitos_historico directly
+    const recentHistory = previousOrders // Already limited by the service
 
     const items = dbItems.map((item) => ({
       uid: item['ID VENDA ITENS']?.toString() || Math.random().toString(),

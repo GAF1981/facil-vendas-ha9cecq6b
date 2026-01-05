@@ -71,10 +71,10 @@ Deno.serve(async (req) => {
 
       // Height calculation adjusted for VERTICAL Card Layout (taller items)
       // Item Card: Header + 5 fields + spacing = ~110
-      // History Card: Header + 7 fields + spacing = ~130
-      // Header(150) + Client(200) + Items(count * 110) + Totals(200) + Payments(count * 40) + History(count * 130) + Footer(100)
+      // History Card: Header + 9 fields (New) + spacing = ~160 (Increased)
+      // Header(150) + Client(200) + Items(count * 110) + Totals(200) + Payments(count * 40) + History(count * 160) + Footer(100)
       const estimatedHeight =
-        900 + itemsCount * 110 + paymentsCount * 40 + historyCount * 130
+        900 + itemsCount * 110 + paymentsCount * 40 + historyCount * 160
 
       page = pdfDoc.addPage([226, Math.max(842, estimatedHeight)])
       width = page.getSize().width
@@ -459,9 +459,9 @@ Deno.serve(async (req) => {
           y -= 15
         }
 
-        // HISTORY - VERTICAL CARD LAYOUT
+        // HISTORY - VERTICAL CARD LAYOUT (UPDATED)
         if (history && history.length > 0) {
-          checkPageBreak(120)
+          checkPageBreak(150)
           drawText('HISTORICO (ULTIMOS)', width / 2, y, {
             size: 10,
             font: fontBold,
@@ -470,13 +470,15 @@ Deno.serve(async (req) => {
           y -= 15
 
           for (const h of history) {
-            if (checkPageBreak(110)) y -= 10
+            if (checkPageBreak(160)) y -= 10
 
-            // Calculate discount value for display
+            // Calculate discount value for display (or use passed explicit value)
             const discountVal =
-              h.valorVendaTotal > h.saldoAPagar
-                ? h.valorVendaTotal - h.saldoAPagar
-                : 0
+              h.desconto !== undefined
+                ? h.desconto
+                : h.valorVendaTotal > h.saldoAPagar
+                  ? h.valorVendaTotal - h.saldoAPagar
+                  : 0
 
             // Vertical Fields (Left Aligned)
             const fields = [
@@ -493,6 +495,11 @@ Deno.serve(async (req) => {
               { label: 'Pago', value: `R$ ${formatCurrency(h.valorPago)}` },
               { label: 'Débito', value: `R$ ${formatCurrency(h.debito)}` },
               { label: 'Vendedor', value: h.vendedor || '-' },
+              {
+                label: 'Média Mensal',
+                value: `R$ ${formatCurrency(h.mediaMensal || 0)}`,
+              },
+              { label: 'Pedido', value: h.id || '-' },
             ]
 
             for (const field of fields) {
@@ -647,7 +654,7 @@ Deno.serve(async (req) => {
 
         y -= boxHeight + 20
 
-        // Items Table - Extended Columns with Full Labels where possible
+        // Items Table - OPTIMIZED Layout
         if (items && items.length > 0) {
           drawText('ITENS DO PEDIDO', margins.left, y, {
             size: 12,
@@ -655,29 +662,24 @@ Deno.serve(async (req) => {
           })
           y -= 15
 
-          // Extended Columns Layout - Adjusted to fit full labels
+          // Optimized Columns Layout (Unit removed, Saldo Final moved to end)
           const colX = {
             prod: margins.left,
-            sIni: 240, // Expanded space for Saldo Inicial
-            cont: 300, // Shifted
-            sFin: 350, // Expanded space for Saldo Final
-            qtd: 410, // Shifted
-            unit: 460, // Shifted
-            total: width - margins.right,
+            sIni: 310, // Right aligned
+            cont: 380, // Right aligned
+            qtd: 430, // Right aligned
+            total: 490, // Right aligned
+            sFin: 555, // Right aligned (End)
           }
 
+          // Headers
           drawText('Produto', colX.prod, y, { size: 8, font: fontBold })
           drawText('Saldo Inicial', colX.sIni, y, {
             size: 8,
             font: fontBold,
             align: 'right',
           })
-          drawText('Cont', colX.cont, y, {
-            size: 8,
-            font: fontBold,
-            align: 'right',
-          })
-          drawText('Saldo Final', colX.sFin, y, {
+          drawText('Contagem', colX.cont, y, {
             size: 8,
             font: fontBold,
             align: 'right',
@@ -687,12 +689,12 @@ Deno.serve(async (req) => {
             font: fontBold,
             align: 'right',
           })
-          drawText('Unit.', colX.unit, y, {
+          drawText('Total', colX.total, y, {
             size: 8,
             font: fontBold,
             align: 'right',
           })
-          drawText('Total', colX.total, y, {
+          drawText('Saldo Final', colX.sFin, y, {
             size: 8,
             font: fontBold,
             align: 'right',
@@ -720,19 +722,15 @@ Deno.serve(async (req) => {
               size: 8,
               align: 'right',
             })
-            drawText(String(item.saldoFinal), colX.sFin, y, {
-              size: 8,
-              align: 'right',
-            })
             drawText(String(item.quantVendida), colX.qtd, y, {
               size: 8,
               align: 'right',
             })
-            drawText(formatCurrency(item.precoUnitario), colX.unit, y, {
+            drawText(formatCurrency(item.valorVendido), colX.total, y, {
               size: 8,
               align: 'right',
             })
-            drawText(formatCurrency(item.valorVendido), colX.total, y, {
+            drawText(String(item.saldoFinal), colX.sFin, y, {
               size: 8,
               align: 'right',
             })
@@ -916,79 +914,86 @@ Deno.serve(async (req) => {
 
         y -= 50
 
-        // History Section - Card Layout for A4 as well
+        // History Section - Table Layout for A4 (UPDATED)
         if (history && history.length > 0) {
-          checkPageBreak(150)
-          drawText('HISTÓRICO RECENTE', margins.left, y, {
+          checkPageBreak(200)
+          drawText('Resumo de Acertos (Histórico)', margins.left, y, {
             size: 11,
             font: fontBold,
           })
           y -= 15
 
-          // Grid Layout for Cards (2 per row)
-          const cardWidth = (width - margins.left - margins.right - 10) / 2
-          const cardHeight = 60
-          let col = 0
+          // Table Header
+          const histColX = {
+            pedido: margins.left,
+            data: 110,
+            media: 360, // Align Right
+            saldo: 425, // Align Right
+            pago: 490, // Align Right
+            debito: 555, // Align Right
+          }
+
+          drawText('Pedido', histColX.pedido, y, { size: 9, font: fontBold })
+          drawText('Data do Acerto', histColX.data, y, {
+            size: 9,
+            font: fontBold,
+          })
+          drawText('Média Mensal', histColX.media, y, {
+            size: 9,
+            font: fontBold,
+            align: 'right',
+          })
+          drawText('Saldo a Pagar', histColX.saldo, y, {
+            size: 9,
+            font: fontBold,
+            align: 'right',
+          })
+          drawText('Valor Pago', histColX.pago, y, {
+            size: 9,
+            font: fontBold,
+            align: 'right',
+          })
+          drawText('Débito', histColX.debito, y, {
+            size: 9,
+            font: fontBold,
+            align: 'right',
+          })
+
+          y -= 5
+          page.drawLine({
+            start: { x: margins.left, y },
+            end: { x: width - margins.right, y },
+            thickness: 1,
+            color: rgb(0.8, 0.8, 0.8),
+          })
+          y -= 12
 
           for (const h of history) {
-            if (col === 0 && checkPageBreak(cardHeight + 10)) y -= 10
-
-            const xCard =
-              col === 0 ? margins.left : margins.left + cardWidth + 10
-
-            // Draw Card Border
-            page.drawRectangle({
-              x: xCard,
-              y: y - cardHeight,
-              width: cardWidth,
-              height: cardHeight,
-              borderColor: rgb(0.8, 0.8, 0.8),
-              borderWidth: 1,
+            if (checkPageBreak(20)) y -= 20
+            drawText(String(h.id || '-'), histColX.pedido, y, { size: 9 })
+            drawText(safeFormatDate(h.data), histColX.data, y, { size: 9 })
+            drawText(formatCurrency(h.mediaMensal || 0), histColX.media, y, {
+              size: 9,
+              align: 'right',
             })
-
-            // Card Content
-            const cardTextY = y - 12
-            drawText(
-              `Data: ${safeFormatDate(h.data)} | Pedido: ${h.id}`,
-              xCard + 5,
-              cardTextY,
-              { size: 8, font: fontBold },
-            )
-
-            const valsY = cardTextY - 12
-            drawText(
-              `Venda: R$ ${formatCurrency(h.valorVendaTotal)}`,
-              xCard + 5,
-              valsY,
-              { size: 8 },
-            )
-            drawText(
-              `Pago: R$ ${formatCurrency(h.valorPago)}`,
-              xCard + 5,
-              valsY - 12,
-              { size: 8 },
-            )
-
-            const debtColor = h.debito > 0 ? rgb(1, 0, 0) : rgb(0, 0, 0)
-            drawText(
-              `Débito: R$ ${formatCurrency(h.debito)}`,
-              xCard + 5,
-              valsY - 24,
-              {
-                size: 8,
-                color: debtColor,
-                font: h.debito > 0 ? fontBold : fontRegular,
-              },
-            )
-
-            if (col === 1) {
-              col = 0
-              y -= cardHeight + 10
-            } else {
-              col = 1
-            }
+            drawText(formatCurrency(h.saldoAPagar), histColX.saldo, y, {
+              size: 9,
+              align: 'right',
+            })
+            drawText(formatCurrency(h.valorPago), histColX.pago, y, {
+              size: 9,
+              align: 'right',
+            })
+            const debitoColor = h.debito > 0 ? rgb(1, 0, 0) : rgb(0, 0, 0)
+            const debitoFont = h.debito > 0 ? fontBold : fontRegular
+            drawText(formatCurrency(h.debito), histColX.debito, y, {
+              size: 9,
+              align: 'right',
+              color: debitoColor,
+              font: debitoFont,
+            })
+            y -= 12
           }
-          if (col === 1) y -= cardHeight + 10
         }
       }
     }
