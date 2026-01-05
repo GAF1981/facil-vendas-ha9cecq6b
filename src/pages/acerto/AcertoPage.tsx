@@ -52,7 +52,8 @@ export default function AcertoPage() {
   const [signature, setSignature] = useState<string | null>(null)
   const [signatureOpen, setSignatureOpen] = useState(false)
   const [zeroStockDialogOpen, setZeroStockDialogOpen] = useState(false)
-  const [pdfFormat, setPdfFormat] = useState<'A4' | '80mm'>('A4')
+  // Default to 80mm as per user story
+  const [pdfFormat, setPdfFormat] = useState<'A4' | '80mm'>('80mm')
 
   // Pending Stock Adjustments Queue
   const [pendingAdjustments, setPendingAdjustments] = useState<

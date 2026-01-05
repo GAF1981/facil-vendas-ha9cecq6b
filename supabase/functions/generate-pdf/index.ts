@@ -59,9 +59,9 @@ serve(async (req) => {
       const historyCount = body.history ? body.history.length : 0
 
       // Approximate height calculation:
-      // Header (200) + Items (items * 30) + Totals (150) + Payments (payments * 30) + Signatures (100) + History (history * 30) + Footer (50)
+      // Header & Client Info (Expanded) (600) + Items (items * 30) + Totals (150) + Payments (payments * 30) + Signatures (100) + History (history * 30) + Footer (50)
       const estimatedHeight =
-        500 + itemsCount * 30 + paymentsCount * 30 + historyCount * 30
+        600 + itemsCount * 30 + paymentsCount * 30 + historyCount * 30
 
       page = pdfDoc.addPage([226, Math.max(842, estimatedHeight)]) // Min height A4 length
       width = page.getSize().width
@@ -224,19 +224,80 @@ serve(async (req) => {
 
         // Client Info
         drawText(
-          `CLIENTE: ${client['NOME CLIENTE'].substring(0, 25)}`,
+          `CLIENTE: ${client['NOME CLIENTE'].substring(0, 30)}`,
           margins.left,
           y,
           { size: 10, font: fontBold },
         )
         y -= 12
+
+        if (client['RAZÃO SOCIAL']) {
+          drawText(client['RAZÃO SOCIAL'].substring(0, 30), margins.left, y, {
+            size: 9,
+          })
+          y -= 12
+        }
+
         drawText(`Codigo: ${client.CODIGO}`, margins.left, y, { size: 9 })
         y -= 12
+
+        const doc = client.CNPJ || client.CPF || '-'
+        if (doc !== '-') {
+          drawText(`CNPJ/CPF: ${doc}`, margins.left, y, { size: 9 })
+          y -= 12
+        }
+
+        const phone = client['FONE 1'] || client['FONE 2'] || '-'
+        if (phone !== '-') {
+          drawText(`Tel: ${phone}`, margins.left, y, { size: 9 })
+          y -= 12
+        }
+
+        const address = client.ENDEREÇO || '-'
+        const bairro = client.BAIRRO || ''
+        const fullAddr = `${address}${bairro ? ' - ' + bairro : ''}`
+
+        // Basic wrapping for address
+        if (fullAddr.length > 35) {
+          drawText(`End: ${fullAddr.substring(0, 35)}`, margins.left, y, {
+            size: 9,
+          })
+          y -= 12
+          drawText(`${fullAddr.substring(35, 70)}`, margins.left + 24, y, {
+            size: 9,
+          })
+          y -= 12
+        } else {
+          drawText(`End: ${fullAddr}`, margins.left, y, { size: 9 })
+          y -= 12
+        }
+
         const city = clientMunicipio || client.MUNICÍPIO || client.city || '-'
-        drawText(`Cidade: ${city.substring(0, 25)}`, margins.left, y, {
+        drawText(`Cidade: ${city.substring(0, 30)}`, margins.left, y, {
           size: 9,
         })
-        y -= 10
+        y -= 12
+
+        // Last Order Date
+        if (lastAcertoDate) {
+          drawText(
+            `Ultimo Acerto: ${safeFormatDate(lastAcertoDate)}`,
+            margins.left,
+            y,
+            { size: 9 },
+          )
+          y -= 12
+        } else if (lastOrder) {
+          drawText(
+            `Ultimo Acerto: ${safeFormatDate(lastOrder.date)}`,
+            margins.left,
+            y,
+            { size: 9 },
+          )
+          y -= 12
+        }
+
+        y -= 5
         drawLine(y)
         y -= 15
 
