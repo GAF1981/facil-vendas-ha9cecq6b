@@ -1122,7 +1122,7 @@ export type Database = {
           foto_url: string
           id: number
           nome_completo: string
-          setor: string
+          setor: string[]
         }[]
       }
       parse_currency_sql: { Args: { p_value: string }; Returns: number }
@@ -1141,13 +1141,11 @@ export type Database = {
       verify_employee_credentials: {
         Args: { p_email: string; p_senha: string }
         Returns: {
-          apelido: string
-          cpf: string
           email: string
           foto_url: string
           id: number
           nome_completo: string
-          setor: string
+          setor: string[]
         }[]
       }
     }

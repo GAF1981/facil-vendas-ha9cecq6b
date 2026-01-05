@@ -126,6 +126,7 @@ const ClientsPage = () => {
               <SelectItem value="all">Todos</SelectItem>
               <SelectItem value="ATIVO">Ativo</SelectItem>
               <SelectItem value="INATIVO">Inativo</SelectItem>
+              <SelectItem value="INATIVO - ROTA">Inativo - Rota</SelectItem>
               <SelectItem value="BLOQUEADO">Bloqueado</SelectItem>
             </SelectContent>
           </Select>

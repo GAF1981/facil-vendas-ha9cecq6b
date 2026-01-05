@@ -112,8 +112,10 @@ export function ClientForm({
   useEffect(() => {
     clientsService.getRoutes().then((data) => setRoutes(data))
     clientsService.getUniqueClientTypes().then((data) => {
-      const types = data.includes('ATIVO') ? data : ['ATIVO', ...data]
-      setClientTypes(types)
+      // Ensure "ATIVO" and "INATIVO - ROTA" are always available options
+      const defaultTypes = ['ATIVO', 'INATIVO - ROTA']
+      const mergedTypes = Array.from(new Set([...defaultTypes, ...data]))
+      setClientTypes(mergedTypes)
     })
 
     if (!initialData) {

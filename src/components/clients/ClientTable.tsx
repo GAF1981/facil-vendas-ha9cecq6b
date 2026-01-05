@@ -77,6 +77,21 @@ export function ClientTable({ clients, onUpdate }: ClientTableProps) {
     }
   }
 
+  const getStatusVariant = (status: string | null) => {
+    switch (status) {
+      case 'ATIVO':
+        return 'default'
+      case 'INATIVO':
+        return 'secondary'
+      case 'INATIVO - ROTA':
+        return 'outline' // Visual differentiation
+      case 'BLOQUEADO':
+        return 'destructive'
+      default:
+        return 'secondary'
+    }
+  }
+
   return (
     <>
       <div className="rounded-md border bg-card">
@@ -85,7 +100,7 @@ export function ClientTable({ clients, onUpdate }: ClientTableProps) {
             <TableRow>
               <TableHead className="w-[80px]">Código</TableHead>
               <TableHead>Nome</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>TIPO CLIENTE</TableHead>
               <TableHead className="hidden md:table-cell">CPF/CNPJ</TableHead>
               <TableHead className="hidden lg:table-cell">Cidade</TableHead>
               <TableHead className="hidden md:table-cell">Telefone</TableHead>
@@ -101,11 +116,12 @@ export function ClientTable({ clients, onUpdate }: ClientTableProps) {
                 <TableCell>
                   <div className="flex flex-col gap-1">
                     <span className="font-medium">{client.CODIGO}</span>
+                    {/* Small badge for quick visual ref on mobile too */}
                     <Badge
                       variant="outline"
-                      className="w-fit text-[10px] px-1 py-0 h-4"
+                      className="w-fit text-[10px] px-1 py-0 h-4 md:hidden"
                     >
-                      {client['TIPO DE CLIENTE'] || 'N/D'}
+                      {client['TIPO DE CLIENTE']?.substring(0, 3) || 'N/D'}
                     </Badge>
                   </div>
                 </TableCell>
@@ -121,12 +137,8 @@ export function ClientTable({ clients, onUpdate }: ClientTableProps) {
                 </TableCell>
                 <TableCell>
                   <Badge
-                    variant={
-                      client['TIPO DE CLIENTE'] === 'ATIVO'
-                        ? 'default'
-                        : 'secondary'
-                    }
-                    className="text-xs"
+                    variant={getStatusVariant(client['TIPO DE CLIENTE'])}
+                    className="text-xs whitespace-nowrap"
                   >
                     {client['TIPO DE CLIENTE'] || 'N/D'}
                   </Badge>

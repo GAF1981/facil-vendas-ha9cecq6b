@@ -2,8 +2,7 @@ import { supabase } from '@/lib/supabase/client'
 import { Rota, RotaItem } from '@/types/rota'
 import { cobrancaService } from './cobrancaService'
 import { pendenciasService } from './pendenciasService'
-import { parseISO, isAfter, isBefore, isEqual, startOfDay } from 'date-fns'
-import { parseCurrency } from '@/lib/formatters'
+import { parseISO, isBefore, startOfDay } from 'date-fns'
 
 export const rotaService = {
   async getActiveRota() {
@@ -175,19 +174,19 @@ export const rotaService = {
   },
 
   async getFullRotaData(rota: Rota | null) {
-    // 1. Fetch all Clients (FILTERED BY 'ATIVO' AS REQUIRED)
-    // IMPORTANT: User story requires filtering strict to 'ATIVO'
+    // 1. Fetch all Clients (FILTERED BY 'ATIVO' OR 'INATIVO - ROTA')
+    // IMPORTANT: Requirement: "all customers where TIPO DE CLIENTE is either ATIVO or INATIVO - ROTA"
     const { data: clients, error: clientsError } = await supabase
       .from('CLIENTES')
       .select('*')
-      .eq('TIPO DE CLIENTE', 'ATIVO') // ENFORCED FILTER
+      .in('TIPO DE CLIENTE', ['ATIVO', 'INATIVO - ROTA'])
       .order('CODIGO', { ascending: false })
       .limit(50000)
 
     if (clientsError) throw clientsError
     if (!clients) return []
 
-    // 2. Fetch Debts
+    // 2. Fetch Debts (Using Cobrança Service for consistency with History module)
     const allDebts = await cobrancaService.getDebts()
     const debtMap = new Map(allDebts.map((d) => [d.clientId, d]))
 
@@ -205,23 +204,26 @@ export const rotaService = {
     // 5. Fetch Projections
     const projectionMap = await this.getClientProjections()
 
-    // 6. Fetch Products for pricing
-    const { data: products } = await supabase
-      .from('PRODUTOS')
-      .select('CODIGO, PREÇO')
-      .limit(10000)
+    // 6. Fetch Accurate Stock Values via RPC
+    const { data: stockData, error: stockError } = await supabase.rpc(
+      'get_clients_last_stock_value',
+    )
+    if (stockError) {
+      console.error('Error fetching stock values:', stockError)
+    }
 
-    const priceMap = new Map<number, number>()
-    products?.forEach((p) => {
-      if (p.CODIGO) priceMap.set(p.CODIGO, parseCurrency(p.PREÇO))
-    })
+    const stockMap = new Map<number, number>()
+    if (stockData) {
+      ;(stockData as any[]).forEach((row) => {
+        stockMap.set(row.client_id, row.stock_value)
+      })
+    }
 
-    // 7. Fetch basic Summary Stats + Last Order Number
+    // 7. Fetch basic Summary Stats (History Dates)
+    // We still fetch BANCO_DE_DADOS for lastDate and lastOrderId, history for completeness
     const { data: dbStats } = await supabase
       .from('BANCO_DE_DADOS')
-      .select(
-        '"CÓDIGO DO CLIENTE", "DATA DO ACERTO", "SALDO FINAL", "VALOR VENDIDO", "COD. PRODUTO", "NÚMERO DO PEDIDO"',
-      )
+      .select('"CÓDIGO DO CLIENTE", "DATA DO ACERTO", "NÚMERO DO PEDIDO"')
       .order('DATA DO ACERTO', { ascending: false })
       .limit(50000)
 
@@ -229,7 +231,6 @@ export const rotaService = {
       number,
       {
         lastDate: string | null
-        stockValue: number
         history: Set<string>
         lastOrderId: number | null
       }
@@ -242,7 +243,6 @@ export const rotaService = {
       if (!statsMap.has(cid)) {
         statsMap.set(cid, {
           lastDate: null,
-          stockValue: 0,
           history: new Set(),
           lastOrderId: null,
         })
@@ -255,17 +255,9 @@ export const rotaService = {
 
       if (!entry.lastDate) {
         entry.lastDate = row['DATA DO ACERTO']
-        // Since we are ordered by date desc, the first row with date is the last acerto
         if (row['NÚMERO DO PEDIDO']) {
           entry.lastOrderId = row['NÚMERO DO PEDIDO']
         }
-      }
-
-      if (row['DATA DO ACERTO'] === entry.lastDate) {
-        const qty = row['SALDO FINAL'] || 0
-        const pid = row['COD. PRODUTO']
-        const price = priceMap.get(pid) || 0
-        entry.stockValue += qty * price
       }
     })
 
@@ -290,6 +282,7 @@ export const rotaService = {
       const rotaItem = rotaItemsMap.get(cid)
       const stats = statsMap.get(cid)
       const projection = projectionMap.get(cid) || 0
+      const stockValue = stockMap.get(cid) || 0
 
       // Calculate Status & Earliest Unpaid Date
       let vencimentoStatus: 'VENCIDO' | 'A VENCER' | 'PAGO' | 'SEM DÉBITO' =
@@ -315,12 +308,12 @@ export const rotaService = {
         boleto: rotaItem?.boleto || false,
         agregado: rotaItem?.agregado || false,
         vendedor_id: rotaItem?.vendedor_id || null,
-        debito: debtInfo?.totalDebt || 0,
+        debito: debtInfo?.totalDebt || 0, // Synced with cobrancaService logic
         quant_debito: debtInfo?.orderCount || 0,
         data_acerto: stats?.lastDate || null,
         projecao: projection,
         numero_pedido: stats?.lastOrderId || null,
-        estoque: stats?.stockValue || 0,
+        estoque: stockValue, // Updated to use RPC calculation
         has_pendency: pendencyMap.has(cid),
         is_completed: completedSet.has(cid),
         earliest_unpaid_date: earliestUnpaid,
