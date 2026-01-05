@@ -271,6 +271,9 @@ export default function AcertoPage() {
 
     setGeneratingPdf(true)
     try {
+      // Fetch history for preview to visualize the full document
+      const history = await bancoDeDadosService.getAcertoHistory(client.CODIGO)
+
       const pdfBlob = await acertoService.generatePdf(
         {
           client,
@@ -290,6 +293,7 @@ export default function AcertoPage() {
           monthlyAverage,
           orderNumber: nextOrderNumber,
           issuerName: loggedInUser?.nome_completo,
+          history: history.slice(0, 10), // Pass history to preview
         },
         { preview: true, signature, format: pdfFormat },
       )
