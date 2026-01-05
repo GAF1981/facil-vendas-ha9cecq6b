@@ -163,6 +163,7 @@ export type Database = {
           'SALDO FINAL': number | null
           'SALDO INICIAL': number | null
           session_id: number | null
+          solicitacao_nf: string | null
           TIPO: string | null
           'VALOR CONSIGNADO TOTAL (Custo)': string | null
           'VALOR CONSIGNADO TOTAL (Preço Venda)': string | null
@@ -197,6 +198,7 @@ export type Database = {
           'SALDO FINAL'?: number | null
           'SALDO INICIAL'?: number | null
           session_id?: number | null
+          solicitacao_nf?: string | null
           TIPO?: string | null
           'VALOR CONSIGNADO TOTAL (Custo)'?: string | null
           'VALOR CONSIGNADO TOTAL (Preço Venda)'?: string | null
@@ -231,6 +233,7 @@ export type Database = {
           'SALDO FINAL'?: number | null
           'SALDO INICIAL'?: number | null
           session_id?: number | null
+          solicitacao_nf?: string | null
           TIPO?: string | null
           'VALOR CONSIGNADO TOTAL (Custo)'?: string | null
           'VALOR CONSIGNADO TOTAL (Preço Venda)'?: string | null
@@ -427,12 +430,16 @@ export type Database = {
       }
       debitos_historico: {
         Row: {
+          cliente_codigo: number | null
+          cliente_nome: string | null
           created_at: string | null
           data_acerto: string | null
           debito: number | null
+          hora_acerto: string | null
           id: number
           media_mensal: number | null
           pedido_id: number
+          rota: string | null
           rota_id: number | null
           saldo_a_pagar: number | null
           valor_pago: number | null
@@ -440,12 +447,16 @@ export type Database = {
           vendedor_nome: string | null
         }
         Insert: {
+          cliente_codigo?: number | null
+          cliente_nome?: string | null
           created_at?: string | null
           data_acerto?: string | null
           debito?: number | null
+          hora_acerto?: string | null
           id?: number
           media_mensal?: number | null
           pedido_id: number
+          rota?: string | null
           rota_id?: number | null
           saldo_a_pagar?: number | null
           valor_pago?: number | null
@@ -453,12 +464,16 @@ export type Database = {
           vendedor_nome?: string | null
         }
         Update: {
+          cliente_codigo?: number | null
+          cliente_nome?: string | null
           created_at?: string | null
           data_acerto?: string | null
           debito?: number | null
+          hora_acerto?: string | null
           id?: number
           media_mensal?: number | null
           pedido_id?: number
+          rota?: string | null
           rota_id?: number | null
           saldo_a_pagar?: number | null
           valor_pago?: number | null
@@ -641,6 +656,36 @@ export type Database = {
           created_at?: string
           id?: number
           venda_id?: number
+        }
+        Relationships: []
+      }
+      notas_fiscais_emitidas: {
+        Row: {
+          cliente_id: number
+          created_at: string
+          data_emissao: string
+          funcionario_id: number | null
+          id: number
+          numero_nota_fiscal: string
+          pedido_id: number
+        }
+        Insert: {
+          cliente_id: number
+          created_at?: string
+          data_emissao?: string
+          funcionario_id?: number | null
+          id?: number
+          numero_nota_fiscal: string
+          pedido_id: number
+        }
+        Update: {
+          cliente_id?: number
+          created_at?: string
+          data_emissao?: string
+          funcionario_id?: number | null
+          id?: number
+          numero_nota_fiscal?: string
+          pedido_id?: number
         }
         Relationships: []
       }
