@@ -48,7 +48,6 @@ serve(async (req) => {
 
     if (isThermal) {
       // Thermal 80mm Setup (~226 points width)
-      // Calculate dynamic height based on content to simulate continuous roll
       const itemsCount = body.items ? body.items.length : 0
       const paymentsCount = body.payments
         ? body.payments.reduce(
@@ -58,12 +57,12 @@ serve(async (req) => {
         : 0
       const historyCount = body.history ? body.history.length : 0
 
-      // Approximate height calculation:
-      // Header & Client Info (Expanded) (600) + Items (items * 30) + Totals (150) + Payments (payments * 30) + Signatures (100) + History (history * 30) + Footer (50)
+      // Height calculation adjusted for Card Layout (more lines per item)
+      // Header(150) + Client(200) + Items(count * 70) + Totals(150) + Payments(count * 40) + History(count * 25) + Footer(100)
       const estimatedHeight =
-        600 + itemsCount * 30 + paymentsCount * 30 + historyCount * 30
+        800 + itemsCount * 70 + paymentsCount * 40 + historyCount * 25
 
-      page = pdfDoc.addPage([226, Math.max(842, estimatedHeight)]) // Min height A4 length
+      page = pdfDoc.addPage([226, Math.max(842, estimatedHeight)])
       width = page.getSize().width
       height = page.getSize().height
       margins = { top: 20, bottom: 20, left: 10, right: 10 }
@@ -87,24 +86,19 @@ serve(async (req) => {
         align?: 'left' | 'right' | 'center'
         color?: any
         rotate?: any
-        maxWidth?: number // Added for basic truncation support if needed
       } = {},
     ) => {
       const {
         size = 10,
         font = fontRegular,
         align = 'left',
-        color = rgb(0, 0, 0), // Default black
+        color = rgb(0, 0, 0),
         rotate = undefined,
       } = options
 
-      // Force black color for thermal to ensure high contrast
+      // Force Bold and Black for Thermal as requested for maximum legibility
+      const finalFont = isThermal ? fontBold : font
       const finalColor = isThermal ? rgb(0, 0, 0) : color
-
-      // Use Bold more often in thermal for legibility if not specified
-      const finalFont = isThermal && font === fontRegular ? fontBold : font // Optional: force bold? User story says "Use bold styling for primary info".
-      // Let's stick to using fontBold explicitly where needed, but maybe default to fontBold for all text in thermal?
-      // User story: "Use bold styling for primary information and headers". So keep regular for lists is fine.
 
       const cleanText = removeAccents(text || '')
       const textWidth = finalFont.widthOfTextAtSize(cleanText, size)
@@ -127,8 +121,7 @@ serve(async (req) => {
     const checkPageBreak = (spaceNeeded: number) => {
       if (y - spaceNeeded < margins.bottom) {
         if (isThermal) {
-          // For thermal, we ideally just want one long page, but if we underestimated height:
-          page = pdfDoc.addPage([width, height])
+          page = pdfDoc.addPage([width, height]) // Keep same dynamic size
         } else {
           page = pdfDoc.addPage()
         }
@@ -152,7 +145,6 @@ serve(async (req) => {
       reportType !== 'cash-summary' &&
       reportType !== 'employee-cash-summary'
     ) {
-      // --- ACERTO / RECEIPT ---
       const {
         client,
         employee,
@@ -170,14 +162,14 @@ serve(async (req) => {
         signature,
         orderNumber,
         isReceipt,
-        issuerName,
-        lastOrder,
         clientMunicipio,
         lastAcertoDate,
+        lastOrder,
       } = body
 
       if (isThermal) {
-        // --- THERMAL LAYOUT ---
+        // --- THERMAL 80mm LAYOUT (CARD BASED) ---
+
         if (preview) {
           drawText('PREVIA DE VISUALIZACAO', width / 2, y, {
             size: 12,
@@ -187,6 +179,7 @@ serve(async (req) => {
           y -= 20
         }
 
+        // Header
         drawText('FACIL VENDAS', width / 2, y, {
           size: 14,
           font: fontBold,
@@ -204,16 +197,17 @@ serve(async (req) => {
         y -= 15
 
         // Order Info
-        if (orderNumber)
+        if (orderNumber) {
           drawText(`PEDIDO: ${orderNumber}`, margins.left, y, {
             size: 10,
             font: fontBold,
           })
-        y -= 12
+          y -= 12
+        }
         drawText(`Data: ${safeFormatDate(date)}`, margins.left, y, { size: 9 })
         y -= 12
         drawText(
-          `Vendedor: ${employee.nome_completo.substring(0, 20)}`,
+          `Vendedor: ${employee.nome_completo.substring(0, 25)}`,
           margins.left,
           y,
           { size: 9 },
@@ -222,7 +216,7 @@ serve(async (req) => {
         drawLine(y)
         y -= 15
 
-        // Client Info
+        // Client Info (Vertical Expansion)
         drawText(
           `CLIENTE: ${client['NOME CLIENTE'].substring(0, 30)}`,
           margins.left,
@@ -257,20 +251,19 @@ serve(async (req) => {
         const bairro = client.BAIRRO || ''
         const fullAddr = `${address}${bairro ? ' - ' + bairro : ''}`
 
-        // Basic wrapping for address
+        // Address Wrapping
         if (fullAddr.length > 35) {
           drawText(`End: ${fullAddr.substring(0, 35)}`, margins.left, y, {
             size: 9,
           })
           y -= 12
-          drawText(`${fullAddr.substring(35, 70)}`, margins.left + 24, y, {
+          drawText(`${fullAddr.substring(35, 70)}`, margins.left + 20, y, {
             size: 9,
           })
-          y -= 12
         } else {
           drawText(`End: ${fullAddr}`, margins.left, y, { size: 9 })
-          y -= 12
         }
+        y -= 12
 
         const city = clientMunicipio || client.MUNICÍPIO || client.city || '-'
         drawText(`Cidade: ${city.substring(0, 30)}`, margins.left, y, {
@@ -278,18 +271,11 @@ serve(async (req) => {
         })
         y -= 12
 
-        // Last Order Date
-        if (lastAcertoDate) {
+        // Last Acerto
+        const lastDate = lastAcertoDate || (lastOrder ? lastOrder.date : null)
+        if (lastDate) {
           drawText(
-            `Ultimo Acerto: ${safeFormatDate(lastAcertoDate)}`,
-            margins.left,
-            y,
-            { size: 9 },
-          )
-          y -= 12
-        } else if (lastOrder) {
-          drawText(
-            `Ultimo Acerto: ${safeFormatDate(lastOrder.date)}`,
+            `Ultimo Acerto: ${safeFormatDate(lastDate)}`,
             margins.left,
             y,
             { size: 9 },
@@ -301,59 +287,121 @@ serve(async (req) => {
         drawLine(y)
         y -= 15
 
-        // Items
+        // ITEMS - CARD LAYOUT
         if (items && items.length > 0) {
-          drawText('ITENS', margins.left, y, { size: 10, font: fontBold })
-          y -= 12
-          // Header
-          drawText('Qtd x Unit', margins.left, y, { size: 8 })
-          drawText('Total', width - margins.right, y, {
-            size: 8,
-            align: 'right',
+          drawText('ITENS', width / 2, y, {
+            size: 11,
+            font: fontBold,
+            align: 'center',
           })
-          y -= 10
+          y -= 15
 
           for (const item of items) {
-            if (checkPageBreak(30)) y -= 10
-            // Line 1: Product Name
-            drawText(item.produtoNome.substring(0, 30), margins.left, y, {
+            if (checkPageBreak(70)) y -= 10
+
+            // Product Name (Wrapping Logic)
+            const pName = item.produtoNome || ''
+            const maxLen = 35
+            let currentNameY = y
+
+            if (pName.length > maxLen) {
+              const line1 = pName.substring(0, maxLen)
+              const line2 = pName.substring(maxLen, maxLen * 2)
+              drawText(line1, margins.left, currentNameY, {
+                size: 9,
+                font: fontBold,
+              })
+              currentNameY -= 10
+              drawText(line2, margins.left, currentNameY, {
+                size: 9,
+                font: fontBold,
+              })
+              currentNameY -= 12
+            } else {
+              drawText(pName, margins.left, currentNameY, {
+                size: 9,
+                font: fontBold,
+              })
+              currentNameY -= 12
+            }
+            y = currentNameY
+
+            // Row 1: S. Inicial | Contagem
+            drawText(`S. Ini: ${item.saldoInicial}`, margins.left, y, {
               size: 9,
               font: fontBold,
             })
-            y -= 10
-            // Line 2: Details
-            const detail = `${item.quantVendida} x ${formatCurrency(item.precoUnitario)}`
-            drawText(detail, margins.left, y, { size: 9 })
+            drawText(`Cont: ${item.contagem}`, width - margins.right, y, {
+              size: 9,
+              font: fontBold,
+              align: 'right',
+            })
+            y -= 12
+
+            // Row 2: S. Final | Qtd Vendida
+            drawText(`S. Fin: ${item.saldoFinal}`, margins.left, y, {
+              size: 9,
+              font: fontBold,
+            })
             drawText(
-              formatCurrency(item.valorVendido),
+              `Qtd Vend: ${item.quantVendida}`,
               width - margins.right,
               y,
               { size: 9, font: fontBold, align: 'right' },
             )
             y -= 12
+
+            // Row 3: Preço | Total
+            drawText(
+              `Unit: ${formatCurrency(item.precoUnitario)}`,
+              margins.left,
+              y,
+              { size: 9, font: fontBold },
+            )
+            drawText(
+              `Total: ${formatCurrency(item.valorVendido)}`,
+              width - margins.right,
+              y,
+              { size: 9, font: fontBold, align: 'right' },
+            )
+            y -= 8
+
+            drawLine(y)
+            y -= 12
           }
-          drawLine(y)
-          y -= 15
         }
 
-        // Totals
-        checkPageBreak(80)
-        drawText('Total Vendido:', margins.left, y, { size: 9 })
+        // TOTALS - Vertical Stack
+        checkPageBreak(100)
+        drawText('RESUMO', width / 2, y, {
+          size: 11,
+          font: fontBold,
+          align: 'center',
+        })
+        y -= 15
+
+        drawText('Total Vendido:', margins.left, y, {
+          size: 10,
+          font: fontBold,
+        })
         drawText(formatCurrency(totalVendido), width - margins.right, y, {
-          size: 9,
+          size: 10,
+          font: fontBold,
           align: 'right',
         })
-        y -= 12
+        y -= 15
+
         if (valorDesconto > 0) {
-          drawText('Desconto:', margins.left, y, { size: 9 })
+          drawText('Desconto:', margins.left, y, { size: 10, font: fontBold })
           drawText(
             `-${formatCurrency(valorDesconto)}`,
             width - margins.right,
             y,
-            { size: 9, align: 'right' },
+            { size: 10, font: fontBold, align: 'right' },
           )
-          y -= 12
+          y -= 15
         }
+
         drawText('TOTAL A PAGAR:', margins.left, y, {
           size: 11,
           font: fontBold,
@@ -365,12 +413,13 @@ serve(async (req) => {
         })
         y -= 15
 
-        drawText('Valor Pago:', margins.left, y, { size: 9 })
+        drawText('Valor Pago:', margins.left, y, { size: 10, font: fontBold })
         drawText(formatCurrency(valorPago), width - margins.right, y, {
-          size: 9,
+          size: 10,
+          font: fontBold,
           align: 'right',
         })
-        y -= 12
+        y -= 15
 
         if (debito > 0) {
           drawText('RESTANTE (DEBITO):', margins.left, y, {
@@ -387,88 +436,102 @@ serve(async (req) => {
         drawLine(y)
         y -= 15
 
-        // Payments
+        // PAYMENTS
         if (payments && payments.length > 0) {
-          checkPageBreak(50)
-          drawText('PAGAMENTOS', margins.left, y, { size: 10, font: fontBold })
-          y -= 12
+          checkPageBreak(60)
+          drawText('PAGAMENTOS', width / 2, y, {
+            size: 10,
+            font: fontBold,
+            align: 'center',
+          })
+          y -= 15
+
           for (const p of payments) {
-            if (p.details && p.details.length > 0) {
-              for (const inst of p.details) {
-                if (checkPageBreak(20)) y -= 10
-                const desc = `${p.method} (${inst.number}/${p.installments})`
-                drawText(desc, margins.left, y, { size: 9 })
-                drawText(formatCurrency(inst.value), width - margins.right, y, {
-                  size: 9,
-                  align: 'right',
-                })
-                y -= 10
-                drawText(
-                  `Venc: ${safeFormatDate(inst.dueDate)}`,
-                  margins.left,
-                  y,
-                  { size: 8 },
-                )
-                y -= 10
-              }
-            } else {
-              if (checkPageBreak(20)) y -= 10
-              drawText(p.method, margins.left, y, { size: 9 })
-              drawText(formatCurrency(p.value), width - margins.right, y, {
+            // Check for details first
+            const detailsList =
+              p.details && p.details.length > 0
+                ? p.details
+                : [
+                    {
+                      number: 1,
+                      value: p.value,
+                      dueDate: p.dueDate,
+                    },
+                  ]
+
+            for (const inst of detailsList) {
+              if (checkPageBreak(25)) y -= 10
+              const label = `${p.method} (${inst.number}/${p.installments})`
+              drawText(label, margins.left, y, { size: 9, font: fontBold })
+              drawText(formatCurrency(inst.value), width - margins.right, y, {
                 size: 9,
+                font: fontBold,
                 align: 'right',
               })
               y -= 10
-              drawText(`Venc: ${safeFormatDate(p.dueDate)}`, margins.left, y, {
-                size: 8,
-              })
-              y -= 10
+              drawText(
+                `Venc: ${safeFormatDate(inst.dueDate)}`,
+                margins.left + 10,
+                y,
+                { size: 9, font: fontBold },
+              )
+              y -= 12
             }
           }
           drawLine(y)
           y -= 15
         }
 
-        // History
+        // HISTORY (Vertical List)
         if (history && history.length > 0) {
-          checkPageBreak(50)
-          drawText('HISTORICO (ULTIMOS)', margins.left, y, {
+          checkPageBreak(100)
+          drawText('HISTORICO (ULTIMOS)', width / 2, y, {
             size: 10,
             font: fontBold,
+            align: 'center',
           })
-          y -= 12
-          drawText('Data', margins.left, y, { size: 8 })
-          drawText('Valor', margins.left + 70, y, { size: 8, align: 'right' })
+          y -= 15
+          // Simple Header
+          drawText('Data', margins.left, y, { size: 9, font: fontBold })
+          drawText('Venda', margins.left + 60, y, { size: 9, font: fontBold })
           drawText('Debito', width - margins.right, y, {
-            size: 8,
+            size: 9,
+            font: fontBold,
             align: 'right',
           })
           y -= 10
+
           for (const h of history) {
             if (checkPageBreak(15)) y -= 10
-            drawText(safeFormatDate(h.data), margins.left, y, { size: 8 })
-            drawText(formatCurrency(h.valorVendaTotal), margins.left + 70, y, {
-              size: 8,
-              align: 'right',
+            drawText(safeFormatDate(h.data), margins.left, y, {
+              size: 9,
+              font: fontBold,
+            })
+            drawText(formatCurrency(h.valorVendaTotal), margins.left + 60, y, {
+              size: 9,
+              font: fontBold,
             })
             drawText(formatCurrency(h.debito), width - margins.right, y, {
-              size: 8,
+              size: 9,
+              font: fontBold,
               align: 'right',
             })
-            y -= 10
+            y -= 12
           }
           drawLine(y)
           y -= 15
         }
 
-        // Signatures
-        checkPageBreak(80)
+        // SIGNATURES
+        checkPageBreak(120)
         y -= 30
-        drawLine(y)
-        drawText('Assinatura Cliente', width / 2, y - 12, {
+        drawText('Assinatura do Cliente', width / 2, y, {
           size: 9,
+          font: fontBold,
           align: 'center',
         })
+        y -= 50 // Space for signature
+        drawLine(y + 40) // Line above text actually
 
         if (signature) {
           try {
@@ -477,7 +540,7 @@ serve(async (req) => {
               c.charCodeAt(0),
             )
             const image = await pdfDoc.embedPng(imageBytes)
-            const imageDims = image.scale(0.3) // Smaller for thermal
+            const imageDims = image.scale(0.3)
             page.drawImage(image, {
               x: (width - imageDims.width) / 2,
               y: y + 5,
@@ -489,7 +552,7 @@ serve(async (req) => {
           }
         }
       } else {
-        // --- A4 STANDARD LAYOUT (Existing Logic) ---
+        // --- A4 STANDARD LAYOUT (Unchanged logic, just keeping structure) ---
         if (preview) {
           drawText('PDF para visualização', width / 2, y + 20, {
             size: 14,
@@ -548,7 +611,6 @@ serve(async (req) => {
           { size: 10, font: fontBold },
         )
 
-        // Added Municipio
         const city = clientMunicipio || client.MUNICÍPIO || client.city || '-'
         drawText(`Municipio: ${city}`, width - margins.right - 10, textY, {
           size: 10,
@@ -708,7 +770,6 @@ serve(async (req) => {
             font: fontBold,
           })
           y -= 15
-
           // Headers
           drawText('Metodo', margins.left, y, { size: 9, font: fontBold })
           drawText('Valor', margins.left + 150, y, { size: 9, font: fontBold })
@@ -716,36 +777,32 @@ serve(async (req) => {
             size: 9,
             font: fontBold,
           })
-
           y -= 12
 
           for (const p of payments) {
-            if (p.details && p.details.length > 0) {
-              for (const inst of p.details) {
-                if (checkPageBreak(20)) y -= 20
-                const desc = `${p.method} (${inst.number || 1}/${p.installments})`
-                drawText(desc, margins.left, y, { size: 9 })
-                drawText(
-                  `R$ ${formatCurrency(inst.value)}`,
-                  margins.left + 150,
-                  y,
-                  { size: 9 },
-                )
-                drawText(safeFormatDate(inst.dueDate), margins.left + 250, y, {
-                  size: 9,
-                })
-                y -= 12
-              }
-            } else {
+            // Check for details first
+            const detailsList =
+              p.details && p.details.length > 0
+                ? p.details
+                : [
+                    {
+                      number: 1,
+                      value: p.value,
+                      dueDate: p.dueDate,
+                    },
+                  ]
+
+            for (const inst of detailsList) {
               if (checkPageBreak(20)) y -= 20
-              drawText(p.method, margins.left, y, { size: 9 })
+              const desc = `${p.method} (${inst.number || 1}/${p.installments})`
+              drawText(desc, margins.left, y, { size: 9 })
               drawText(
-                `R$ ${formatCurrency(p.value)} (${p.installments}x)`,
+                `R$ ${formatCurrency(inst.value)}`,
                 margins.left + 150,
                 y,
                 { size: 9 },
               )
-              drawText(safeFormatDate(p.dueDate), margins.left + 250, y, {
+              drawText(safeFormatDate(inst.dueDate), margins.left + 250, y, {
                 size: 9,
               })
               y -= 12
@@ -843,7 +900,6 @@ serve(async (req) => {
 
           for (const h of history) {
             if (checkPageBreak(20)) y -= 20
-
             const vendaTotal = h.valorVendaTotal
             const totalAPagar = h.saldoAPagar
             const desconto = vendaTotal - totalAPagar
@@ -864,7 +920,6 @@ serve(async (req) => {
             } else {
               drawText(formatCurrency(0), hCol.debito, y, { size: 8 })
             }
-
             y -= 12
           }
         }
