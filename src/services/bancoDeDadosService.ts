@@ -8,6 +8,7 @@ import { format, parseISO, differenceInDays } from 'date-fns'
 import { PaymentEntry } from '@/types/payment'
 import { RecebimentoInsert } from '@/types/recebimento'
 import { rotaService } from '@/services/rotaService'
+import { reportsService } from '@/services/reportsService'
 
 export const bancoDeDadosService = {
   async hasOutstandingBalance(clienteId: number): Promise<boolean> {
@@ -583,6 +584,13 @@ export const bancoDeDadosService = {
       await rotaService.checkAndDecrementXNaRota(client.CODIGO, date)
     } catch (rotaError) {
       console.error('Error updating Rota counter on settlement:', rotaError)
+    }
+
+    // 8. Auto-update debt history for this order (Requirement)
+    try {
+      await reportsService.updateDebtHistoryForOrder(nextPedido)
+    } catch (debtError) {
+      console.error('Error auto-updating debt history:', debtError)
     }
 
     return nextPedido

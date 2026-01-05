@@ -1,11 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
@@ -25,7 +19,7 @@ import {
 } from '@/components/ui/select'
 import { reportsService, DebitoReportRow } from '@/services/reportsService'
 import { formatCurrency, safeFormatDate } from '@/lib/formatters'
-import { ArrowLeft, Loader2, RefreshCw, Filter } from 'lucide-react'
+import { ArrowLeft, Loader2, RefreshCw } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useToast } from '@/hooks/use-toast'
 
@@ -227,6 +221,7 @@ export default function DebitosReportPage() {
                   <TableHead>Pedido</TableHead>
                   <TableHead>Data Acerto</TableHead>
                   <TableHead>Vendedor</TableHead>
+                  <TableHead className="text-right">Média Mensal</TableHead>
                   <TableHead className="text-right">Valor Venda</TableHead>
                   <TableHead className="text-right">Saldo a Pagar</TableHead>
                   <TableHead className="text-right text-green-600">
@@ -240,14 +235,14 @@ export default function DebitosReportPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
+                    <TableCell colSpan={8} className="h-24 text-center">
                       <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
                     </TableCell>
                   </TableRow>
                 ) : filteredData.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={7}
+                      colSpan={8}
                       className="h-24 text-center text-muted-foreground"
                     >
                       Nenhum registro encontrado.
@@ -264,6 +259,11 @@ export default function DebitosReportPage() {
                           {safeFormatDate(row.data_acerto, 'dd/MM/yyyy')}
                         </TableCell>
                         <TableCell>{row.vendedor_nome || '-'}</TableCell>
+                        <TableCell className="text-right font-mono text-muted-foreground">
+                          {row.media_mensal
+                            ? `R$ ${formatCurrency(row.media_mensal)}`
+                            : '-'}
+                        </TableCell>
                         <TableCell className="text-right">
                           R$ {formatCurrency(row.valor_venda)}
                         </TableCell>
@@ -280,7 +280,7 @@ export default function DebitosReportPage() {
                     ))}
                     {/* Totalizer */}
                     <TableRow className="bg-muted font-bold border-t-2">
-                      <TableCell colSpan={3}>TOTAIS</TableCell>
+                      <TableCell colSpan={4}>TOTAIS</TableCell>
                       <TableCell className="text-right">
                         R$ {formatCurrency(totals.venda)}
                       </TableCell>

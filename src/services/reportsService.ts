@@ -189,16 +189,28 @@ export const reportsService = {
     if (error) throw error
   },
 
+  async updateDebtHistoryForOrder(orderId: number) {
+    const { error } = await supabase.rpc('update_debito_historico_order', {
+      p_pedido_id: orderId,
+    })
+    if (error) {
+      console.error(
+        `Failed to auto-update debt history for order ${orderId}`,
+        error,
+      )
+      // We don't throw here to avoid blocking the user flow if this auxiliary stats update fails
+    }
+  },
+
   async getDebtsReport(): Promise<DebitoReportRow[]> {
     // Attempt to fetch from materialized view/table
     const { data, error } = await supabase
       .from('debitos_historico')
       .select('*')
       .order('data_acerto', { ascending: false })
-      .limit(2000)
+      .limit(5000)
 
     if (error) {
-      // Fallback if table doesn't exist or empty, maybe return empty or handle gracefully
       console.warn('Error fetching debitos_historico:', error)
       return []
     }

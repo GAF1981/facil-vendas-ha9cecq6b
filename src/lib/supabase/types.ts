@@ -425,6 +425,48 @@ export type Database = {
         }
         Relationships: []
       }
+      debitos_historico: {
+        Row: {
+          created_at: string | null
+          data_acerto: string | null
+          debito: number | null
+          id: number
+          media_mensal: number | null
+          pedido_id: number
+          rota_id: number | null
+          saldo_a_pagar: number | null
+          valor_pago: number | null
+          valor_venda: number | null
+          vendedor_nome: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data_acerto?: string | null
+          debito?: number | null
+          id?: number
+          media_mensal?: number | null
+          pedido_id: number
+          rota_id?: number | null
+          saldo_a_pagar?: number | null
+          valor_pago?: number | null
+          valor_venda?: number | null
+          vendedor_nome?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data_acerto?: string | null
+          debito?: number | null
+          id?: number
+          media_mensal?: number | null
+          pedido_id?: number
+          rota_id?: number | null
+          saldo_a_pagar?: number | null
+          valor_pago?: number | null
+          valor_venda?: number | null
+          vendedor_nome?: string | null
+        }
+        Relationships: []
+      }
       DESPESAS: {
         Row: {
           Data: string | null
@@ -1137,6 +1179,7 @@ export type Database = {
         Args: { p_funcionario_id: number; p_items: Json; p_session_id: number }
         Returns: undefined
       }
+      refresh_debitos_historico: { Args: never; Returns: undefined }
       safe_cast_timestamp: {
         Args: { p_date: string; p_time: string }
         Returns: string
