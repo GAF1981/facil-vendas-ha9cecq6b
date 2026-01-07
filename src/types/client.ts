@@ -12,7 +12,6 @@ interface AdditionalFields {
   situacao?: string | null
 }
 
-// Type definition derived from Supabase Row with manual extension
 export type ClientRow = Database['public']['Tables']['CLIENTES']['Row'] &
   AdditionalFields
 export type ClientInsert = Database['public']['Tables']['CLIENTES']['Insert'] &
@@ -26,40 +25,44 @@ export const clientSchema = z.object({
     .number({ required_error: 'Código é obrigatório' })
     .min(1, 'Código deve ser maior que 0'),
   'NOME CLIENTE': z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
-  'RAZÃO SOCIAL': z.string().optional().nullable(),
+  'RAZÃO SOCIAL': z.string().min(2, 'Razão Social é obrigatória'),
   CNPJ: z
     .string({ required_error: 'CPF / CNPJ é obrigatório' })
     .min(1, 'CPF / CNPJ é obrigatório'),
   IE: z.string().optional().nullable(),
   TIPO: z.string().optional().nullable(),
   'TIPO DE CLIENTE': z.string().min(1, 'Tipo de Cliente é obrigatório'),
-  ENDEREÇO: z.string().optional().nullable(),
+  ENDEREÇO: z.string().min(5, 'Endereço completo é obrigatório'),
   BAIRRO: z.string().optional().nullable(),
-  MUNICÍPIO: z.string().optional().nullable(),
-  'CEP OFICIO': z.string().optional().nullable(),
+  MUNICÍPIO: z.string().min(2, 'Município é obrigatório'),
+  'CEP OFICIO': z
+    .string()
+    .min(1, 'CEP é obrigatório')
+    .refine(
+      (val) => val.replace(/\D/g, '').length === 8,
+      'CEP deve ter 8 dígitos',
+    ),
   EMAIL: z
     .string()
     .email('Email inválido')
     .optional()
     .or(z.literal(''))
     .nullable(),
-  'FONE 1': z.string().min(1, 'Telefone 1 é obrigatório'), // Mandatory per user story
+  'FONE 1': z.string().optional().nullable(),
   'FONE 2': z.string().optional().nullable(),
-  'CONTATO 1': z.string().optional().nullable(),
+  'CONTATO 1': z.string().min(1, 'Contato 1 é obrigatório'),
   'CONTATO 2': z.string().optional().nullable(),
   'FORMA DE PAGAMENTO': z.string().optional().nullable(),
   'NOTA FISCAL': z.string().optional().nullable(),
   EXPOSITOR: z.string().optional().nullable(),
   Desconto: z
     .string()
-    .optional()
-    .nullable()
+    .min(1, 'Desconto Padrão é obrigatório')
     .refine((val) => {
-      if (!val) return true
+      if (!val) return false
       const num = parseFloat(val.replace('%', ''))
-      // Strict range validation: 30% to 50%
-      return !isNaN(num) && num >= 30 && num <= 50
-    }, 'O desconto deve estar estritamente entre 30% e 50%'),
+      return !isNaN(num)
+    }, 'Desconto inválido'),
   'DESCONTO ACESSORIO CELULAR': z.string().optional().nullable(),
   'DESCONTO BRINQUEDO': z.string().optional().nullable(),
   'DESCONTO ACESSORIO': z.string().optional().nullable(),

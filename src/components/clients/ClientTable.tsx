@@ -21,6 +21,7 @@ import {
   Trash2,
   History,
   MessageCircle,
+  AlertTriangle,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useToast } from '@/hooks/use-toast'
@@ -38,13 +39,19 @@ import { useState } from 'react'
 import { ClientRow } from '@/types/client'
 import { clientsService } from '@/services/clientsService'
 import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 
 interface ClientTableProps {
   clients: ClientRow[]
   onUpdate: () => void
+  duplicates?: Set<number>
 }
 
-export function ClientTable({ clients, onUpdate }: ClientTableProps) {
+export function ClientTable({
+  clients,
+  onUpdate,
+  duplicates,
+}: ClientTableProps) {
   const { toast } = useToast()
   const [clientToDelete, setClientToDelete] = useState<number | null>(null)
 
@@ -108,97 +115,108 @@ export function ClientTable({ clients, onUpdate }: ClientTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {clients.map((client) => (
-              <TableRow
-                key={client.CODIGO}
-                className="group hover:bg-muted/50 transition-colors"
-              >
-                <TableCell>
-                  <div className="flex flex-col gap-1">
-                    <span className="font-medium">{client.CODIGO}</span>
-                    {/* Small badge for quick visual ref on mobile too */}
+            {clients.map((client) => {
+              const isDup = duplicates?.has(client.CODIGO)
+              return (
+                <TableRow
+                  key={client.CODIGO}
+                  className={cn(
+                    'group hover:bg-muted/50 transition-colors',
+                    isDup && 'bg-red-50 hover:bg-red-100',
+                  )}
+                >
+                  <TableCell>
+                    <div className="flex flex-col gap-1">
+                      <span className="font-medium flex items-center gap-1">
+                        {client.CODIGO}
+                        {isDup && (
+                          <AlertTriangle className="h-3 w-3 text-red-600" />
+                        )}
+                      </span>
+                      {/* Small badge for quick visual ref on mobile too */}
+                      <Badge
+                        variant="outline"
+                        className="w-fit text-[10px] px-1 py-0 h-4 md:hidden"
+                      >
+                        {client['TIPO DE CLIENTE']?.substring(0, 3) || 'N/D'}
+                      </Badge>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="font-medium">
+                        {client['NOME CLIENTE']}
+                      </span>
+                      <span className="text-xs text-muted-foreground md:hidden">
+                        {client.CNPJ || '-'}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
                     <Badge
-                      variant="outline"
-                      className="w-fit text-[10px] px-1 py-0 h-4 md:hidden"
+                      variant={getStatusVariant(client['TIPO DE CLIENTE'])}
+                      className="text-xs whitespace-nowrap"
                     >
-                      {client['TIPO DE CLIENTE']?.substring(0, 3) || 'N/D'}
+                      {client['TIPO DE CLIENTE'] || 'N/D'}
                     </Badge>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-col">
-                    <span className="font-medium">
-                      {client['NOME CLIENTE']}
-                    </span>
-                    <span className="text-xs text-muted-foreground md:hidden">
-                      {client.CNPJ || '-'}
-                    </span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    variant={getStatusVariant(client['TIPO DE CLIENTE'])}
-                    className="text-xs whitespace-nowrap"
-                  >
-                    {client['TIPO DE CLIENTE'] || 'N/D'}
-                  </Badge>
-                </TableCell>
-                <TableCell className="hidden md:table-cell">
-                  {client.CNPJ || '-'}
-                </TableCell>
-                <TableCell className="hidden lg:table-cell">
-                  {client.MUNICÍPIO || '-'}
-                </TableCell>
-                <TableCell className="hidden md:table-cell">
-                  <div className="flex items-center gap-2">
-                    <span>{client['FONE 1'] || client['FONE 2'] || '-'}</span>
-                    {client['FONE 1'] && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6 text-green-600 hover:text-green-700 hover:bg-green-100"
-                        onClick={() => handleWhatsApp(client['FONE 1'])}
-                        title="Abrir WhatsApp"
-                      >
-                        <MessageCircle className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <span className="sr-only">Abrir menu</span>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                      <DropdownMenuItem asChild>
-                        <Link to={`/clientes/${client.CODIGO}/historico`}>
-                          <History className="mr-2 h-4 w-4" /> Resumo de Acerto
-                          (Histórico)
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem asChild>
-                        <Link to={`/clientes/${client.CODIGO}`}>
-                          <Edit className="mr-2 h-4 w-4" /> Editar
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive cursor-pointer"
-                        onSelect={() => setClientToDelete(client.CODIGO)}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" /> Excluir
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    {client.CNPJ || '-'}
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell">
+                    {client.MUNICÍPIO || '-'}
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    <div className="flex items-center gap-2">
+                      <span>{client['FONE 1'] || client['FONE 2'] || '-'}</span>
+                      {client['FONE 1'] && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6 text-green-600 hover:text-green-700 hover:bg-green-100"
+                          onClick={() => handleWhatsApp(client['FONE 1'])}
+                          title="Abrir WhatsApp"
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Abrir menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                        <DropdownMenuItem asChild>
+                          <Link to={`/clientes/${client.CODIGO}/historico`}>
+                            <History className="mr-2 h-4 w-4" /> Resumo de
+                            Acerto (Histórico)
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem asChild>
+                          <Link to={`/clientes/${client.CODIGO}`}>
+                            <Edit className="mr-2 h-4 w-4" /> Editar
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive cursor-pointer"
+                          onSelect={() => setClientToDelete(client.CODIGO)}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> Excluir
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              )
+            })}
           </TableBody>
         </Table>
       </div>

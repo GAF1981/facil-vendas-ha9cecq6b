@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Loader2, ChevronsUpDown, Check } from 'lucide-react'
+import { Loader2, ChevronsUpDown, Check, Plus } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -42,6 +42,13 @@ import {
 import { cn } from '@/lib/utils'
 import { NewRouteDialog } from './NewRouteDialog'
 import { DuplicateWarningDialog } from './DuplicateWarningDialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
 
 interface ClientFormProps {
   initialData?: ClientRow
@@ -60,6 +67,8 @@ export function ClientForm({
   const [openRoute, setOpenRoute] = useState(false)
   const [searchValue, setSearchValue] = useState('')
   const [searchingCep, setSearchingCep] = useState(false)
+  const [newGroupOpen, setNewGroupOpen] = useState(false)
+  const [newGroupName, setNewGroupName] = useState('')
 
   // Duplicate check
   const [duplicateWarning, setDuplicateWarning] = useState<{
@@ -246,6 +255,14 @@ export function ClientForm({
     }
   }
 
+  const handleAddNewGroup = () => {
+    if (newGroupName.trim()) {
+      form.setValue('GRUPO', newGroupName.trim())
+      setNewGroupOpen(false)
+      setNewGroupName('')
+    }
+  }
+
   return (
     <>
       <Form {...form}>
@@ -389,7 +406,7 @@ export function ClientForm({
                   name="RAZÃO SOCIAL"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Razão Social</FormLabel>
+                      <FormLabel>Razão Social *</FormLabel>
                       <FormControl>
                         <Input
                           placeholder="Razão Social"
@@ -457,7 +474,7 @@ export function ClientForm({
                   name="FONE 1"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Telefone 1 *</FormLabel>
+                      <FormLabel>Telefone 1</FormLabel>
                       <FormControl>
                         <Input
                           placeholder="(00) 0000-0000"
@@ -503,7 +520,7 @@ export function ClientForm({
                   name="CONTATO 1"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Contato 1</FormLabel>
+                      <FormLabel>Contato 1 *</FormLabel>
                       <FormControl>
                         <Input
                           placeholder="Nome contato"
@@ -549,7 +566,7 @@ export function ClientForm({
                   name="CEP OFICIO"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>CEP</FormLabel>
+                      <FormLabel>CEP *</FormLabel>
                       <div className="relative">
                         <FormControl>
                           <Input
@@ -580,7 +597,7 @@ export function ClientForm({
                   name="ENDEREÇO"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Endereço Completo</FormLabel>
+                      <FormLabel>Endereço Completo *</FormLabel>
                       <FormControl>
                         <Input
                           placeholder="Rua, Número, Comp."
@@ -620,7 +637,7 @@ export function ClientForm({
                   name="MUNICÍPIO"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Município - UF</FormLabel>
+                      <FormLabel>Município - UF *</FormLabel>
                       <FormControl>
                         <Input
                           placeholder="Cidade - UF"
@@ -712,7 +729,7 @@ export function ClientForm({
                   name="Desconto"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Desconto Padrão (30% - 50%)</FormLabel>
+                      <FormLabel>Desconto Padrão (30% - 50%) *</FormLabel>
                       <FormControl>
                         <div className="relative">
                           <Input
@@ -746,23 +763,35 @@ export function ClientForm({
 
               {/* Classification Fields */}
               <div className="md:col-span-6">
-                <FormField
-                  control={form.control}
-                  name="GRUPO"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Grupo</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Grupo de clientes"
-                          {...field}
-                          value={field.value || ''}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <FormField
+                      control={form.control}
+                      name="GRUPO"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Grupo</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="Grupo de clientes"
+                              {...field}
+                              value={field.value || ''}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setNewGroupOpen(true)}
+                    title="Cadastrar Novo Grupo"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
               <div className="md:col-span-6">
@@ -1039,6 +1068,30 @@ export function ClientForm({
         onConfirm={() => duplicateWarning?.resolve(true)}
         duplicateData={duplicateWarning?.data || null}
       />
+
+      <Dialog open={newGroupOpen} onOpenChange={setNewGroupOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cadastrar Novo Grupo</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <FormLabel>Nome do Grupo</FormLabel>
+              <Input
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                placeholder="Ex: Especiais"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewGroupOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleAddNewGroup}>Adicionar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

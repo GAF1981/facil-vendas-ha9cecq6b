@@ -2,11 +2,15 @@ import { supabase } from '@/lib/supabase/client'
 import { ClientRow, ClientInsert, ClientUpdate } from '@/types/client'
 
 export const clientsService = {
+  // ... existing methods ...
   async getClients(
     page: number = 1,
     pageSize: number = 20,
     search: string = '',
     typeFilter: string | 'all' = 'all',
+    municipioFilter: string | 'all' = 'all',
+    groupFilter: string | 'all' = 'all',
+    routeFilter: string | 'all' = 'all',
   ) {
     let query = supabase.from('CLIENTES').select('*', { count: 'exact' })
 
@@ -25,6 +29,15 @@ export const clientsService = {
 
     if (typeFilter && typeFilter !== 'all') {
       query = query.eq('TIPO DE CLIENTE', typeFilter)
+    }
+    if (municipioFilter && municipioFilter !== 'all') {
+      query = query.eq('MUNICÍPIO', municipioFilter)
+    }
+    if (groupFilter && groupFilter !== 'all') {
+      query = query.eq('GRUPO', groupFilter)
+    }
+    if (routeFilter && routeFilter !== 'all') {
+      query = query.eq('GRUPO ROTA', routeFilter)
     }
 
     const from = (page - 1) * pageSize
@@ -207,5 +220,33 @@ export const clientsService = {
 
     if (error) throw error
     return data
+  },
+
+  // New Methods for filters
+  async getUniqueMunicipios() {
+    const { data } = await supabase
+      .from('CLIENTES')
+      .select('MUNICÍPIO')
+      .order('MUNICÍPIO')
+
+    if (!data) return []
+    return [
+      ...new Set(data.map((c) => c.MUNICÍPIO).filter(Boolean)),
+    ] as string[]
+  },
+
+  async getUniqueGroups() {
+    const { data } = await supabase
+      .from('CLIENTES')
+      .select('GRUPO')
+      .order('GRUPO')
+
+    if (!data) return []
+    return [...new Set(data.map((c) => c.GRUPO).filter(Boolean))] as string[]
+  },
+
+  async getAllCNPJs() {
+    const { data } = await supabase.from('CLIENTES').select('CODIGO, CNPJ')
+    return data || []
   },
 }

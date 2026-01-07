@@ -29,6 +29,7 @@ import {
   FileBarChart,
   Settings,
   Lock,
+  Truck,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { usePermissions } from '@/hooks/use-permissions'
@@ -131,6 +132,12 @@ export function AppSidebar() {
       url: '/clientes',
       icon: Users,
       module: 'Clientes',
+    },
+    {
+      title: 'Fornecedores',
+      url: '/fornecedores',
+      icon: Truck,
+      module: 'Produtos',
     },
     {
       title: 'Funcionários',

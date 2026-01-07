@@ -13,6 +13,7 @@ import EmployeesPage from '@/pages/employees/EmployeesPage'
 import EmployeeFormPage from '@/pages/employees/EmployeeFormPage'
 import ProductsPage from '@/pages/products/ProductsPage'
 import ProductFormPage from '@/pages/products/ProductFormPage'
+import SuppliersPage from '@/pages/suppliers/SuppliersPage'
 import PlaceholderModule from '@/pages/PlaceholderModule'
 import LoginPage from '@/pages/auth/LoginPage'
 import AcertoPage from '@/pages/acerto/AcertoPage'
@@ -90,6 +91,9 @@ const App = () => (
                   <Route path="/produtos/novo" element={<ProductFormPage />} />
                   <Route path="/produtos/:id" element={<ProductFormPage />} />
                 </Route>
+
+                {/* No explicit permission module for Suppliers in old list, assume open or add to Permission */}
+                <Route path="/fornecedores" element={<SuppliersPage />} />
 
                 <Route element={<PermissionGuard module="Acerto" />}>
                   <Route path="/acerto" element={<AcertoPage />} />

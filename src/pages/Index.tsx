@@ -16,6 +16,7 @@ import {
   FileBarChart,
   Settings,
   Lock,
+  Truck,
 } from 'lucide-react'
 import { usePermissions } from '@/hooks/use-permissions'
 
@@ -135,6 +136,14 @@ export default function Index() {
       description: 'Gerenciar cadastro e histórico de clientes',
       color: 'text-blue-600',
       module: 'Clientes',
+    },
+    {
+      title: 'Fornecedores',
+      icon: Truck,
+      to: '/fornecedores',
+      description: 'Gestão de fornecedores',
+      color: 'text-orange-700',
+      module: 'Produtos', // Using Products permission as proxy or create new
     },
     {
       title: 'Funcionários',
