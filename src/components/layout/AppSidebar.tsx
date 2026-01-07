@@ -30,6 +30,7 @@ import {
   Settings,
   Lock,
   Truck,
+  Car,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { usePermissions } from '@/hooks/use-permissions'
@@ -72,6 +73,12 @@ export function AppSidebar() {
       url: '/caixa',
       icon: Wallet,
       module: 'Caixa',
+    },
+    {
+      title: 'Estoque Carro',
+      url: '/estoque-carro',
+      icon: Car,
+      module: 'Inventário', // Using Inventário permission
     },
     {
       title: 'Resumo Acertos',

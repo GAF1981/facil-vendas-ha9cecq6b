@@ -31,17 +31,16 @@ import StockReportsPage from '@/pages/relatorio/StockReportsPage'
 import TopSellingReportsPage from '@/pages/relatorio/TopSellingReportsPage'
 import AdjustmentReportsPage from '@/pages/relatorio/AdjustmentReportsPage'
 import DebitosReportPage from '@/pages/relatorio/DebitosReportPage'
-import InactiveClientsPage from '@/pages/relatorio/InactiveClientsPage'
 import GeneralInventoryReportPage from '@/pages/relatorio/GeneralInventoryReportPage'
 import CaixaPage from '@/pages/caixa/CaixaPage'
 import FechamentosPage from '@/pages/fechamento/FechamentosPage'
-import PixPage from '@/pages/pix/PixPage'
 import PagamentosPage from '@/pages/pagamentos/PagamentosPage'
 import ControlePage from '@/pages/controle/ControlePage'
 import InventarioPage from '@/pages/inventario/InventarioPage'
 import ContagemPage from '@/pages/inventario/ContagemPage'
 import ResumoAcertosPage from '@/pages/resumo-acertos/ResumoAcertosPage'
 import PermissionsPage from '@/pages/admin/PermissionsPage'
+import EstoqueCarroPage from '@/pages/estoque-carro/EstoqueCarroPage' // New Page
 import { AuthProvider } from '@/hooks/use-auth'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { PermissionsProvider } from '@/hooks/use-permissions'
@@ -93,7 +92,6 @@ const App = () => (
                   <Route path="/produtos/:id" element={<ProductFormPage />} />
                 </Route>
 
-                {/* No explicit permission module for Suppliers in old list, assume open or add to Permission */}
                 <Route path="/fornecedores" element={<SuppliersPage />} />
 
                 <Route element={<PermissionGuard module="Acerto" />}>
@@ -198,6 +196,8 @@ const App = () => (
                     path="/inventario/contagem"
                     element={<ContagemPage />}
                   />
+                  {/* Reuse Inventory Permission for now */}
+                  <Route path="/estoque-carro" element={<EstoqueCarroPage />} />
                 </Route>
 
                 <Route element={<PermissionGuard module="Permissões" />}>

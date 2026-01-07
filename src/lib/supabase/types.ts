@@ -1613,6 +1613,7 @@ export type Database = {
         Args: { p_date: string; p_time: string }
         Returns: string
       }
+      start_new_inventory_session: { Args: never; Returns: Json }
       update_debito_historico_order: {
         Args: { p_pedido_id: number }
         Returns: undefined

@@ -17,13 +17,13 @@ import {
   Settings,
   Lock,
   Truck,
+  Car,
 } from 'lucide-react'
 import { usePermissions } from '@/hooks/use-permissions'
 
 export default function Index() {
   const { canAccess } = usePermissions()
 
-  // Updated Order: Acerto, Rota, Recebimento, Caixa, Resumo Acertos, Cobrança, Nota Fiscal, Fechamentos, Pendências, Inventário, Relatório, Permissões, Backup
   const modules = [
     {
       title: 'Acerto',
@@ -56,6 +56,14 @@ export default function Index() {
       description: 'Fluxo de caixa e movimentações',
       color: 'text-cyan-600',
       module: 'Caixa',
+    },
+    {
+      title: 'Estoque Carro',
+      icon: Car,
+      to: '/estoque-carro',
+      description: 'Controle de estoque por veículo',
+      color: 'text-blue-500',
+      module: 'Inventário', // Using Inventário permission for now
     },
     {
       title: 'Resumo Acertos',
@@ -101,7 +109,7 @@ export default function Index() {
       title: 'Inventário',
       icon: ClipboardList,
       to: '/inventario',
-      description: 'Controle de estoque e inventário',
+      description: 'Controle de estoque e inventário geral',
       color: 'text-violet-600',
       module: 'Inventário',
     },
@@ -143,7 +151,7 @@ export default function Index() {
       to: '/fornecedores',
       description: 'Gestão de fornecedores',
       color: 'text-orange-700',
-      module: 'Produtos', // Using Products permission as proxy or create new
+      module: 'Produtos',
     },
     {
       title: 'Funcionários',
