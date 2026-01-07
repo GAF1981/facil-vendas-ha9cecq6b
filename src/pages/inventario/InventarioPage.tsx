@@ -1,21 +1,4 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import {
-  ClipboardList,
-  RefreshCw,
-  Play,
-  StopCircle,
-  RotateCcw,
-  ArrowRightLeft,
-  PackagePlus,
-  PackageMinus,
-  Truck,
-  CheckSquare,
-  Edit,
-  Check,
-  X,
-} from 'lucide-react'
 import { InventoryGeneralTable } from '@/components/inventario/InventoryGeneralTable'
 import { inventoryGeneralService } from '@/services/inventoryGeneralService'
 import {
@@ -34,11 +17,8 @@ import {
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { safeFormatDate } from '@/lib/formatters'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { InventoryHeader } from '@/components/inventario/InventoryHeader'
+import { InventoryControlBar } from '@/components/inventario/InventoryControlBar'
 
 export default function InventarioPage() {
   const [sessions, setSessions] = useState<InventoryGeneralSession[]>([])
@@ -49,14 +29,10 @@ export default function InventarioPage() {
   const [isActionDialogOpen, setIsActionDialogOpen] = useState(false)
   const [saldoFinalFilter, setSaldoFinalFilter] = useState('all')
   const [isEditMode, setIsEditMode] = useState(false)
-
-  // Persisted selections state (lifted from dialog)
   const [persistedEmployeeId, setPersistedEmployeeId] = useState<string>('')
   const [persistedSupplierId, setPersistedSupplierId] = useState<string>('')
-
   const { toast } = useToast()
 
-  // Computed
   const selectedSession = useMemo(
     () => sessions.find((s) => s.id.toString() === selectedSessionId) || null,
     [sessions, selectedSessionId],
@@ -69,7 +45,6 @@ export default function InventarioPage() {
 
   const canEdit = selectedSession?.status === 'ABERTO'
 
-  // Mandatory Count Logic: All items that are mandatory must have a count record
   const allItemsCounted = useMemo(() => {
     if (!items.length) return false
     return items.every((i) => !i.is_mandatory || i.has_count_record)
@@ -81,7 +56,6 @@ export default function InventarioPage() {
       setSessions(data)
       return data
     } catch (error) {
-      console.error(error)
       toast({
         title: 'Erro',
         description: 'Falha ao carregar sessões.',
@@ -98,10 +72,9 @@ export default function InventarioPage() {
         const inventoryData = await inventoryGeneralService.getInventoryData(id)
         setItems(inventoryData)
       } catch (error) {
-        console.error(error)
         toast({
           title: 'Erro',
-          description: 'Falha ao carregar dados do inventário.',
+          description: 'Falha ao carregar dados.',
           variant: 'destructive',
         })
         setItems([])
@@ -112,26 +85,18 @@ export default function InventarioPage() {
     [toast],
   )
 
-  // Initial Load
   useEffect(() => {
     loadSessions().then((data) => {
-      if (data.length > 0) {
-        setSelectedSessionId(data[0].id.toString())
-      }
+      if (data.length > 0) setSelectedSessionId(data[0].id.toString())
     })
   }, [loadSessions])
 
-  // Load items when session changes
   useEffect(() => {
-    if (selectedSessionId) {
-      loadItems(Number(selectedSessionId))
-    } else {
-      setItems([])
-    }
+    if (selectedSessionId) loadItems(Number(selectedSessionId))
+    else setItems([])
   }, [selectedSessionId, loadItems])
 
   const filteredItems = useMemo(() => {
-    if (saldoFinalFilter === 'all') return items
     if (saldoFinalFilter === 'zero')
       return items.filter((i) => i.saldo_final === 0)
     if (saldoFinalFilter === 'positive')
@@ -140,19 +105,12 @@ export default function InventarioPage() {
   }, [items, saldoFinalFilter])
 
   const handleStartSession = async () => {
-    if (
-      !confirm(
-        'Isso fechará o inventário atual (se houver) e iniciará um novo baseado no saldo final anterior. Deseja continuar?',
-      )
-    )
-      return
+    if (!confirm('Iniciar novo inventário? O atual será fechado.')) return
     try {
       await inventoryGeneralService.startNewSession()
       toast({ title: 'Sucesso', description: 'Novo inventário iniciado.' })
       const data = await loadSessions()
-      if (data.length > 0) {
-        setSelectedSessionId(data[0].id.toString())
-      }
+      if (data.length > 0) setSelectedSessionId(data[0].id.toString())
     } catch (error) {
       toast({
         title: 'Erro',
@@ -163,11 +121,9 @@ export default function InventarioPage() {
   }
 
   const handleResetInitial = async () => {
-    if (!canEdit || !selectedSession) return
     if (
-      !confirm(
-        'Isso zerará o saldo inicial de todos os produtos no inventário atual. Deseja continuar?',
-      )
+      !selectedSession ||
+      !confirm('Zerar saldo inicial de todos os produtos?')
     )
       return
     try {
@@ -183,17 +139,8 @@ export default function InventarioPage() {
     }
   }
 
-  const handleOpenAction = (type: string) => {
-    if (!canEdit) return
-    setActionType(type)
-    setIsActionDialogOpen(true)
-  }
-
   const handleFinalize = async () => {
-    if (!canEdit || !selectedSession) return
-    if (!confirm('Deseja finalizar os ajustes e abrir um novo inventário?'))
-      return
-
+    if (!selectedSession || !confirm('Finalizar e iniciar novo ciclo?')) return
     try {
       await inventoryGeneralService.finalizeAdjustments(
         selectedSession.id,
@@ -204,39 +151,13 @@ export default function InventarioPage() {
         description: 'Inventário finalizado e novo ciclo iniciado.',
       })
       const data = await loadSessions()
-      if (data.length > 0) {
-        setSelectedSessionId(data[0].id.toString())
-      }
-    } catch (e) {
+      if (data.length > 0) setSelectedSessionId(data[0].id.toString())
+    } catch (e: any) {
+      console.error(e)
       toast({
-        title: 'Erro',
-        description: 'Falha ao finalizar.',
-        variant: 'destructive',
-      })
-    }
-  }
-
-  const handleRefresh = () => {
-    if (selectedSessionId) {
-      loadItems(Number(selectedSessionId))
-    }
-    loadSessions()
-  }
-
-  const handleMarkAsZero = async (productId: number) => {
-    if (!selectedSession || !canEdit) return
-    try {
-      await inventoryGeneralService.registerMovement(
-        selectedSession.id,
-        'CONTAGEM',
-        [{ productId, quantity: 0 }],
-      )
-      toast({ title: 'Sucesso', description: 'Produto marcado como 0.' })
-      loadItems(selectedSession.id)
-    } catch (error) {
-      toast({
-        title: 'Erro',
-        description: 'Falha ao marcar como 0.',
+        title: 'Erro Fatal',
+        description:
+          e.message || 'Falha ao finalizar inventário. Verifique o console.',
         variant: 'destructive',
       })
     }
@@ -247,7 +168,7 @@ export default function InventarioPage() {
     type: string,
     value: number,
   ) => {
-    if (!selectedSession || !canEdit) return
+    if (!selectedSession) return
     try {
       await inventoryGeneralService.updateItemQuantity(
         selectedSession.id,
@@ -255,14 +176,9 @@ export default function InventarioPage() {
         type as any,
         value,
       )
-      toast({
-        title: 'Atualizado',
-        description: 'Valor atualizado com sucesso.',
-      })
-      // Reload to reflect calculations
+      toast({ title: 'Atualizado', description: 'Valor atualizado.' })
       loadItems(selectedSession.id)
     } catch (error) {
-      console.error(error)
       toast({
         title: 'Erro',
         description: 'Falha ao atualizar valor.',
@@ -274,30 +190,14 @@ export default function InventarioPage() {
   return (
     <div className="space-y-6 animate-fade-in pb-10">
       <div className="flex flex-col gap-4">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-violet-100 text-violet-700 rounded-lg">
-              <ClipboardList className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">
-                Inventário Geral
-              </h1>
-              <p className="text-muted-foreground">Controle total de estoque</p>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={handleRefresh}
-              disabled={loading}
-            >
-              <RefreshCw className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
+        <InventoryHeader
+          onRefresh={() => {
+            if (selectedSessionId) loadItems(Number(selectedSessionId))
+            loadSessions()
+          }}
+          loading={loading}
+        />
 
-        {/* Filter Selection */}
         <div className="flex items-end gap-4 bg-card p-4 rounded-lg border shadow-sm">
           <div className="flex-1 max-w-md space-y-2">
             <Label>ID Inventário</Label>
@@ -322,121 +222,21 @@ export default function InventarioPage() {
 
         <InventoryInfoCard session={selectedSession} />
 
-        {/* Actions Toolbar */}
-        <Card>
-          <CardContent className="p-4 flex flex-wrap gap-2 items-center">
-            {/* If no active session exists globally, user can start one. */}
-            {!activeSession && (
-              <Button
-                onClick={handleStartSession}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                <Play className="mr-2 h-4 w-4" /> Iniciar Inventário Geral
-              </Button>
-            )}
-
-            {/* If user is viewing the active session, show actions */}
-            {canEdit && (
-              <>
-                {/* Edit Toggle Button */}
-                <Button
-                  variant={isEditMode ? 'default' : 'outline'}
-                  onClick={() => setIsEditMode(!isEditMode)}
-                  className={
-                    isEditMode
-                      ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                      : 'border-amber-200 text-amber-700 hover:bg-amber-50'
-                  }
-                >
-                  {isEditMode ? (
-                    <Check className="mr-2 h-4 w-4" />
-                  ) : (
-                    <Edit className="mr-2 h-4 w-4" />
-                  )}
-                  {isEditMode ? 'Concluir Edição' : 'Editar Movimentações'}
-                </Button>
-
-                {!isEditMode && (
-                  <>
-                    <Button
-                      variant="outline"
-                      onClick={handleResetInitial}
-                      className="text-red-600 border-red-200 hover:bg-red-50"
-                    >
-                      <RotateCcw className="mr-2 h-4 w-4" /> Reset Saldo Inicial
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={() => handleOpenAction('COMPRA')}
-                    >
-                      <PackagePlus className="mr-2 h-4 w-4" /> Compras
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={() => handleOpenAction('CARRO_PARA_ESTOQUE')}
-                    >
-                      <ArrowRightLeft className="mr-2 h-4 w-4" /> Devoluções
-                      (Carro &rarr; Est)
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={() => handleOpenAction('PERDA')}
-                    >
-                      <PackageMinus className="mr-2 h-4 w-4" /> Perdas
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={() => handleOpenAction('ESTOQUE_PARA_CARRO')}
-                    >
-                      <Truck className="mr-2 h-4 w-4" /> Reposições (Est &rarr;
-                      Carro)
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={() => handleOpenAction('CONTAGEM')}
-                    >
-                      <CheckSquare className="mr-2 h-4 w-4" /> Contagem
-                    </Button>
-                  </>
-                )}
-
-                <div className="flex-1" />
-                {!isEditMode && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span>
-                        <Button
-                          onClick={handleFinalize}
-                          disabled={!allItemsCounted}
-                          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <StopCircle className="mr-2 h-4 w-4" /> Finalizar e
-                          Novo Ciclo
-                        </Button>
-                      </span>
-                    </TooltipTrigger>
-                    {!allItemsCounted && (
-                      <TooltipContent>
-                        <p>
-                          Todos os produtos obrigatórios (saldo {'>'} 0 ou com
-                          movimentação) devem ter contagem registrada (mesmo que
-                          0) para finalizar.
-                        </p>
-                      </TooltipContent>
-                    )}
-                  </Tooltip>
-                )}
-              </>
-            )}
-
-            {/* If viewing historical (closed) session */}
-            {selectedSession && !canEdit && (
-              <div className="text-sm text-muted-foreground font-medium italic flex-1 text-center">
-                Visualizando histórico de inventário fechado (Somente Leitura)
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <InventoryControlBar
+          activeSession={activeSession}
+          selectedSession={selectedSession}
+          canEdit={canEdit}
+          isEditMode={isEditMode}
+          setIsEditMode={setIsEditMode}
+          onStartSession={handleStartSession}
+          onResetInitial={handleResetInitial}
+          onOpenAction={(type) => {
+            setActionType(type)
+            setIsActionDialogOpen(true)
+          }}
+          onFinalize={handleFinalize}
+          allItemsCounted={allItemsCounted}
+        />
 
         {selectedSession && (
           <div className="flex justify-end mb-2">
@@ -462,7 +262,7 @@ export default function InventarioPage() {
         {selectedSession && (
           <InventoryGeneralTable
             items={filteredItems}
-            onMarkAsZero={handleMarkAsZero}
+            onMarkAsZero={(pid) => handleUpdateItem(pid, 'CONTAGEM', 0)}
             readOnly={!canEdit}
             isEditMode={isEditMode}
             onUpdateItem={handleUpdateItem}

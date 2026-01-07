@@ -19,89 +19,17 @@ export const inventoryGeneralService = {
     return data as InventoryGeneralSession[]
   },
 
-  async getActiveSession(): Promise<InventoryGeneralSession | null> {
-    const { data, error } = await supabase
-      .from('ID Inventário')
-      .select('*')
-      .eq('status', 'ABERTO')
-      .order('id', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+  async startNewSession(): Promise<InventoryGeneralSession> {
+    // Use the RPC for atomic and robust transition
+    const { data, error } = await supabase.rpc('start_new_inventory_session')
 
-    if (error) throw error
-    return data as InventoryGeneralSession | null
-  },
-
-  async startNewSession() {
-    // 1. Close current open session(s)
-    await supabase
-      .from('ID Inventário')
-      .update({ status: 'FECHADO', data_fim: new Date().toISOString() })
-      .eq('status', 'ABERTO')
-
-    // 2. Create new session
-    const { data: newSession, error } = await supabase
-      .from('ID Inventário')
-      .insert({ status: 'ABERTO', data_inicio: new Date().toISOString() })
-      .select()
-      .single()
-
-    if (error) throw error
-
-    // 3. Data Continuity: Fetch 'novo_saldo_final' from the LAST closed session
-    const { data: lastSession } = await supabase
-      .from('ID Inventário')
-      .select('id')
-      .eq('status', 'FECHADO')
-      .neq('id', newSession.id)
-      .order('id', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (lastSession) {
-      const { data: prevBalances } = await supabase
-        .from('ESTOQUE GERAL AJUSTES')
-        .select('produto_id, novo_saldo_final')
-        .eq('id_inventario', lastSession.id)
-
-      if (prevBalances && prevBalances.length > 0) {
-        const productIds = prevBalances.map((p) => p.produto_id)
-
-        const { data: products } = await supabase
-          .from('PRODUTOS')
-          .select('ID, PREÇO, CODIGO, PRODUTO, CÓDIGO BARRAS')
-          .in('ID', productIds)
-
-        const productMap = new Map(products?.map((p) => [p.ID, p]))
-
-        const initials = prevBalances
-          .map((pb) => {
-            const prod = productMap.get(pb.produto_id)
-            if (!prod) return null
-            return {
-              id_inventario: newSession.id,
-              produto_id: pb.produto_id,
-              saldo_inicial: pb.novo_saldo_final,
-              produto: prod.PRODUTO,
-              preco: parseCurrency(prod.PREÇO),
-              codigo_produto: prod.CODIGO,
-              barcode: prod['CÓDIGO BARRAS'],
-            }
-          })
-          .filter(Boolean)
-
-        if (initials.length > 0) {
-          const batchSize = 1000
-          for (let i = 0; i < initials.length; i += batchSize) {
-            await supabase
-              .from('ESTOQUE GERAL SALDO INICIAL')
-              .insert(initials.slice(i, i + batchSize))
-          }
-        }
-      }
+    if (error) {
+      console.error('Error starting new session:', error)
+      throw error
     }
 
-    return newSession as InventoryGeneralSession
+    // RPC returns a single object (Json), cast it to the type
+    return data as unknown as InventoryGeneralSession
   },
 
   async resetInitialBalances(sessionId: number) {
@@ -247,7 +175,6 @@ export const inventoryGeneralService = {
         item.saidas_perdas -
         item.estoque_para_carro
 
-      // Mandatory Logic: Balance > 0 OR Any Movement > 0
       item.is_mandatory =
         item.saldo_final > 0 ||
         item.compras > 0 ||
@@ -363,7 +290,6 @@ export const inventoryGeneralService = {
         break
     }
 
-    // 1. Fetch one existing record to preserve metadata (like supplier, employee, reason)
     const { data: existing } = await supabase
       .from(table)
       .select('*')
@@ -372,15 +298,12 @@ export const inventoryGeneralService = {
       .limit(1)
       .maybeSingle()
 
-    // 2. Delete all records for this product/session/type to strictly enforce the new total
     await supabase
       .from(table)
       .delete()
       .eq('id_inventario', sessionId)
       .eq('produto_id', productId)
 
-    // 3. Insert new record if quantity > 0 or if it's a Count (which can be 0)
-    // If quantity is 0 and it is NOT a count, we effectively leave it deleted (reset to 0)
     if (newQuantity > 0 || type === 'CONTAGEM') {
       const insertData: any = {
         id_inventario: sessionId,
@@ -388,7 +311,6 @@ export const inventoryGeneralService = {
         [qtyField]: newQuantity,
       }
 
-      // Preserve metadata from the last record if available
       if (existing) {
         if ('fornecedor_id' in existing)
           insertData.fornecedor_id = existing.fornecedor_id
@@ -404,6 +326,7 @@ export const inventoryGeneralService = {
   },
 
   async finalizeAdjustments(sessionId: number, items: InventoryGeneralItem[]) {
+    // 1. Save adjustments to DB before transitioning
     const adjustments = items.map((item) => ({
       id_inventario: sessionId,
       produto_id: item.produto_id,
@@ -426,6 +349,7 @@ export const inventoryGeneralService = {
       if (error) throw error
     }
 
+    // 2. Call RPC to close current and start new session atomically
     await this.startNewSession()
   },
 
