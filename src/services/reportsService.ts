@@ -50,7 +50,7 @@ export interface DebitoReportRow {
   saldo_a_pagar: number
   valor_pago: number
   debito: number
-  desconto?: number // Added field
+  desconto: number
 }
 
 export const reportsService = {
@@ -206,106 +206,13 @@ export const reportsService = {
   },
 
   async getDebtsReport(): Promise<DebitoReportRow[]> {
-    // 1. Fetch from debitos_historico
-    const { data: reportData, error } = await supabase
+    const { data, error } = await supabase
       .from('debitos_historico')
       .select('*')
       .order('data_acerto', { ascending: false })
       .limit(5000)
 
-    if (error) {
-      console.warn('Error fetching debitos_historico:', error)
-      return []
-    }
-
-    // 2. Client-side join to ensure missing data (client_code, name, rota, DISCOUNT) is populated
-    // This handles cases where migration backfill might be incomplete or lagged
-    const incompleteRows = reportData.filter(
-      (r) =>
-        !r.cliente_codigo ||
-        !r.cliente_nome ||
-        r.desconto === undefined ||
-        r.desconto === null,
-    )
-
-    if (incompleteRows.length > 0) {
-      const orderIds = incompleteRows.map((r) => r.pedido_id)
-
-      // Fetch missing info from BANCO_DE_DADOS & CLIENTES
-      const { data: dbData } = await supabase
-        .from('BANCO_DE_DADOS')
-        .select(
-          '"NÚMERO DO PEDIDO", "CÓDIGO DO CLIENTE", "CLIENTE", "HORA DO ACERTO", "DESCONTO POR GRUPO", "VALOR VENDIDO"',
-        )
-        .in('NÚMERO DO PEDIDO', orderIds)
-
-      // Calculate discounts map per order
-      const discountsMap = new Map<number, number>()
-      const dbInfoMap = new Map<number, any>()
-
-      dbData?.forEach((row: any) => {
-        const orderId = row['NÚMERO DO PEDIDO']
-        if (!orderId) return
-
-        // Populate info map
-        if (!dbInfoMap.has(orderId)) {
-          dbInfoMap.set(orderId, {
-            code: row['CÓDIGO DO CLIENTE'],
-            name: row['CLIENTE'],
-            time: row['HORA DO ACERTO'],
-            // Parse discount
-            discount: 0,
-          })
-        }
-
-        // Calculate discount for this row
-        const val = parseCurrency(row['VALOR VENDIDO'])
-        const discountStr = row['DESCONTO POR GRUPO'] || '0'
-        const discountVal = parseCurrency(discountStr.replace('%', ''))
-        const discountFactor = discountVal > 1 ? discountVal / 100 : discountVal
-
-        const currentInfo = dbInfoMap.get(orderId)
-        currentInfo.discount += val * discountFactor
-      })
-
-      // Fetch Rota info
-      const clientIds = [
-        ...new Set(dbData?.map((d) => d['CÓDIGO DO CLIENTE']) || []),
-      ] as number[]
-
-      let clientRotas = new Map<number, string>()
-      if (clientIds.length > 0) {
-        const { data: clients } = await supabase
-          .from('CLIENTES')
-          .select('CODIGO, "GRUPO ROTA"')
-          .in('CODIGO', clientIds)
-
-        clients?.forEach((c: any) => {
-          clientRotas.set(c.CODIGO, c['GRUPO ROTA'])
-        })
-      }
-
-      return reportData.map((row) => {
-        if (dbInfoMap.has(row.pedido_id)) {
-          const details = dbInfoMap.get(row.pedido_id)
-          const rota = clientRotas.get(details.code)
-
-          return {
-            ...row,
-            cliente_codigo: row.cliente_codigo || details.code,
-            cliente_nome: row.cliente_nome || details.name,
-            hora_acerto: row.hora_acerto || details.time,
-            rota: row.rota || rota,
-            desconto:
-              row.desconto !== null && row.desconto !== undefined
-                ? row.desconto
-                : details.discount,
-          }
-        }
-        return row as DebitoReportRow
-      })
-    }
-
-    return reportData as DebitoReportRow[]
+    if (error) throw error
+    return data as DebitoReportRow[]
   },
 }

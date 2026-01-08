@@ -127,13 +127,6 @@ export default function DebitosReportPage() {
     )
   }, [filteredData])
 
-  const formatTime = (timeStr: string | null) => {
-    if (!timeStr) return ''
-    const parts = timeStr.split(':')
-    if (parts.length >= 2) return `${parts[0]}:${parts[1]}`
-    return timeStr
-  }
-
   return (
     <div className="space-y-6 animate-fade-in p-4 pb-20">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -247,12 +240,18 @@ export default function DebitosReportPage() {
               <TableHeader className="bg-muted/50">
                 <TableRow>
                   <TableHead className="w-[80px]">Pedido</TableHead>
-                  <TableHead className="w-[120px]">Data Acerto</TableHead>
+                  <TableHead className="w-[120px]">Data</TableHead>
+                  <TableHead>Cód. Cli</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Rota</TableHead>
                   <TableHead>Vendedor</TableHead>
                   <TableHead className="text-right">Valor Venda</TableHead>
-                  <TableHead className="text-right">Desconto</TableHead>
+                  <TableHead className="text-right text-muted-foreground">
+                    Desconto
+                  </TableHead>
+                  <TableHead className="text-right font-medium">
+                    Saldo a Pagar
+                  </TableHead>
                   <TableHead className="text-right text-green-600">
                     Valor Pago
                   </TableHead>
@@ -264,14 +263,14 @@ export default function DebitosReportPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="h-24 text-center">
+                    <TableCell colSpan={11} className="h-24 text-center">
                       <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
                     </TableCell>
                   </TableRow>
                 ) : filteredData.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={9}
+                      colSpan={11}
                       className="h-24 text-center text-muted-foreground"
                     >
                       Nenhum registro encontrado.
@@ -289,22 +288,18 @@ export default function DebitosReportPage() {
                             <span>
                               {safeFormatDate(row.data_acerto, 'dd/MM/yyyy')}
                             </span>
-                            {row.hora_acerto && (
-                              <span className="text-xs text-muted-foreground">
-                                {formatTime(row.hora_acerto)}
-                              </span>
-                            )}
                           </div>
                         </TableCell>
+                        <TableCell className="font-mono text-center">
+                          {row.cliente_codigo || '-'}
+                        </TableCell>
                         <TableCell>
-                          <div className="flex flex-col">
-                            <span className="font-medium">
-                              {row.cliente_nome || '-'}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              Cód: {row.cliente_codigo || '-'}
-                            </span>
-                          </div>
+                          <span
+                            className="font-medium truncate block max-w-[200px]"
+                            title={row.cliente_nome || ''}
+                          >
+                            {row.cliente_nome || '-'}
+                          </span>
                         </TableCell>
                         <TableCell>
                           {row.rota ? (
@@ -322,6 +317,9 @@ export default function DebitosReportPage() {
                         <TableCell className="text-right text-muted-foreground">
                           R$ {formatCurrency(row.desconto || 0)}
                         </TableCell>
+                        <TableCell className="text-right font-medium">
+                          R$ {formatCurrency(row.saldo_a_pagar)}
+                        </TableCell>
                         <TableCell className="text-right text-green-600">
                           R$ {formatCurrency(row.valor_pago)}
                         </TableCell>
@@ -332,12 +330,15 @@ export default function DebitosReportPage() {
                     ))}
                     {/* Totalizer */}
                     <TableRow className="bg-muted font-bold border-t-2 text-sm">
-                      <TableCell colSpan={5}>TOTAIS GERAIS</TableCell>
+                      <TableCell colSpan={6}>TOTAIS GERAIS</TableCell>
                       <TableCell className="text-right">
                         R$ {formatCurrency(totals.venda)}
                       </TableCell>
                       <TableCell className="text-right">
                         R$ {formatCurrency(totals.desconto)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        R$ {formatCurrency(totals.saldo)}
                       </TableCell>
                       <TableCell className="text-right text-green-700">
                         R$ {formatCurrency(totals.pago)}

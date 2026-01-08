@@ -555,6 +555,432 @@ export type Database = {
           },
         ]
       }
+      'ESTOQUE CARRO AJUSTES': {
+        Row: {
+          ajuste_manual: number | null
+          diferenca_quantidade: number | null
+          diferenca_valor: number | null
+          id: number
+          id_estoque_carro: number
+          novo_saldo: number | null
+          produto_id: number
+          timestamp: string | null
+        }
+        Insert: {
+          ajuste_manual?: number | null
+          diferenca_quantidade?: number | null
+          diferenca_valor?: number | null
+          id?: number
+          id_estoque_carro: number
+          novo_saldo?: number | null
+          produto_id: number
+          timestamp?: string | null
+        }
+        Update: {
+          ajuste_manual?: number | null
+          diferenca_quantidade?: number | null
+          diferenca_valor?: number | null
+          id?: number
+          id_estoque_carro?: number
+          novo_saldo?: number | null
+          produto_id?: number
+          timestamp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'ESTOQUE CARRO AJUSTES_id_estoque_carro_fkey'
+            columns: ['id_estoque_carro']
+            isOneToOne: false
+            referencedRelation: 'ID ESTOQUE CARRO'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'ESTOQUE CARRO AJUSTES_produto_id_fkey'
+            columns: ['produto_id']
+            isOneToOne: false
+            referencedRelation: 'PRODUTOS'
+            referencedColumns: ['ID']
+          },
+        ]
+      }
+      'ESTOQUE CARRO CONTAGEM': {
+        Row: {
+          funcionario_id: number | null
+          funcionario_nome: string | null
+          id: number
+          id_estoque_carro: number
+          produto_id: number
+          quantidade: number | null
+          timestamp: string | null
+        }
+        Insert: {
+          funcionario_id?: number | null
+          funcionario_nome?: string | null
+          id?: number
+          id_estoque_carro: number
+          produto_id: number
+          quantidade?: number | null
+          timestamp?: string | null
+        }
+        Update: {
+          funcionario_id?: number | null
+          funcionario_nome?: string | null
+          id?: number
+          id_estoque_carro?: number
+          produto_id?: number
+          quantidade?: number | null
+          timestamp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'ESTOQUE CARRO CONTAGEM_funcionario_id_fkey'
+            columns: ['funcionario_id']
+            isOneToOne: false
+            referencedRelation: 'FUNCIONARIOS'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'ESTOQUE CARRO CONTAGEM_id_estoque_carro_fkey'
+            columns: ['id_estoque_carro']
+            isOneToOne: false
+            referencedRelation: 'ID ESTOQUE CARRO'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'ESTOQUE CARRO CONTAGEM_produto_id_fkey'
+            columns: ['produto_id']
+            isOneToOne: false
+            referencedRelation: 'PRODUTOS'
+            referencedColumns: ['ID']
+          },
+        ]
+      }
+      'ESTOQUE CARRO DIFERENÇAS': {
+        Row: {
+          created_at: string | null
+          diferenca_qtd: number | null
+          diferenca_val: number | null
+          id: number
+          id_estoque_carro: number
+          produto_id: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          diferenca_qtd?: number | null
+          diferenca_val?: number | null
+          id?: number
+          id_estoque_carro: number
+          produto_id?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          diferenca_qtd?: number | null
+          diferenca_val?: number | null
+          id?: number
+          id_estoque_carro?: number
+          produto_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'ESTOQUE CARRO DIFERENÇAS_id_estoque_carro_fkey'
+            columns: ['id_estoque_carro']
+            isOneToOne: false
+            referencedRelation: 'ID ESTOQUE CARRO'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'ESTOQUE CARRO DIFERENÇAS_produto_id_fkey'
+            columns: ['produto_id']
+            isOneToOne: false
+            referencedRelation: 'PRODUTOS'
+            referencedColumns: ['ID']
+          },
+        ]
+      }
+      'ESTOQUE CARRO SALDO FINAL': {
+        Row: {
+          barcode: string | null
+          codigo_produto: number | null
+          funcionario_id: number | null
+          funcionario_nome: string | null
+          id: number
+          id_estoque_carro: number
+          preco: number | null
+          produto: string | null
+          produto_id: number
+          saldo_final: number | null
+          timestamp: string | null
+        }
+        Insert: {
+          barcode?: string | null
+          codigo_produto?: number | null
+          funcionario_id?: number | null
+          funcionario_nome?: string | null
+          id?: number
+          id_estoque_carro: number
+          preco?: number | null
+          produto?: string | null
+          produto_id: number
+          saldo_final?: number | null
+          timestamp?: string | null
+        }
+        Update: {
+          barcode?: string | null
+          codigo_produto?: number | null
+          funcionario_id?: number | null
+          funcionario_nome?: string | null
+          id?: number
+          id_estoque_carro?: number
+          preco?: number | null
+          produto?: string | null
+          produto_id?: number
+          saldo_final?: number | null
+          timestamp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'ESTOQUE CARRO SALDO FINAL_funcionario_id_fkey'
+            columns: ['funcionario_id']
+            isOneToOne: false
+            referencedRelation: 'FUNCIONARIOS'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'ESTOQUE CARRO SALDO FINAL_id_estoque_carro_fkey'
+            columns: ['id_estoque_carro']
+            isOneToOne: false
+            referencedRelation: 'ID ESTOQUE CARRO'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'ESTOQUE CARRO SALDO FINAL_produto_id_fkey'
+            columns: ['produto_id']
+            isOneToOne: false
+            referencedRelation: 'PRODUTOS'
+            referencedColumns: ['ID']
+          },
+        ]
+      }
+      'ESTOQUE CARRO SALDO INICIAL': {
+        Row: {
+          barcode: string | null
+          codigo_produto: number | null
+          funcionario_id: number | null
+          funcionario_nome: string | null
+          id: number
+          id_estoque_carro: number
+          preco: number | null
+          produto: string | null
+          produto_id: number
+          saldo_inicial: number | null
+          timestamp: string | null
+        }
+        Insert: {
+          barcode?: string | null
+          codigo_produto?: number | null
+          funcionario_id?: number | null
+          funcionario_nome?: string | null
+          id?: number
+          id_estoque_carro: number
+          preco?: number | null
+          produto?: string | null
+          produto_id: number
+          saldo_inicial?: number | null
+          timestamp?: string | null
+        }
+        Update: {
+          barcode?: string | null
+          codigo_produto?: number | null
+          funcionario_id?: number | null
+          funcionario_nome?: string | null
+          id?: number
+          id_estoque_carro?: number
+          preco?: number | null
+          produto?: string | null
+          produto_id?: number
+          saldo_inicial?: number | null
+          timestamp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'ESTOQUE CARRO SALDO INICIAL_funcionario_id_fkey'
+            columns: ['funcionario_id']
+            isOneToOne: false
+            referencedRelation: 'FUNCIONARIOS'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'ESTOQUE CARRO SALDO INICIAL_id_estoque_carro_fkey'
+            columns: ['id_estoque_carro']
+            isOneToOne: false
+            referencedRelation: 'ID ESTOQUE CARRO'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'ESTOQUE CARRO SALDO INICIAL_produto_id_fkey'
+            columns: ['produto_id']
+            isOneToOne: false
+            referencedRelation: 'PRODUTOS'
+            referencedColumns: ['ID']
+          },
+        ]
+      }
+      'ESTOQUE CARRO: CARRO PARA O CLIENTE': {
+        Row: {
+          created_at: string | null
+          id: number
+          id_estoque_carro: number
+          produto_id: number | null
+          quantidade: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number
+          id_estoque_carro: number
+          produto_id?: number | null
+          quantidade?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          id_estoque_carro?: number
+          produto_id?: number | null
+          quantidade?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'ESTOQUE CARRO: CARRO PARA O CLIENTE_id_estoque_carro_fkey'
+            columns: ['id_estoque_carro']
+            isOneToOne: false
+            referencedRelation: 'ID ESTOQUE CARRO'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'ESTOQUE CARRO: CARRO PARA O CLIENTE_produto_id_fkey'
+            columns: ['produto_id']
+            isOneToOne: false
+            referencedRelation: 'PRODUTOS'
+            referencedColumns: ['ID']
+          },
+        ]
+      }
+      'ESTOQUE CARRO: CARRO PARA O ESTOQUE': {
+        Row: {
+          created_at: string | null
+          id: number
+          id_estoque_carro: number
+          produto_id: number | null
+          quantidade: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number
+          id_estoque_carro: number
+          produto_id?: number | null
+          quantidade?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          id_estoque_carro?: number
+          produto_id?: number | null
+          quantidade?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'ESTOQUE CARRO: CARRO PARA O ESTOQUE_id_estoque_carro_fkey'
+            columns: ['id_estoque_carro']
+            isOneToOne: false
+            referencedRelation: 'ID ESTOQUE CARRO'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'ESTOQUE CARRO: CARRO PARA O ESTOQUE_produto_id_fkey'
+            columns: ['produto_id']
+            isOneToOne: false
+            referencedRelation: 'PRODUTOS'
+            referencedColumns: ['ID']
+          },
+        ]
+      }
+      'ESTOQUE CARRO: CLIENTE PARA O CARRO': {
+        Row: {
+          created_at: string | null
+          id: number
+          id_estoque_carro: number
+          produto_id: number | null
+          quantidade: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number
+          id_estoque_carro: number
+          produto_id?: number | null
+          quantidade?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          id_estoque_carro?: number
+          produto_id?: number | null
+          quantidade?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'ESTOQUE CARRO: CLIENTE PARA O CARRO_id_estoque_carro_fkey'
+            columns: ['id_estoque_carro']
+            isOneToOne: false
+            referencedRelation: 'ID ESTOQUE CARRO'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'ESTOQUE CARRO: CLIENTE PARA O CARRO_produto_id_fkey'
+            columns: ['produto_id']
+            isOneToOne: false
+            referencedRelation: 'PRODUTOS'
+            referencedColumns: ['ID']
+          },
+        ]
+      }
+      'ESTOQUE CARRO: ESTOQUE PARA O CARRO': {
+        Row: {
+          created_at: string | null
+          id: number
+          id_estoque_carro: number
+          produto_id: number | null
+          quantidade: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number
+          id_estoque_carro: number
+          produto_id?: number | null
+          quantidade?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          id_estoque_carro?: number
+          produto_id?: number | null
+          quantidade?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'ESTOQUE CARRO: ESTOQUE PARA O CARRO_id_estoque_carro_fkey'
+            columns: ['id_estoque_carro']
+            isOneToOne: false
+            referencedRelation: 'ID ESTOQUE CARRO'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'ESTOQUE CARRO: ESTOQUE PARA O CARRO_produto_id_fkey'
+            columns: ['produto_id']
+            isOneToOne: false
+            referencedRelation: 'PRODUTOS'
+            referencedColumns: ['ID']
+          },
+        ]
+      }
       'ESTOQUE GERAL AJUSTES': {
         Row: {
           ajuste_quantidade: number | null
@@ -995,6 +1421,35 @@ export type Database = {
           situacao?: string
         }
         Relationships: []
+      }
+      'ID ESTOQUE CARRO': {
+        Row: {
+          data_fim: string | null
+          data_inicio: string
+          funcionario_id: number
+          id: number
+        }
+        Insert: {
+          data_fim?: string | null
+          data_inicio?: string
+          funcionario_id: number
+          id?: number
+        }
+        Update: {
+          data_fim?: string | null
+          data_inicio?: string
+          funcionario_id?: number
+          id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'ID ESTOQUE CARRO_funcionario_id_fkey'
+            columns: ['funcionario_id']
+            isOneToOne: false
+            referencedRelation: 'FUNCIONARIOS'
+            referencedColumns: ['id']
+          },
+        ]
       }
       'ID Inventário': {
         Row: {

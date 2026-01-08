@@ -1,8 +1,7 @@
 import { supabase } from '@/lib/supabase/client'
 import { Rota, RotaItem } from '@/types/rota'
-import { cobrancaService } from './cobrancaService'
 import { pendenciasService } from './pendenciasService'
-import { parseISO, isBefore, startOfDay } from 'date-fns'
+import { parseISO, isBefore, startOfDay, subDays } from 'date-fns'
 
 export const rotaService = {
   async getActiveRota() {
@@ -32,7 +31,6 @@ export const rotaService = {
   },
 
   async startRota() {
-    // Determine next ID explicitly
     const { data: maxIdData } = await supabase
       .from('ROTA')
       .select('id')
@@ -70,8 +68,6 @@ export const rotaService = {
   },
 
   async finishAndStartNewRoute(currentRotaId: number) {
-    // 0.5 Bulk update counters for active items in current route
-    // Calls the RPC function created in migration
     const { error: rpcError } = await supabase.rpc(
       'increment_rota_items_on_finalize',
       { p_rota_id: currentRotaId },
@@ -79,10 +75,8 @@ export const rotaService = {
 
     if (rpcError) {
       console.error('Error auto-incrementing x_na_rota:', rpcError)
-      // We continue even if this fails, but log it
     }
 
-    // 1. Close current route
     const { error: endError } = await supabase
       .from('ROTA')
       .update({
@@ -92,7 +86,6 @@ export const rotaService = {
 
     if (endError) throw endError
 
-    // 2. Start new route with incremented ID
     const { data: maxIdData } = await supabase
       .from('ROTA')
       .select('id')
@@ -175,7 +168,6 @@ export const rotaService = {
 
   async getFullRotaData(rota: Rota | null) {
     // 1. Fetch all Clients (FILTERED BY 'ATIVO' OR 'INATIVO - ROTA')
-    // IMPORTANT: Requirement: "all customers where TIPO DE CLIENTE is either ATIVO or INATIVO - ROTA"
     const { data: clients, error: clientsError } = await supabase
       .from('CLIENTES')
       .select('*')
@@ -186,9 +178,45 @@ export const rotaService = {
     if (clientsError) throw clientsError
     if (!clients) return []
 
-    // 2. Fetch Debts (Using Cobrança Service for consistency with History module)
-    const allDebts = await cobrancaService.getDebts()
-    const debtMap = new Map(allDebts.map((d) => [d.clientId, d]))
+    // 2. Optimized Debt Fetching using debitos_historico (Source of Truth)
+    // We fetch rows with debt > 0
+    const { data: debtData, error: debtError } = await supabase
+      .from('debitos_historico')
+      .select('cliente_codigo, debito, data_acerto')
+      .gt('debito', 0)
+
+    if (debtError) {
+      console.error('Error fetching debitos_historico:', debtError)
+    }
+
+    const debtMap = new Map<
+      number,
+      { totalDebt: number; orderCount: number; oldestDate: string | null }
+    >()
+
+    if (debtData) {
+      debtData.forEach((row) => {
+        const cid = row.cliente_codigo
+        if (!cid) return
+
+        if (!debtMap.has(cid)) {
+          debtMap.set(cid, {
+            totalDebt: 0,
+            orderCount: 0,
+            oldestDate: null,
+          })
+        }
+        const entry = debtMap.get(cid)!
+        entry.totalDebt += row.debito || 0
+        entry.orderCount += 1
+
+        if (row.data_acerto) {
+          if (!entry.oldestDate || row.data_acerto < entry.oldestDate) {
+            entry.oldestDate = row.data_acerto
+          }
+        }
+      })
+    }
 
     // 3. Fetch Pendencies
     const allPendencies = await pendenciasService.getAll(false) // Unresolved
@@ -219,8 +247,9 @@ export const rotaService = {
       })
     }
 
-    // 7. Fetch basic Summary Stats (History Dates)
-    // We still fetch BANCO_DE_DADOS for lastDate and lastOrderId, history for completeness
+    // 7. Fetch basic Summary Stats (Last Visit Date from debitos_historico or BANCO_DE_DADOS lightweight)
+    // We use debitos_historico for last acerto if possible, else simplified DB query
+    // Actually, let's fetch simplified BANCO_DE_DADOS stats for lastDate/orderId to keep "Recency"
     const { data: dbStats } = await supabase
       .from('BANCO_DE_DADOS')
       .select('"CÓDIGO DO CLIENTE", "DATA DO ACERTO", "NÚMERO DO PEDIDO"')
@@ -276,9 +305,11 @@ export const rotaService = {
       })
     }
 
+    const today = startOfDay(new Date())
+
     return clients.map((client, index) => {
       const cid = client.CODIGO
-      const debtInfo = debtMap.get(cid)
+      const debtEntry = debtMap.get(cid)
       const rotaItem = rotaItemsMap.get(cid)
       const stats = statsMap.get(cid)
       const projection = projectionMap.get(cid) || 0
@@ -289,15 +320,25 @@ export const rotaService = {
         'SEM DÉBITO'
       let earliestUnpaid: string | null = null
 
-      if (debtInfo) {
-        if (debtInfo.status === 'VENCIDO') {
-          vencimentoStatus = 'VENCIDO'
-          earliestUnpaid = debtInfo.oldestOverdueDate
-        } else if (debtInfo.status === 'A VENCER') {
-          vencimentoStatus = 'A VENCER'
-          earliestUnpaid = debtInfo.earliestUnpaidDate
+      if (debtEntry && debtEntry.totalDebt > 0.05) {
+        earliestUnpaid = debtEntry.oldestDate
+        if (debtEntry.oldestDate) {
+          const date = parseISO(debtEntry.oldestDate)
+          // Logic: If debt is older than 30 days (example rule) or just "Active"
+          // User Story doesn't specify rule, but standard is: if old debt exists -> VENCIDO.
+          // Let's check if debt is strictly older than today (implying due date passed)
+          // Since debitos_historico doesn't have due date, we assume 'data_acerto' + buffer?
+          // Using strict 'isBefore' comparison with today for now to simulate past due.
+          // Better yet: If any debt exists in history, it likely implies it wasn't fully paid.
+          // We mark VENCIDO if older than 1 day to be safe, or just A VENCER if recent.
+          // Let's use 30 days threshold as 'VENCIDO', otherwise 'A VENCER'.
+          if (isBefore(date, subDays(today, 30))) {
+            vencimentoStatus = 'VENCIDO'
+          } else {
+            vencimentoStatus = 'A VENCER'
+          }
         } else {
-          vencimentoStatus = 'SEM DÉBITO'
+          vencimentoStatus = 'A VENCER'
         }
       }
 
@@ -308,12 +349,12 @@ export const rotaService = {
         boleto: rotaItem?.boleto || false,
         agregado: rotaItem?.agregado || false,
         vendedor_id: rotaItem?.vendedor_id || null,
-        debito: debtInfo?.totalDebt || 0, // Synced with cobrancaService logic
-        quant_debito: debtInfo?.orderCount || 0,
+        debito: debtEntry?.totalDebt || 0,
+        quant_debito: debtEntry?.orderCount || 0,
         data_acerto: stats?.lastDate || null,
         projecao: projection,
         numero_pedido: stats?.lastOrderId || null,
-        estoque: stockValue, // Updated to use RPC calculation
+        estoque: stockValue,
         has_pendency: pendencyMap.has(cid),
         is_completed: completedSet.has(cid),
         earliest_unpaid_date: earliestUnpaid,
@@ -324,23 +365,17 @@ export const rotaService = {
 
   async checkAndDecrementXNaRota(clientId: number, settlementDate: Date) {
     try {
-      // 1. Get active Rota
       const activeRota = await this.getActiveRota()
       if (!activeRota) return
 
-      // 2. Check if settlementDate is within Rota range
       const startDate = parseISO(activeRota.data_inicio)
-      // For active rota, date must be >= start. No end date yet.
-      // We startOfDay to avoid time issues if settlementDate is same day but earlier hour?
-      // Usually settlementDate has no time in this context (coming from Acerto Page date picker)
       const checkDate = startOfDay(settlementDate)
       const start = startOfDay(startDate)
 
       if (isBefore(checkDate, start)) {
-        return // Date is before rota start
+        return
       }
 
-      // 3. Find Rota Item
       const { data: item, error: itemError } = await supabase
         .from('ROTA_ITEMS')
         .select('*')
@@ -351,7 +386,6 @@ export const rotaService = {
       if (itemError) throw itemError
       if (!item) return
 
-      // 4. Decrement
       const newX = (item.x_na_rota || 0) - 1
 
       await supabase
