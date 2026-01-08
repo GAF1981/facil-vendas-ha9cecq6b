@@ -206,13 +206,98 @@ export const reportsService = {
   },
 
   async getDebtsReport(): Promise<DebitoReportRow[]> {
-    const { data, error } = await supabase
+    // 1. Fetch base report data
+    const { data: reportData, error } = await supabase
       .from('debitos_historico')
       .select('*')
       .order('data_acerto', { ascending: false })
-      .limit(5000)
+      .limit(2500)
 
     if (error) throw error
-    return data as DebitoReportRow[]
+    if (!reportData || reportData.length === 0) return []
+
+    // 2. Identify missing data and collect IDs for enrichment
+    const orderIdsToFetch = new Set<number>()
+    const clientCodes = new Set<number>()
+
+    reportData.forEach((row) => {
+      if (row.cliente_codigo) {
+        clientCodes.add(row.cliente_codigo)
+      } else {
+        // If client code is missing, we need to fetch it from sales order
+        orderIdsToFetch.add(row.pedido_id)
+      }
+    })
+
+    // 3. Fetch missing Client Codes from BANCO_DE_DADOS
+    const orderIds = Array.from(orderIdsToFetch)
+    const orderClientMap = new Map<number, number>()
+
+    if (orderIds.length > 0) {
+      // Chunking to avoid query length limits
+      const chunkSize = 1000
+      for (let i = 0; i < orderIds.length; i += chunkSize) {
+        const chunk = orderIds.slice(i, i + chunkSize)
+        const { data: salesData } = await supabase
+          .from('BANCO_DE_DADOS')
+          .select('"NÚMERO DO PEDIDO", "CÓDIGO DO CLIENTE"')
+          .in('NÚMERO DO PEDIDO', chunk)
+
+        salesData?.forEach((sale) => {
+          if (sale['NÚMERO DO PEDIDO'] && sale['CÓDIGO DO CLIENTE']) {
+            orderClientMap.set(
+              sale['NÚMERO DO PEDIDO'],
+              sale['CÓDIGO DO CLIENTE'],
+            )
+            clientCodes.add(sale['CÓDIGO DO CLIENTE'])
+          }
+        })
+      }
+    }
+
+    // 4. Fetch Client Names from CLIENTES table for ALL involved clients (to ensure fresh data)
+    const allClientCodes = Array.from(clientCodes)
+    const clientNameMap = new Map<number, string>()
+
+    if (allClientCodes.length > 0) {
+      const chunkSize = 1000
+      for (let i = 0; i < allClientCodes.length; i += chunkSize) {
+        const chunk = allClientCodes.slice(i, i + chunkSize)
+        const { data: clientData } = await supabase
+          .from('CLIENTES')
+          .select('CODIGO, "NOME CLIENTE"')
+          .in('CODIGO', chunk)
+
+        clientData?.forEach((client) => {
+          if (client.CODIGO && client['NOME CLIENTE']) {
+            clientNameMap.set(client.CODIGO, client['NOME CLIENTE'])
+          }
+        })
+      }
+    }
+
+    // 5. Merge enriched data back into rows
+    const enrichedData = reportData.map((row) => {
+      let clientCode = row.cliente_codigo
+
+      // Try to fill missing code from Sales Order map
+      if (!clientCode && orderClientMap.has(row.pedido_id)) {
+        clientCode = orderClientMap.get(row.pedido_id) || null
+      }
+
+      // Get fresh name from Client map using the code
+      let clientName = row.cliente_nome
+      if (clientCode && clientNameMap.has(clientCode)) {
+        clientName = clientNameMap.get(clientCode) || clientName
+      }
+
+      return {
+        ...row,
+        cliente_codigo: clientCode,
+        cliente_nome: clientName,
+      }
+    })
+
+    return enrichedData as DebitoReportRow[]
   },
 }

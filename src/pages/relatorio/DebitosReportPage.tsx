@@ -68,6 +68,7 @@ export default function DebitosReportPage() {
         className: 'bg-green-600 text-white',
       })
     } catch (error) {
+      console.error(error)
       toast({
         title: 'Erro',
         description: 'Falha ao atualizar dados.',
