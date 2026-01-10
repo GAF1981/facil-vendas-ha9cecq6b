@@ -139,9 +139,9 @@ export const reportsService = {
             currentOrder.monthlyAverage = currentOrder.totalValue / indexD
           } else {
             // Updated Logic: If monthly average would be 0 (indexD <= 0) and we have a sales value,
-            // calculate the average as Value / 30.
+            // calculate the average as Value / 2.
             if (currentOrder.totalValue > 0) {
-              currentOrder.monthlyAverage = currentOrder.totalValue / 30
+              currentOrder.monthlyAverage = currentOrder.totalValue / 2
             } else {
               currentOrder.monthlyAverage = 0
             }
@@ -153,6 +153,11 @@ export const reportsService = {
               daysSinceLastMonths * currentOrder.monthlyAverage
           } else {
             currentOrder.projection = 0
+          }
+
+          // New Logic: Ensure projection minimum is 100 if calculated as 0
+          if (currentOrder.projection === 0) {
+            currentOrder.projection = 100
           }
         } else {
           currentOrder.daysBetweenOrders = null
