@@ -240,7 +240,7 @@ export const estoqueCarroService = {
     const startDate = parseISO(targetSession.data_inicio)
     const endDate = targetSession.data_fim
       ? parseISO(targetSession.data_fim)
-      : new Date()
+      : null
 
     const { data: employeeData } = await supabase
       .from('FUNCIONARIOS')
@@ -290,10 +290,9 @@ export const estoqueCarroService = {
     }
 
     // 3. Process BANCO_DE_DADOS (Transactions)
-    // Filter optimization: pre-fetch by date string range, then refine by timestamp
+    // Filter optimization: pre-fetch by date string range using just the date part for inclusivity
     const dateStartStr = targetSession.data_inicio.split('T')[0]
-    // Fetch a bit more future if needed or just don't bound the upper string strictly to avoid timezone edge cases
-    // We will strict filter in JS loop
+
     const { data: bdData } = await supabase
       .from('BANCO_DE_DADOS')
       .select('*')
@@ -304,18 +303,35 @@ export const estoqueCarroService = {
     const carToClientInserts: any[] = []
 
     bdData?.forEach((row: any) => {
-      const dateStr = row['DATA DO ACERTO']
-      const timeStr = row['HORA DO ACERTO'] || '00:00:00'
-      if (!dateStr) return
+      // Filter 3: Employee Match (Strict Name Check as per AC)
+      const rowEmployeeName = row['FUNCIONÁRIO']
+      if (
+        !rowEmployeeName ||
+        rowEmployeeName.trim().toLowerCase() !==
+          employeeName.trim().toLowerCase()
+      ) {
+        return
+      }
 
-      // Construct ISO string for parsing: YYYY-MM-DDTHH:mm:ss
-      // Assuming local time for simplicity as DB stores plain strings usually
-      const rowDateTimeStr = `${dateStr}T${timeStr}`
-      const rowDate = parseISO(rowDateTimeStr)
+      // Date Parsing: Prefer 'DATA E HORA', fallback to 'DATA DO ACERTO' + 'HORA DO ACERTO'
+      let rowDate: Date
+      if (row['DATA E HORA']) {
+        rowDate = parseISO(row['DATA E HORA'])
+      } else {
+        const dateStr = row['DATA DO ACERTO']
+        const timeStr = row['HORA DO ACERTO'] || '00:00:00'
+        if (!dateStr) return
+        // Assuming local time for simplicity as DB stores plain strings usually
+        const rowDateTimeStr = `${dateStr}T${timeStr}`
+        rowDate = parseISO(rowDateTimeStr)
+      }
 
-      // Strict Time Filtering
-      if (isBefore(rowDate, startDate)) return
-      if (targetSession.data_fim && isAfter(rowDate, endDate)) return
+      // Filter 1 & 2: Strict Time Filtering
+      // "Strictly less than Data Início" -> Assumed to mean "Strictly Greater Than" for session validity
+      if (!isAfter(rowDate, startDate)) return
+
+      // "Strictly less than Data Final"
+      if (endDate && !isBefore(rowDate, endDate)) return
 
       const recolhido = parseCurrency(row['RECOLHIDO'])
       const novas = parseCurrency(row['NOVAS CONSIGNAÇÕES'])
@@ -369,8 +385,9 @@ export const estoqueCarroService = {
     const stockToCarInserts: any[] = []
     stockToCarRows?.forEach((row) => {
       const rowDate = parseISO(row.created_at || '')
-      if (isBefore(rowDate, startDate)) return
-      if (targetSession.data_fim && isAfter(rowDate, endDate)) return
+      // Apply same strict strict logic to ensure consistency
+      if (!isAfter(rowDate, startDate)) return
+      if (endDate && !isBefore(rowDate, endDate)) return
 
       const qty = row.quantidade || 0
       if (qty > 0) {
@@ -400,8 +417,8 @@ export const estoqueCarroService = {
     const carToStockInserts: any[] = []
     carToStockRows?.forEach((row) => {
       const rowDate = parseISO(row.created_at || '')
-      if (isBefore(rowDate, startDate)) return
-      if (targetSession.data_fim && isAfter(rowDate, endDate)) return
+      if (!isAfter(rowDate, startDate)) return
+      if (endDate && !isBefore(rowDate, endDate)) return
 
       const qty = row.quantidade || 0
       if (qty > 0) {
