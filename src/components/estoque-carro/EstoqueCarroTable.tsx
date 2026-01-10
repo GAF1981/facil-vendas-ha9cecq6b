@@ -78,7 +78,12 @@ export function EstoqueCarroTable({ items }: Props) {
               <TableCell className="text-right font-mono text-red-600">
                 {item.saidas_estoque}
               </TableCell>
-              <TableCell className="text-right font-mono font-bold bg-blue-50/30">
+              <TableCell
+                className={cn(
+                  'text-right font-mono font-bold bg-blue-50/30',
+                  item.saldo_final < 0 && 'text-red-600',
+                )}
+              >
                 {item.saldo_final}
               </TableCell>
               <TableCell className="text-right font-mono bg-yellow-50/30">

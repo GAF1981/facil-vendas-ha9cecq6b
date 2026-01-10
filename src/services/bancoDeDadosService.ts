@@ -436,6 +436,7 @@ export const bancoDeDadosService = {
 
     const dataAcertoStr = format(date, 'yyyy-MM-dd')
     const horaAcerto = format(date, 'HH:mm:ss')
+    const dataEHora = date.toISOString()
 
     // 2. Fetch current product prices
     const productIds = items.map((i) => i.produtoId)
@@ -511,6 +512,7 @@ export const bancoDeDadosService = {
         'NÚMERO DO PEDIDO': nextPedido,
         'DATA DO ACERTO': dataAcertoStr,
         'HORA DO ACERTO': horaAcerto,
+        'DATA E HORA': dataEHora,
         'CÓDIGO DO CLIENTE': client.CODIGO,
         CLIENTE: client['NOME CLIENTE'],
         'CODIGO FUNCIONARIO': employee.id,

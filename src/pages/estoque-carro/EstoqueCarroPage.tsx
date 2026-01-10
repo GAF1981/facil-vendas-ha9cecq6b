@@ -154,6 +154,7 @@ export default function EstoqueCarroPage() {
   const filteredItems = items.filter((i) => {
     if (saldoFilter === 'igual a 0') return i.saldo_final === 0
     if (saldoFilter === 'maior que 0') return i.saldo_final > 0
+    if (saldoFilter === 'menor que 0') return i.saldo_final < 0
     return true
   })
 
@@ -230,6 +231,9 @@ export default function EstoqueCarroPage() {
                       <SelectItem value="igual a 0">Saldo Final = 0</SelectItem>
                       <SelectItem value="maior que 0">
                         Saldo Final &gt; 0
+                      </SelectItem>
+                      <SelectItem value="menor que 0">
+                        Saldo Final &lt; 0
                       </SelectItem>
                     </SelectContent>
                   </Select>
