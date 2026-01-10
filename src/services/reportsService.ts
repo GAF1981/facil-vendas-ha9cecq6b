@@ -138,7 +138,13 @@ export const reportsService = {
           if (indexD > 0) {
             currentOrder.monthlyAverage = currentOrder.totalValue / indexD
           } else {
-            currentOrder.monthlyAverage = 0
+            // Updated Logic: If monthly average would be 0 (indexD <= 0) and we have a sales value,
+            // calculate the average as Value / 30.
+            if (currentOrder.totalValue > 0) {
+              currentOrder.monthlyAverage = currentOrder.totalValue / 30
+            } else {
+              currentOrder.monthlyAverage = 0
+            }
           }
 
           const daysSinceLastMonths = daysSinceLastForClient / 30
