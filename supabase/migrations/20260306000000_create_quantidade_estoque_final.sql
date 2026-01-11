@@ -19,6 +19,9 @@ CREATE INDEX IF NOT EXISTS idx_qef_cliente ON "QUANTIDADE DE ESTOQUE FINAL" ("C�
 CREATE INDEX IF NOT EXISTS idx_qef_data ON "QUANTIDADE DE ESTOQUE FINAL" ("DATA E HORA DO ACERTO");
 
 -- Populate the table using data from BANCO_DE_DADOS with calculations
+-- Clear existing data to avoid duplicates if re-running
+TRUNCATE TABLE "QUANTIDADE DE ESTOQUE FINAL";
+
 INSERT INTO "QUANTIDADE DE ESTOQUE FINAL" (
   "NUMERO DO PEDIDO",
   "DATA E HORA DO ACERTO",
@@ -35,8 +38,8 @@ WITH raw_data AS (
   SELECT
     "NÚMERO DO PEDIDO" as pedido,
     CASE
-      WHEN "DATA E HORA" IS NOT NULL AND "DATA E HORA" != '' THEN "DATA E HORA"::timestamp with time zone
-      ELSE ("DATA DO ACERTO" || ' ' || COALESCE(NULLIF("HORA DO ACERTO", ''), '00:00:00'))::timestamp with time zone
+      WHEN NULLIF("DATA E HORA", '') IS NOT NULL THEN NULLIF("DATA E HORA", '')::timestamp with time zone
+      ELSE (NULLIF("DATA DO ACERTO", '') || ' ' || COALESCE(NULLIF("HORA DO ACERTO", ''), '00:00:00'))::timestamp with time zone
     END as data_hora,
     "CÓDIGO DO CLIENTE" as cod_cliente,
     "CLIENTE" as nome_cliente,
