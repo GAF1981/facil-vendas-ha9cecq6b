@@ -1867,6 +1867,48 @@ export type Database = {
           },
         ]
       }
+      RELATORIO_DE_ESTOQUE: {
+        Row: {
+          cliente_nome: string | null
+          codigo_cliente: number | null
+          created_at: string
+          data_hora_acerto: string | null
+          estoque_final: number | null
+          estoque_por_produto: number | null
+          id: number
+          numero_pedido: number | null
+          preco_vendido: number | null
+          produto_nome: string | null
+          saldo_final: number | null
+        }
+        Insert: {
+          cliente_nome?: string | null
+          codigo_cliente?: number | null
+          created_at?: string
+          data_hora_acerto?: string | null
+          estoque_final?: number | null
+          estoque_por_produto?: number | null
+          id?: number
+          numero_pedido?: number | null
+          preco_vendido?: number | null
+          produto_nome?: string | null
+          saldo_final?: number | null
+        }
+        Update: {
+          cliente_nome?: string | null
+          codigo_cliente?: number | null
+          created_at?: string
+          data_hora_acerto?: string | null
+          estoque_final?: number | null
+          estoque_por_produto?: number | null
+          id?: number
+          numero_pedido?: number | null
+          preco_vendido?: number | null
+          produto_nome?: string | null
+          saldo_final?: number | null
+        }
+        Relationships: []
+      }
       'REPOSIÇÃO E DEVOLUÇÃO': {
         Row: {
           created_at: string | null
@@ -2214,6 +2256,22 @@ export type Database = {
         }[]
       }
       parse_currency_sql: { Args: { price: string }; Returns: number }
+      process_and_save_stock_snapshot: {
+        Args: never
+        Returns: {
+          cliente_nome: string
+          codigo_cliente: number
+          created_at: string
+          data_hora_acerto: string
+          estoque_final: number
+          estoque_por_produto: number
+          id: number
+          numero_pedido: number
+          preco_vendido: number
+          produto_nome: string
+          saldo_final: number
+        }[]
+      }
       process_inventory_batch: {
         Args: { p_funcionario_id: number; p_items: Json; p_session_id: number }
         Returns: undefined
