@@ -3,7 +3,6 @@ import { Rota, RotaItem } from '@/types/rota'
 import { pendenciasService } from './pendenciasService'
 import { reportsService } from './reportsService'
 import { parseISO, isBefore, startOfDay, subDays, format } from 'date-fns'
-import { parseCurrency } from '@/lib/formatters'
 
 export const rotaService = {
   async getActiveRota() {
@@ -264,8 +263,8 @@ export const rotaService = {
       }
     })
 
-    // 7. Fetch Stock Values from BANCO_DE_DADOS based on collected Orders (MAX Orders)
-    // We calculate the stock value by summing (SALDO FINAL * PREÇO VENDIDO) for each item in the order
+    // 7. Fetch Stock Values from QUANTIDADE DE ESTOQUE FINAL based on collected Orders (MAX Orders)
+    // We calculate the stock value by summing VALOR ESTOQUE POR PRODUTO for the specific order
     const stockMapByOrder = new Map<number, number>()
     const orderIdsArray = Array.from(orderIdsForStock)
 
@@ -274,27 +273,26 @@ export const rotaService = {
       for (let i = 0; i < orderIdsArray.length; i += chunkSize) {
         const chunk = orderIdsArray.slice(i, i + chunkSize)
 
-        // Query BANCO_DE_DADOS directly to get the current stock status for these orders
+        // Query QUANTIDADE DE ESTOQUE FINAL directly for accurate numeric values
         const { data: stockRows, error: stockError } = await supabase
-          .from('BANCO_DE_DADOS')
-          .select('"NÚMERO DO PEDIDO", "SALDO FINAL", "PREÇO VENDIDO"')
-          .in('"NÚMERO DO PEDIDO"', chunk)
-          .gt('"SALDO FINAL"', 0)
+          .from('QUANTIDADE DE ESTOQUE FINAL')
+          .select('"NUMERO DO PEDIDO", "VALOR ESTOQUE POR PRODUTO"')
+          .in('"NUMERO DO PEDIDO"', chunk)
 
         if (stockError) {
-          console.error('Error fetching stock from BANCO_DE_DADOS:', stockError)
+          console.error(
+            'Error fetching stock from QUANTIDADE DE ESTOQUE FINAL:',
+            stockError,
+          )
           continue
         }
 
         stockRows?.forEach((row) => {
-          const orderId = row['NÚMERO DO PEDIDO']
+          const orderId = row['NUMERO DO PEDIDO']
           if (!orderId) return
 
-          const saldoFinal = row['SALDO FINAL'] || 0
-          const precoVendido = parseCurrency(row['PREÇO VENDIDO'])
-
-          // Calculate the monetary value of the remaining stock for this item
-          const itemValue = saldoFinal * precoVendido
+          // VALOR ESTOQUE POR PRODUTO is already a number from DB
+          const itemValue = row['VALOR ESTOQUE POR PRODUTO'] || 0
 
           stockMapByOrder.set(
             orderId,
@@ -387,7 +385,7 @@ export const rotaService = {
         data_acerto: stats?.lastDate || null,
         projecao: projection,
         numero_pedido: stats?.lastOrderId || null,
-        estoque: stockValue, // Populated from aggregated stock data
+        estoque: stockValue, // Populated from QUANTIDADE DE ESTOQUE FINAL
         has_pendency: pendencyMap.has(cid),
         is_completed: completedSet.has(cid),
         earliest_unpaid_date: earliestUnpaid,
