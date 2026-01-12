@@ -10,6 +10,8 @@ export interface Receivable {
   // New granular fields for collection control
   formaCobranca?: string | null
   dataCombinada?: string | null
+  // Metadata to indicate source
+  source?: 'NEGOTIATION' | 'RECEIPT' | 'ORIGINAL'
 }
 
 export interface CollectionInstallment {
@@ -51,7 +53,7 @@ export interface OrderDebt {
   discount: number
   netValue: number // total - discount
   paidValue: number // from RECEBIMENTOS
-  remainingValue: number
+  remainingValue: number // Debito (Consistent with debitos_historico)
   status: 'VENCIDO' | 'A VENCER' | 'SEM DÉBITO'
   paymentDetails: PaymentEntry[] // From BANCO_DE_DADOS (Legacy/Reference)
   paymentsMade: { date: string; value: number }[] // From RECEBIMENTOS (History)
@@ -84,4 +86,18 @@ export interface ClientDebt {
   city: string | null
   // New situation field
   situacao: string | null
+}
+
+export interface LatestCollectionActionView {
+  action_id: number
+  pedido_id: number
+  acao: string | null
+  data_acao: string | null
+  nova_data_combinada: string | null
+  funcionario_nome: string | null
+  cliente_id: number
+  installment_id: number
+  installment_vencimento: string
+  installment_valor: number
+  installment_forma_pagamento: string | null
 }

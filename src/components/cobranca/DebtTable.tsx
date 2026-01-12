@@ -77,6 +77,7 @@ interface FlatRow {
   // For Popover Details
   orderTotal: number
   orderPayments: { method: string; value: number; dueDate: string }[]
+  source: 'NEGOTIATION' | 'RECEIPT' | 'ORIGINAL'
 }
 
 type SortConfig = {
@@ -147,8 +148,9 @@ export function DebtTable({
               ? updates.dataCombinada
               : inst.dataCombinada
 
-          // Calculate Debt (Débito)
-          const debito = Math.max(0, inst.valorRegistrado - inst.valorPago)
+          // Use the installment's valorRegistrado for value column
+          // And calculate per-row debt if needed, but primarily we show the installment status
+          // Note: If source is NEGOTIATION, valuePago is typically 0
 
           return {
             uniqueId,
@@ -166,17 +168,18 @@ export function DebtTable({
             formaPagamento: inst.formaPagamento,
             valorRegistrado: inst.valorRegistrado,
             valorPago: inst.valorPago,
-            debito,
+            debito: Math.max(0, inst.valorRegistrado - inst.valorPago),
             status: inst.status,
             formaCobranca: currentFormaCobranca,
             dataCombinada: currentDataCombinada,
             collectionActionCount: order.collectionActionCount,
             orderTotal: order.netValue,
-            orderPayments: order.paymentDetails.map((pd) => ({
-              method: pd.method,
+            orderPayments: order.paymentsMade.map((pd) => ({
+              method: 'Pagamento',
               value: pd.value,
-              dueDate: pd.dueDate,
+              dueDate: pd.date,
             })),
+            source: inst.source || 'ORIGINAL',
           }
         })
       }),
@@ -217,7 +220,6 @@ export function DebtTable({
     field: 'forma_cobranca' | 'data_combinada',
     value: any,
   ) => {
-    // Optimistic Update
     setLocalUpdates((prev) => ({
       ...prev,
       [row.uniqueId]: {
@@ -232,8 +234,7 @@ export function DebtTable({
         row.orderId,
         field,
         value,
-        // Provide extra data in case we need to materialize a synthetic receivable
-        row.receivableId < 0
+        row.receivableId < 0 || row.source === 'NEGOTIATION'
           ? {
               valorRegistrado: row.valorRegistrado,
               vencimento: row.vencimento,
@@ -303,7 +304,6 @@ export function DebtTable({
                 Status
               </TableHead>
 
-              {/* Editable Columns */}
               <TableHead className="min-w-[150px] bg-background">
                 Forma Cobrança
               </TableHead>
@@ -314,7 +314,6 @@ export function DebtTable({
                 Ações
               </TableHead>
 
-              {/* Rota Motoqueiro Column */}
               <TableHead
                 className="w-[50px] text-center bg-background"
                 title="Rota Motoqueiro"
@@ -387,7 +386,14 @@ export function DebtTable({
                         >
                           {row.formaPagamento}
                         </span>
-                        {/* New Icon for Payment Details */}
+                        {row.source === 'NEGOTIATION' && (
+                          <Badge
+                            variant="secondary"
+                            className="text-[9px] px-1 h-4"
+                          >
+                            Negoc.
+                          </Badge>
+                        )}
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button
@@ -404,7 +410,7 @@ export function DebtTable({
                             </h4>
                             <div className="space-y-2">
                               <div className="flex justify-between border-b pb-1">
-                                <span>Total Pedido:</span>
+                                <span>Total Pedido (Rota):</span>
                                 <span className="font-bold">
                                   {formatCurrency(row.orderTotal)}
                                 </span>
@@ -457,7 +463,6 @@ export function DebtTable({
                       </Badge>
                     </TableCell>
 
-                    {/* Editable: Forma de Cobrança */}
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Select
@@ -498,7 +503,6 @@ export function DebtTable({
                       </div>
                     </TableCell>
 
-                    {/* Editable: Data Combinada */}
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Input
@@ -527,10 +531,8 @@ export function DebtTable({
                       </div>
                     </TableCell>
 
-                    {/* Actions Column */}
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-1">
-                        {/* Action Button */}
                         <Button
                           variant="ghost"
                           size="icon"
@@ -547,7 +549,6 @@ export function DebtTable({
                           <PlusCircle className="h-4 w-4" />
                         </Button>
 
-                        {/* History Button */}
                         <div className="relative">
                           <Button
                             variant="ghost"
@@ -571,7 +572,6 @@ export function DebtTable({
                           )}
                         </div>
 
-                        {/* Details Button */}
                         <Button
                           variant="ghost"
                           size="icon"
@@ -590,7 +590,6 @@ export function DebtTable({
                       </div>
                     </TableCell>
 
-                    {/* Rota Motoqueiro Selection Checkbox */}
                     <TableCell className="text-center">
                       <Checkbox
                         checked={isSelected}

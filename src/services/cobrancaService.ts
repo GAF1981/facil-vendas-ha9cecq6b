@@ -5,6 +5,7 @@ import {
   Receivable,
   CollectionAction,
   CollectionActionInsert,
+  LatestCollectionActionView,
 } from '@/types/cobranca'
 import { parseCurrency } from '@/lib/formatters'
 import { isBefore, parseISO, startOfDay } from 'date-fns'
@@ -12,50 +13,26 @@ import { isBefore, parseISO, startOfDay } from 'date-fns'
 export const cobrancaService = {
   // Existing methods ...
   async getDebts(): Promise<ClientDebt[]> {
-    // 1. Fetch data from BANCO_DE_DADOS
-    // Increased limit to 50000 to ensure we capture debts for the full client base
-    const { data: dbData, error: dbError } = await supabase
-      .from('BANCO_DE_DADOS')
+    const today = startOfDay(new Date())
+
+    // 1. Fetch Debts from debitos_historico (Primary Source for Debt Logic)
+    // This table is synced with Route Control logic
+    const { data: debtsData, error: debtsError } = await supabase
+      .from('debitos_historico')
       .select(
-        '"NÚMERO DO PEDIDO", "CÓDIGO DO CLIENTE", "CLIENTE", "VALOR VENDIDO", "DESCONTO POR GRUPO", "DATA DO ACERTO", "DETALHES_PAGAMENTO", "VALOR DEVIDO", "FORMA", "CODIGO FUNCIONARIO", "FUNCIONÁRIO", data_combinada',
+        'pedido_id, cliente_codigo, cliente_nome, valor_venda, valor_pago, debito, data_acerto, vendedor_nome, rota_id, saldo_a_pagar',
       )
-      .not('NÚMERO DO PEDIDO', 'is', null)
-      .order('NÚMERO DO PEDIDO', { ascending: true }) // Explicitly sort by Order ID
-      .limit(50000)
+      .gt('debito', 1) // Only fetch relevant debts > 1.00
+      .limit(10000)
 
-    if (dbError) throw dbError
+    if (debtsError) throw debtsError
 
-    // 2. Fetch data from RECEBIMENTOS (Granular rows)
-    const { data: recData, error: recError } = await supabase
-      .from('RECEBIMENTOS')
-      .select(
-        'id, venda_id, valor_pago, vencimento, valor_registrado, forma_pagamento, forma_cobranca, data_combinada',
-      )
-      .limit(50000)
+    const orderIds = debtsData.map((d) => d.pedido_id)
 
-    if (recError) throw recError
+    if (orderIds.length === 0) return []
 
-    // 2.5 Fetch Collection Actions Counts from new table
-    const { data: cobrancaData, error: cobrancaError } = await supabase
-      .from('acoes_cobranca')
-      .select('pedido_id')
-      .limit(50000)
-
-    if (cobrancaError) throw cobrancaError
-
-    const cobrancaCounts = new Map<number, number>()
-    cobrancaData?.forEach((row: any) => {
-      const pid = row.pedido_id
-      if (pid) {
-        cobrancaCounts.set(pid, (cobrancaCounts.get(pid) || 0) + 1)
-      }
-    })
-
-    // 3. Fetch Client Types, Groups, Address Info and Situacao efficiently with chunking
-    const clientIds = [
-      ...new Set(dbData?.map((r) => r['CÓDIGO DO CLIENTE']) || []),
-    ] as number[]
-
+    // 2. Fetch Client Info (Address, etc)
+    const clientIds = [...new Set(debtsData.map((d) => d.cliente_codigo))]
     let clientInfoMap = new Map<
       number,
       {
@@ -70,179 +47,175 @@ export const cobrancaService = {
     >()
 
     if (clientIds.length > 0) {
-      const chunkSize = 200
-      for (let i = 0; i < clientIds.length; i += chunkSize) {
-        const chunk = clientIds.slice(i, i + chunkSize)
-        const { data: clientData, error: clientError } = await supabase
-          .from('CLIENTES')
-          .select(
-            'CODIGO, "TIPO DE CLIENTE", GRUPO, "GRUPO ROTA", ENDEREÇO, BAIRRO, MUNICÍPIO, situacao',
-          )
-          .in('CODIGO', chunk)
+      const { data: clientData, error: clientError } = await supabase
+        .from('CLIENTES')
+        .select(
+          'CODIGO, "TIPO DE CLIENTE", GRUPO, "GRUPO ROTA", ENDEREÇO, BAIRRO, MUNICÍPIO, situacao',
+        )
+        .in('CODIGO', clientIds)
 
-        if (clientError) {
-          console.error('Error fetching clients chunk:', clientError)
-          continue
-        }
-
-        if (clientData) {
-          clientData.forEach((c) => {
-            clientInfoMap.set(c.CODIGO, {
-              type: c['TIPO DE CLIENTE'] || 'N/D',
-              group: (c as any)['GRUPO'] || null,
-              route: (c as any)['GRUPO ROTA'] || null,
-              address: (c as any)['ENDEREÇO'] || null,
-              neighborhood: (c as any)['BAIRRO'] || null,
-              city: (c as any)['MUNICÍPIO'] || null,
-              situacao: (c as any)['situacao'] || 'ATIVO',
-            })
+      if (clientError) console.error('Error fetching clients:', clientError)
+      else {
+        clientData?.forEach((c) => {
+          clientInfoMap.set(c.CODIGO, {
+            type: c['TIPO DE CLIENTE'] || 'N/D',
+            group: (c as any)['GRUPO'] || null,
+            route: (c as any)['GRUPO ROTA'] || null,
+            address: (c as any)['ENDEREÇO'] || null,
+            neighborhood: (c as any)['BAIRRO'] || null,
+            city: (c as any)['MUNICÍPIO'] || null,
+            situacao: (c as any)['situacao'] || 'ATIVO',
           })
-        }
+        })
       }
     }
 
-    // 4. Aggregate Payments and Installments by Order ID
+    // 3. Fetch Latest Collection Actions (Negotiated Installments)
+    const { data: actionsData, error: actionsError } = await supabase
+      .from('view_latest_collection_actions')
+      .select('*')
+      .in('pedido_id', orderIds)
+
+    if (actionsError) throw actionsError
+
+    const actionsMap = new Map<number, LatestCollectionActionView[]>()
+    actionsData?.forEach((row: any) => {
+      if (!actionsMap.has(row.pedido_id)) {
+        actionsMap.set(row.pedido_id, [])
+      }
+      actionsMap.get(row.pedido_id)!.push(row)
+    })
+
+    // 4. Fetch Receipts (RECEBIMENTOS) for payments made and fallback installments
+    const { data: recData, error: recError } = await supabase
+      .from('RECEBIMENTOS')
+      .select(
+        'id, venda_id, valor_pago, vencimento, valor_registrado, forma_pagamento, forma_cobranca, data_combinada',
+      )
+      .in('venda_id', orderIds)
+
+    if (recError) throw recError
+
     const paymentsMap = new Map<
       number,
-      { total: number; history: any[]; installments: Receivable[] }
+      {
+        totalPaid: number
+        history: { date: string; value: number }[]
+        rawInstallments: any[]
+      }
     >()
-    const today = startOfDay(new Date())
 
     recData?.forEach((r: any) => {
       const pid = r.venda_id
       if (!paymentsMap.has(pid)) {
-        paymentsMap.set(pid, { total: 0, history: [], installments: [] })
+        paymentsMap.set(pid, {
+          totalPaid: 0,
+          history: [],
+          rawInstallments: [],
+        })
       }
       const entry = paymentsMap.get(pid)!
 
-      // History of payments (only if paid > 0)
       if (r.valor_pago > 0) {
-        entry.total += r.valor_pago
+        entry.totalPaid += r.valor_pago
         entry.history.push({ date: r.vencimento, value: r.valor_pago })
       }
 
-      // Granular Installment/Row Logic
-      const valorRegistrado = r.valor_registrado ?? 0
-      const valorPago = r.valor_pago ?? 0
-      let status: 'VENCIDO' | 'A VENCER' | 'PAGO' = 'A VENCER'
-
-      if (valorPago >= valorRegistrado && valorRegistrado > 0) {
-        status = 'PAGO'
-      } else if (
-        r.vencimento &&
-        isBefore(parseISO(r.vencimento), today) &&
-        valorPago < valorRegistrado
-      ) {
-        status = 'VENCIDO'
-      }
-
-      entry.installments.push({
-        id: r.id,
-        vencimento: r.vencimento,
-        valorRegistrado: valorRegistrado,
-        valorPago: valorPago,
-        formaPagamento: r.forma_pagamento,
-        status,
-        formaCobranca: r.forma_cobranca,
-        dataCombinada: r.data_combinada,
-      })
+      entry.rawInstallments.push(r)
     })
 
-    // 5. Aggregate Sales items into Orders
-    const ordersMap = new Map<number, any>()
-
-    dbData?.forEach((row) => {
-      const oid = row['NÚMERO DO PEDIDO']
-      if (!oid) return
-
-      if (!ordersMap.has(oid)) {
-        ordersMap.set(oid, {
-          orderId: oid,
-          clientId: row['CÓDIGO DO CLIENTE'],
-          clientName: row['CLIENTE'],
-          date: row['DATA DO ACERTO'],
-          rawTotal: 0,
-          discountStr: row['DESCONTO POR GRUPO'],
-          paymentDetailsJSON: row['DETALHES_PAGAMENTO'],
-          totalValorDevido: 0,
-          formaPagamento: row['FORMA'] || 'N/D',
-          funcionarioId: row['CODIGO FUNCIONARIO'],
-          funcionarioNome: row['FUNCIONÁRIO'],
-          dataCombinada: row.data_combinada,
-        })
-      }
-      const order = ordersMap.get(oid)
-      order.rawTotal += parseCurrency(row['VALOR VENDIDO'])
-
-      if (row['VALOR DEVIDO'] !== null && row['VALOR DEVIDO'] !== undefined) {
-        order.totalValorDevido += row['VALOR DEVIDO']
-      }
-    })
-
-    // 6. Process Orders to calculate Debt and Status per Client
+    // 5. Construct Data Structure
     const clientsMap = new Map<number, ClientDebt>()
 
-    ordersMap.forEach((order) => {
-      // Calculate Net Value
-      let netValue = 0
-      let discountAmount = 0
+    debtsData.forEach((debt) => {
+      // Basic Order Info from debitos_historico
+      const pid = debt.pedido_id
+      const cid = debt.cliente_codigo
+      const rawDebt = Number(debt.debito)
+      const rawTotal = Number(debt.valor_venda)
+      const rawPaid = Number(debt.valor_pago)
+      const dateAcerto = debt.data_acerto || new Date().toISOString()
 
-      if (order.totalValorDevido > 0.001) {
-        netValue = order.totalValorDevido
-        discountAmount = order.rawTotal - netValue
-      } else {
-        const descontoStr = order.discountStr || '0'
-        const descontoVal = parseCurrency(descontoStr.replace('%', ''))
-        const discountFactor = descontoVal > 1 ? descontoVal / 100 : descontoVal
-        discountAmount = order.rawTotal * discountFactor
-        netValue = order.rawTotal - discountAmount
-      }
-
-      // Get Paid Amount and Installments
-      const paymentInfo = paymentsMap.get(order.orderId) || {
-        total: 0,
+      // Determine Installments
+      let installments: Receivable[] = []
+      const actionRows = actionsMap.get(pid)
+      const paymentInfo = paymentsMap.get(pid) || {
+        totalPaid: 0,
         history: [],
-        installments: [],
+        rawInstallments: [],
       }
-      const paidValue = paymentInfo.total
-      const remaining = netValue - paidValue
-      let installments = paymentInfo.installments
 
-      // Fallback: If no installments found in RECEBIMENTOS, create a synthetic one from Order
+      // Logic: If Negotiated Actions exist, use them. Else use Receipts.
+      if (actionRows && actionRows.length > 0) {
+        // Use Negotiated Installments
+        installments = actionRows.map((row) => ({
+          id: row.installment_id, // From acoes_cobranca_vencimentos
+          vencimento: row.installment_vencimento,
+          valorRegistrado: row.installment_valor,
+          valorPago: 0, // Negotiated are usually unpaid "promises"
+          formaPagamento: row.installment_forma_pagamento || 'Outros',
+          status:
+            row.installment_vencimento &&
+            isBefore(parseISO(row.installment_vencimento), today)
+              ? 'VENCIDO'
+              : 'A VENCER',
+          formaCobranca: null,
+          dataCombinada: row.nova_data_combinada,
+          source: 'NEGOTIATION',
+        }))
+      } else {
+        // Use RECEBIMENTOS
+        // We filter for those that have debt or are relevant
+        installments = paymentInfo.rawInstallments.map((r) => {
+          const valReg = r.valor_registrado || 0
+          const valPago = r.valor_pago || 0
+          let status: 'VENCIDO' | 'A VENCER' | 'PAGO' = 'A VENCER'
+
+          if (valPago >= valReg && valReg > 0) {
+            status = 'PAGO'
+          } else if (
+            r.vencimento &&
+            isBefore(parseISO(r.vencimento), today) &&
+            valPago < valReg
+          ) {
+            status = 'VENCIDO'
+          }
+
+          return {
+            id: r.id,
+            vencimento: r.vencimento,
+            valorRegistrado: valReg,
+            valorPago: valPago,
+            formaPagamento: r.forma_pagamento,
+            status,
+            formaCobranca: r.forma_cobranca,
+            dataCombinada: r.data_combinada,
+            source: 'RECEIPT',
+          }
+        })
+      }
+
+      // Fallback if no installments found at all
       if (installments.length === 0) {
         installments.push({
-          id: -order.orderId, // Synthetic ID (Negative)
-          vencimento: order.date, // Default to order date
-          valorRegistrado: netValue,
-          valorPago: paidValue,
-          formaPagamento: order.formaPagamento,
-          status:
-            remaining > 0.05
-              ? isBefore(parseISO(order.date), today)
-                ? 'VENCIDO'
-                : 'A VENCER'
-              : 'PAGO',
+          id: -pid,
+          vencimento: dateAcerto,
+          valorRegistrado: rawDebt,
+          valorPago: rawPaid,
+          formaPagamento: 'N/D',
+          status: 'A VENCER',
           formaCobranca: null,
-          dataCombinada: order.dataCombinada || null,
-        })
-      } else {
-        // Sort installments by vencimento
-        installments.sort((a, b) => {
-          if (!a.vencimento) return 1
-          if (!b.vencimento) return -1
-          return (
-            new Date(a.vencimento).getTime() - new Date(b.vencimento).getTime()
-          )
+          dataCombinada: null,
+          source: 'ORIGINAL',
         })
       }
 
-      // Determine Order Status based on installments
+      // Determine Order Status based on installments AND debt logic
       let status: 'VENCIDO' | 'A VENCER' | 'SEM DÉBITO' = 'SEM DÉBITO'
       let oldestOverdue: string | null = null
 
-      if (remaining > 0.05) {
-        status = 'A VENCER' // Default if debt exists
-        // Check if any installment is overdue
+      if (rawDebt > 0.05) {
+        status = 'A VENCER'
         const hasOverdue = installments.some((i) => i.status === 'VENCIDO')
         if (hasOverdue) {
           status = 'VENCIDO'
@@ -253,103 +226,66 @@ export const cobrancaService = {
         }
       }
 
+      // Construct Order Object
       const orderObj: OrderDebt = {
-        orderId: order.orderId,
-        date: order.date,
-        totalValue: order.rawTotal,
-        discount: discountAmount,
-        netValue: netValue,
-        paidValue: paidValue,
-        remainingValue: remaining,
-        status: status,
-        paymentDetails: order.paymentDetailsJSON || [],
+        orderId: pid,
+        date: dateAcerto,
+        totalValue: rawTotal,
+        discount: 0, // Simplification as we use net debt from View
+        netValue: Number(debt.saldo_a_pagar),
+        paidValue: rawPaid,
+        remainingValue: rawDebt,
+        status,
+        paymentDetails: [], // Legacy
         paymentsMade: paymentInfo.history,
-        installments: installments,
+        installments,
         oldestOverdueDate: oldestOverdue,
-        formaPagamento: order.formaPagamento,
-        valorDevido: netValue,
-        collectionActionCount: cobrancaCounts.get(order.orderId) || 0,
-        employeeName: order.funcionarioNome || null,
+        formaPagamento: 'N/D',
+        valorDevido: rawDebt,
+        collectionActionCount: actionRows ? 1 : 0, // Simplified count
+        employeeName: debt.vendedor_nome,
       }
 
-      if (!clientsMap.has(order.clientId)) {
-        const clientInfo = clientInfoMap.get(order.clientId)
-        clientsMap.set(order.clientId, {
-          clientId: order.clientId,
-          clientName: order.clientName || `Cliente ${order.clientId}`,
-          clientType: clientInfo?.type || 'N/D',
-          group: clientInfo?.group || null,
-          routeGroup: clientInfo?.route || null,
-          address: clientInfo?.address || null,
-          neighborhood: clientInfo?.neighborhood || null,
-          city: clientInfo?.city || null,
-          situacao: clientInfo?.situacao || 'ATIVO',
+      // Add to Client
+      if (!clientsMap.has(cid)) {
+        const cInfo = clientInfoMap.get(cid)
+        clientsMap.set(cid, {
+          clientId: cid,
+          clientName: debt.cliente_nome || `Cliente ${cid}`,
+          clientType: cInfo?.type || 'N/D',
+          group: cInfo?.group || null,
+          routeGroup: cInfo?.route || null,
+          address: cInfo?.address || null,
+          neighborhood: cInfo?.neighborhood || null,
+          city: cInfo?.city || null,
+          situacao: cInfo?.situacao || 'ATIVO',
           totalDebt: 0,
           orderCount: 0,
-          status: 'SEM DÉBITO', // Default start
-          lastAcertoDate: order.date,
+          status: 'SEM DÉBITO',
+          lastAcertoDate: dateAcerto,
           oldestOverdueDate: null,
           earliestUnpaidDate: null,
           orders: [],
         })
       }
 
-      const clientDebt = clientsMap.get(order.clientId)!
-      if (remaining > 0.05) {
-        clientDebt.totalDebt += remaining
-      }
-      clientDebt.orderCount += 1
-      clientDebt.orders.push(orderObj)
+      const client = clientsMap.get(cid)!
+      client.totalDebt += rawDebt
+      client.orderCount++
+      client.orders.push(orderObj)
 
-      // Update Client Status priority: VENCIDO > A VENCER > SEM DÉBITO
-      if (status === 'VENCIDO') {
-        clientDebt.status = 'VENCIDO'
-      } else if (status === 'A VENCER' && clientDebt.status !== 'VENCIDO') {
-        clientDebt.status = 'A VENCER'
-      }
+      // Update Client Aggregate Status
+      if (status === 'VENCIDO') client.status = 'VENCIDO'
+      else if (status === 'A VENCER' && client.status !== 'VENCIDO')
+        client.status = 'A VENCER'
 
-      if (order.date > clientDebt.lastAcertoDate) {
-        clientDebt.lastAcertoDate = order.date
-      }
-
-      // Track oldest overdue for VENCIDO logic
-      if (oldestOverdue) {
-        if (
-          !clientDebt.oldestOverdueDate ||
-          oldestOverdue < clientDebt.oldestOverdueDate
-        ) {
-          clientDebt.oldestOverdueDate = oldestOverdue
-        }
-      }
-
-      // Track earliest unpaid date for A VENCER logic
-      installments.forEach((inst) => {
-        if (
-          inst.status !== 'PAGO' &&
-          inst.vencimento &&
-          inst.valorRegistrado > inst.valorPago
-        ) {
-          if (
-            !clientDebt.earliestUnpaidDate ||
-            inst.vencimento < clientDebt.earliestUnpaidDate
-          ) {
-            clientDebt.earliestUnpaidDate = inst.vencimento
-          }
-        }
-      })
+      if (dateAcerto > client.lastAcertoDate) client.lastAcertoDate = dateAcerto
     })
 
-    // Sort orders for each client to ensure latest is last
-    clientsMap.forEach((client) => {
-      client.orders.sort((a, b) => a.orderId - b.orderId)
-    })
-
-    return Array.from(clientsMap.values()).sort((a, b) => {
-      // Sort priority: VENCIDO, then by Debt Amount DESC
-      if (a.status === 'VENCIDO' && b.status !== 'VENCIDO') return -1
-      if (a.status !== 'VENCIDO' && b.status === 'VENCIDO') return 1
-      return b.totalDebt - a.totalDebt
-    })
+    // Final sorting
+    return Array.from(clientsMap.values()).sort(
+      (a, b) => b.totalDebt - a.totalDebt,
+    )
   },
 
   async updateReceivableField(
@@ -391,7 +327,6 @@ export const cobrancaService = {
         [field]: value,
       }
 
-      // We need to use 'as any' because types might not be generated yet for new cols
       const { error: insertError } = await supabase
         .from('RECEBIMENTOS')
         .insert(insertPayload as any)
@@ -472,9 +407,6 @@ export const cobrancaService = {
 
       if (instError) {
         console.error('Error inserting collection installments:', instError)
-        // We don't throw here to avoid rolling back the main action if possible, or should we?
-        // Ideally transactional, but Supabase SDK doesn't support complex transactions easily without RPC.
-        // We log error.
       }
     }
 
@@ -484,25 +416,26 @@ export const cobrancaService = {
         .update({ data_combinada: action.novaDataCombinada } as any)
         .eq('"NÚMERO DO PEDIDO"', action.pedidoId)
 
-      if (bdError) {
-        console.error('Error updating BANCO_DE_DADOS data_combinada:', bdError)
-      }
+      if (bdError) console.error('Error updating BANCO_DE_DADOS:', bdError)
 
       const { error: recError } = await supabase
         .from('RECEBIMENTOS')
         .update({ data_combinada: action.novaDataCombinada } as any)
         .eq('venda_id', action.pedidoId)
 
-      if (recError) {
-        console.error('Error updating RECEBIMENTOS data_combinada:', recError)
-      }
+      if (recError) console.error('Error updating RECEBIMENTOS:', recError)
     }
   },
 
   async getClientDebtSummary(clientId: number): Promise<number> {
-    // Re-use logic above but filtered
-    const debts = await this.getDebts()
-    const client = debts.find((c) => c.clientId === clientId)
-    return client ? client.totalDebt : 0
+    const { data, error } = await supabase
+      .from('debitos_com_total_view')
+      .select('debito_total')
+      .eq('cliente_codigo', clientId)
+      .limit(1)
+      .single()
+
+    if (error) return 0
+    return data?.debito_total || 0
   },
 }

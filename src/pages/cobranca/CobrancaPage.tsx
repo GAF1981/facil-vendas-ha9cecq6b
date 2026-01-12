@@ -42,7 +42,7 @@ export default function CobrancaPage() {
   const [data, setData] = useState<ClientDebt[]>([])
   const [filteredData, setFilteredData] = useState<ClientDebt[]>([])
   const [searchTerm, setSearchTerm] = useState('')
-  // statusFilter controls filtering. Defaults to 'todos' but effectively we show > 1.00 by default logic below
+  // statusFilter controls filtering.
   const [statusFilter, setStatusFilter] = useState<string>('todos')
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [groupFilter, setGroupFilter] = useState<string>('all')
@@ -146,6 +146,8 @@ export default function CobrancaPage() {
         client.orders.forEach((order) => {
           order.installments = order.installments.filter((inst) => {
             const debito = Math.max(0, inst.valorRegistrado - inst.valorPago)
+            // If source is NEGOTIATION, we show it even if paid 0, because it's a promise
+            if (inst.source === 'NEGOTIATION') return true
             return debito > 1.0 // Only show items with debt > 1.00
           })
         })
@@ -487,7 +489,6 @@ export default function CobrancaPage() {
       </Card>
 
       {/* Scrollable Container for Desktop List */}
-      {/* Updated height calculation and container responsiveness for mobile vertical scrolling */}
       <ScrollArea className="h-[calc(100vh-250px)] min-h-[500px] border rounded-md bg-card">
         {loading && data.length === 0 ? (
           <div className="flex justify-center py-12">
