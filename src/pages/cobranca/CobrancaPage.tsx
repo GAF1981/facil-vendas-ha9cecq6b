@@ -36,6 +36,7 @@ import { useToast } from '@/hooks/use-toast'
 import { formatCurrency } from '@/lib/formatters'
 import { parseISO, isSameDay } from 'date-fns'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Switch } from '@/components/ui/switch'
 
 export default function CobrancaPage() {
   const [loading, setLoading] = useState(true)
@@ -54,6 +55,9 @@ export default function CobrancaPage() {
   const [municipioFilter, setMunicipioFilter] = useState<string>('all')
   const [showSelectedOnly, setShowSelectedOnly] = useState(false)
   const [selectedClients, setSelectedClients] = useState<Set<number>>(new Set())
+
+  // New Mode State
+  const [isCobrancaMode, setIsCobrancaMode] = useState(false)
 
   const { toast } = useToast()
 
@@ -471,6 +475,22 @@ export default function CobrancaPage() {
                 />
               </div>
             </div>
+
+            {/* NEW: Mode Toggle */}
+            <div className="col-span-1 sm:col-span-2 flex items-center space-x-2 border p-2 rounded-md bg-muted/20">
+              <Switch
+                id="cobranca-mode"
+                checked={isCobrancaMode}
+                onCheckedChange={setIsCobrancaMode}
+              />
+              <Label
+                htmlFor="cobranca-mode"
+                className="text-sm font-medium leading-none cursor-pointer"
+              >
+                Modo de Cobrança (Simplificado)
+              </Label>
+            </div>
+
             <div className="col-span-1 sm:col-span-2 flex items-center space-x-2 border p-2 rounded-md bg-muted/20">
               <Checkbox
                 id="rota-motoqueiro-filter"
@@ -502,6 +522,7 @@ export default function CobrancaPage() {
             onRefresh={fetchDebts}
             selectedClients={selectedClients}
             onToggleClient={toggleClientSelection}
+            isCobrancaMode={isCobrancaMode}
           />
         )}
       </ScrollArea>

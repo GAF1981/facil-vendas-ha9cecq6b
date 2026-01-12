@@ -17,6 +17,9 @@ export default function RotaPage() {
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
 
+  // New Selection Mode State
+  const [isSelectionMode, setIsSelectionMode] = useState(false)
+
   const [filters, setFilters] = useState<RotaFilterState>({
     search: '',
     x_na_rota: 'todos',
@@ -54,13 +57,9 @@ export default function RotaPage() {
         const allEmployees = empRes.data
         setSellers(allEmployees)
 
-        // Fetch data (auto-filtered by ATIVO in service)
-        // Ensure we pass active route if exists, otherwise last route (for viewing history)
-        // Or null if neither (will show all clients as per service logic)
         const rotaToFetch = active || last
         const data = await rotaService.getFullRotaData(rotaToFetch)
 
-        // Ensure data is array to prevent crashes
         setRows(Array.isArray(data) ? data : [])
       } catch (error) {
         console.error(error)
@@ -145,7 +144,6 @@ export default function RotaPage() {
 
     let newXNaRota: number | undefined = undefined
 
-    // Automatic logic: Increment x_na_rota if seller is assigned or changed
     if (field === 'vendedor_id' && value !== null) {
       const currentRow = rows.find((r) => r.client.CODIGO === clientId)
       if (currentRow) {
@@ -188,7 +186,7 @@ export default function RotaPage() {
   }
 
   const filteredRows = useMemo(() => {
-    if (!rows) return [] // Safety check
+    if (!rows) return []
     return rows.filter((row) => {
       if (filters.search) {
         const searchLower = filters.search.toLowerCase()
@@ -423,6 +421,8 @@ export default function RotaPage() {
             sellers={sellers}
             municipios={uniqueMunicipios as string[]}
             routes={uniqueRoutes as string[]}
+            isSelectionMode={isSelectionMode}
+            toggleSelectionMode={setIsSelectionMode}
           />
         </div>
         <RotaLegend />
@@ -437,6 +437,7 @@ export default function RotaPage() {
           onSort={handleSort}
           sortConfig={sortConfig}
           loading={loading}
+          isSelectionMode={isSelectionMode}
         />
       </div>
     </div>

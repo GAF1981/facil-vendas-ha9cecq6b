@@ -16,6 +16,8 @@ import {
   ArrowUpDown,
   PlusCircle,
   Info,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react'
 import { ClientDebt } from '@/types/cobranca'
 import { formatCurrency } from '@/lib/formatters'
@@ -45,6 +47,7 @@ interface DebtTableProps {
   onRefresh?: () => void
   selectedClients: Set<number>
   onToggleClient: (clientId: number) => void
+  isCobrancaMode: boolean // NEW PROP
 }
 
 // Flattened row type for display
@@ -90,6 +93,7 @@ export function DebtTable({
   onRefresh,
   selectedClients,
   onToggleClient,
+  isCobrancaMode,
 }: DebtTableProps) {
   const [selectedClient, setSelectedClient] = useState<ClientDebt | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -253,6 +257,14 @@ export function DebtTable({
     }
   }
 
+  const getSortIcon = (columnKey: string) => {
+    if (sortConfig?.key !== columnKey)
+      return <ArrowUpDown className="h-3 w-3 ml-1 text-muted-foreground/50" />
+    if (sortConfig.direction === 'asc')
+      return <ArrowUp className="h-3 w-3 ml-1 text-primary" />
+    return <ArrowDown className="h-3 w-3 ml-1 text-primary" />
+  }
+
   return (
     <>
       <div className="rounded-md border bg-card">
@@ -260,23 +272,35 @@ export function DebtTable({
           <TableHeader className="bg-background sticky top-0 z-10 shadow-sm">
             <TableRow>
               <TableHead className="w-[70px] bg-background">Código</TableHead>
-              <TableHead className="w-[90px] bg-background">Tipo</TableHead>
+
+              {/* Toggleable Type */}
+              {!isCobrancaMode && (
+                <TableHead className="w-[90px] bg-background">Tipo</TableHead>
+              )}
+
               <TableHead className="min-w-[150px] bg-background">
                 Nome Cliente
               </TableHead>
-              <TableHead className="min-w-[150px] bg-background">
-                Endereço
-              </TableHead>
 
-              <TableHead
-                className="min-w-[100px] cursor-pointer hover:bg-muted bg-background"
-                onClick={() => requestSort('neighborhood')}
-              >
-                <div className="flex items-center gap-1">
-                  Bairro
-                  <ArrowUpDown className="h-3 w-3" />
-                </div>
-              </TableHead>
+              {/* Toggleable Address */}
+              {!isCobrancaMode && (
+                <TableHead className="min-w-[150px] bg-background">
+                  Endereço
+                </TableHead>
+              )}
+
+              {/* Toggleable Neighborhood */}
+              {!isCobrancaMode && (
+                <TableHead
+                  className="min-w-[100px] cursor-pointer hover:bg-muted bg-background"
+                  onClick={() => requestSort('neighborhood')}
+                >
+                  <div className="flex items-center gap-1">
+                    Bairro
+                    {getSortIcon('neighborhood')}
+                  </div>
+                </TableHead>
+              )}
 
               <TableHead
                 className="min-w-[100px] cursor-pointer hover:bg-muted bg-background"
@@ -284,12 +308,26 @@ export function DebtTable({
               >
                 <div className="flex items-center gap-1">
                   Município
-                  <ArrowUpDown className="h-3 w-3" />
+                  {getSortIcon('city')}
                 </div>
               </TableHead>
 
-              <TableHead className="w-[80px] bg-background">Pedido</TableHead>
-              <TableHead className="bg-background">Vencimento</TableHead>
+              {/* Toggleable Order */}
+              {!isCobrancaMode && (
+                <TableHead className="w-[80px] bg-background">Pedido</TableHead>
+              )}
+
+              {/* Sortable Vencimento */}
+              <TableHead
+                className="bg-background cursor-pointer hover:bg-muted"
+                onClick={() => requestSort('vencimento')}
+              >
+                <div className="flex items-center gap-1">
+                  Vencimento
+                  {getSortIcon('vencimento')}
+                </div>
+              </TableHead>
+
               <TableHead className="bg-background">F. Pagamento</TableHead>
               <TableHead className="text-right bg-background">
                 Valor Parc.
@@ -322,7 +360,7 @@ export function DebtTable({
             {flattenedData.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={17}
+                  colSpan={isCobrancaMode ? 13 : 17}
                   className="h-24 text-center text-muted-foreground"
                 >
                   Nenhum registro encontrado.
@@ -342,33 +380,52 @@ export function DebtTable({
                     <TableCell className="font-mono text-xs font-medium">
                       {row.clientId}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {row.clientType}
-                    </TableCell>
+
+                    {/* Toggleable Type */}
+                    {!isCobrancaMode && (
+                      <TableCell className="text-xs text-muted-foreground">
+                        {row.clientType}
+                      </TableCell>
+                    )}
+
                     <TableCell className="font-medium text-sm">
                       {row.clientName}
                     </TableCell>
-                    <TableCell
-                      className="text-xs text-muted-foreground truncate max-w-[150px]"
-                      title={row.address || ''}
-                    >
-                      {row.address || '-'}
-                    </TableCell>
-                    <TableCell
-                      className="text-xs text-muted-foreground truncate max-w-[100px]"
-                      title={row.neighborhood || ''}
-                    >
-                      {row.neighborhood || '-'}
-                    </TableCell>
+
+                    {/* Toggleable Address */}
+                    {!isCobrancaMode && (
+                      <TableCell
+                        className="text-xs text-muted-foreground truncate max-w-[150px]"
+                        title={row.address || ''}
+                      >
+                        {row.address || '-'}
+                      </TableCell>
+                    )}
+
+                    {/* Toggleable Neighborhood */}
+                    {!isCobrancaMode && (
+                      <TableCell
+                        className="text-xs text-muted-foreground truncate max-w-[100px]"
+                        title={row.neighborhood || ''}
+                      >
+                        {row.neighborhood || '-'}
+                      </TableCell>
+                    )}
+
                     <TableCell
                       className="text-xs text-muted-foreground truncate max-w-[100px]"
                       title={row.city || ''}
                     >
                       {row.city || '-'}
                     </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {row.orderId}
-                    </TableCell>
+
+                    {/* Toggleable Order */}
+                    {!isCobrancaMode && (
+                      <TableCell className="font-mono text-xs">
+                        {row.orderId}
+                      </TableCell>
+                    )}
+
                     <TableCell className="text-xs">
                       {row.vencimento
                         ? format(parseISO(row.vencimento), 'dd/MM/yyyy')
@@ -451,8 +508,9 @@ export function DebtTable({
                           'text-[10px] px-2 py-0.5 h-6 whitespace-nowrap',
                           row.status === 'PAGO' &&
                             'bg-green-100 text-green-700 hover:bg-green-200 border-transparent',
+                          // UPDATED: A VENCER is now green themed
                           row.status === 'A VENCER' &&
-                            'bg-red-50 text-red-600 border-red-200 hover:bg-red-100 font-bold',
+                            'bg-green-50 text-green-600 border-green-200 hover:bg-green-100 font-bold',
                         )}
                       >
                         {row.status}

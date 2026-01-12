@@ -323,7 +323,36 @@ export const rotaService = {
       })
     }
 
-    // 9. Check for Completed Status (Visits within active route range)
+    // 9. Fetch Collection Action Maturity Dates (For "Vencimento" column in Rota)
+    // Only fetching installment_vencimento
+    const { data: collectionData, error: collectionError } = await supabase
+      .from('view_latest_collection_actions' as any)
+      .select('cliente_id, installment_vencimento')
+
+    if (collectionError) {
+      console.error('Error fetching collection actions:', collectionError)
+    }
+
+    const collectionDateMap = new Map<number, string>()
+    if (collectionData) {
+      collectionData.forEach((row: any) => {
+        const cid = row.cliente_id
+        const vDate = row.installment_vencimento
+        if (!cid || !vDate) return
+
+        // We want the oldest date (minimum value) per client
+        if (!collectionDateMap.has(cid)) {
+          collectionDateMap.set(cid, vDate)
+        } else {
+          const current = collectionDateMap.get(cid)!
+          if (vDate < current) {
+            collectionDateMap.set(cid, vDate)
+          }
+        }
+      })
+    }
+
+    // 10. Check for Completed Status (Visits within active route range)
     const completedSet = new Set<number>()
     if (rota) {
       const startDate = format(parseISO(rota.data_inicio), 'yyyy-MM-dd')
@@ -416,6 +445,7 @@ export const rotaService = {
         is_completed: completedSet.has(cid),
         earliest_unpaid_date: earliestUnpaid,
         vencimento_status: vencimentoStatus,
+        vencimento_cobranca: collectionDateMap.get(cid) || null,
       }
     })
   },

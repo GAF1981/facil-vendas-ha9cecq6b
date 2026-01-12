@@ -35,6 +35,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
+import { differenceInDays, parseISO, isValid } from 'date-fns'
 
 interface RotaTableProps {
   rows: RotaRow[]
@@ -44,6 +45,7 @@ interface RotaTableProps {
   onSort: (key: string) => void
   sortConfig: SortConfig
   loading?: boolean
+  isSelectionMode: boolean
 }
 
 export function RotaTable({
@@ -54,6 +56,7 @@ export function RotaTable({
   onSort,
   sortConfig,
   loading = false,
+  isSelectionMode,
 }: RotaTableProps) {
   const getSortIcon = (columnKey: string) => {
     if (sortConfig.key !== columnKey)
@@ -114,6 +117,8 @@ export function RotaTable({
     )
   }
 
+  const today = new Date()
+
   return (
     <div className="rounded-md border bg-card overflow-hidden shadow-sm flex flex-col h-full">
       <div className="flex-1 overflow-auto">
@@ -127,6 +132,11 @@ export function RotaTable({
                 align="right"
                 className="min-w-[100px]"
               />
+
+              {/* NEW: Vencimento (Rota) - Oldest collection date */}
+              <TableHead className="min-w-[90px] text-center font-bold text-xs bg-muted/50">
+                Vencimento
+              </TableHead>
 
               {/* 2. Projeção */}
               <SortableHeader
@@ -175,25 +185,31 @@ export function RotaTable({
                 className="min-w-[120px]"
               />
 
-              {/* 9. Endereço */}
-              <TableHead className="min-w-[200px] font-bold text-xs">
-                Endereço
-              </TableHead>
+              {/* 9. Endereço (Toggleable) */}
+              {!isSelectionMode && (
+                <TableHead className="min-w-[200px] font-bold text-xs">
+                  Endereço
+                </TableHead>
+              )}
 
               {/* 10. Tipo de Cliente */}
               <TableHead className="min-w-[120px] font-bold text-xs">
                 Tipo
               </TableHead>
 
-              {/* 11. Telefone 1 */}
-              <TableHead className="min-w-[130px] font-bold text-xs">
-                Telefone 1
-              </TableHead>
+              {/* 11. Telefone 1 (Toggleable) */}
+              {!isSelectionMode && (
+                <TableHead className="min-w-[130px] font-bold text-xs">
+                  Telefone 1
+                </TableHead>
+              )}
 
-              {/* 12. Contato 1 */}
-              <TableHead className="min-w-[120px] font-bold text-xs">
-                Contato 1
-              </TableHead>
+              {/* 12. Contato 1 (Toggleable) */}
+              {!isSelectionMode && (
+                <TableHead className="min-w-[120px] font-bold text-xs">
+                  Contato 1
+                </TableHead>
+              )}
 
               {/* 13. xRota */}
               <SortableHeader
@@ -203,10 +219,12 @@ export function RotaTable({
                 className="w-[80px]"
               />
 
-              {/* 14. Pedido */}
-              <TableHead className="text-center font-bold text-xs w-[80px]">
-                Pedido
-              </TableHead>
+              {/* 14. Pedido (Toggleable) */}
+              {!isSelectionMode && (
+                <TableHead className="text-center font-bold text-xs w-[80px]">
+                  Pedido
+                </TableHead>
+              )}
 
               {/* 15. Data */}
               <SortableHeader
@@ -216,27 +234,36 @@ export function RotaTable({
                 className="min-w-[90px]"
               />
 
+              {/* NEW: Dias de Acerto */}
+              <TableHead className="text-center font-bold text-xs w-[60px]">
+                Dias
+              </TableHead>
+
               {/* 16. Status */}
               <TableHead className="w-[100px] text-center font-bold text-xs">
                 Status
               </TableHead>
 
-              {/* 17. Boleto */}
-              <TableHead className="w-[60px] text-center font-bold text-xs">
-                Boleto
-              </TableHead>
+              {/* 17. Boleto (Toggleable) */}
+              {!isSelectionMode && (
+                <TableHead className="w-[60px] text-center font-bold text-xs">
+                  Boleto
+                </TableHead>
+              )}
 
-              {/* 18. Agregado */}
-              <TableHead className="w-[70px] text-center font-bold text-xs">
-                Agreg.
-              </TableHead>
+              {/* 18. Agregado (Toggleable) */}
+              {!isSelectionMode && (
+                <TableHead className="w-[70px] text-center font-bold text-xs">
+                  Agreg.
+                </TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={18}
+                  colSpan={isSelectionMode ? 14 : 20}
                   className="h-32 text-center text-muted-foreground"
                 >
                   <div className="flex flex-col items-center justify-center gap-2">
@@ -280,6 +307,17 @@ export function RotaTable({
                         </span>
                       )}
                     </div>
+                  </TableCell>
+
+                  {/* NEW: Vencimento (Rota) */}
+                  <TableCell className="text-center text-[10px]">
+                    {row.debito > 0 && row.vencimento_cobranca ? (
+                      <span className="font-semibold text-red-600">
+                        {safeFormatDate(row.vencimento_cobranca, 'dd/MM/yy')}
+                      </span>
+                    ) : (
+                      '-'
+                    )}
                   </TableCell>
 
                   {/* 2. Projeção */}
@@ -386,45 +424,51 @@ export function RotaTable({
                     {row.client.MUNICÍPIO || '-'}
                   </TableCell>
 
-                  {/* 9. Endereço */}
-                  <TableCell
-                    className="truncate max-w-[200px]"
-                    title={row.client.ENDEREÇO || ''}
-                  >
-                    {row.client.ENDEREÇO || '-'}
-                  </TableCell>
+                  {/* 9. Endereço (Toggleable) */}
+                  {!isSelectionMode && (
+                    <TableCell
+                      className="truncate max-w-[200px]"
+                      title={row.client.ENDEREÇO || ''}
+                    >
+                      {row.client.ENDEREÇO || '-'}
+                    </TableCell>
+                  )}
 
                   {/* 10. Tipo de Cliente */}
                   <TableCell className="truncate max-w-[120px]">
                     {row.client['TIPO DE CLIENTE'] || '-'}
                   </TableCell>
 
-                  {/* 11. Telefone 1 (WhatsApp) */}
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span className="truncate max-w-[90px]">
-                        {row.client['FONE 1'] || '-'}
-                      </span>
-                      {row.client['FONE 1'] && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full"
-                          onClick={() =>
-                            handleWhatsappClick(row.client['FONE 1'])
-                          }
-                          title="Abrir WhatsApp"
-                        >
-                          <MessageCircle className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
+                  {/* 11. Telefone 1 (WhatsApp) (Toggleable) */}
+                  {!isSelectionMode && (
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <span className="truncate max-w-[90px]">
+                          {row.client['FONE 1'] || '-'}
+                        </span>
+                        {row.client['FONE 1'] && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full"
+                            onClick={() =>
+                              handleWhatsappClick(row.client['FONE 1'])
+                            }
+                            title="Abrir WhatsApp"
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  )}
 
-                  {/* 12. Contato 1 */}
-                  <TableCell className="truncate max-w-[120px]">
-                    {row.client['CONTATO 1'] || '-'}
-                  </TableCell>
+                  {/* 12. Contato 1 (Toggleable) */}
+                  {!isSelectionMode && (
+                    <TableCell className="truncate max-w-[120px]">
+                      {row.client['CONTATO 1'] || '-'}
+                    </TableCell>
+                  )}
 
                   {/* 13. xRota (Input) */}
                   <TableCell className="text-center">
@@ -454,15 +498,24 @@ export function RotaTable({
                     </div>
                   </TableCell>
 
-                  {/* 14. Pedido */}
-                  <TableCell className="text-center font-mono text-[10px]">
-                    {row.numero_pedido || '-'}
-                  </TableCell>
+                  {/* 14. Pedido (Toggleable) */}
+                  {!isSelectionMode && (
+                    <TableCell className="text-center font-mono text-[10px]">
+                      {row.numero_pedido || '-'}
+                    </TableCell>
+                  )}
 
                   {/* 15. Data */}
                   <TableCell className="text-center text-[10px]">
                     {row.data_acerto
                       ? safeFormatDate(row.data_acerto, 'dd/MM/yy')
+                      : '-'}
+                  </TableCell>
+
+                  {/* NEW: Dias de Acerto */}
+                  <TableCell className="text-center text-[10px] text-muted-foreground font-medium">
+                    {row.data_acerto && isValid(parseISO(row.data_acerto))
+                      ? differenceInDays(today, parseISO(row.data_acerto))
                       : '-'}
                   </TableCell>
 
@@ -504,29 +557,33 @@ export function RotaTable({
                     </div>
                   </TableCell>
 
-                  {/* 17. Boleto */}
-                  <TableCell className="text-center">
-                    <Checkbox
-                      checked={row.boleto}
-                      disabled={disabled}
-                      onCheckedChange={(checked) =>
-                        onUpdateRow(row.client.CODIGO, 'boleto', checked)
-                      }
-                      className="h-4 w-4"
-                    />
-                  </TableCell>
+                  {/* 17. Boleto (Toggleable) */}
+                  {!isSelectionMode && (
+                    <TableCell className="text-center">
+                      <Checkbox
+                        checked={row.boleto}
+                        disabled={disabled}
+                        onCheckedChange={(checked) =>
+                          onUpdateRow(row.client.CODIGO, 'boleto', checked)
+                        }
+                        className="h-4 w-4"
+                      />
+                    </TableCell>
+                  )}
 
-                  {/* 18. Agregado */}
-                  <TableCell className="text-center">
-                    <Checkbox
-                      checked={row.agregado}
-                      disabled={disabled}
-                      onCheckedChange={(checked) =>
-                        onUpdateRow(row.client.CODIGO, 'agregado', checked)
-                      }
-                      className="h-4 w-4"
-                    />
-                  </TableCell>
+                  {/* 18. Agregado (Toggleable) */}
+                  {!isSelectionMode && (
+                    <TableCell className="text-center">
+                      <Checkbox
+                        checked={row.agregado}
+                        disabled={disabled}
+                        onCheckedChange={(checked) =>
+                          onUpdateRow(row.client.CODIGO, 'agregado', checked)
+                        }
+                        className="h-4 w-4"
+                      />
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             )}

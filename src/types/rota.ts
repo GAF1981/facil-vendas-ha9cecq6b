@@ -40,6 +40,8 @@ export interface RotaRow {
   // Status Logic
   earliest_unpaid_date: string | null
   vencimento_status: 'VENCIDO' | 'A VENCER' | 'PAGO' | 'SEM DÉBITO'
+  // New specific field for oldest collection action date
+  vencimento_cobranca: string | null
 }
 
 export interface RotaFilterState {
