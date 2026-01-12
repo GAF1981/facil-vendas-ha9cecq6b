@@ -1809,6 +1809,7 @@ export type Database = {
       }
       'QUANTIDADE DE ESTOQUE FINAL': {
         Row: {
+          banco_de_dados_id: number | null
           CLIENTE: string | null
           'CÓDIGO DO CLIENTE': number | null
           'CÓDIGO DO PRODUTO': number | null
@@ -1822,6 +1823,7 @@ export type Database = {
           'VALOR ESTOQUE SALDO FINAL': number | null
         }
         Insert: {
+          banco_de_dados_id?: number | null
           CLIENTE?: string | null
           'CÓDIGO DO CLIENTE'?: number | null
           'CÓDIGO DO PRODUTO'?: number | null
@@ -1835,6 +1837,7 @@ export type Database = {
           'VALOR ESTOQUE SALDO FINAL'?: number | null
         }
         Update: {
+          banco_de_dados_id?: number | null
           CLIENTE?: string | null
           'CÓDIGO DO CLIENTE'?: number | null
           'CÓDIGO DO PRODUTO'?: number | null

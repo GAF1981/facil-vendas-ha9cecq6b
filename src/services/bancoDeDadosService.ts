@@ -26,6 +26,20 @@ export const bancoDeDadosService = {
     return (count || 0) > 0
   },
 
+  async checkClientHasOrders(clienteId: number): Promise<boolean> {
+    const { count, error } = await supabase
+      .from('BANCO_DE_DADOS')
+      .select('*', { count: 'exact', head: true })
+      .eq('"CÓDIGO DO CLIENTE"', clienteId)
+      .not('"NÚMERO DO PEDIDO"', 'is', null)
+
+    if (error) {
+      console.error('Error checking client orders:', error)
+      return false
+    }
+    return (count || 0) > 0
+  },
+
   async getLastIdVendaItens(
     clienteId: number,
     produtoId: number,
