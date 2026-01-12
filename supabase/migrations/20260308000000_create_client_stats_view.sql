@@ -1,0 +1,8 @@
+CREATE OR REPLACE VIEW client_stats_view AS
+SELECT 
+  "CÓDIGO DO CLIENTE" as client_id,
+  MAX("NÚMERO DO PEDIDO") as max_pedido,
+  MAX("DATA DO ACERTO") as max_data_acerto
+FROM "BANCO_DE_DADOS"
+WHERE "CÓDIGO DO CLIENTE" IS NOT NULL
+GROUP BY "CÓDIGO DO CLIENTE";

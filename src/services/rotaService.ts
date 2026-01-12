@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase/client'
 import { Rota, RotaItem } from '@/types/rota'
 import { pendenciasService } from './pendenciasService'
 import { reportsService } from './reportsService'
-import { parseISO, isBefore, startOfDay, subDays } from 'date-fns'
+import { parseISO, isBefore, startOfDay, subDays, format } from 'date-fns'
 
 export const rotaService = {
   async getActiveRota() {
@@ -227,52 +227,43 @@ export const rotaService = {
       }
     })
 
-    // 6. Fetch basic Summary Stats (Last Visit Date from debitos_historico or BANCO_DE_DADOS lightweight)
-    const { data: dbStats } = await supabase
-      .from('BANCO_DE_DADOS')
-      .select('"CÓDIGO DO CLIENTE", "DATA DO ACERTO", "NÚMERO DO PEDIDO"')
-      .order('DATA DO ACERTO', { ascending: false })
+    // 6. Fetch basic Summary Stats (Max Order ID and Last Date from View)
+    // REPLACED: Fetching from view for accurate MAX Order ID per client
+    const { data: statsData, error: statsError } = await supabase
+      .from('client_stats_view' as any)
+      .select('client_id, max_pedido, max_data_acerto')
       .limit(50000)
+
+    if (statsError) {
+      console.error('Error fetching client stats view:', statsError)
+    }
 
     const statsMap = new Map<
       number,
       {
         lastDate: string | null
-        history: Set<string>
         lastOrderId: number | null
       }
     >()
 
-    // Collect Order IDs to fetch stock values later
     const orderIdsForStock = new Set<number>()
 
-    dbStats?.forEach((row: any) => {
-      const cid = row['CÓDIGO DO CLIENTE']
+    statsData?.forEach((row: any) => {
+      const cid = row.client_id
       if (!cid) return
 
-      if (!statsMap.has(cid)) {
-        statsMap.set(cid, {
-          lastDate: null,
-          history: new Set(),
-          lastOrderId: null,
-        })
-      }
-      const entry = statsMap.get(cid)!
+      // Map using the aggregated data
+      statsMap.set(cid, {
+        lastDate: row.max_data_acerto || null,
+        lastOrderId: row.max_pedido || null,
+      })
 
-      if (row['DATA DO ACERTO']) {
-        entry.history.add(row['DATA DO ACERTO'])
-      }
-
-      if (!entry.lastDate) {
-        entry.lastDate = row['DATA DO ACERTO']
-        if (row['NÚMERO DO PEDIDO']) {
-          entry.lastOrderId = row['NÚMERO DO PEDIDO']
-          orderIdsForStock.add(row['NÚMERO DO PEDIDO'])
-        }
+      if (row.max_pedido) {
+        orderIdsForStock.add(row.max_pedido)
       }
     })
 
-    // 7. Fetch Stock Values from QUANTIDADE DE ESTOQUE FINAL based on collected Orders
+    // 7. Fetch Stock Values from QUANTIDADE DE ESTOQUE FINAL based on collected Orders (MAX Orders)
     const stockMapByOrder = new Map<number, number>()
     const orderIdsArray = Array.from(orderIdsForStock)
 
@@ -305,18 +296,32 @@ export const rotaService = {
       }
     }
 
-    // 8. Check for Completed Status
+    // 8. Check for Completed Status (Visits within active route range)
     const completedSet = new Set<number>()
     if (rota) {
-      const startDate = parseISO(rota.data_inicio)
-      const endDate = rota.data_fim ? parseISO(rota.data_fim) : new Date()
+      const startDate = format(parseISO(rota.data_inicio), 'yyyy-MM-dd')
+      // If data_fim is null (active), use today as end range to capture all recent visits
+      const endDate = rota.data_fim
+        ? format(parseISO(rota.data_fim), 'yyyy-MM-dd')
+        : format(new Date(), 'yyyy-MM-dd')
 
-      statsMap.forEach((val, key) => {
-        const hasRecent = Array.from(val.history).some((dateStr) => {
-          const d = parseISO(dateStr)
-          return d >= startDate && d <= endDate
-        })
-        if (hasRecent) completedSet.add(key)
+      const { data: visits, error: visitsError } = await supabase
+        .from('BANCO_DE_DADOS')
+        .select('"CÓDIGO DO CLIENTE"')
+        .gte('DATA DO ACERTO', startDate)
+        .lte('DATA DO ACERTO', endDate)
+        .limit(20000)
+
+      if (visitsError) {
+        console.error(
+          'Error fetching visits for completion check:',
+          visitsError,
+        )
+      }
+
+      visits?.forEach((v) => {
+        const cid = v['CÓDIGO DO CLIENTE']
+        if (cid) completedSet.add(cid)
       })
     }
 
@@ -337,7 +342,7 @@ export const rotaService = {
         }
       }
 
-      // Stock Value linked by Order ID (NEW)
+      // Stock Value linked by Order ID
       let stockValue = 0
       if (stats?.lastOrderId) {
         stockValue = stockMapByOrder.get(stats.lastOrderId) || 0
