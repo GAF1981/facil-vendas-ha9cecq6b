@@ -264,8 +264,9 @@ export const rotaService = {
     })
 
     // 7. Fetch Stock Values from QUANTIDADE DE ESTOQUE FINAL based on collected Orders (MAX Orders)
-    // Updated Logic: We aggregate (SUM) the values for each order, as the table contains per-product rows.
-    // We use column aliasing to avoid issues with spaces in column names in the returned object
+    // Updated Logic: We now rely on the pre-calculated total from the database trigger
+    // We fetch one row per product but the VALOR ESTOQUE SALDO FINAL is already the total for the order.
+    // So we just need to take the value once per order.
     const stockMapByOrder = new Map<
       number,
       { value: number; clientId: number }
@@ -299,14 +300,10 @@ export const rotaService = {
 
           if (!orderId || !clientId) return
 
-          // Aggregate values (Summing per-product rows to get total order stock value)
-          if (stockMapByOrder.has(orderId)) {
-            const entry = stockMapByOrder.get(orderId)!
-            // Sanity check: Ensure we are summing for the same client
-            if (entry.clientId === clientId) {
-              entry.value += val
-            }
-          } else {
+          // Logic Change: The value 'val' is already the Total Stock Value for the Order (Synced by DB Trigger).
+          // We do NOT sum it. We just assign it.
+          // Since we get multiple rows (one per product) for the same order, we check if we already have it.
+          if (!stockMapByOrder.has(orderId)) {
             stockMapByOrder.set(orderId, {
               value: val,
               clientId: clientId,
