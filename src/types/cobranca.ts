@@ -89,15 +89,15 @@ export interface ClientDebt {
 }
 
 export interface LatestCollectionActionView {
-  action_id: number
-  pedido_id: number
+  action_id: number | null
+  pedido_id: number | null
   acao: string | null
   data_acao: string | null
   nova_data_combinada: string | null
   funcionario_nome: string | null
-  cliente_id: number
-  installment_id: number
-  installment_vencimento: string
-  installment_valor: number
+  cliente_id: number | null
+  installment_id: number | null
+  installment_vencimento: string | null
+  installment_valor: number | null
   installment_forma_pagamento: string | null
 }

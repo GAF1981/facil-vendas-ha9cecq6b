@@ -135,7 +135,7 @@ export function DebtTable({
     const rows = data.flatMap((client) =>
       client.orders.flatMap((order) => {
         return order.installments.map((inst, index) => {
-          const uniqueId = `${client.clientId}-${order.orderId}-${inst.id}-${index}`
+          const uniqueId = `${client.clientId || '0'}-${order.orderId || '0'}-${inst.id || '0'}-${index}`
           const updates = localUpdates[uniqueId] || {}
 
           const currentFormaCobranca =
@@ -147,10 +147,6 @@ export function DebtTable({
             updates.dataCombinada !== undefined
               ? updates.dataCombinada
               : inst.dataCombinada
-
-          // Use the installment's valorRegistrado for value column
-          // And calculate per-row debt if needed, but primarily we show the installment status
-          // Note: If source is NEGOTIATION, valuePago is typically 0
 
           return {
             uniqueId,
@@ -187,8 +183,8 @@ export function DebtTable({
 
     if (sortConfig) {
       rows.sort((a, b) => {
-        const aValue = a[sortConfig.key] || ''
-        const bValue = b[sortConfig.key] || ''
+        const aValue = a[sortConfig.key] ?? ''
+        const bValue = b[sortConfig.key] ?? ''
 
         if (aValue < bValue) {
           return sortConfig.direction === 'asc' ? -1 : 1

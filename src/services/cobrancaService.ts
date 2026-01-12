@@ -8,15 +8,13 @@ import {
   LatestCollectionActionView,
 } from '@/types/cobranca'
 import { parseCurrency } from '@/lib/formatters'
-import { isBefore, parseISO, startOfDay } from 'date-fns'
+import { isBefore, parseISO, startOfDay, isValid } from 'date-fns'
 
 export const cobrancaService = {
-  // Existing methods ...
   async getDebts(): Promise<ClientDebt[]> {
     const today = startOfDay(new Date())
 
     // 1. Fetch Debts from debitos_historico (Primary Source for Debt Logic)
-    // This table is synced with Route Control logic
     const { data: debtsData, error: debtsError } = await supabase
       .from('debitos_historico')
       .select(
@@ -27,12 +25,24 @@ export const cobrancaService = {
 
     if (debtsError) throw debtsError
 
-    const orderIds = debtsData.map((d) => d.pedido_id)
+    // Safe filtering for valid debts
+    const validDebts = (debtsData || []).filter(
+      (d) => d && d.pedido_id != null && d.debito != null,
+    )
+
+    const orderIds = validDebts.map((d) => d.pedido_id)
 
     if (orderIds.length === 0) return []
 
     // 2. Fetch Client Info (Address, etc)
-    const clientIds = [...new Set(debtsData.map((d) => d.cliente_codigo))]
+    const clientIds = [
+      ...new Set(
+        validDebts
+          .map((d) => d.cliente_codigo)
+          .filter((id): id is number => id != null),
+      ),
+    ]
+
     let clientInfoMap = new Map<
       number,
       {
@@ -57,6 +67,7 @@ export const cobrancaService = {
       if (clientError) console.error('Error fetching clients:', clientError)
       else {
         clientData?.forEach((c) => {
+          if (!c.CODIGO) return
           clientInfoMap.set(c.CODIGO, {
             type: c['TIPO DE CLIENTE'] || 'N/D',
             group: (c as any)['GRUPO'] || null,
@@ -80,10 +91,14 @@ export const cobrancaService = {
 
     const actionsMap = new Map<number, LatestCollectionActionView[]>()
     actionsData?.forEach((row: any) => {
-      if (!actionsMap.has(row.pedido_id)) {
-        actionsMap.set(row.pedido_id, [])
+      // Ensure we handle potential nulls from the view safely
+      const pId = row.pedido_id
+      if (pId != null) {
+        if (!actionsMap.has(pId)) {
+          actionsMap.set(pId, [])
+        }
+        actionsMap.get(pId)!.push(row)
       }
-      actionsMap.get(row.pedido_id)!.push(row)
     })
 
     // 4. Fetch Receipts (RECEBIMENTOS) for payments made and fallback installments
@@ -107,6 +122,8 @@ export const cobrancaService = {
 
     recData?.forEach((r: any) => {
       const pid = r.venda_id
+      if (pid == null) return // Skip if no order link
+
       if (!paymentsMap.has(pid)) {
         paymentsMap.set(pid, {
           totalPaid: 0,
@@ -116,9 +133,13 @@ export const cobrancaService = {
       }
       const entry = paymentsMap.get(pid)!
 
-      if (r.valor_pago > 0) {
-        entry.totalPaid += r.valor_pago
-        entry.history.push({ date: r.vencimento, value: r.valor_pago })
+      const valPago = Number(r.valor_pago) || 0
+      if (valPago > 0) {
+        entry.totalPaid += valPago
+        entry.history.push({
+          date: r.vencimento || '',
+          value: valPago,
+        })
       }
 
       entry.rawInstallments.push(r)
@@ -127,14 +148,17 @@ export const cobrancaService = {
     // 5. Construct Data Structure
     const clientsMap = new Map<number, ClientDebt>()
 
-    debtsData.forEach((debt) => {
+    validDebts.forEach((debt) => {
       // Basic Order Info from debitos_historico
       const pid = debt.pedido_id
-      const cid = debt.cliente_codigo
-      const rawDebt = Number(debt.debito)
-      const rawTotal = Number(debt.valor_venda)
-      const rawPaid = Number(debt.valor_pago)
+      // Robustly handle null client codes by defaulting to 0 (which shouldn't happen due to filter, but robust)
+      const cid = debt.cliente_codigo ?? 0
+
+      const rawDebt = Number(debt.debito) || 0
+      const rawTotal = Number(debt.valor_venda) || 0
+      const rawPaid = Number(debt.valor_pago) || 0
       const dateAcerto = debt.data_acerto || new Date().toISOString()
+      const saldoPagar = Number(debt.saldo_a_pagar) || 0
 
       // Determine Installments
       let installments: Receivable[] = []
@@ -148,34 +172,40 @@ export const cobrancaService = {
       // Logic: If Negotiated Actions exist, use them. Else use Receipts.
       if (actionRows && actionRows.length > 0) {
         // Use Negotiated Installments
-        installments = actionRows.map((row) => ({
-          id: row.installment_id, // From acoes_cobranca_vencimentos
-          vencimento: row.installment_vencimento,
-          valorRegistrado: row.installment_valor,
-          valorPago: 0, // Negotiated are usually unpaid "promises"
-          formaPagamento: row.installment_forma_pagamento || 'Outros',
-          status:
-            row.installment_vencimento &&
-            isBefore(parseISO(row.installment_vencimento), today)
-              ? 'VENCIDO'
-              : 'A VENCER',
-          formaCobranca: null,
-          dataCombinada: row.nova_data_combinada,
-          source: 'NEGOTIATION',
-        }))
+        installments = actionRows.map((row) => {
+          const vDate = row.installment_vencimento
+          const parsedDate = vDate ? parseISO(vDate) : null
+          const isOverdue =
+            parsedDate && isValid(parsedDate) && isBefore(parsedDate, today)
+
+          return {
+            id: row.installment_id || 0,
+            vencimento: vDate || null,
+            valorRegistrado: Number(row.installment_valor) || 0,
+            valorPago: 0, // Negotiated are usually unpaid "promises"
+            formaPagamento: row.installment_forma_pagamento || 'Outros',
+            status: isOverdue ? 'VENCIDO' : 'A VENCER',
+            formaCobranca: null,
+            dataCombinada: row.nova_data_combinada || null,
+            source: 'NEGOTIATION',
+          }
+        })
       } else {
         // Use RECEBIMENTOS
-        // We filter for those that have debt or are relevant
         installments = paymentInfo.rawInstallments.map((r) => {
-          const valReg = r.valor_registrado || 0
-          const valPago = r.valor_pago || 0
+          const valReg = Number(r.valor_registrado) || 0
+          const valPago = Number(r.valor_pago) || 0
           let status: 'VENCIDO' | 'A VENCER' | 'PAGO' = 'A VENCER'
+
+          const vDate = r.vencimento
+          const parsedDate = vDate ? parseISO(vDate) : null
 
           if (valPago >= valReg && valReg > 0) {
             status = 'PAGO'
           } else if (
-            r.vencimento &&
-            isBefore(parseISO(r.vencimento), today) &&
+            parsedDate &&
+            isValid(parsedDate) &&
+            isBefore(parsedDate, today) &&
             valPago < valReg
           ) {
             status = 'VENCIDO'
@@ -183,13 +213,13 @@ export const cobrancaService = {
 
           return {
             id: r.id,
-            vencimento: r.vencimento,
+            vencimento: vDate || null,
             valorRegistrado: valReg,
             valorPago: valPago,
-            formaPagamento: r.forma_pagamento,
+            formaPagamento: r.forma_pagamento || 'N/D',
             status,
-            formaCobranca: r.forma_cobranca,
-            dataCombinada: r.data_combinada,
+            formaCobranca: r.forma_cobranca || null,
+            dataCombinada: r.data_combinada || null,
             source: 'RECEIPT',
           }
         })
@@ -231,19 +261,19 @@ export const cobrancaService = {
         orderId: pid,
         date: dateAcerto,
         totalValue: rawTotal,
-        discount: 0, // Simplification as we use net debt from View
-        netValue: Number(debt.saldo_a_pagar),
+        discount: 0,
+        netValue: saldoPagar,
         paidValue: rawPaid,
         remainingValue: rawDebt,
         status,
-        paymentDetails: [], // Legacy
+        paymentDetails: [],
         paymentsMade: paymentInfo.history,
         installments,
         oldestOverdueDate: oldestOverdue,
         formaPagamento: 'N/D',
         valorDevido: rawDebt,
-        collectionActionCount: actionRows ? 1 : 0, // Simplified count
-        employeeName: debt.vendedor_nome,
+        collectionActionCount: actionRows ? 1 : 0,
+        employeeName: debt.vendedor_nome || null,
       }
 
       // Add to Client
@@ -344,10 +374,12 @@ export const cobrancaService = {
   },
 
   async getCollectionActions(orderId: string): Promise<CollectionAction[]> {
+    if (!orderId) return []
+
     const { data, error } = await supabase
       .from('acoes_cobranca')
       .select('*, acoes_cobranca_vencimentos(*)')
-      .eq('pedido_id', Number(orderId))
+      .eq('pedido_id', Number(orderId) || 0)
       .order('data_acao', { ascending: false })
 
     if (error) throw error

@@ -123,6 +123,13 @@ export type Database = {
             referencedRelation: 'acoes_cobranca'
             referencedColumns: ['id']
           },
+          {
+            foreignKeyName: 'acoes_cobranca_vencimentos_acao_cobranca_id_fkey'
+            columns: ['acao_cobranca_id']
+            isOneToOne: false
+            referencedRelation: 'view_latest_collection_actions'
+            referencedColumns: ['action_id']
+          },
         ]
       }
       AJUSTE_SALDO_INICIAL: {
@@ -2185,6 +2192,22 @@ export type Database = {
         Row: {
           client_id: number | null
           total_consigned_value: number | null
+        }
+        Relationships: []
+      }
+      view_latest_collection_actions: {
+        Row: {
+          acao: string | null
+          action_id: number | null
+          cliente_id: number | null
+          data_acao: string | null
+          funcionario_nome: string | null
+          installment_forma_pagamento: string | null
+          installment_id: number | null
+          installment_valor: number | null
+          installment_vencimento: string | null
+          nova_data_combinada: string | null
+          pedido_id: number | null
         }
         Relationships: []
       }

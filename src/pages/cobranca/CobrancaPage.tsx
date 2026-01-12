@@ -160,8 +160,10 @@ export default function CobrancaPage() {
       const lowerSearch = searchTerm.toLowerCase()
       res = res.filter(
         (c) =>
-          c.clientName.toLowerCase().includes(lowerSearch) ||
-          c.clientId.toString().includes(lowerSearch),
+          (c.clientName || '').toLowerCase().includes(lowerSearch) ||
+          (c.clientId != null ? c.clientId.toString() : '').includes(
+            lowerSearch,
+          ),
       )
     }
 
