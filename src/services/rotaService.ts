@@ -167,7 +167,7 @@ export const rotaService = {
     // 2. Optimized Debt Fetching using debitos_historico (Source of Truth)
     const { data: debtData, error: debtError } = await supabase
       .from('debitos_historico')
-      .select('cliente_codigo, debito, data_acerto')
+      .select('cliente_codigo, debito, data_acerto, pedido_id')
 
     if (debtError) {
       console.error('Error fetching debitos_historico:', debtError)
@@ -177,6 +177,7 @@ export const rotaService = {
       number,
       { totalDebt: number; orderCount: number; oldestDate: string | null }
     >()
+    const ordersWithDebt = new Set<number>()
 
     if (debtData) {
       debtData.forEach((row) => {
@@ -197,6 +198,10 @@ export const rotaService = {
 
         if (val > 0.01) {
           entry.orderCount += 1
+
+          if (row.pedido_id) {
+            ordersWithDebt.add(row.pedido_id)
+          }
 
           if (row.data_acerto) {
             if (!entry.oldestDate || row.data_acerto < entry.oldestDate) {
@@ -327,7 +332,7 @@ export const rotaService = {
     // Only fetching installment_vencimento
     const { data: collectionData, error: collectionError } = await supabase
       .from('view_latest_collection_actions' as any)
-      .select('cliente_id, installment_vencimento')
+      .select('cliente_id, installment_vencimento, pedido_id')
 
     if (collectionError) {
       console.error('Error fetching collection actions:', collectionError)
@@ -338,7 +343,12 @@ export const rotaService = {
       collectionData.forEach((row: any) => {
         const cid = row.cliente_id
         const vDate = row.installment_vencimento
+        const pid = row.pedido_id
+
         if (!cid || !vDate) return
+
+        // Filter: Must correspond to an order with remaining debt (> 0.01)
+        if (pid && !ordersWithDebt.has(pid)) return
 
         // We want the oldest date (minimum value) per client
         if (!collectionDateMap.has(cid)) {

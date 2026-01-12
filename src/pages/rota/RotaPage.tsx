@@ -298,6 +298,10 @@ export default function RotaPage() {
           valA = a.client.MUNICÍPIO || ''
           valB = b.client.MUNICÍPIO || ''
           break
+        case 'vencimento_cobranca':
+          valA = a.vencimento_cobranca || ''
+          valB = b.vencimento_cobranca || ''
+          break
         default:
           return 0
       }
@@ -327,6 +331,7 @@ export default function RotaPage() {
   const handleExportExcel = () => {
     const headers = [
       'Débito',
+      'Vencimento',
       'Projeção',
       'Vendedor',
       'Rota/Grupo Rota',
@@ -351,8 +356,15 @@ export default function RotaPage() {
       ...sortedRows.map((row) => {
         const sellerName =
           sellers.find((s) => s.id === row.vendedor_id)?.nome_completo || ''
+
+        const vencimentoStr =
+          row.debito > 0 && row.vencimento_cobranca
+            ? new Date(row.vencimento_cobranca).toLocaleDateString('pt-BR')
+            : ''
+
         return [
           row.debito.toFixed(2).replace('.', ','),
+          vencimentoStr,
           (row.projecao || 0).toFixed(2).replace('.', ','),
           `"${sellerName}"`,
           `"${(row.client['GRUPO ROTA'] || '').replace(/"/g, '""')}"`,
@@ -397,7 +409,7 @@ export default function RotaPage() {
   }
 
   return (
-    <div className="flex flex-col h-full gap-4 animate-fade-in p-4 pb-20">
+    <div className="absolute inset-0 flex flex-col gap-4 animate-fade-in p-4 pb-20 md:pb-4 overflow-hidden">
       <div className="flex-none flex flex-col gap-3">
         <div className="w-full">
           <RotaHeader
@@ -428,7 +440,7 @@ export default function RotaPage() {
         <RotaLegend />
       </div>
 
-      <div className="flex-1 min-h-[500px]">
+      <div className="flex-1 overflow-auto rounded-md border shadow-sm bg-card">
         <RotaTable
           rows={sortedRows}
           sellers={sellers}

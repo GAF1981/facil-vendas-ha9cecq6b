@@ -134,9 +134,12 @@ export function RotaTable({
               />
 
               {/* NEW: Vencimento (Rota) - Oldest collection date */}
-              <TableHead className="min-w-[90px] text-center font-bold text-xs bg-muted/50">
-                Vencimento
-              </TableHead>
+              <SortableHeader
+                column="vencimento_cobranca"
+                label="Vencimento"
+                align="center"
+                className="min-w-[90px] bg-muted/50"
+              />
 
               {/* 2. Projeção */}
               <SortableHeader
