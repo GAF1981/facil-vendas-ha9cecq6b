@@ -264,7 +264,7 @@ export const rotaService = {
     })
 
     // 7. Fetch Stock Values from QUANTIDADE DE ESTOQUE FINAL based on collected Orders (MAX Orders)
-    // We calculate the stock value by summing VALOR ESTOQUE POR PRODUTO for the specific order
+    // We fetch the total stock value from VALOR ESTOQUE SALDO FINAL for the specific order
     const stockMapByOrder = new Map<number, number>()
     const orderIdsArray = Array.from(orderIdsForStock)
 
@@ -274,9 +274,10 @@ export const rotaService = {
         const chunk = orderIdsArray.slice(i, i + chunkSize)
 
         // Query QUANTIDADE DE ESTOQUE FINAL directly for accurate numeric values
+        // We use "VALOR ESTOQUE SALDO FINAL" which contains the total for the order
         const { data: stockRows, error: stockError } = await supabase
           .from('QUANTIDADE DE ESTOQUE FINAL')
-          .select('"NUMERO DO PEDIDO", "VALOR ESTOQUE POR PRODUTO"')
+          .select('"NUMERO DO PEDIDO", "VALOR ESTOQUE SALDO FINAL"')
           .in('"NUMERO DO PEDIDO"', chunk)
 
         if (stockError) {
@@ -291,13 +292,11 @@ export const rotaService = {
           const orderId = row['NUMERO DO PEDIDO']
           if (!orderId) return
 
-          // VALOR ESTOQUE POR PRODUTO is already a number from DB
-          const itemValue = row['VALOR ESTOQUE POR PRODUTO'] || 0
+          // VALOR ESTOQUE SALDO FINAL is already the total for the order (partitioned sum)
+          // So we can just set it directly. Even if repeated rows exist, value is consistent.
+          const totalValue = row['VALOR ESTOQUE SALDO FINAL'] || 0
 
-          stockMapByOrder.set(
-            orderId,
-            (stockMapByOrder.get(orderId) || 0) + itemValue,
-          )
+          stockMapByOrder.set(orderId, totalValue)
         })
       }
     }
