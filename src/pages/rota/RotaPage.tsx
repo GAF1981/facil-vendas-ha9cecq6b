@@ -314,7 +314,7 @@ export default function RotaPage() {
       'Vendedor',
       'Débito',
       'Data Acerto',
-      'Estoque (R$)',
+      'Valor do Estoque Final (Saldo)',
       'Município',
       'Rota',
     ]
@@ -331,7 +331,7 @@ export default function RotaPage() {
           `"${sellerName}"`,
           row.debito.toFixed(2).replace('.', ','),
           row.data_acerto || '',
-          row.estoque.toFixed(2).replace('.', ','),
+          (row.estoque || 0).toFixed(2).replace('.', ','),
           `"${(row.client.MUNICÍPIO || '').replace(/"/g, '""')}"`,
           `"${(row.client['GRUPO ROTA'] || '').replace(/"/g, '""')}"`,
         ].join(';')
