@@ -128,7 +128,7 @@ export function RotaTable({
               <SortableHeader column="debito" label="Débito" align="right" />
               <SortableHeader
                 column="estoque"
-                label="Valor do Estoque Final (Saldo)"
+                label="Saldo Final de Estoques"
                 align="right"
               />
               <SortableHeader

@@ -243,9 +243,17 @@ export default function RotaPage() {
       )
         return false
 
-      if (filters.estoque_min && row.estoque < Number(filters.estoque_min))
+      if (
+        filters.estoque_min &&
+        row.estoque !== null &&
+        row.estoque < Number(filters.estoque_min)
+      )
         return false
-      if (filters.estoque_max && row.estoque > Number(filters.estoque_max))
+      if (
+        filters.estoque_max &&
+        row.estoque !== null &&
+        row.estoque > Number(filters.estoque_max)
+      )
         return false
 
       return true
@@ -314,7 +322,7 @@ export default function RotaPage() {
       'Vendedor',
       'Débito',
       'Data Acerto',
-      'Valor do Estoque Final (Saldo)',
+      'Saldo Final de Estoques',
       'Município',
       'Rota',
     ]
