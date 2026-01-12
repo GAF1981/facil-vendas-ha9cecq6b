@@ -4,6 +4,12 @@ import { pendenciasService } from './pendenciasService'
 import { reportsService } from './reportsService'
 import { parseISO, isBefore, startOfDay, subDays, format } from 'date-fns'
 
+// Define explicit type for the stock query result
+interface StockQueryResult {
+  'NUMERO DO PEDIDO': number
+  'VALOR ESTOQUE SALDO FINAL': number
+}
+
 export const rotaService = {
   async getActiveRota() {
     const { data, error } = await supabase
@@ -274,11 +280,12 @@ export const rotaService = {
         const chunk = orderIdsArray.slice(i, i + chunkSize)
 
         // Query QUANTIDADE DE ESTOQUE FINAL directly for accurate numeric values
-        // We use "VALOR ESTOQUE SALDO FINAL" which contains the total for the order
+        // We use "VALOR ESTOQUE SALDO FINAL" which contains the total for the order (partitioned sum)
         const { data: stockRows, error: stockError } = await supabase
           .from('QUANTIDADE DE ESTOQUE FINAL')
           .select('"NUMERO DO PEDIDO", "VALOR ESTOQUE SALDO FINAL"')
           .in('"NUMERO DO PEDIDO"', chunk)
+          .returns<StockQueryResult[]>()
 
         if (stockError) {
           console.error(
@@ -293,7 +300,8 @@ export const rotaService = {
           if (!orderId) return
 
           // VALOR ESTOQUE SALDO FINAL is already the total for the order (partitioned sum)
-          // So we can just set it directly. Even if repeated rows exist, value is consistent.
+          // So we can just set it directly. Even if repeated rows exist, value is consistent
+          // because the database trigger ensures all rows for the same order have the same total.
           const totalValue = row['VALOR ESTOQUE SALDO FINAL'] || 0
 
           stockMapByOrder.set(orderId, totalValue)
@@ -384,7 +392,7 @@ export const rotaService = {
         data_acerto: stats?.lastDate || null,
         projecao: projection,
         numero_pedido: stats?.lastOrderId || null,
-        estoque: stockValue, // Populated from QUANTIDADE DE ESTOQUE FINAL
+        estoque: stockValue, // Populated from QUANTIDADE DE ESTOQUE FINAL via Map
         has_pendency: pendencyMap.has(cid),
         is_completed: completedSet.has(cid),
         earliest_unpaid_date: earliestUnpaid,
