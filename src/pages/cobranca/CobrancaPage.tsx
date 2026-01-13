@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import {
   Card,
   CardContent,
@@ -61,26 +61,37 @@ export default function CobrancaPage() {
   const [isCobrancaMode, setIsCobrancaMode] = useState(false)
 
   const { toast } = useToast()
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  const fetchDebts = useCallback(async () => {
-    setLoading(true)
-    try {
-      const result = await cobrancaService.getDebts()
-      setData(result)
-    } catch (error) {
-      console.error(error)
-      toast({
-        title: 'Erro ao carregar cobranças',
-        description: 'Não foi possível carregar a lista de débitos.',
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }, [toast])
+  const fetchDebts = useCallback(
+    async (isBackground = false) => {
+      if (!isBackground) setLoading(true)
+      try {
+        const result = await cobrancaService.getDebts()
+        setData(result)
+      } catch (error) {
+        console.error(error)
+        toast({
+          title: 'Erro ao carregar cobranças',
+          description: 'Não foi possível carregar a lista de débitos.',
+          variant: 'destructive',
+        })
+      } finally {
+        if (!isBackground) setLoading(false)
+      }
+    },
+    [toast],
+  )
 
   useEffect(() => {
     fetchDebts()
+  }, [fetchDebts])
+
+  const debouncedRefresh = useCallback(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    timeoutRef.current = setTimeout(() => {
+      fetchDebts(true)
+    }, 1500) // 1.5s debounce to allow DB triggers to settle
   }, [fetchDebts])
 
   // Realtime subscription for Auto-Refresh
@@ -94,7 +105,7 @@ export default function CobrancaPage() {
           console.log(
             'Detected change in debitos_historico, refreshing Cobranca...',
           )
-          fetchDebts()
+          debouncedRefresh()
         },
       )
       .on(
@@ -102,7 +113,7 @@ export default function CobrancaPage() {
         { event: '*', schema: 'public', table: 'RECEBIMENTOS' },
         () => {
           console.log('Detected change in RECEBIMENTOS, refreshing Cobranca...')
-          fetchDebts()
+          debouncedRefresh()
         },
       )
       .on(
@@ -112,7 +123,7 @@ export default function CobrancaPage() {
           console.log(
             'Detected change in acoes_cobranca, refreshing Cobranca...',
           )
-          fetchDebts()
+          debouncedRefresh()
         },
       )
       .on(
@@ -122,7 +133,7 @@ export default function CobrancaPage() {
           console.log(
             'Detected change in BANCO_DE_DADOS, refreshing Cobranca...',
           )
-          fetchDebts()
+          debouncedRefresh()
         },
       )
       .subscribe()
@@ -130,7 +141,7 @@ export default function CobrancaPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [fetchDebts])
+  }, [debouncedRefresh])
 
   // Derived unique values for filters
   const uniqueGroups = useMemo(
@@ -326,12 +337,13 @@ export default function CobrancaPage() {
             </p>
           </div>
         </div>
-        <Button variant="outline" onClick={fetchDebts} disabled={loading}>
-          <RefreshCw
-            className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
-          />
-          {loading ? 'Atualizando...' : 'Atualizar'}
-        </Button>
+        {/* Removed Manual Refresh Button as per user request */}
+        {loading && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse">
+            <RefreshCw className="h-3 w-3 animate-spin" />
+            Atualizando...
+          </div>
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">

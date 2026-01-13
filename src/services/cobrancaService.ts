@@ -15,13 +15,15 @@ export const cobrancaService = {
     const today = startOfDay(new Date())
 
     // 1. Fetch Debts from debitos_historico (Primary Source for Debt Logic)
+    // ADDED: order by pedido_id DESC to ensure new orders (like 392, 393) appear even if limit is hit
     const { data: debtsData, error: debtsError } = await supabase
       .from('debitos_historico')
       .select(
         'pedido_id, cliente_codigo, cliente_nome, valor_venda, valor_pago, debito, data_acerto, vendedor_nome, rota_id, saldo_a_pagar',
       )
       .gt('debito', 1) // Only fetch relevant debts > 1.00
-      .limit(50000) // Increased limit to ensure coverage
+      .order('pedido_id', { ascending: false })
+      .limit(50000)
 
     if (debtsError) throw debtsError
 

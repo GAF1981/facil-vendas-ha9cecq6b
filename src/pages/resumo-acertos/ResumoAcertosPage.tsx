@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -40,6 +40,7 @@ import { Rota } from '@/types/rota'
 import { Employee } from '@/types/employee'
 import { employeesService } from '@/services/employeesService'
 import { useUserStore } from '@/stores/useUserStore'
+import { supabase } from '@/lib/supabase/client'
 
 export default function ResumoAcertosPage() {
   const { employee: loggedInUser } = useUserStore()
@@ -82,26 +83,64 @@ export default function ResumoAcertosPage() {
     }
   }
 
-  const fetchData = async (routeId: string) => {
-    if (!routeId) return
-    setLoading(true)
-    try {
-      const route = routes.find((r) => r.id.toString() === routeId)
-      if (route) {
-        const settlements = await resumoAcertosService.getSettlements(route)
-        setData(settlements)
+  const fetchData = useCallback(
+    async (routeId: string, isBackground = false) => {
+      if (!routeId) return
+      if (!isBackground) setLoading(true)
+      try {
+        const route = routes.find((r) => r.id.toString() === routeId)
+        if (route) {
+          const settlements = await resumoAcertosService.getSettlements(route)
+          setData(settlements)
+        }
+      } catch (error) {
+        console.error(error)
+        toast({
+          title: 'Erro ao carregar dados',
+          description: 'Não foi possível carregar o resumo de acertos.',
+          variant: 'destructive',
+        })
+      } finally {
+        if (!isBackground) setLoading(false)
       }
-    } catch (error) {
-      console.error(error)
-      toast({
-        title: 'Erro ao carregar dados',
-        description: 'Não foi possível carregar o resumo de acertos.',
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
+    },
+    [routes, toast],
+  )
+
+  // Realtime Subscription
+  useEffect(() => {
+    if (!selectedRouteId) return
+
+    const channel = supabase
+      .channel('resumo-acertos-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'BANCO_DE_DADOS' },
+        () => {
+          fetchData(selectedRouteId, true)
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'RECEBIMENTOS' },
+        () => {
+          fetchData(selectedRouteId, true)
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'ROTA' },
+        () => {
+          // If rota status changes, we might need to refresh route list and data
+          fetchRoutes().then(() => fetchData(selectedRouteId, true))
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
     }
-  }
+  }, [selectedRouteId, fetchData])
 
   // Initial Load
   useEffect(() => {
@@ -121,7 +160,7 @@ export default function ResumoAcertosPage() {
     if (selectedRouteId && routes.length > 0) {
       fetchData(selectedRouteId)
     }
-  }, [selectedRouteId, routes])
+  }, [selectedRouteId, routes, fetchData])
 
   // Filter Data Client-Side
   const filteredData = useMemo(() => {
@@ -162,21 +201,18 @@ export default function ResumoAcertosPage() {
               Resumo de Acertos
             </h1>
             <p className="text-muted-foreground">
-              Monitoramento consolidado e controle de rotas.
+              Monitoramento consolidado e controle de rotas em tempo real.
             </p>
           </div>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => fetchData(selectedRouteId)}
-            disabled={loading}
-          >
-            <RefreshCw
-              className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
-            />
-            Atualizar
-          </Button>
+          {/* Automatic Refresh - Button removed/hidden as per user story */}
+          {loading && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse">
+              <RefreshCw className="h-3 w-3 animate-spin" />
+              Atualizando...
+            </div>
+          )}
         </div>
       </div>
 
@@ -353,7 +389,7 @@ export default function ResumoAcertosPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {loading ? (
+                {loading && data.length === 0 ? (
                   <TableRow>
                     <TableCell
                       colSpan={9}
