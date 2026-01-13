@@ -2377,6 +2377,10 @@ export type Database = {
         Args: { p_new_rota_id: number; p_old_rota_id: number }
         Returns: undefined
       }
+      transfer_unattended_items_v3: {
+        Args: { p_new_rota_id: number; p_old_rota_id: number }
+        Returns: undefined
+      }
       update_debito_historico_order: {
         Args: { p_pedido_id: number }
         Returns: undefined

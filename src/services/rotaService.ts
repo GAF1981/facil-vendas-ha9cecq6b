@@ -408,15 +408,14 @@ export const rotaService = {
     if (rota) {
       const startDate = rota.data_inicio
       const endDate = rota.data_fim || new Date().toISOString()
-      const formattedStartDate = format(parseISO(startDate), 'yyyy-MM-dd')
+      // We removed the 'formattedStartDate' and the loose 'DATA DO ACERTO' comparison
+      // to ensure strictly only current route activities are counted (Client 67 Fix).
 
       // Check BANCO_DE_DADOS (Acertos)
       const { data: visits } = await supabase
         .from('BANCO_DE_DADOS')
         .select('"CÓDIGO DO CLIENTE"')
-        .or(
-          `"DATA DO ACERTO".gte.${formattedStartDate},"DATA E HORA".gte.${startDate}`,
-        )
+        .gte('"DATA E HORA"', startDate) // Strict timestamp comparison
         .limit(20000)
 
       visits?.forEach((v) => {
