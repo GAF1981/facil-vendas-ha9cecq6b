@@ -9,6 +9,10 @@ export interface InativarCliente {
   valor_pago: number
   debito: number
   created_at: string
+  // New fields
+  expositor_retirado: boolean
+  observacoes_expositor: string | null
+  status: 'PENDENTE' | 'CONCLUIDO'
 }
 
 export interface InativarClienteInsert {
@@ -20,4 +24,8 @@ export interface InativarClienteInsert {
   saldo_a_pagar: number
   valor_pago: number
   debito: number
+  // Optional new fields for insert
+  expositor_retirado?: boolean
+  observacoes_expositor?: string | null
+  status?: 'PENDENTE' | 'CONCLUIDO'
 }

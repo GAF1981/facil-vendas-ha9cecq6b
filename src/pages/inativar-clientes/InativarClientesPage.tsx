@@ -37,19 +37,28 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { Checkbox } from '@/components/ui/checkbox'
+import { ExpositorObservationModal } from '@/components/inativar-clientes/ExpositorObservationModal'
+import { InativarHistoryTable } from '@/components/inativar-clientes/InativarHistoryTable'
 
 export default function InativarClientesPage() {
   const [data, setData] = useState<InativarCliente[]>([])
+  const [historyData, setHistoryData] = useState<InativarCliente[]>([])
   const [loading, setLoading] = useState(true)
   const [targetClient, setTargetClient] = useState<InativarCliente | null>(null)
   const [removeClient, setRemoveClient] = useState<InativarCliente | null>(null)
+  const [modalClient, setModalClient] = useState<InativarCliente | null>(null)
   const { toast } = useToast()
 
   const loadData = async () => {
     setLoading(true)
     try {
-      const list = await inativarClientesService.getAll()
+      const [list, history] = await Promise.all([
+        inativarClientesService.getAll(),
+        inativarClientesService.getHistory(),
+      ])
       setData(list)
+      setHistoryData(history)
     } catch (error) {
       console.error(error)
       toast({
@@ -66,6 +75,63 @@ export default function InativarClientesPage() {
     loadData()
   }, [])
 
+  const handleExpositorCheck = async (
+    client: InativarCliente,
+    checked: boolean,
+  ) => {
+    if (checked) {
+      // Open modal to capture observation before checking
+      setModalClient(client)
+    } else {
+      // Uncheck immediately (clear observation?)
+      try {
+        await inativarClientesService.updateExpositorStatus(
+          client.id,
+          false,
+          null,
+        )
+        // Update local state optimistically
+        setData((prev) =>
+          prev.map((item) =>
+            item.id === client.id
+              ? {
+                  ...item,
+                  expositor_retirado: false,
+                  observacoes_expositor: null,
+                }
+              : item,
+          ),
+        )
+      } catch (error) {
+        toast({
+          title: 'Erro',
+          description: 'Falha ao atualizar status do expositor.',
+          variant: 'destructive',
+        })
+      }
+    }
+  }
+
+  const handleSaveObservation = async (id: number, observation: string) => {
+    await inativarClientesService.updateExpositorStatus(id, true, observation)
+    // Update local state
+    setData((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              expositor_retirado: true,
+              observacoes_expositor: observation,
+            }
+          : item,
+      ),
+    )
+    toast({
+      title: 'Registrado',
+      description: 'Retirada de expositor registrada com sucesso.',
+    })
+  }
+
   const handleInactivate = async () => {
     if (!targetClient) return
 
@@ -77,7 +143,7 @@ export default function InativarClientesPage() {
       )
       toast({
         title: 'Sucesso',
-        description: `Cliente ${targetClient.cliente_nome} inativado e removido da lista.`,
+        description: `Cliente ${targetClient.cliente_nome} inativado com sucesso.`,
         className: 'bg-green-600 text-white',
       })
       setTargetClient(null)
@@ -115,7 +181,7 @@ export default function InativarClientesPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in p-4 sm:p-6 pb-20">
+    <div className="space-y-8 animate-fade-in p-4 sm:p-6 pb-20">
       <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" asChild>
           <Link to="/">
@@ -139,7 +205,8 @@ export default function InativarClientesPage() {
             Lista de Inativação Pendente
           </CardTitle>
           <CardDescription>
-            Confirme a inativação ou remova da lista.
+            Confirme a inativação ou remova da lista. Obrigatório confirmar a
+            retirada do expositor.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -157,12 +224,11 @@ export default function InativarClientesPage() {
                     <TableHead className="w-[100px]">Código</TableHead>
                     <TableHead>Nome Cliente</TableHead>
                     <TableHead className="text-right">Vl. Venda</TableHead>
-                    <TableHead className="text-right">Saldo Pagar</TableHead>
-                    <TableHead className="text-right text-green-600">
-                      Vl. Pago
-                    </TableHead>
                     <TableHead className="text-right text-red-600 font-bold">
-                      Débito Total
+                      Débito
+                    </TableHead>
+                    <TableHead className="text-center w-[100px]">
+                      Expositor
                     </TableHead>
                     <TableHead className="text-center w-[120px]">
                       Ações
@@ -173,7 +239,7 @@ export default function InativarClientesPage() {
                   {data.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={9}
+                        colSpan={8}
                         className="h-24 text-center text-muted-foreground"
                       >
                         Nenhum cliente pendente de inativação.
@@ -197,31 +263,42 @@ export default function InativarClientesPage() {
                         <TableCell className="text-right text-sm">
                           R$ {formatCurrency(row.valor_venda)}
                         </TableCell>
-                        <TableCell className="text-right text-sm">
-                          R$ {formatCurrency(row.saldo_a_pagar)}
-                        </TableCell>
-                        <TableCell className="text-right text-sm text-green-600">
-                          R$ {formatCurrency(row.valor_pago)}
-                        </TableCell>
                         <TableCell className="text-right text-sm text-red-600 font-bold">
                           R$ {formatCurrency(row.debito)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex justify-center items-center">
+                            <Checkbox
+                              checked={row.expositor_retirado}
+                              onCheckedChange={(checked) =>
+                                handleExpositorCheck(row, checked === true)
+                              }
+                            />
+                          </div>
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex justify-center gap-2">
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Button
-                                    size="icon"
-                                    variant="outline"
-                                    className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50 border-green-200"
-                                    onClick={() => setTargetClient(row)}
-                                  >
-                                    <CheckCircle className="h-4 w-4" />
-                                  </Button>
+                                  <span>
+                                    <Button
+                                      size="icon"
+                                      variant="outline"
+                                      className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50 border-green-200 disabled:opacity-50"
+                                      onClick={() => setTargetClient(row)}
+                                      disabled={!row.expositor_retirado}
+                                    >
+                                      <CheckCircle className="h-4 w-4" />
+                                    </Button>
+                                  </span>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>Confirmar Inativação</p>
+                                  <p>
+                                    {!row.expositor_retirado
+                                      ? 'Marque a retirada do expositor primeiro'
+                                      : 'Confirmar Inativação'}
+                                  </p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
@@ -255,6 +332,18 @@ export default function InativarClientesPage() {
         </CardContent>
       </Card>
 
+      <div className="mt-8">
+        <InativarHistoryTable data={historyData} loading={loading} />
+      </div>
+
+      {/* Expositor Observation Modal */}
+      <ExpositorObservationModal
+        isOpen={!!modalClient}
+        onClose={() => setModalClient(null)}
+        onSave={handleSaveObservation}
+        client={modalClient}
+      />
+
       {/* Inactivate Dialog */}
       <AlertDialog
         open={!!targetClient}
@@ -267,8 +356,11 @@ export default function InativarClientesPage() {
               Deseja realmente inativar o cliente{' '}
               <strong>{targetClient?.cliente_nome}</strong>?
               <br />
-              Isso atualizará o status do cliente para "INATIVO" e removerá este
-              registro da lista pendente.
+              <br />
+              <span className="flex items-center gap-2 text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
+                <CheckCircle className="h-4 w-4" />
+                Expositor retirado e observação registrada.
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -295,6 +387,7 @@ export default function InativarClientesPage() {
               Deseja remover <strong>{removeClient?.cliente_nome}</strong> da
               lista de pendências
               <strong> SEM inativar</strong> o cliente?
+              <br />O status do cliente permanecerá como está.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

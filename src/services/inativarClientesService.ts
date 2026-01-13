@@ -9,14 +9,47 @@ export const inativarClientesService = {
     const { data, error } = await supabase
       .from('inativar_clientes')
       .select('*')
+      .eq('status', 'PENDENTE')
       .order('created_at', { ascending: false })
 
     if (error) throw error
     return data as InativarCliente[]
   },
 
+  async getHistory() {
+    const { data, error } = await supabase
+      .from('inativar_clientes')
+      .select('*')
+      .eq('status', 'CONCLUIDO')
+      .order('created_at', { ascending: false })
+      .limit(100) // Limit history to recent 100
+
+    if (error) throw error
+    return data as InativarCliente[]
+  },
+
   async create(data: InativarClienteInsert) {
-    const { error } = await supabase.from('inativar_clientes').insert(data)
+    const { error } = await supabase.from('inativar_clientes').insert({
+      ...data,
+      status: 'PENDENTE',
+      expositor_retirado: false,
+    })
+    if (error) throw error
+  },
+
+  async updateExpositorStatus(
+    id: number,
+    retirado: boolean,
+    observacoes: string | null,
+  ) {
+    const { error } = await supabase
+      .from('inativar_clientes')
+      .update({
+        expositor_retirado: retirado,
+        observacoes_expositor: observacoes,
+      } as any)
+      .eq('id', id)
+
     if (error) throw error
   },
 
@@ -33,8 +66,13 @@ export const inativarClientesService = {
 
     if (updateError) throw updateError
 
-    // 2. Remove from inativar_clientes table (processed)
-    await this.removeEntry(id)
+    // 2. Mark as completed in inativar_clientes table
+    const { error: statusError } = await supabase
+      .from('inativar_clientes')
+      .update({ status: 'CONCLUIDO' } as any)
+      .eq('id', id)
+
+    if (statusError) throw statusError
   },
 
   async removeEntry(id: number) {
