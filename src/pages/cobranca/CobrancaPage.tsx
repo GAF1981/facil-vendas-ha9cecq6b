@@ -35,7 +35,7 @@ import { ClientDebt } from '@/types/cobranca'
 import { useToast } from '@/hooks/use-toast'
 import { formatCurrency } from '@/lib/formatters'
 import { parseISO, isSameDay } from 'date-fns'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
 
 export default function CobrancaPage() {
@@ -517,14 +517,17 @@ export default function CobrancaPage() {
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
-          <DebtTable
-            data={filteredData}
-            onRefresh={fetchDebts}
-            selectedClients={selectedClients}
-            onToggleClient={toggleClientSelection}
-            isCobrancaMode={isCobrancaMode}
-          />
+          <div className="w-max min-w-full">
+            <DebtTable
+              data={filteredData}
+              onRefresh={fetchDebts}
+              selectedClients={selectedClients}
+              onToggleClient={toggleClientSelection}
+              isCobrancaMode={isCobrancaMode}
+            />
+          </div>
         )}
+        <ScrollBar orientation="horizontal" />
       </ScrollArea>
     </div>
   )

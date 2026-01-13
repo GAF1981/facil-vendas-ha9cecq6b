@@ -329,37 +329,60 @@ export const rotaService = {
     }
 
     // 9. Fetch Collection Action Maturity Dates (For "Vencimento" column in Rota)
-    // Only fetching installment_vencimento
-    const { data: collectionData, error: collectionError } = await supabase
-      .from('view_latest_collection_actions' as any)
-      .select('cliente_id, installment_vencimento, pedido_id')
-
-    if (collectionError) {
-      console.error('Error fetching collection actions:', collectionError)
-    }
-
+    // Updated Logic: Find the minimum (oldest) date from acoes_cobranca_vencimentos for each client
+    // We fetch actions that have open debts (linked to ordersWithDebt) to keep relevance
+    const ordersWithDebtArray = Array.from(ordersWithDebt)
     const collectionDateMap = new Map<number, string>()
-    if (collectionData) {
-      collectionData.forEach((row: any) => {
-        const cid = row.cliente_id
-        const vDate = row.installment_vencimento
-        const pid = row.pedido_id
 
-        if (!cid || !vDate) return
+    if (ordersWithDebtArray.length > 0) {
+      const chunkSize = 1000
+      for (let i = 0; i < ordersWithDebtArray.length; i += chunkSize) {
+        const chunk = ordersWithDebtArray.slice(i, i + chunkSize)
 
-        // Filter: Must correspond to an order with remaining debt (> 0.01)
-        if (pid && !ordersWithDebt.has(pid)) return
+        // Fetch actions linked to debt-having orders, including their installments
+        const { data: actionsData, error: actionsError } = await supabase
+          .from('acoes_cobranca')
+          .select(
+            `
+            cliente_id,
+            pedido_id,
+            acoes_cobranca_vencimentos (
+              vencimento
+            )
+          `,
+          )
+          .in('pedido_id', chunk)
 
-        // We want the oldest date (minimum value) per client
-        if (!collectionDateMap.has(cid)) {
-          collectionDateMap.set(cid, vDate)
-        } else {
-          const current = collectionDateMap.get(cid)!
-          if (vDate < current) {
-            collectionDateMap.set(cid, vDate)
-          }
+        if (actionsError) {
+          console.error('Error fetching collection actions:', actionsError)
+          continue
         }
-      })
+
+        actionsData?.forEach((action: any) => {
+          const cid = action.cliente_id
+          const installments = action.acoes_cobranca_vencimentos
+
+          if (!cid || !installments || installments.length === 0) return
+
+          // Find oldest date in this action's installments
+          const dates = installments
+            .map((inst: any) => inst.vencimento)
+            .filter(Boolean)
+            .sort()
+          if (dates.length === 0) return
+          const oldestInAction = dates[0]
+
+          // Update client map with global minimum
+          if (!collectionDateMap.has(cid)) {
+            collectionDateMap.set(cid, oldestInAction)
+          } else {
+            const currentMin = collectionDateMap.get(cid)!
+            if (oldestInAction < currentMin) {
+              collectionDateMap.set(cid, oldestInAction)
+            }
+          }
+        })
+      }
     }
 
     // 10. Check for Completed Status (Visits within active route range)
