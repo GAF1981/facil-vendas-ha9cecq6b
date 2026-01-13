@@ -55,7 +55,14 @@ export default function RotaPage() {
         setLastRota(last)
 
         const allEmployees = empRes.data
-        setSellers(allEmployees)
+        // Filter sellers: Active and sector includes 'Vendedor'
+        const activeSellers = allEmployees.filter(
+          (e) =>
+            e.situacao === 'ATIVO' &&
+            Array.isArray(e.setor) &&
+            e.setor.includes('Vendedor'),
+        )
+        setSellers(activeSellers)
 
         const rotaToFetch = active || last
         const data = await rotaService.getFullRotaData(rotaToFetch)
@@ -144,6 +151,8 @@ export default function RotaPage() {
 
     let newXNaRota: number | undefined = undefined
 
+    // Logic: If seller is assigned (changed to a value), increment x_na_rota by 1
+    // This assumes the user is manually assigning, implying a new attempt/visit intention
     if (field === 'vendedor_id' && value !== null) {
       const currentRow = rows.find((r) => r.client.CODIGO === clientId)
       if (currentRow) {

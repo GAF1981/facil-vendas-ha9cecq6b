@@ -296,7 +296,8 @@ export function RotaTable({
                     className={cn(
                       'hover:bg-muted/30 transition-colors border-b text-xs',
                       {
-                        'bg-green-50/50 hover:bg-green-100/50 dark:bg-green-950/10 dark:hover:bg-green-950/20':
+                        // Dark Green for Completed (Activity during route)
+                        'bg-green-200 hover:bg-green-300 dark:bg-green-800 dark:hover:bg-green-700':
                           row.is_completed,
                         'bg-orange-50/50 hover:bg-orange-100/50 dark:bg-orange-950/10 dark:hover:bg-orange-950/20':
                           row.has_pendency && !row.is_completed,
@@ -494,8 +495,9 @@ export function RotaTable({
                           type="number"
                           min={0}
                           max={99}
-                          disabled={disabled}
-                          value={row.x_na_rota}
+                          disabled={disabled || row.is_completed}
+                          // If completed, visually force 0 even if state lags slightly before refresh
+                          value={row.is_completed ? 0 : row.x_na_rota}
                           onChange={(e) =>
                             onUpdateRow(
                               row.client.CODIGO,
@@ -544,15 +546,15 @@ export function RotaTable({
                             variant="destructive"
                             className="text-[9px] px-1 h-4 flex items-center gap-1"
                           >
-                            <AlertCircle className="w-2 h-2" /> VENCIDO
+                            <AlertCircle className="w-2 h-2" /> Vencida
                           </Badge>
                         )}
                         {row.vencimento_status === 'A VENCER' && (
                           <Badge
                             variant="outline"
-                            className="text-yellow-600 border-yellow-200 bg-yellow-50 text-[9px] px-1 h-4"
+                            className="text-green-700 border-green-300 bg-green-100 text-[9px] px-1 h-4"
                           >
-                            A VENCER
+                            A Vencer
                           </Badge>
                         )}
                         {row.vencimento_status === 'PAGO' && (
