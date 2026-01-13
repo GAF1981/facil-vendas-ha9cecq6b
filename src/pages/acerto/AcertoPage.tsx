@@ -21,6 +21,7 @@ import { bancoDeDadosService } from '@/services/bancoDeDadosService'
 import { acertoService } from '@/services/acertoService'
 import { employeesService } from '@/services/employeesService'
 import { inativarClientesService } from '@/services/inativarClientesService'
+import { cobrancaService } from '@/services/cobrancaService'
 import { useToast } from '@/hooks/use-toast'
 import { useUserStore } from '@/stores/useUserStore'
 import {
@@ -422,7 +423,15 @@ export default function AcertoPage() {
       // 3. Handle Inactivation Flagging (New Requirement)
       if (flagInactivation) {
         const valorPagoTotal = payments.reduce((acc, p) => acc + p.paidValue, 0)
-        const debitoTotal = Math.max(0, amountToPay - valorPagoTotal)
+        // Fetch total accumulated debt for accuracy
+        let totalDebt = 0
+        try {
+          totalDebt = await cobrancaService.getClientDebtSummary(client.CODIGO)
+        } catch (e) {
+          console.error('Error fetching total debt for inactivation:', e)
+          // Fallback to current order calculation if fetch fails, though ideal is total
+          totalDebt = Math.max(0, amountToPay - valorPagoTotal)
+        }
 
         await inativarClientesService.create({
           pedido_id: finalOrderNumber,
@@ -432,7 +441,7 @@ export default function AcertoPage() {
           valor_venda: totalSalesValue,
           saldo_a_pagar: amountToPay,
           valor_pago: valorPagoTotal,
-          debito: debitoTotal,
+          debito: totalDebt,
         })
       }
 
@@ -488,8 +497,8 @@ export default function AcertoPage() {
       setPendingAdjustments([])
 
       if (flagInactivation) {
-        // Redirect to Resumo Acertos as per user story
-        navigate('/resumo-acertos')
+        // Redirect to Inativar Clientes as per user story
+        navigate('/inativar-clientes')
       }
     } catch (err: any) {
       console.error(err)

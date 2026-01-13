@@ -34,11 +34,15 @@ export const inativarClientesService = {
     if (updateError) throw updateError
 
     // 2. Remove from inativar_clientes table (processed)
-    const { error: deleteError } = await supabase
+    await this.removeEntry(id)
+  },
+
+  async removeEntry(id: number) {
+    const { error } = await supabase
       .from('inativar_clientes')
       .delete()
       .eq('id', id)
 
-    if (deleteError) throw deleteError
+    if (error) throw error
   },
 }
