@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Rota } from '@/types/rota'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Play, Square, Loader2, Download } from 'lucide-react'
+import { Play, Square, Loader2, Download, Save } from 'lucide-react'
 import { usePermissions } from '@/hooks/use-permissions'
 import { useUserStore } from '@/stores/useUserStore'
 
@@ -14,6 +14,7 @@ interface RotaHeaderProps {
   onEnd: () => void
   onExport: () => void
   loading: boolean
+  hasPendingUpdates?: boolean
 }
 
 export function RotaHeader({
@@ -23,6 +24,7 @@ export function RotaHeader({
   onEnd,
   onExport,
   loading,
+  hasPendingUpdates = false,
 }: RotaHeaderProps) {
   const displayRota = activeRota || lastRota
   const { canAccess } = usePermissions()
@@ -81,7 +83,14 @@ export function RotaHeader({
           )}
         </div>
 
-        <div className="flex flex-wrap gap-2 shrink-0 w-full sm:w-auto">
+        <div className="flex flex-wrap gap-2 shrink-0 w-full sm:w-auto items-center">
+          {hasPendingUpdates && (
+            <div className="flex items-center gap-2 text-xs text-orange-600 font-medium animate-pulse mr-2">
+              <Save className="h-3 w-3" />
+              Salvando...
+            </div>
+          )}
+
           <Button
             onClick={onExport}
             variant="outline"
@@ -109,9 +118,14 @@ export function RotaHeader({
             canFinalize && (
               <Button
                 onClick={onEnd}
-                disabled={loading}
+                disabled={loading || hasPendingUpdates}
                 variant="destructive"
                 className="w-full sm:w-auto"
+                title={
+                  hasPendingUpdates
+                    ? 'Aguarde o salvamento das alterações'
+                    : 'Finalizar rota atual'
+                }
               >
                 {loading ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

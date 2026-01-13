@@ -15,6 +15,7 @@ export default function RotaPage() {
   const [rows, setRows] = useState<RotaRow[]>([])
   const [sellers, setSellers] = useState<Employee[]>([])
   const [loading, setLoading] = useState(false)
+  const [pendingUpdates, setPendingUpdates] = useState(0) // Track pending saves
   const { toast } = useToast()
 
   const [isSelectionMode, setIsSelectionMode] = useState(false)
@@ -176,6 +177,9 @@ export default function RotaPage() {
       }),
     )
 
+    // Indicate that an update is pending
+    setPendingUpdates((prev) => prev + 1)
+
     try {
       const payload: any = {
         rota_id: activeRota.id,
@@ -194,6 +198,10 @@ export default function RotaPage() {
         description: 'Falha ao salvar alteração.',
         variant: 'destructive',
       })
+      // Revert could be implemented here if needed, but optimistic UI usually prioritizes speed
+    } finally {
+      // Decrement pending updates, ensuring it doesn't go below 0
+      setPendingUpdates((prev) => Math.max(0, prev - 1))
     }
   }
 
@@ -431,6 +439,7 @@ export default function RotaPage() {
             onEnd={handleEndRota}
             onExport={handleExportExcel}
             loading={loading}
+            hasPendingUpdates={pendingUpdates > 0}
           />
         </div>
         <div className="flex items-center justify-between">

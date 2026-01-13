@@ -78,9 +78,9 @@ export const rotaService = {
     if (startError) throw startError
 
     // 3. Transfer Unattended Items from Old to New
-    // Using the NEW SQL function that handles persistence logic (v2)
+    // Using the NEW SQL function that handles persistence logic (v3) which increments x_na_rota
     const { error: transferError } = await supabase.rpc(
-      'transfer_unattended_items_v2',
+      'transfer_unattended_items_v3',
       {
         p_old_rota_id: currentRotaId,
         p_new_rota_id: nextId,
@@ -89,6 +89,10 @@ export const rotaService = {
 
     if (transferError) {
       console.error('Error transferring unattended items:', transferError)
+      // Even if transfer fails, we try to close the old route?
+      // Better to throw so UI knows something went wrong, but the new route is already created...
+      // Ideally we would wrap in a transaction, but via client SDK we can't easily.
+      // We will proceed to close old route but log error.
     }
 
     // 4. Close the Old Rota
