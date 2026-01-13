@@ -2369,6 +2369,10 @@ export type Database = {
         Returns: string
       }
       start_new_inventory_session: { Args: never; Returns: Json }
+      transfer_unattended_items: {
+        Args: { p_new_rota_id: number; p_old_rota_id: number }
+        Returns: undefined
+      }
       update_debito_historico_order: {
         Args: { p_pedido_id: number }
         Returns: undefined

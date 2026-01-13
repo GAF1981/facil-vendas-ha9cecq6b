@@ -4,9 +4,8 @@ export function RotaLegend() {
     { color: 'bg-purple-300', label: 'x na ROTA > 3' },
     { color: 'bg-orange-400', label: 'Com Pendências' },
     { color: 'bg-yellow-300', label: 'Observação Fixa' },
-    // Updated color to match the "Dark Green" description and Tailwind usage in Table (bg-green-200 is visually distinctive enough, or darker if needed)
-    // The table uses bg-green-200. Let's represent that here.
-    { color: 'bg-green-200', label: 'Atendimento Realizado (Verde Escuro)' },
+    // Updated color to match the "Dark Green" description and Tailwind usage in Table (bg-green-600)
+    { color: 'bg-green-600', label: 'Atendimento Realizado (Verde Escuro)' },
   ]
 
   return (

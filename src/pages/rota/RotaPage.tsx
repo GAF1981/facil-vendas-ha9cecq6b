@@ -105,7 +105,7 @@ export default function RotaPage() {
     if (!activeRota) return
     if (
       !window.confirm(
-        'Confirma o fechamento da rota atual e início de uma nova? Esta ação irá incrementar o contador xRota para clientes não atendidos.',
+        'Confirma o fechamento da rota atual e início de uma nova? Esta ação irá transferir clientes não atendidos.',
       )
     )
       return

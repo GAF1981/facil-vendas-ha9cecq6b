@@ -297,7 +297,7 @@ export function RotaTable({
                       'hover:bg-muted/30 transition-colors border-b text-xs',
                       {
                         // Dark Green for Completed (Activity during route)
-                        'bg-green-200 hover:bg-green-300 dark:bg-green-800 dark:hover:bg-green-700':
+                        'bg-green-600 hover:bg-green-500 text-white dark:bg-green-800 dark:hover:bg-green-700':
                           row.is_completed,
                         'bg-orange-50/50 hover:bg-orange-100/50 dark:bg-orange-950/10 dark:hover:bg-orange-950/20':
                           row.has_pendency && !row.is_completed,
@@ -309,8 +309,14 @@ export function RotaTable({
                       <div className="flex flex-col items-end">
                         <span
                           className={cn({
-                            'text-red-600 font-bold': row.debito > 10,
-                            'text-muted-foreground': row.debito <= 0,
+                            'text-red-600 font-bold':
+                              row.debito > 10 && !row.is_completed,
+                            'text-red-200 font-bold':
+                              row.debito > 10 && row.is_completed,
+                            'text-muted-foreground':
+                              row.debito <= 0 && !row.is_completed,
+                            'text-green-100':
+                              row.debito <= 0 && row.is_completed,
                           })}
                         >
                           {row.debito > 0
@@ -318,7 +324,14 @@ export function RotaTable({
                             : '-'}
                         </span>
                         {row.quant_debito > 1 && (
-                          <span className="text-[9px] text-muted-foreground bg-muted px-1 rounded-full">
+                          <span
+                            className={cn(
+                              'text-[9px] px-1 rounded-full',
+                              row.is_completed
+                                ? 'text-green-800 bg-green-100'
+                                : 'text-muted-foreground bg-muted',
+                            )}
+                          >
                             {row.quant_debito} compras
                           </span>
                         )}
@@ -328,7 +341,12 @@ export function RotaTable({
                     {/* NEW: Vencimento (Rota) */}
                     <TableCell className="text-center text-[10px]">
                       {row.debito > 0 && row.vencimento_cobranca ? (
-                        <span className="font-semibold text-red-600">
+                        <span
+                          className={cn('font-semibold', {
+                            'text-red-600': !row.is_completed,
+                            'text-red-200': row.is_completed,
+                          })}
+                        >
                           {safeFormatDate(row.vencimento_cobranca, 'dd/MM/yy')}
                         </span>
                       ) : (
@@ -337,7 +355,14 @@ export function RotaTable({
                     </TableCell>
 
                     {/* 2. Projeção */}
-                    <TableCell className="text-right text-muted-foreground">
+                    <TableCell
+                      className={cn(
+                        'text-right',
+                        row.is_completed
+                          ? 'text-green-100'
+                          : 'text-muted-foreground',
+                      )}
+                    >
                       {row.projecao
                         ? `R$ ${formatCurrency(row.projecao)}`
                         : '-'}
@@ -360,8 +385,11 @@ export function RotaTable({
                           className={cn(
                             'h-7 w-full text-xs truncate',
                             row.vendedor_id
-                              ? 'text-foreground font-medium'
+                              ? 'font-medium'
                               : 'text-muted-foreground',
+                            row.is_completed
+                              ? 'bg-green-700 border-green-500 text-white'
+                              : 'text-foreground',
                           )}
                         >
                           <SelectValue placeholder="Selecione..." />
@@ -384,14 +412,26 @@ export function RotaTable({
 
                     {/* 4. Rota/Grupo Rota */}
                     <TableCell
-                      className="text-muted-foreground truncate max-w-[120px]"
+                      className={cn(
+                        'truncate max-w-[120px]',
+                        row.is_completed
+                          ? 'text-green-100'
+                          : 'text-muted-foreground',
+                      )}
                       title={row.client['GRUPO ROTA'] || ''}
                     >
                       {row.client['GRUPO ROTA'] || '-'}
                     </TableCell>
 
                     {/* 5. Consignado */}
-                    <TableCell className="text-right text-muted-foreground">
+                    <TableCell
+                      className={cn(
+                        'text-right',
+                        row.is_completed
+                          ? 'text-green-100'
+                          : 'text-muted-foreground',
+                      )}
+                    >
                       {row.valor_consignado !== null &&
                       row.valor_consignado !== undefined
                         ? `R$ ${formatCurrency(row.valor_consignado)}`
@@ -399,7 +439,14 @@ export function RotaTable({
                     </TableCell>
 
                     {/* 6. # */}
-                    <TableCell className="text-center text-muted-foreground font-mono">
+                    <TableCell
+                      className={cn(
+                        'text-center font-mono',
+                        row.is_completed
+                          ? 'text-green-100'
+                          : 'text-muted-foreground',
+                      )}
+                    >
                       {row.rowNumber}
                     </TableCell>
 
@@ -412,8 +459,20 @@ export function RotaTable({
                         >
                           {row.client['NOME CLIENTE']}
                         </span>
-                        <div className="flex flex-wrap gap-1.5 text-[10px] text-muted-foreground">
-                          <span className="font-mono bg-muted px-1 rounded">
+                        <div
+                          className={cn(
+                            'flex flex-wrap gap-1.5 text-[10px]',
+                            row.is_completed
+                              ? 'text-green-200'
+                              : 'text-muted-foreground',
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              'font-mono px-1 rounded',
+                              row.is_completed ? 'bg-green-700' : 'bg-muted',
+                            )}
+                          >
                             {row.client.CODIGO}
                           </span>
                           {row.client['OBSERVAÇÃO FIXA'] && (
@@ -468,7 +527,12 @@ export function RotaTable({
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-6 w-6 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full"
+                              className={cn(
+                                'h-6 w-6 rounded-full',
+                                row.is_completed
+                                  ? 'text-white hover:bg-green-700'
+                                  : 'text-green-600 hover:text-green-700 hover:bg-green-50',
+                              )}
                               onClick={() =>
                                 handleWhatsappClick(row.client['FONE 1'])
                               }
@@ -512,6 +576,8 @@ export function RotaTable({
                               : row.x_na_rota > 0
                                 ? 'bg-secondary/50 font-medium'
                                 : 'text-muted-foreground',
+                            row.is_completed &&
+                              'bg-green-700 text-white border-green-500',
                           )}
                         />
                       </div>
@@ -532,7 +598,14 @@ export function RotaTable({
                     </TableCell>
 
                     {/* NEW: Dias de Acerto */}
-                    <TableCell className="text-center text-[10px] text-muted-foreground font-medium">
+                    <TableCell
+                      className={cn(
+                        'text-center text-[10px] font-medium',
+                        row.is_completed
+                          ? 'text-green-100'
+                          : 'text-muted-foreground',
+                      )}
+                    >
                       {row.data_acerto && isValid(parseISO(row.data_acerto))
                         ? differenceInDays(today, parseISO(row.data_acerto))
                         : '-'}
@@ -585,7 +658,11 @@ export function RotaTable({
                           onCheckedChange={(checked) =>
                             onUpdateRow(row.client.CODIGO, 'boleto', checked)
                           }
-                          className="h-4 w-4"
+                          className={cn(
+                            'h-4 w-4',
+                            row.is_completed &&
+                              'border-white data-[state=checked]:bg-white data-[state=checked]:text-green-700',
+                          )}
                         />
                       </TableCell>
                     )}
@@ -599,7 +676,11 @@ export function RotaTable({
                           onCheckedChange={(checked) =>
                             onUpdateRow(row.client.CODIGO, 'agregado', checked)
                           }
-                          className="h-4 w-4"
+                          className={cn(
+                            'h-4 w-4',
+                            row.is_completed &&
+                              'border-white data-[state=checked]:bg-white data-[state=checked]:text-green-700',
+                          )}
                         />
                       </TableCell>
                     )}

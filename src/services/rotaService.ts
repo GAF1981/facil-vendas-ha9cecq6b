@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase/client'
 import { Rota, RotaItem } from '@/types/rota'
 import { pendenciasService } from './pendenciasService'
 import { reportsService } from './reportsService'
-import { parseISO, isBefore, startOfDay, subDays, format } from 'date-fns'
+import { parseISO, isBefore, startOfDay, format } from 'date-fns'
 
 export const rotaService = {
   async getActiveRota() {
@@ -92,7 +92,7 @@ export const rotaService = {
     if (startError) throw startError
 
     // 3. Transfer Unattended Items from Old to New
-    // Using the new SQL function that handles persistence logic + increment
+    // Using the new SQL function that handles persistence logic
     const { error: transferError } = await supabase.rpc(
       'transfer_unattended_items',
       {
@@ -326,19 +326,18 @@ export const rotaService = {
       })
     }
 
-    // 9. Fetch Oldest Unpaid Due Date (Vencimento) - REVISED
-    // Considers: Negotiated Actions > Receivables > Original Date
+    // 9. Fetch Oldest Unpaid Due Date (Vencimento)
     const clientOldestDueMap = new Map<number, string>()
     const ordersWithDebtArray = Array.from(ordersWithDebt)
-    const orderExplicitDateMap = new Map<number, string>() // OrderID -> Min Explicit Date found in Details
-    const ordersWithExplicitDates = new Set<number>() // To track precedence
+    const orderExplicitDateMap = new Map<number, string>()
+    const ordersWithExplicitDates = new Set<number>()
 
     if (ordersWithDebtArray.length > 0) {
       const chunkSize = 1000
       for (let i = 0; i < ordersWithDebtArray.length; i += chunkSize) {
         const chunk = ordersWithDebtArray.slice(i, i + chunkSize)
 
-        // A. Fetch Negotiated Actions (Highest Priority)
+        // A. Fetch Negotiated Actions
         const { data: actionsData } = await supabase
           .from('acoes_cobranca')
           .select(
@@ -351,17 +350,14 @@ export const rotaService = {
             const pid = action.pedido_id
             if (!pid) return
 
-            // Check installments
             const installments = action.acoes_cobranca_vencimentos
             if (installments && installments.length > 0) {
-              // Extract dates, filter nulls, sort asc
               const dates = installments
                 .map((inst: any) => inst.vencimento)
                 .filter(Boolean)
                 .sort()
 
               if (dates.length > 0) {
-                // If negotiation exists, it usually overrides previous terms
                 orderExplicitDateMap.set(pid, dates[0])
                 ordersWithExplicitDates.add(pid)
               }
@@ -369,7 +365,7 @@ export const rotaService = {
           })
         }
 
-        // B. Fetch Receivables (If no negotiation found for the order or complementary)
+        // B. Fetch Receivables
         const { data: recData } = await supabase
           .from('RECEBIMENTOS')
           .select('venda_id, vencimento, valor_pago, valor_registrado')
@@ -377,12 +373,10 @@ export const rotaService = {
           .gt('valor_registrado', 0)
 
         if (recData) {
-          // Filter for unpaid/partially paid items
           const unpaidRecs = recData.filter(
             (r: any) => (r.valor_pago || 0) < (r.valor_registrado || 0),
           )
 
-          // Group by order
           const recDatesByOrder = new Map<number, string[]>()
           unpaidRecs.forEach((r: any) => {
             const pid = r.venda_id
@@ -392,7 +386,6 @@ export const rotaService = {
             }
           })
 
-          // Update map only if NOT already set by negotiation (Precedence: Action > Receipt)
           recDatesByOrder.forEach((dates, pid) => {
             if (!ordersWithExplicitDates.has(pid) && dates.length > 0) {
               dates.sort()
@@ -404,14 +397,12 @@ export const rotaService = {
       }
     }
 
-    // Assign min dates to clients
     ordersWithDebtArray.forEach((pid) => {
       const info = orderDataMap.get(pid)
       if (!info) return
 
       let date = orderExplicitDateMap.get(pid)
 
-      // Fallback: If no explicit installment/action date found, use Original Data Acerto
       if (!date && info.dataAcerto) {
         date = info.dataAcerto
       }
@@ -425,24 +416,20 @@ export const rotaService = {
     })
 
     // 10. Check for Completed Status (Activity during Rota)
-    // Updated to check RECEBIMENTOS too
     const completedSet = new Set<number>()
     if (rota) {
-      const startDate = rota.data_inicio // Use full ISO string
+      const startDate = rota.data_inicio
       const endDate = rota.data_fim || new Date().toISOString()
+      const formattedStartDate = format(parseISO(startDate), 'yyyy-MM-dd')
 
       // Check BANCO_DE_DADOS (Acertos)
       const { data: visits } = await supabase
         .from('BANCO_DE_DADOS')
         .select('"CÓDIGO DO CLIENTE"')
         .or(
-          `"DATA DO ACERTO".gte.${format(parseISO(startDate), 'yyyy-MM-dd')},"DATA E HORA".gte.${startDate}`,
+          `"DATA DO ACERTO".gte.${formattedStartDate},"DATA E HORA".gte.${startDate}`,
         )
         .limit(20000)
-      // Note: Supabase OR filter syntax is tricky with mixed types, simplified logic below:
-      // We will rely on dates being ISO strings or YYYY-MM-DD.
-      // Since specific complex query is hard, we used a rough filter and refine in JS if needed.
-      // But for performance, let's trust the date filter.
 
       visits?.forEach((v) => {
         const cid = v['CÓDIGO DO CLIENTE']
@@ -486,21 +473,22 @@ export const rotaService = {
       let vencimentoStatus: 'VENCIDO' | 'A VENCER' | 'PAGO' | 'SEM DÉBITO' =
         'SEM DÉBITO'
 
-      // Check specific due dates first
       const oldestDue = clientOldestDueMap.get(cid)
+      const effectiveDebt = debtEntry?.totalDebt || 0
 
-      if (debtEntry && debtEntry.totalDebt > 0.05) {
+      if (effectiveDebt > 0.05) {
         if (oldestDue) {
           const dueDate = parseISO(oldestDue)
+          // strict check: if date is BEFORE today -> Vencido
           if (isBefore(dueDate, today)) {
             vencimentoStatus = 'VENCIDO'
           } else {
             vencimentoStatus = 'A VENCER'
           }
-        } else if (debtEntry.oldestDate) {
+        } else if (debtEntry?.oldestDate) {
           // Fallback to debt entry old logic
           const date = parseISO(debtEntry.oldestDate)
-          if (isBefore(date, subDays(today, 30))) {
+          if (isBefore(date, today)) {
             vencimentoStatus = 'VENCIDO'
           } else {
             vencimentoStatus = 'A VENCER'
@@ -510,6 +498,8 @@ export const rotaService = {
         }
       }
 
+      const isCompleted = completedSet.has(cid)
+
       return {
         rowNumber: index + 1,
         client,
@@ -517,7 +507,7 @@ export const rotaService = {
         boleto: rotaItem?.boleto || false,
         agregado: rotaItem?.agregado || false,
         vendedor_id: rotaItem?.vendedor_id || null,
-        debito: debtEntry?.totalDebt || 0,
+        debito: effectiveDebt,
         quant_debito: debtEntry?.orderCount || 0,
         data_acerto: stats?.lastDate || null,
         projecao: projection,
@@ -525,7 +515,7 @@ export const rotaService = {
         estoque: stockValue,
         valor_consignado: consignedMap.get(cid) || null,
         has_pendency: pendencyMap.has(cid),
-        is_completed: completedSet.has(cid),
+        is_completed: isCompleted,
         earliest_unpaid_date: oldestDue || debtEntry?.oldestDate || null,
         vencimento_status: vencimentoStatus,
         vencimento_cobranca: oldestDue || null,
@@ -533,7 +523,6 @@ export const rotaService = {
     })
   },
 
-  // Deprecated client-side check, logic moved to DB triggers
   async checkAndDecrementXNaRota() {
     // No-op - DB triggers handle this now
   },
