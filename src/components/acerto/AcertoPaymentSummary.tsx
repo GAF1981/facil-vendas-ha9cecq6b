@@ -58,21 +58,10 @@ export function AcertoPaymentSummary({
     const remainder = Number((totalValue - totalDistributed).toFixed(2))
 
     // Determine initial date logic
-    // For Boleto/Cheque, if 1x, we want to respect the selected date.
-    // BaseDate is passed from the main input or today.
     const start = new Date(baseDate + 'T12:00:00')
 
     return Array.from({ length: count }, (_, i) => {
       let dueDateObj = i === 0 ? start : addDays(start, i * 30)
-
-      // If "Sem Entrada", we must sync the date fields as per requirement:
-      // "both maturity date fields ... automatically populated with the same date"
-      // This implies if Sem Entrada is checked, the first (0-value) payment date is the same as the "real" first payment date?
-      // Or simply: baseDate is applied to the first record.
-      // If "Sem Entrada", usually the first payment is skipped (0), so the date of that 0-payment doesn't matter much financially,
-      // but visually it should probably align with the start of the agreement.
-      // Let's keep standard logic where baseDate controls the start.
-
       let dueDate = format(dueDateObj, 'yyyy-MM-dd')
       let value = installmentValue
       let paidValue = 0
@@ -117,8 +106,9 @@ export function AcertoPaymentSummary({
     if (checked) {
       const defaultValue = Number(Math.max(0, remaining).toFixed(2))
       const today = new Date()
-      // Default dates
-      const dueDateDate = method === 'Boleto' ? addDays(today, 10) : today
+      // UPDATED: Automatically set vencimento to current date for Boleto/Cheque(1x)
+      // For Boleto, we default to Today as per user story requirement.
+      const dueDateDate = today
       const dueDate = format(dueDateDate, 'yyyy-MM-dd')
 
       const details = generateInstallments(
@@ -162,14 +152,12 @@ export function AcertoPaymentSummary({
         // Date Sync Logic: If modifying main date
         if (field === 'dueDate') {
           const newDate = value as string
-          // Req: Boleto/Cheque 1x or Sem Entrada -> Sync details
           const shouldSyncDetails =
             (method === 'Boleto' || method === 'Cheque') && p.installments === 1
 
           const isSemEntrada = p.hasZeroDownPayment
 
           if (shouldSyncDetails || isSemEntrada) {
-            // For Sem Entrada, ensure start date propagates
             if (updated.details) {
               const newDetails = generateInstallments(
                 updated.value,
@@ -181,7 +169,6 @@ export function AcertoPaymentSummary({
               updated.details = newDetails
             }
           } else if (p.installments === 1 && updated.details) {
-            // Standard 1x sync
             updated.details[0].dueDate = newDate
           }
         } else if (
@@ -196,7 +183,13 @@ export function AcertoPaymentSummary({
             field === 'hasZeroDownPayment'
               ? (value as boolean)
               : p.hasZeroDownPayment
-          const baseDate = p.dueDate
+
+          // UPDATED: Sync to Today if toggling Sem Entrada
+          let baseDate = p.dueDate
+          if (field === 'hasZeroDownPayment' && zeroDown) {
+            baseDate = format(new Date(), 'yyyy-MM-dd')
+            updated.dueDate = baseDate
+          }
 
           const newDetails = generateInstallments(
             val,
@@ -212,7 +205,6 @@ export function AcertoPaymentSummary({
 
           // Auto-sync main date if Sem Entrada is toggled or if 1x
           if (count === 1 || zeroDown) {
-            // Ensure visual consistency
             updated.dueDate = newDetails[0].dueDate
           }
         }
@@ -234,15 +226,12 @@ export function AcertoPaymentSummary({
       payments.map((p) => {
         if (p.method !== method || !p.details) return p
 
-        // Date Sync Logic: If modifying detail date (especially the first one)
-        // Req: If Boleto/Cheque 1x OR Sem Entrada, sync main date
         if (field === 'dueDate' && index === 0) {
           const shouldSyncMain =
             (method === 'Boleto' || method === 'Cheque') && p.installments === 1
           const isSemEntrada = p.hasZeroDownPayment
 
           if (shouldSyncMain || isSemEntrada) {
-            // If I change the detail date, update the main date too
             return {
               ...p,
               dueDate: value as string,

@@ -61,7 +61,7 @@ export function ClientAlertsDialog({
   }
 
   const handleGoToPendencies = () => {
-    // Navigate with query param to filter for this client
+    // Navigate with query param to filter for this client as required
     navigate(`/pendencias?cliente_id=${row.client.CODIGO}`)
     onOpenChange(false)
   }
@@ -87,17 +87,16 @@ export function ClientAlertsDialog({
                 <AlertCircle className="h-4 w-4" />
                 Pendências ({pendencias.length})
               </h4>
-              {pendencias.length > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-6 text-xs gap-1 border-red-200 text-red-700 hover:bg-red-50"
-                  onClick={handleGoToPendencies}
-                >
-                  <ExternalLink className="h-3 w-3" />
-                  Ver Pendências
-                </Button>
-              )}
+              {/* Added Button to Navigate to Pendencies Page */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-xs gap-1 border-red-200 text-red-700 hover:bg-red-50"
+                onClick={handleGoToPendencies}
+              >
+                <ExternalLink className="h-3 w-3" />
+                Ver Pendências
+              </Button>
             </div>
             {pendencias.length > 0 ? (
               <ul className="list-disc pl-5 space-y-1">

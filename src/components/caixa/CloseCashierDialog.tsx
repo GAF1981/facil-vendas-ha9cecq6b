@@ -96,14 +96,35 @@ export function CloseCashierDialog({
         return
       }
 
-      await fechamentoService.createClosing(currentRoute, empId)
+      // Create Closing Record
+      const fechamento = await fechamentoService.createClosing(
+        currentRoute,
+        empId,
+      )
 
       toast({
         title: 'Fechamento Iniciado',
-        description:
-          'O processo de fechamento foi aberto. Verifique na aba "Fechamentos".',
+        description: 'Gerando relatórios PDF...',
         className: 'bg-green-600 text-white',
       })
+
+      // Generate Dual PDFs (A4 and 80mm)
+      // We run them sequentially to avoid race conditions on browser download
+      try {
+        await fechamentoService.generateClosingPdf(fechamento, 'A4')
+        // Small delay to ensure browser handles first download
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+        await fechamentoService.generateClosingPdf(fechamento, '80mm')
+      } catch (pdfError) {
+        console.error('Error generating PDF:', pdfError)
+        toast({
+          title: 'Aviso',
+          description:
+            'Fechamento criado, mas houve erro ao gerar um dos PDFs.',
+          variant: 'warning',
+        })
+      }
+
       if (onSuccess) onSuccess()
       onOpenChange(false)
     } catch (error) {
@@ -126,6 +147,10 @@ export function CloseCashierDialog({
           <DialogDescription>
             Inicie o processo de conferência e fechamento para um funcionário na{' '}
             <strong>Rota #{currentRoute?.id}</strong>.
+            <br />
+            <span className="text-xs text-muted-foreground mt-2 block">
+              Nota: Serão gerados automaticamente comprovantes em A4 e 80mm.
+            </span>
           </DialogDescription>
         </DialogHeader>
 

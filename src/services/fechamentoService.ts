@@ -83,7 +83,7 @@ export const fechamentoService = {
     const { data, error } = await supabase
       .from('fechamento_caixa')
       .insert(payload)
-      .select()
+      .select(`*, funcionario:FUNCIONARIOS!funcionario_id ( nome_completo )`) // Fetch joined data for PDF
       .single()
 
     if (error) throw error
@@ -108,18 +108,6 @@ export const fechamentoService = {
   },
 
   async confirmClosing(id: number, responsavelId: number) {
-    // Also updating created_at to current time to reflect precise closing time if needed,
-    // but usually created_at is creation time.
-    // The requirement says "Recording and displaying the specific date and time of cashier closure."
-    // Let's assume closing is when status becomes 'Fechado'.
-    // We will update created_at to now() OR use a new column 'closed_at' if schema allowed.
-    // Since we can't easily change schema without explicit instruction and the existing one has created_at,
-    // we'll treat the updated_at/closed moment as the confirmation time.
-    // Actually, `fechamento_caixa` in schema provided has `created_at`.
-    // We can rely on `created_at` being the *start* of closing process.
-    // The user story asks to record the time of closure.
-    // Let's update `created_at` to NOW on confirmation to signify "Final Closure Time" or just rely on audit.
-    // Better: Update `created_at` to now() when confirming to reflect the FINAL closure time in the record.
     const { error } = await supabase
       .from('fechamento_caixa')
       .update({
@@ -143,7 +131,6 @@ export const fechamentoService = {
     return (count || 0) > 0
   },
 
-  // Helper to check closure status specifically
   async getClosureStatus(rotaId: number, funcionarioId: number) {
     const { data, error } = await supabase
       .from('fechamento_caixa')
@@ -153,6 +140,33 @@ export const fechamentoService = {
       .maybeSingle()
 
     if (error) throw error
-    return data?.status || null // 'Aberto', 'Fechado', or null (not started)
+    return data?.status || null
+  },
+
+  async generateClosingPdf(fechamento: FechamentoCaixa, format: 'A4' | '80mm') {
+    const { data: blob, error } = await supabase.functions.invoke(
+      'generate-pdf',
+      {
+        body: {
+          reportType: 'closing-confirmation',
+          fechamento,
+          format,
+          date: new Date().toISOString(),
+        },
+        responseType: 'blob',
+      },
+    )
+
+    if (error) throw error
+
+    // Create download link
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `Fechamento_${fechamento.id}_${format}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
   },
 }

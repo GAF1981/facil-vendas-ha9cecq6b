@@ -53,11 +53,21 @@ export interface FuelReportRow {
 
 export const caixaService = {
   async saveDespesa(despesa: DespesaInsert) {
-    // Fix: Ensure we use a safe time (Noon) for the selected date to prevent timezone shifts
-    // to previous day when converted to UTC (e.g. 00:00 Local -> 21:00 Prev Day UTC)
-    const dataToSave = despesa.Data
-      ? new Date(`${despesa.Data}T12:00:00`).toISOString()
-      : new Date().toISOString()
+    // Fix: Save using Local Time (Brazil) converted to ISO safe string
+    // This ensures that when we select "Today" in UI (e.g., 2023-10-25),
+    // it is stored as 2023-10-25T12:00:00-03:00 roughly, preserving the day.
+    let dataToSave: string
+
+    if (despesa.Data) {
+      // If date is provided (YYYY-MM-DD), append Noon to be safe against timezone shifts
+      dataToSave = new Date(`${despesa.Data}T12:00:00`).toISOString()
+    } else {
+      // If no date (Today), get today in SP timezone YYYY-MM-DD
+      const todaySP = new Date().toLocaleDateString('en-CA', {
+        timeZone: 'America/Sao_Paulo',
+      })
+      dataToSave = new Date(`${todaySP}T12:00:00`).toISOString()
+    }
 
     const { error } = await supabase.from('DESPESAS').insert({
       'Grupo de Despesas': despesa['Grupo de Despesas'],
@@ -76,7 +86,7 @@ export const caixaService = {
     const routeStart = parseISO(rota.data_inicio)
     const routeEnd = rota.data_fim ? parseISO(rota.data_fim) : new Date()
 
-    // Normalize for day comparison to include all expenses of the start day
+    // Normalize for day comparison
     const routeStartDay = startOfDay(routeStart)
     const routeEndDay = startOfDay(routeEnd)
 
@@ -116,7 +126,6 @@ export const caixaService = {
     })
 
     // 3. Receipts
-    // We assume strict timestamp for receipts to avoid prior route overlap if closed same day
     const { data: receipts, error: recError } = await supabase
       .from('RECEBIMENTOS')
       .select('funcionario_id, valor_pago, created_at, forma_pagamento')
@@ -145,8 +154,7 @@ export const caixaService = {
     })
 
     // 4. Expenses
-    // Using startOfDay logic for expenses to fix visibility issue
-    // We broaden the fetch using local date string to catch UTC midnight cases if any
+    // Broaden fetch to ensure we catch all expenses for the day
     const fetchStartDate = format(routeStartDay, 'yyyy-MM-dd')
 
     const { data: expenses, error: expError } = await supabase
@@ -381,6 +389,7 @@ export const caixaService = {
     }))
   },
 
+  // ... (rest of the file remains unchanged)
   async getFuelReportData(): Promise<FuelReportRow[]> {
     const { data, error } = await supabase
       .from('DESPESAS')
