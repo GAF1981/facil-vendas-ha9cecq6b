@@ -1,3 +1,4 @@
+import { useState, useMemo } from 'react'
 import {
   Table,
   TableBody,
@@ -15,7 +16,7 @@ import {
 } from '@/components/ui/card'
 import { InativarCliente } from '@/types/inativar_clientes'
 import { formatCurrency, safeFormatDate } from '@/lib/formatters'
-import { History, Info } from 'lucide-react'
+import { History, Info, Search } from 'lucide-react'
 import {
   Tooltip,
   TooltipContent,
@@ -23,6 +24,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 
 interface InativarHistoryTableProps {
   data: InativarCliente[]
@@ -33,16 +35,41 @@ export function InativarHistoryTable({
   data,
   loading,
 }: InativarHistoryTableProps) {
+  const [searchTerm, setSearchTerm] = useState('')
+
+  const filteredData = useMemo(() => {
+    if (!searchTerm) return data
+    const lowerTerm = searchTerm.toLowerCase()
+    return data.filter((row) => {
+      const nameMatch = row.cliente_nome?.toLowerCase().includes(lowerTerm)
+      const codeMatch = row.cliente_codigo?.toString().includes(lowerTerm)
+      return nameMatch || codeMatch
+    })
+  }, [data, searchTerm])
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <History className="h-5 w-5 text-muted-foreground" />
-          Consulta de Clientes Inativados
-        </CardTitle>
-        <CardDescription>
-          Histórico de clientes que já foram inativados.
-        </CardDescription>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <History className="h-5 w-5 text-muted-foreground" />
+              Consulta de Clientes Inativados
+            </CardTitle>
+            <CardDescription>
+              Histórico de clientes que já foram inativados.
+            </CardDescription>
+          </div>
+          <div className="relative w-full sm:w-[300px]">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por Nome ou Código..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+        </div>
       </CardHeader>
       <CardContent className="p-0">
         <div className="rounded-md border overflow-hidden">
@@ -70,17 +97,19 @@ export function InativarHistoryTable({
                     Carregando histórico...
                   </TableCell>
                 </TableRow>
-              ) : data.length === 0 ? (
+              ) : filteredData.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={7}
                     className="h-24 text-center text-muted-foreground"
                   >
-                    Nenhum histórico de inativação encontrado.
+                    {searchTerm
+                      ? 'Nenhum cliente encontrado para a busca.'
+                      : 'Nenhum histórico de inativação encontrado.'}
                   </TableCell>
                 </TableRow>
               ) : (
-                data.map((row) => (
+                filteredData.map((row) => (
                   <TableRow key={row.id} className="hover:bg-muted/30">
                     <TableCell className="text-sm">
                       {safeFormatDate(row.created_at)}

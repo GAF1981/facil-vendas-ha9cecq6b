@@ -1590,10 +1590,13 @@ export type Database = {
           cliente_nome: string | null
           created_at: string
           debito: number | null
+          expositor_retirado: boolean | null
           funcionario_nome: string | null
           id: number
+          observacoes_expositor: string | null
           pedido_id: number
           saldo_a_pagar: number | null
+          status: string | null
           valor_pago: number | null
           valor_venda: number | null
         }
@@ -1602,10 +1605,13 @@ export type Database = {
           cliente_nome?: string | null
           created_at?: string
           debito?: number | null
+          expositor_retirado?: boolean | null
           funcionario_nome?: string | null
           id?: number
+          observacoes_expositor?: string | null
           pedido_id: number
           saldo_a_pagar?: number | null
+          status?: string | null
           valor_pago?: number | null
           valor_venda?: number | null
         }
@@ -1614,10 +1620,13 @@ export type Database = {
           cliente_nome?: string | null
           created_at?: string
           debito?: number | null
+          expositor_retirado?: boolean | null
           funcionario_nome?: string | null
           id?: number
+          observacoes_expositor?: string | null
           pedido_id?: number
           saldo_a_pagar?: number | null
+          status?: string | null
           valor_pago?: number | null
           valor_venda?: number | null
         }

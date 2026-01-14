@@ -95,6 +95,7 @@ export default function CaixaPage() {
   }>({ open: false, empId: null, empName: '' })
 
   const [generatingPdf, setGeneratingPdf] = useState(false)
+  const [printFormat, setPrintFormat] = useState<'A4' | '80mm'>('A4')
 
   // Initialization: Fetch Routes and Set Default User
   useEffect(() => {
@@ -272,6 +273,7 @@ export default function CaixaPage() {
       let finalTotalRecebido = totalRecebido
       let finalTotalDespesas = totalDespesas
       let finalTotalSaldo = totalSaldo
+      let finalSaldoDeAcerto = saldoDeAcerto
 
       if (employeeId) {
         const empSummary = summaryData.find(
@@ -280,6 +282,12 @@ export default function CaixaPage() {
         finalTotalRecebido = empSummary?.totalRecebido || 0
         finalTotalDespesas = empSummary?.totalDespesas || 0
         finalTotalSaldo = empSummary?.saldo || 0
+
+        // Calculate specific Saldo de Acerto for Employee
+        const empPix = receiptsToPass
+          .filter((r) => r.forma === 'Pix')
+          .reduce((acc, r) => acc + r.valor, 0)
+        finalSaldoDeAcerto = finalTotalSaldo - empPix
       }
 
       const { data: pdfBlob, error } = await supabase.functions.invoke(
@@ -287,12 +295,14 @@ export default function CaixaPage() {
         {
           body: {
             reportType,
+            format: printFormat,
             summaryData: employeeId ? [] : filteredSummary,
             receipts: receiptsToPass,
             expenses: expensesToPass,
             totalRecebido: finalTotalRecebido,
             totalDespesas: finalTotalDespesas,
             totalSaldo: finalTotalSaldo,
+            saldoDeAcerto: finalSaldoDeAcerto,
             periodo: {
               inicio: selectedRoute.data_inicio,
               fim: selectedRoute.data_fim,
@@ -352,19 +362,37 @@ export default function CaixaPage() {
             <Lock className="mr-2 h-4 w-4" />
             Fechar Caixa
           </Button>
-          <Button
-            onClick={() => handleGeneratePdf()}
-            variant="outline"
-            disabled={generatingPdf || loading || !selectedRoute}
-            className="flex-1 sm:flex-none"
-          >
-            {generatingPdf ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Printer className="mr-2 h-4 w-4" />
-            )}
-            Resumo Geral PDF
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-2 border p-1 rounded-md bg-background">
+            <div className="flex items-center gap-2 px-2">
+              <Label className="text-xs">Formato:</Label>
+              <Select
+                value={printFormat}
+                onValueChange={(v: 'A4' | '80mm') => setPrintFormat(v)}
+              >
+                <SelectTrigger className="h-8 w-[90px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="A4">A4</SelectItem>
+                  <SelectItem value="80mm">80mm</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              onClick={() => handleGeneratePdf()}
+              variant="outline"
+              size="sm"
+              disabled={generatingPdf || loading || !selectedRoute}
+              className="flex-1 sm:flex-none"
+            >
+              {generatingPdf ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Printer className="mr-2 h-4 w-4" />
+              )}
+              PDF Geral
+            </Button>
+          </div>
           <Button
             onClick={handleOpenGeneralExpense}
             className="bg-blue-600 hover:bg-blue-700 flex-1 sm:flex-none"

@@ -178,7 +178,11 @@ export const estoqueCarroService = {
       .eq('id_estoque_carro', sessionId)
 
     const countMap = new Map<number, number>()
-    counts?.forEach((c) => countMap.set(c.produto_id, c.quantidade))
+    const hasCountMap = new Set<number>() // Track which products have counts
+    counts?.forEach((c) => {
+      countMap.set(c.produto_id, c.quantidade)
+      hasCountMap.add(c.produto_id)
+    })
 
     const { data: adjustments } = await supabase
       .from('ESTOQUE CARRO AJUSTES')
@@ -225,6 +229,7 @@ export const estoqueCarroService = {
         diferenca_val: diffVal,
         ajustes: ajuste,
         novo_saldo: novoSaldo,
+        has_count_record: hasCountMap.has(p.ID),
       }
     })
   },

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { InventoryGeneralItem } from '@/types/inventory_general'
 import {
   Table,
@@ -12,13 +12,19 @@ import { formatCurrency } from '@/lib/formatters'
 import { MovementDetailsPopover } from './MovementDetailsPopover'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Ban, CheckCircle2 } from 'lucide-react'
+import { Ban, Filter } from 'lucide-react'
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { Badge } from '@/components/ui/badge'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { Label } from '@/components/ui/label'
 
 interface Props {
   items: InventoryGeneralItem[]
@@ -77,6 +83,27 @@ export function InventoryGeneralTable({
   isEditMode = false,
   onUpdateItem,
 }: Props) {
+  const [contagemFilter, setContagemFilter] = useState('')
+  const [diffFilter, setDiffFilter] = useState('')
+
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      // Contagem Filter
+      if (contagemFilter) {
+        const val = parseFloat(contagemFilter)
+        if (!isNaN(val) && item.contagem !== val) return false
+      }
+
+      // Diff Filter
+      if (diffFilter) {
+        const val = parseFloat(diffFilter)
+        if (!isNaN(val) && item.diferenca_qty !== val) return false
+      }
+
+      return true
+    })
+  }, [items, contagemFilter, diffFilter])
+
   return (
     <div className="rounded-md border bg-card overflow-auto shadow-sm max-h-[70vh] relative">
       <Table>
@@ -104,8 +131,74 @@ export function InventoryGeneralTable({
             <TableHead className="text-right font-bold bg-muted">
               Saldo Final (Teórico)
             </TableHead>
-            <TableHead className="text-right bg-blue-50">Contagem</TableHead>
-            <TableHead className="text-right bg-muted">Dif (Qtd)</TableHead>
+            <TableHead className="text-right bg-blue-50">
+              <div className="flex items-center justify-end gap-2">
+                Contagem
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-4 w-4 p-0">
+                      <Filter className="h-3 w-3" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-60 p-4">
+                    <div className="space-y-2">
+                      <Label>Filtrar Contagem</Label>
+                      <Input
+                        type="number"
+                        placeholder="Valor exato"
+                        value={contagemFilter}
+                        onChange={(e) => setContagemFilter(e.target.value)}
+                        className="h-8"
+                      />
+                      {contagemFilter && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full h-6 text-xs"
+                          onClick={() => setContagemFilter('')}
+                        >
+                          Limpar Filtro
+                        </Button>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </TableHead>
+            <TableHead className="text-right bg-muted">
+              <div className="flex items-center justify-end gap-2">
+                Dif (Qtd)
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-4 w-4 p-0">
+                      <Filter className="h-3 w-3" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-60 p-4">
+                    <div className="space-y-2">
+                      <Label>Filtrar Diferença</Label>
+                      <Input
+                        type="number"
+                        placeholder="Valor exato"
+                        value={diffFilter}
+                        onChange={(e) => setDiffFilter(e.target.value)}
+                        className="h-8"
+                      />
+                      {diffFilter && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full h-6 text-xs"
+                          onClick={() => setDiffFilter('')}
+                        >
+                          Limpar Filtro
+                        </Button>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </TableHead>
             <TableHead className="text-right bg-muted">Dif (Val)</TableHead>
             <TableHead className="text-right font-bold bg-gray-50">
               Novo Saldo Final
@@ -113,7 +206,7 @@ export function InventoryGeneralTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {items.map((item) => (
+          {filteredItems.map((item) => (
             <TableRow key={item.produto_id} className="hover:bg-muted/30">
               <TableCell className="font-medium">
                 <div className="flex flex-col">

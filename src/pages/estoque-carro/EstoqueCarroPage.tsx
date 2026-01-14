@@ -19,6 +19,7 @@ import { EstoqueCarroHeader } from '@/components/estoque-carro/EstoqueCarroHeade
 import { EstoqueCarroControlBar } from '@/components/estoque-carro/EstoqueCarroControlBar'
 import { EstoqueCarroTable } from '@/components/estoque-carro/EstoqueCarroTable'
 import { EstoqueCarroCountDialog } from '@/components/estoque-carro/EstoqueCarroCountDialog'
+import { useUserStore } from '@/stores/useUserStore'
 
 export default function EstoqueCarroPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
@@ -30,12 +31,19 @@ export default function EstoqueCarroPage() {
   const [saldoFilter, setSaldoFilter] = useState('todos')
   const [countDialogOpen, setCountDialogOpen] = useState(false)
   const { toast } = useToast()
+  const { employee: loggedInUser } = useUserStore()
 
   useEffect(() => {
     employeesService.getEmployees(1, 100).then(({ data }) => {
-      setEmployees(data.filter((e) => e.situacao === 'ATIVO'))
+      const activeEmps = data.filter((e) => e.situacao === 'ATIVO')
+      setEmployees(activeEmps)
+
+      // Auto-select logged-in user
+      if (loggedInUser && activeEmps.some((e) => e.id === loggedInUser.id)) {
+        setSelectedEmployeeId(loggedInUser.id.toString())
+      }
     })
-  }, [])
+  }, [loggedInUser])
 
   const loadData = async () => {
     if (!selectedEmployeeId) return
@@ -107,6 +115,21 @@ export default function EstoqueCarroPage() {
 
   const handleFinalize = async () => {
     if (!currentSession) return
+
+    // Validation: Check for pending items
+    const pendingItems = items.filter(
+      (item) => item.diferenca_qtd !== 0 && !item.has_count_record,
+    )
+
+    if (pendingItems.length > 0) {
+      toast({
+        title: 'Impossível Finalizar',
+        description: `Existem ${pendingItems.length} produtos com diferenças pendentes de contagem.`,
+        variant: 'destructive',
+      })
+      return
+    }
+
     if (!confirm('Finalizar sessão atual e abrir uma nova?')) return
     setLoading(true)
     try {

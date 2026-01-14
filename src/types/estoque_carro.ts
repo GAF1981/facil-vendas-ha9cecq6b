@@ -25,6 +25,7 @@ export interface EstoqueCarroItem {
   ajustes: number
   novo_saldo: number
   id_estoque_carro: number // Added for drill-down context
+  has_count_record: boolean // Added for validation (Pendente status)
 }
 
 export interface CountUpdatePayload {
