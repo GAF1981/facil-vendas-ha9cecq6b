@@ -37,6 +37,7 @@ import {
   Download,
   FileCheck,
   FileSignature,
+  Printer,
 } from 'lucide-react'
 import { notaFiscalService } from '@/services/notaFiscalService'
 import { acertoService } from '@/services/acertoService'
@@ -140,6 +141,31 @@ export default function NotaFiscalPage() {
       toast({
         title: 'Erro no download',
         description: 'Não foi possível gerar o PDF.',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const handleDownloadDetailedReport = async (orderId: number) => {
+    try {
+      toast({
+        title: 'Gerando relatório...',
+        description: 'Aguarde um momento.',
+      })
+      const blob = await notaFiscalService.generateDetailedReport(orderId)
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Relatorio-Detalhado-Pedido-${orderId}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      toast({ title: 'Relatório gerado com sucesso' })
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: 'Erro ao gerar relatório',
+        description: 'Não foi possível gerar o PDF detalhado.',
         variant: 'destructive',
       })
     }
@@ -322,7 +348,7 @@ export default function NotaFiscalPage() {
               <TableHeader>
                 <TableRow className="bg-muted/50">
                   <TableHead className="w-[80px]">Pedido</TableHead>
-                  <TableHead className="w-[80px] text-center">PDF</TableHead>
+                  <TableHead className="w-[120px] text-center">PDF</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Data</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
@@ -350,15 +376,28 @@ export default function NotaFiscalPage() {
                         #{item.orderId}
                       </TableCell>
                       <TableCell className="text-center">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => handleDownloadPdf(item.orderId)}
-                          title="Baixar PDF"
-                        >
-                          <FileText className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center justify-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => handleDownloadPdf(item.orderId)}
+                            title="Baixar PDF (Térmica)"
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                            onClick={() =>
+                              handleDownloadDetailedReport(item.orderId)
+                            }
+                            title="Baixar Relatório Detalhado (A4)"
+                          >
+                            <Printer className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                       <TableCell
                         className="font-medium max-w-[200px] truncate"

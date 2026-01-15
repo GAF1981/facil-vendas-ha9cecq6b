@@ -143,4 +143,56 @@ export const notaFiscalService = {
 
     if (updateError) throw updateError
   },
+
+  async generateDetailedReport(orderId: number) {
+    // Fetch all items for this order from BANCO_DE_DADOS
+    const { data, error } = await supabase
+      .from('BANCO_DE_DADOS')
+      .select('*')
+      .eq('"NÚMERO DO PEDIDO"', orderId)
+
+    if (error) throw error
+    if (!data || data.length === 0) throw new Error('Pedido não encontrado')
+
+    // Map data to expected format for PDF
+    // We send raw values mostly, but structure object properties nicely
+    const items = data.map((item) => ({
+      codProduto: item['COD. PRODUTO'],
+      produto: item['MERCADORIA'],
+      tipo: item['TIPO'],
+      saldoInicial: item['SALDO INICIAL'],
+      contagem: item['CONTAGEM'],
+      quantidadeVendida: item['QUANTIDADE VENDIDA'],
+      valorVendido: item['VALOR VENDIDO'],
+      saldoFinal: item['SALDO FINAL'],
+      novasConsignacoes: item['NOVAS CONSIGNAÇÕES'],
+      devolucoes: item['RECOLHIDO'],
+    }))
+
+    // Header info from first record
+    const first = data[0]
+    const header = {
+      orderId: first['NÚMERO DO PEDIDO'],
+      cliente: first['CLIENTE'],
+      codigoCliente: first['CÓDIGO DO CLIENTE'],
+      funcionario: first['FUNCIONÁRIO'],
+      dataAcerto: first['DATA DO ACERTO'],
+    }
+
+    const { data: pdfBlob, error: pdfError } = await supabase.functions.invoke(
+      'generate-pdf',
+      {
+        body: {
+          reportType: 'detailed-order-report',
+          format: 'A4',
+          header,
+          items,
+        },
+        responseType: 'blob',
+      },
+    )
+
+    if (pdfError) throw pdfError
+    return pdfBlob as Blob
+  },
 }

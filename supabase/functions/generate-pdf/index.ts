@@ -64,7 +64,6 @@ Deno.serve(async (req) => {
 
     if (isThermal) {
       let estimatedHeight = 800 // Base
-
       if (
         reportType === 'cash-summary' ||
         reportType === 'employee-cash-summary'
@@ -79,14 +78,12 @@ Deno.serve(async (req) => {
         const receiptsCount = body.receipts ? body.receipts.length : 0
         estimatedHeight = 800 + expensesCount * 40 + receiptsCount * 40
       } else {
-        // Acerto / Recibo
         const itemsCount = body.items ? body.items.length : 0
         const historyCount = body.history ? body.history.length : 0
         const paymentsCount = body.payments ? body.payments.length : 0
         estimatedHeight =
           800 + itemsCount * 120 + historyCount * 100 + paymentsCount * 60
       }
-
       page = pdfDoc.addPage([226, Math.max(842, estimatedHeight)])
       width = page.getSize().width
       height = page.getSize().height
@@ -180,10 +177,100 @@ Deno.serve(async (req) => {
 
     // --- REPORT TYPES LOGIC ---
 
-    // ... (Existing logic for cash-summary and closing-confirmation stays here, removed for brevity as requested "write ONLY related changes" but I must write full file if updated. I will keep them but focus on Acerto/Recibo logic changes) ...
-    // Since I need to output full file, I will include the cash-summary logic back.
+    if (reportType === 'detailed-order-report') {
+      const { header, items } = body
 
-    if (
+      drawText('RELATORIO DETALHADO DE PEDIDO', width / 2, y, {
+        size: 14,
+        font: fontBold,
+        align: 'center',
+      })
+      y -= 25
+      drawLine(y)
+      y -= 20
+
+      // Header Info
+      const headerLabels = [
+        { l: 'Numero do Pedido:', v: header.orderId },
+        { l: 'Cliente:', v: `${header.codigoCliente} - ${header.cliente}` },
+        { l: 'Funcionario:', v: header.funcionario },
+        { l: 'Data do Acerto:', v: safeFormatDate(header.dataAcerto) },
+      ]
+
+      for (const h of headerLabels) {
+        drawText(h.l, margins.left, y, { size: 10, font: fontBold })
+        drawText(String(h.v || '-'), margins.left + 120, y, { size: 10 })
+        y -= 15
+      }
+      y -= 10
+      drawLine(y)
+      y -= 15
+
+      // Table Header
+      // Cols: Cod(30), Produto(140), Tipo(40), SI(40), Cont(40), QtdV(40), ValV(50), SF(40), NovCons(50), Dev(40)
+      // Total approx: 510 width (A4 available ~515)
+      const cols = [
+        { label: 'Cod', x: margins.left, width: 30, align: 'left' },
+        { label: 'Produto', x: margins.left + 35, width: 130, align: 'left' },
+        { label: 'Tipo', x: margins.left + 170, width: 35, align: 'left' },
+        { label: 'S.Ini', x: margins.left + 210, width: 35, align: 'right' },
+        { label: 'Cont', x: margins.left + 250, width: 35, align: 'right' },
+        { label: 'Qtd.V', x: margins.left + 290, width: 35, align: 'right' },
+        { label: 'Val.V', x: margins.left + 330, width: 50, align: 'right' },
+        { label: 'S.Fim', x: margins.left + 385, width: 35, align: 'right' },
+        { label: 'N.Cons', x: margins.left + 425, width: 50, align: 'right' },
+        { label: 'Dev', x: margins.left + 480, width: 35, align: 'right' },
+      ]
+
+      // Draw Header Row
+      cols.forEach((col: any) => {
+        const xPos = col.align === 'right' ? col.x + col.width : col.x
+        drawText(col.label, xPos, y, {
+          size: 8,
+          font: fontBold,
+          align: col.align,
+        })
+      })
+      y -= 5
+      drawLine(y)
+      y -= 12
+
+      // Draw Rows
+      for (const item of items) {
+        checkPageBreak(15)
+
+        const formatVal = (v: any) => {
+          if (v === null || v === undefined) return '-'
+          return String(v)
+        }
+
+        const rowData = [
+          { val: item.codProduto, colIdx: 0 },
+          { val: item.produto, colIdx: 1 },
+          { val: item.tipo, colIdx: 2 },
+          { val: item.saldoInicial, colIdx: 3 },
+          { val: item.contagem, colIdx: 4 },
+          { val: item.quantidadeVendida, colIdx: 5 },
+          { val: item.valorVendido, colIdx: 6 },
+          { val: item.saldoFinal, colIdx: 7 },
+          { val: item.novasConsignacoes, colIdx: 8 },
+          { val: item.devolucoes, colIdx: 9 }, // RECOLHIDO -> Devoluções
+        ]
+
+        rowData.forEach((cell) => {
+          const col: any = cols[cell.colIdx]
+          const xPos = col.align === 'right' ? col.x + col.width : col.x
+          drawText(formatVal(cell.val), xPos, y, {
+            size: 8,
+            align: col.align,
+            maxWidth: col.width,
+          })
+        })
+        y -= 12
+      }
+
+      drawLine(y)
+    } else if (
       reportType === 'cash-summary' ||
       reportType === 'employee-cash-summary'
     ) {
@@ -868,9 +955,6 @@ Deno.serve(async (req) => {
       }
 
       // NEW SECTION: A PAGAR
-      // This refers to future installments or remaining debt payments
-      // We look at ALL payments including those with paidValue = 0 (future) or paidValue > 0
-      // Requirement: "List payment methods along with their respective installments/parcelas"
       if (payments && payments.length > 0) {
         checkPageBreak(60)
         drawText('A PAGAR', width / 2, y, {
@@ -942,9 +1026,6 @@ Deno.serve(async (req) => {
       drawLine(y)
       y -= 20
 
-      // Only show history if NOT Receipt (or requirement is just layout fix for receipt)
-      // "Update layout of 'Finalizar Acerto' and 'Recibo' PDFs" implies changes apply to both where relevant.
-      // But Recibo is usually simpler. History usually not in Recibo.
       if (!isReceipt) {
         const recentHistory =
           history && history.length > 0 ? history.slice(0, 10) : []

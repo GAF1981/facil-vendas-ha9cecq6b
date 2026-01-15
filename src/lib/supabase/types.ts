@@ -439,48 +439,6 @@ export type Database = {
         }
         Relationships: []
       }
-      'CONTAGEM DE ESTOQUE FINAL': {
-        Row: {
-          created_at: string | null
-          id: number
-          produto_id: number
-          quantidade: number
-          session_id: number | null
-          valor_unitario_snapshot: number | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: number
-          produto_id: number
-          quantidade: number
-          session_id?: number | null
-          valor_unitario_snapshot?: number | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: number
-          produto_id?: number
-          quantidade?: number
-          session_id?: number | null
-          valor_unitario_snapshot?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'CONTAGEM DE ESTOQUE FINAL_produto_id_fkey'
-            columns: ['produto_id']
-            isOneToOne: false
-            referencedRelation: 'PRODUTOS'
-            referencedColumns: ['ID']
-          },
-          {
-            foreignKeyName: 'CONTAGEM DE ESTOQUE FINAL_session_id_fkey'
-            columns: ['session_id']
-            isOneToOne: false
-            referencedRelation: 'DATAS DE INVENTÁRIO'
-            referencedColumns: ['ID INVENTÁRIO']
-          },
-        ]
-      }
       CRIAR_NOVA_ROTA: {
         Row: {
           id: number
