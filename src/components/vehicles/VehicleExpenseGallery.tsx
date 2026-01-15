@@ -51,9 +51,7 @@ export function VehicleExpenseGallery() {
         startDate: dateStart || undefined,
         endDate: dateEnd || undefined,
         vehicleId: vehicleFilter,
-        // We handle complex search client-side or we pass specific params?
-        // User asked for "filters for date, value, provider, and history"
-        // Let's pass what we can to DB, filter rest client side or enhanced service
+        excludeCaixa: true, // Filter out expenses that came from Cashier
       })
       setExpenses(data || [])
     } finally {
@@ -94,10 +92,13 @@ export function VehicleExpenseGallery() {
   }
 
   return (
-    <Card className="mt-6">
+    <Card className="mt-6 border-l-4 border-l-blue-600">
       <CardHeader>
-        <CardTitle className="text-xl">
-          Galeria de Despesas de Veículos
+        <CardTitle className="text-xl flex justify-between items-center">
+          <span>Galeria de Despesas de Veículos</span>
+          <span className="text-xs font-normal bg-blue-100 text-blue-800 px-2 py-1 rounded">
+            Exclusivo Gestão de Frota
+          </span>
         </CardTitle>
         <div className="flex flex-col gap-4 mt-4 p-4 bg-muted/20 rounded-lg">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -199,7 +200,7 @@ export function VehicleExpenseGallery() {
                       colSpan={8}
                       className="text-center h-24 text-muted-foreground"
                     >
-                      Nenhuma despesa encontrada para os filtros aplicados.
+                      Nenhuma despesa de frota encontrada.
                     </TableCell>
                   </TableRow>
                 ) : (

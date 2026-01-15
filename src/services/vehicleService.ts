@@ -52,7 +52,14 @@ export const vehicleService = {
   },
 
   async getLastOdometer(vehicleId: number): Promise<number> {
-    // 1. Check last expense odometer
+    // 1. Check last expense odometer (highest value recorded)
+    // We order by hodometro desc to get the max value recorded, assuming odometers only go up.
+    // However, if we want the "latest recorded" by date, we should order by Data.
+    // The requirement says "cannot be lower than the last recorded value".
+    // Usually "last recorded" implies chronological. But preventing input < max recorded is safer for integrity.
+    // Let's stick to the previous logic of "last entry by date" to allow for corrections if someone entered a future date by mistake,
+    // but the requirement implies a check against the car's current state.
+    // Let's use the Date order as the primary source of truth for "Current State".
     const { data: expenseData, error: expenseError } = await supabase
       .from('DESPESAS')
       .select('hodometro')
@@ -86,6 +93,7 @@ export const vehicleService = {
     endDate?: string
     vehicleId?: string | 'todos'
     search?: string
+    excludeCaixa?: boolean
   }) {
     let query = supabase
       .from('DESPESAS')
@@ -107,6 +115,9 @@ export const vehicleService = {
     }
     if (filters?.vehicleId && filters.vehicleId !== 'todos') {
       query = query.eq('veiculo_id', filters.vehicleId)
+    }
+    if (filters?.excludeCaixa) {
+      query = query.eq('saiu_do_caixa', false)
     }
     // Note: Search and value range filtering is handled client-side for flexibility
     // unless performance becomes an issue with massive datasets

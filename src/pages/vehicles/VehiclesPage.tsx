@@ -5,8 +5,8 @@ import { Plus, Car, ArrowLeft, Loader2, Wrench } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { VehicleTable } from '@/components/vehicles/VehicleTable'
 import { VehicleFormDialog } from '@/components/vehicles/VehicleFormDialog'
-import { ExpenseFormDialog } from '@/components/caixa/ExpenseFormDialog'
 import { VehicleExpenseGallery } from '@/components/vehicles/VehicleExpenseGallery'
+import { VehicleExpenseFormDialog } from '@/components/vehicles/VehicleExpenseFormDialog'
 import { vehicleService } from '@/services/vehicleService'
 import { Vehicle } from '@/types/vehicle'
 import { useToast } from '@/hooks/use-toast'
@@ -30,10 +30,6 @@ export default function VehiclesPage() {
     undefined,
   )
   const [deleteId, setDeleteId] = useState<number | null>(null)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [selectedVehicleForExpense, setSelectedVehicleForExpense] = useState<
-    number | null
-  >(null)
   const { toast } = useToast()
 
   const loadVehicles = async () => {
@@ -80,7 +76,6 @@ export default function VehiclesPage() {
   }
 
   const handleAddExpense = () => {
-    setSelectedVehicleForExpense(null)
     setIsExpenseDialogOpen(true)
   }
 
@@ -146,15 +141,13 @@ export default function VehiclesPage() {
         onSuccess={loadVehicles}
       />
 
-      <ExpenseFormDialog
+      <VehicleExpenseFormDialog
         open={isExpenseDialogOpen}
         onOpenChange={setIsExpenseDialogOpen}
         onSuccess={() => {
-          // Force refresh of the page to update gallery and lists
-          // In a more complex app we would use a query invalidation or context refresh
+          // Force reload to update gallery (can be improved with query invalidation in future)
           window.location.reload()
         }}
-        preselectedVehicleId={selectedVehicleForExpense}
       />
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
