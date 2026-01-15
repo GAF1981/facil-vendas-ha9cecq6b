@@ -16,6 +16,7 @@ import {
   ClipboardList,
   UserX,
   Fuel,
+  Upload,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useUserStore } from '@/stores/useUserStore'
@@ -38,6 +39,12 @@ const RelatorioDashboard = () => {
   const [showNewRoutePrompt, setShowNewRoutePrompt] = useState(false)
   const [currentRouteId, setCurrentRouteId] = useState<number | null>(null)
   const { toast } = useToast()
+
+  // Check if admin for Import Card visibility
+  const userSectors = Array.isArray(employee?.setor)
+    ? employee.setor
+    : [employee?.setor]
+  const isAdmin = userSectors.includes('Administrador')
 
   useEffect(() => {
     const checkAllClosed = async () => {
@@ -159,6 +166,18 @@ const RelatorioDashboard = () => {
       bg: 'bg-red-100',
     },
   ]
+
+  // Add Import card only if Admin
+  if (isAdmin) {
+    reports.push({
+      title: 'Importação de Saldo Inicial',
+      description: 'Migração de saldo inicial de clientes via CSV.',
+      icon: Upload,
+      to: '/relatorio/importacao-saldo',
+      color: 'text-blue-700',
+      bg: 'bg-blue-100',
+    })
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">

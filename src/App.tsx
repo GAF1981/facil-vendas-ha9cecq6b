@@ -33,6 +33,7 @@ import AdjustmentReportsPage from '@/pages/relatorio/AdjustmentReportsPage'
 import DebitosReportPage from '@/pages/relatorio/DebitosReportPage'
 import GeneralInventoryReportPage from '@/pages/relatorio/GeneralInventoryReportPage'
 import FuelReportPage from '@/pages/relatorio/FuelReportPage'
+import ImportSaldoPage from '@/pages/relatorio/ImportSaldoPage'
 import CaixaPage from '@/pages/caixa/CaixaPage'
 import FechamentosPage from '@/pages/fechamento/FechamentosPage'
 import PagamentosPage from '@/pages/pagamentos/PagamentosPage'
@@ -43,7 +44,7 @@ import ResumoAcertosPage from '@/pages/resumo-acertos/ResumoAcertosPage'
 import PermissionsPage from '@/pages/admin/PermissionsPage'
 import EstoqueCarroPage from '@/pages/estoque-carro/EstoqueCarroPage'
 import InativarClientesPage from '@/pages/inativar-clientes/InativarClientesPage'
-import VehiclesPage from '@/pages/vehicles/VehiclesPage' // New import
+import VehiclesPage from '@/pages/vehicles/VehiclesPage'
 import { AuthProvider } from '@/hooks/use-auth'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { PermissionsProvider } from '@/hooks/use-permissions'
@@ -189,6 +190,10 @@ const App = () => (
                   <Route
                     path="/relatorio/combustivel"
                     element={<FuelReportPage />}
+                  />
+                  <Route
+                    path="/relatorio/importacao-saldo"
+                    element={<ImportSaldoPage />}
                   />
                   <Route
                     path="/relatorio/inativar-clientes"
