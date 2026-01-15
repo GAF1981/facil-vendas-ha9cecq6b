@@ -313,46 +313,8 @@ export const rotaService = {
       })
     }
 
-    // Secondary Fetches (Dependent on primary results)
-    const stockMapByOrder = new Map<
-      number,
-      { value: number; clientId: number }
-    >()
-    const orderIdsArray = Array.from(orderIdsForStock)
-
-    // Stock Fetching (Optimized Chunking + Error Handling)
-    if (orderIdsArray.length > 0) {
-      const chunkSize = 1000
-      for (let i = 0; i < orderIdsArray.length; i += chunkSize) {
-        const chunk = orderIdsArray.slice(i, i + chunkSize)
-        await safeFetch(
-          supabase
-            .from('QUANTIDADE DE ESTOQUE FINAL')
-            .select(
-              'pedido_id:"NUMERO DO PEDIDO", client_id:"CÓDIGO DO CLIENTE", valor_total:"VALOR ESTOQUE SALDO FINAL"',
-            )
-            .in('"NUMERO DO PEDIDO"', chunk)
-            .then(({ data, error }) => {
-              if (error) throw error
-              data?.forEach((row: any) => {
-                const orderId = Number(row.pedido_id)
-                const clientId = Number(row.client_id)
-                const val = Number(row.valor_total) || 0
-                if (orderId && clientId) {
-                  if (!stockMapByOrder.has(orderId)) {
-                    stockMapByOrder.set(orderId, {
-                      value: val,
-                      clientId: clientId,
-                    })
-                  }
-                }
-              })
-            }),
-          null,
-          'stock chunk',
-        )
-      }
-    }
+    // Deprecated: Stock Fetching from deleted table removed
+    // We no longer populate stockMapByOrder from QUANTIDADE DE ESTOQUE FINAL
 
     // Oldest Unpaid Date Fetching
     const clientOldestDueMap = new Map<number, string>()
@@ -498,12 +460,8 @@ export const rotaService = {
         if (p !== undefined) projection = p
       }
 
+      // Estoque Removed
       let stockValue: number | null = null
-      if (stats?.lastOrderId) {
-        const stockInfo = stockMapByOrder.get(stats.lastOrderId)
-        if (stockInfo && stockInfo.clientId === cid)
-          stockValue = stockInfo.value
-      }
 
       let vencimentoStatus: 'VENCIDO' | 'A VENCER' | 'PAGO' | 'SEM DÉBITO' =
         'SEM DÉBITO'

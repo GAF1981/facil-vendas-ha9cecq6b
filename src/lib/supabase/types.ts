@@ -1905,51 +1905,6 @@ export type Database = {
         }
         Relationships: []
       }
-      'QUANTIDADE DE ESTOQUE FINAL': {
-        Row: {
-          banco_de_dados_id: number | null
-          CLIENTE: string | null
-          'CÓDIGO DO CLIENTE': number | null
-          'CÓDIGO DO PRODUTO': number | null
-          'DATA E HORA DO ACERTO': string | null
-          id: number
-          MERCADORIA: string | null
-          'NUMERO DO PEDIDO': number | null
-          'PREÇO VENDIDO': number | null
-          'SALDO FINAL': number | null
-          'VALOR ESTOQUE POR PRODUTO': number | null
-          'VALOR ESTOQUE SALDO FINAL': number | null
-        }
-        Insert: {
-          banco_de_dados_id?: number | null
-          CLIENTE?: string | null
-          'CÓDIGO DO CLIENTE'?: number | null
-          'CÓDIGO DO PRODUTO'?: number | null
-          'DATA E HORA DO ACERTO'?: string | null
-          id?: number
-          MERCADORIA?: string | null
-          'NUMERO DO PEDIDO'?: number | null
-          'PREÇO VENDIDO'?: number | null
-          'SALDO FINAL'?: number | null
-          'VALOR ESTOQUE POR PRODUTO'?: number | null
-          'VALOR ESTOQUE SALDO FINAL'?: number | null
-        }
-        Update: {
-          banco_de_dados_id?: number | null
-          CLIENTE?: string | null
-          'CÓDIGO DO CLIENTE'?: number | null
-          'CÓDIGO DO PRODUTO'?: number | null
-          'DATA E HORA DO ACERTO'?: string | null
-          id?: number
-          MERCADORIA?: string | null
-          'NUMERO DO PEDIDO'?: number | null
-          'PREÇO VENDIDO'?: number | null
-          'SALDO FINAL'?: number | null
-          'VALOR ESTOQUE POR PRODUTO'?: number | null
-          'VALOR ESTOQUE SALDO FINAL'?: number | null
-        }
-        Relationships: []
-      }
       RECEBIMENTOS: {
         Row: {
           cliente_id: number
