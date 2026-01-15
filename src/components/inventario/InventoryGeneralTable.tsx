@@ -10,13 +10,7 @@ import {
 import { formatCurrency } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import {
-  Eye,
-  Filter,
-  Calculator,
-  AlertTriangle,
-  CheckCircle2,
-} from 'lucide-react'
+import { Filter, Calculator, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { useState, useMemo } from 'react'
 import {
   Popover,
@@ -39,9 +33,18 @@ interface Props {
   items: InventoryGeneralItem[]
   sessionId: number
   onSuccess: () => void
+  readOnly?: boolean
+  isEditMode?: boolean
+  onMarkAsZero?: (productId: number) => void
+  onUpdateItem?: (productId: number, type: string, value: number) => void
 }
 
-export function InventoryGeneralTable({ items, sessionId, onSuccess }: Props) {
+export function InventoryGeneralTable({
+  items,
+  sessionId,
+  onSuccess,
+  readOnly,
+}: Props) {
   // Filter States
   const [contagemFilter, setContagemFilter] = useState<string>('todos')
   const [diffFilter, setDiffFilter] = useState<string>('todos')
@@ -209,15 +212,17 @@ export function InventoryGeneralTable({ items, sessionId, onSuccess }: Props) {
                       <div className="flex flex-col">
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{item.produto}</span>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-blue-600 hover:bg-blue-100 ml-auto"
-                            onClick={() => setQuickCountProduct(item)}
-                            title="Contagem Rápida"
-                          >
-                            <Calculator className="h-4 w-4" />
-                          </Button>
+                          {!readOnly && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-blue-600 hover:bg-blue-100 ml-auto"
+                              onClick={() => setQuickCountProduct(item)}
+                              title="Contagem Rápida"
+                            >
+                              <Calculator className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                         {item.codigo && (
                           <span className="text-xs text-muted-foreground">

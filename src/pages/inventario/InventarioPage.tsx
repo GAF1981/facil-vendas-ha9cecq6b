@@ -262,6 +262,10 @@ export default function InventarioPage() {
         {selectedSession && (
           <InventoryGeneralTable
             items={filteredItems}
+            sessionId={selectedSession.id}
+            onSuccess={() =>
+              selectedSessionId && loadItems(Number(selectedSessionId))
+            }
             onMarkAsZero={(pid) => handleUpdateItem(pid, 'CONTAGEM', 0)}
             readOnly={!canEdit}
             isEditMode={isEditMode}
