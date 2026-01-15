@@ -16,7 +16,7 @@ import { employeesService } from '@/services/employeesService'
 import { suppliersService } from '@/services/suppliersService'
 import { useToast } from '@/hooks/use-toast'
 import { Label } from '@/components/ui/label'
-import { Search } from 'lucide-react'
+import { Search, Loader2 } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -194,7 +194,19 @@ export function InventoryActionDialog({
         setPersistedEmployeeId(extraData.funcionarioId)
       if (extraData.fornecedorId) setPersistedSupplierId(extraData.fornecedorId)
 
-      toast({ title: 'Movimento Salvo' })
+      toast({
+        title:
+          type === 'CONTAGEM'
+            ? 'Contagem Salva'
+            : type === 'COMPRA'
+              ? 'Compra Registrada'
+              : 'Movimento Salvo',
+        description:
+          type === 'CONTAGEM'
+            ? `Quantidade do produto ${selectedProduct.PRODUTO} atualizada.`
+            : undefined,
+        className: 'bg-green-600 text-white',
+      })
       onSuccess()
 
       if (preselectedProduct) {
@@ -211,8 +223,14 @@ export function InventoryActionDialog({
           keptData.fornecedorId = extraData.fornecedorId
         setExtraData(keptData)
       }
-    } catch (e) {
-      toast({ title: 'Erro', variant: 'destructive' })
+    } catch (e: any) {
+      console.error(e)
+      toast({
+        title: 'Erro ao Salvar',
+        description:
+          e.message || 'Ocorreu um erro ao tentar salvar o movimento.',
+        variant: 'destructive',
+      })
     } finally {
       setLoading(false)
     }
@@ -285,6 +303,9 @@ export function InventoryActionDialog({
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
                 autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSave()
+                }}
               />
             </div>
 
@@ -366,11 +387,19 @@ export function InventoryActionDialog({
                   if (preselectedProduct) onOpenChange(false)
                   else setStep(1)
                 }}
+                disabled={loading}
               >
                 {preselectedProduct ? 'Cancelar' : 'Voltar'}
               </Button>
               <Button onClick={handleSave} disabled={loading}>
-                Salvar
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  'Salvar'
+                )}
               </Button>
             </DialogFooter>
           </div>

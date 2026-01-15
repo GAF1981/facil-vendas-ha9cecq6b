@@ -243,13 +243,37 @@ export const inventoryGeneralService = {
         })),
       )
     } else if (type === 'CONTAGEM') {
-      await supabase.from('ESTOQUE GERAL CONTAGEM').insert(
-        items.map((i) => ({
-          id_inventario: sessionId,
-          produto_id: i.productId,
-          quantidade: i.quantity,
-        })),
-      )
+      // Upsert logic for CONTAGEM to handle quick count updates
+      for (const item of items) {
+        const { data: existing } = await supabase
+          .from('ESTOQUE GERAL CONTAGEM')
+          .select('id')
+          .eq('id_inventario', sessionId)
+          .eq('produto_id', item.productId)
+          .maybeSingle()
+
+        if (existing) {
+          const { error } = await supabase
+            .from('ESTOQUE GERAL CONTAGEM')
+            .update({
+              quantidade: item.quantity,
+              created_at: new Date().toISOString(), // Ensure timestamp update
+            })
+            .eq('id', existing.id)
+
+          if (error) throw error
+        } else {
+          const { error } = await supabase
+            .from('ESTOQUE GERAL CONTAGEM')
+            .insert({
+              id_inventario: sessionId,
+              produto_id: item.productId,
+              quantidade: item.quantity,
+            })
+
+          if (error) throw error
+        }
+      }
     }
   },
 
