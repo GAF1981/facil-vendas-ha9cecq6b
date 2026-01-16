@@ -382,6 +382,7 @@ export default function AcertoPage() {
     }
 
     const totalPaid = payments.reduce((acc, p) => acc + p.paidValue, 0)
+    const totalRegistered = payments.reduce((acc, p) => acc + p.value, 0)
 
     // Feature 4: Zero Balance Validation for Captação
     if (isCaptacao && totalPaid !== 0) {
@@ -392,6 +393,22 @@ export default function AcertoPage() {
         variant: 'destructive',
       })
       return
+    }
+
+    // STRICT VALIDATION for Normal Acerto
+    // The "Total Selecionado" (totalRegistered) value must be exactly equal to "Saldo a Pagar" (amountToPay)
+    // This implies that "Restante" must be 0
+    if (!isCaptacao) {
+      // Using 0.01 epsilon for float comparison safety
+      if (Math.abs(totalRegistered - amountToPay) > 0.01) {
+        toast({
+          title: 'Erro de Validação',
+          description:
+            'O Total Selecionado deve ser igual ao total do saldo a pagar.',
+          variant: 'destructive',
+        })
+        return
+      }
     }
 
     // Financial Validation: Paid Amount > Due Amount Check
