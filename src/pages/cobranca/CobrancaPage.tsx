@@ -25,11 +25,15 @@ export default function CobrancaPage() {
   const [debts, setDebts] = useState<ClientDebt[]>([])
   const [filteredDebts, setFilteredDebts] = useState<ClientDebt[]>([])
   const [searchTerm, setSearchTerm] = useState('')
+  // Updated status filter to normalized 'VENCIDO'
   const [statusFilter, setStatusFilter] = useState<string>('todos')
   const [cityFilter, setCityFilter] = useState<string>('todos')
-  const [routeFilter, setRouteFilter] = useState<string>('todos') // Rota Motoqueiro Filter
+  // New Filters
+  const [motoqueiroFilter, setMotoqueiroFilter] = useState<string>('todos')
+  const [dataCombinadaFilter, setDataCombinadaFilter] = useState<string>('')
+
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
-  const [isSimplified, setIsSimplified] = useState(false) // Toggle State
+  const [isSimplified, setIsSimplified] = useState(false)
   const { toast } = useToast()
 
   const loadDebts = async () => {
@@ -74,28 +78,54 @@ export default function CobrancaPage() {
       )
     }
 
-    // Status Filter
-    if (statusFilter !== 'todos') {
-      result = result.filter((d) => d.status === statusFilter)
-    }
-
     // City Filter
     if (cityFilter !== 'todos') {
       result = result.filter((d) => d.city === cityFilter)
     }
 
-    // Rota Filter (Based on 'formaCobranca' or 'Group Rota')
-    // Here we filter if ANY receivable has 'MOTOQUEIRO'
-    if (routeFilter === 'motoqueiro') {
-      result = result.filter((d) =>
-        d.orders.some((o) =>
-          o.installments.some((i) => i.formaCobranca === 'MOTOQUEIRO'),
-        ),
-      )
+    if (
+      statusFilter !== 'todos' ||
+      motoqueiroFilter !== 'todos' ||
+      dataCombinadaFilter
+    ) {
+      result = result.filter((client) => {
+        return client.orders.some((order) =>
+          order.installments.some((inst) => {
+            let matches = true
+            if (statusFilter !== 'todos' && inst.status !== statusFilter)
+              matches = false
+            if (
+              dataCombinadaFilter &&
+              inst.dataCombinada !== dataCombinadaFilter
+            )
+              matches = false
+            if (motoqueiroFilter !== 'todos') {
+              if (
+                motoqueiroFilter === 'com_rota' &&
+                inst.formaCobranca !== 'MOTOQUEIRO'
+              )
+                matches = false
+              if (
+                motoqueiroFilter === 'sem_rota' &&
+                inst.formaCobranca === 'MOTOQUEIRO'
+              )
+                matches = false
+            }
+            return matches
+          }),
+        )
+      })
     }
 
     setFilteredDebts(result)
-  }, [debts, searchTerm, statusFilter, cityFilter, routeFilter])
+  }, [
+    debts,
+    searchTerm,
+    statusFilter,
+    cityFilter,
+    motoqueiroFilter,
+    dataCombinadaFilter,
+  ])
 
   const handleToggleItem = (id: string) => {
     const newSelected = new Set(selectedItems)
@@ -107,7 +137,6 @@ export default function CobrancaPage() {
     setSelectedItems(newSelected)
   }
 
-  // Master Checkbox Logic
   const handleToggleAll = (ids: string[]) => {
     const newSelected = new Set(selectedItems)
     const allSelected = ids.every((id) => newSelected.has(id))
@@ -176,8 +205,8 @@ export default function CobrancaPage() {
 
       <Card>
         <CardContent className="p-4 space-y-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
+          <div className="flex flex-col md:flex-row gap-4 flex-wrap">
+            <div className="flex-1 relative min-w-[200px]">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar cliente, código ou pedido..."
@@ -186,19 +215,42 @@ export default function CobrancaPage() {
                 className="pl-9"
               />
             </div>
-            <div className="w-full md:w-[200px]">
+            <div className="w-full md:w-[150px]">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger>
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos Status</SelectItem>
-                  <SelectItem value="VENCIDO">Vencidos</SelectItem>
-                  <SelectItem value="A VENCER">A Vencer</SelectItem>
+                  <SelectItem value="VENCIDO">vencido</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="w-full md:w-[200px]">
+            <div className="w-full md:w-[150px]">
+              <Select
+                value={motoqueiroFilter}
+                onValueChange={setMotoqueiroFilter}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Rota Motoqueiro" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="com_rota">Com Rota</SelectItem>
+                  <SelectItem value="sem_rota">Sem Rota</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-full md:w-[150px]">
+              <Input
+                type="date"
+                value={dataCombinadaFilter}
+                onChange={(e) => setDataCombinadaFilter(e.target.value)}
+                className="w-full"
+                placeholder="Data Combinada"
+              />
+            </div>
+            <div className="w-full md:w-[150px]">
               <Select value={cityFilter} onValueChange={setCityFilter}>
                 <SelectTrigger>
                   <SelectValue placeholder="Cidade" />
@@ -223,7 +275,7 @@ export default function CobrancaPage() {
               <TabsTrigger
                 value="motoqueiro"
                 className="flex items-center gap-2"
-                onClick={() => setRouteFilter('motoqueiro')}
+                onClick={() => setMotoqueiroFilter('com_rota')} // Auto set filter for convenience
               >
                 Rota Motoqueiro
                 {selectedItems.size > 0 && (
@@ -242,7 +294,10 @@ export default function CobrancaPage() {
                 onToggleItem={handleToggleItem}
                 isCobrancaMode={false}
                 onToggleAll={handleToggleAll}
-                isSimplified={isSimplified} // Pass simplified state
+                isSimplified={isSimplified}
+                statusFilter={statusFilter}
+                motoqueiroFilter={motoqueiroFilter}
+                dataCombinadaFilter={dataCombinadaFilter}
               />
             </TabsContent>
 
@@ -260,19 +315,16 @@ export default function CobrancaPage() {
                 </div>
               </div>
               <DebtTable
-                data={filteredDebts.filter((d) =>
-                  d.orders.some((o) =>
-                    o.installments.some(
-                      (i) => i.formaCobranca === 'MOTOQUEIRO',
-                    ),
-                  ),
-                )}
+                data={filteredDebts}
                 onRefresh={loadDebts}
                 selectedItems={selectedItems}
                 onToggleItem={handleToggleItem}
                 isCobrancaMode={true}
                 onToggleAll={handleToggleAll}
-                isSimplified={isSimplified} // Pass simplified state
+                isSimplified={isSimplified}
+                statusFilter={statusFilter}
+                motoqueiroFilter="com_rota" // Force filter here? No, let user logic prevail or just force it for this view.
+                dataCombinadaFilter={dataCombinadaFilter}
               />
             </TabsContent>
           </Tabs>

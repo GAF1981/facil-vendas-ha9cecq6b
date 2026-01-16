@@ -18,7 +18,7 @@ export const cobrancaService = {
       .select(
         'pedido_id, cliente_codigo, cliente_nome, valor_venda, valor_pago, debito, data_acerto, vendedor_nome, rota_id, saldo_a_pagar',
       )
-      .gt('debito', 1)
+      .gt('debito', 0) // Updated to 0 as per requirements
       .order('pedido_id', { ascending: false })
       .limit(50000)
 
@@ -49,6 +49,7 @@ export const cobrancaService = {
         address: string | null
         neighborhood: string | null
         city: string | null
+        cep: string | null
         situacao: string | null
       }
     >()
@@ -61,7 +62,7 @@ export const cobrancaService = {
         const { data: clientData, error: clientError } = await supabase
           .from('CLIENTES')
           .select(
-            'CODIGO, "TIPO DE CLIENTE", GRUPO, "GRUPO ROTA", ENDEREÇO, BAIRRO, MUNICÍPIO, situacao',
+            'CODIGO, "TIPO DE CLIENTE", GRUPO, "GRUPO ROTA", ENDEREÇO, BAIRRO, MUNICÍPIO, situacao, "CEP OFICIO"',
           )
           .in('CODIGO', chunk)
 
@@ -77,6 +78,7 @@ export const cobrancaService = {
               address: (c as any)['ENDEREÇO'] || null,
               neighborhood: (c as any)['BAIRRO'] || null,
               city: (c as any)['MUNICÍPIO'] || null,
+              cep: (c as any)['CEP OFICIO'] || null,
               situacao: (c as any)['situacao'] || 'ATIVO',
             })
           })
@@ -90,8 +92,6 @@ export const cobrancaService = {
       const chunkSize = 1000
       for (let i = 0; i < clientIds.length; i += chunkSize) {
         const chunk = clientIds.slice(i, i + chunkSize)
-        // Since we can't do a simple count(*) group by with simple client, we fetch IDs and count in memory
-        // Optimizing by selecting only necessary column
         const { data: actionsData, error: actionsError } = await supabase
           .from('acoes_cobranca')
           .select('cliente_id')
@@ -295,7 +295,7 @@ export const cobrancaService = {
         oldestOverdueDate: oldestOverdue,
         formaPagamento: 'N/D',
         valorDevido: rawDebt,
-        collectionActionCount: actionRows ? actionRows.length : 0, // Updated to count actual rows
+        collectionActionCount: actionRows ? actionRows.length : 0,
         employeeName: debt.vendedor_nome || null,
       }
 
@@ -310,6 +310,7 @@ export const cobrancaService = {
           address: cInfo?.address || null,
           neighborhood: cInfo?.neighborhood || null,
           city: cInfo?.city || null,
+          cep: cInfo?.cep || null,
           situacao: cInfo?.situacao || 'ATIVO',
           totalDebt: 0,
           orderCount: 0,
@@ -318,7 +319,7 @@ export const cobrancaService = {
           oldestOverdueDate: null,
           earliestUnpaidDate: null,
           orders: [],
-          totalActionCount: clientActionCounts.get(cid) || 0, // NEW field
+          totalActionCount: clientActionCounts.get(cid) || 0,
         })
       }
 

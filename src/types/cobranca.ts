@@ -84,6 +84,7 @@ export interface ClientDebt {
   address: string | null
   neighborhood: string | null
   city: string | null
+  cep: string | null // NEW: CEP Data
   // New situation field
   situacao: string | null
   // New field for Total Action Count

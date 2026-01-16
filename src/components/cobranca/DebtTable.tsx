@@ -49,7 +49,10 @@ interface DebtTableProps {
   onToggleItem: (id: string) => void
   isCobrancaMode: boolean
   onToggleAll?: (ids: string[]) => void
-  isSimplified?: boolean // New prop for Simplified View
+  isSimplified?: boolean
+  statusFilter?: string
+  dataCombinadaFilter?: string
+  motoqueiroFilter?: string
 }
 
 interface FlatRow {
@@ -61,8 +64,9 @@ interface FlatRow {
   address: string | null
   neighborhood: string | null
   city: string | null
+  cep: string | null
   clientOrderCount: number
-  clientTotalActions: number // New field
+  clientTotalActions: number
   orderId: number
   orderDate: string
   vencimento: string | null
@@ -91,7 +95,10 @@ export function DebtTable({
   onToggleItem,
   isCobrancaMode,
   onToggleAll,
-  isSimplified = false, // Default to false
+  isSimplified = false,
+  statusFilter = 'todos',
+  dataCombinadaFilter = '',
+  motoqueiroFilter = 'todos',
 }: DebtTableProps) {
   const [selectedClient, setSelectedClient] = useState<ClientDebt | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -157,8 +164,9 @@ export function DebtTable({
             address: client.address,
             neighborhood: client.neighborhood,
             city: client.city,
+            cep: client.cep, // Map CEP
             clientOrderCount: client.orderCount,
-            clientTotalActions: client.totalActionCount, // Added
+            clientTotalActions: client.totalActionCount,
             orderId: order.orderId,
             orderDate: order.date,
             vencimento: inst.vencimento,
@@ -182,8 +190,27 @@ export function DebtTable({
       }),
     )
 
+    // Apply Deep Filters Here
+    let filtered = rows
+
+    if (statusFilter !== 'todos') {
+      filtered = filtered.filter((r) => r.status === statusFilter)
+    }
+
+    if (dataCombinadaFilter) {
+      filtered = filtered.filter((r) => r.dataCombinada === dataCombinadaFilter)
+    }
+
+    if (motoqueiroFilter !== 'todos') {
+      if (motoqueiroFilter === 'com_rota') {
+        filtered = filtered.filter((r) => r.formaCobranca === 'MOTOQUEIRO')
+      } else if (motoqueiroFilter === 'sem_rota') {
+        filtered = filtered.filter((r) => r.formaCobranca !== 'MOTOQUEIRO')
+      }
+    }
+
     if (sortConfig) {
-      rows.sort((a, b) => {
+      filtered.sort((a, b) => {
         const aValue = a[sortConfig.key] ?? ''
         const bValue = b[sortConfig.key] ?? ''
 
@@ -197,8 +224,15 @@ export function DebtTable({
       })
     }
 
-    return rows
-  }, [data, localUpdates, sortConfig])
+    return filtered
+  }, [
+    data,
+    localUpdates,
+    sortConfig,
+    statusFilter,
+    dataCombinadaFilter,
+    motoqueiroFilter,
+  ])
 
   const requestSort = (key: keyof FlatRow) => {
     let direction: 'asc' | 'desc' = 'asc'
@@ -262,20 +296,6 @@ export function DebtTable({
     return <ArrowDown className="h-3 w-3 ml-1 text-primary" />
   }
 
-  const handleToggleAllVisible = (checked: boolean) => {
-    if (onToggleAll) {
-      if (checked) {
-        onToggleAll(flattenedData.map((r) => r.uniqueId))
-      } else {
-        onToggleAll([])
-      }
-    }
-  }
-
-  const allVisibleSelected =
-    flattenedData.length > 0 &&
-    flattenedData.every((r) => selectedItems.has(r.uniqueId))
-
   return (
     <>
       <div className="rounded-md border bg-card">
@@ -283,7 +303,6 @@ export function DebtTable({
           <TableHeader className="bg-background sticky top-0 z-10 shadow-sm">
             <TableRow>
               <TableHead className="w-[70px] bg-background">Código</TableHead>
-              {/* Conditionally hide columns based on isSimplified and isCobrancaMode */}
               {!isCobrancaMode && !isSimplified && (
                 <TableHead className="w-[90px] bg-background">Tipo</TableHead>
               )}
@@ -317,11 +336,15 @@ export function DebtTable({
                   </div>
                 </TableHead>
               )}
-              {/* New Counter Column */}
+              {/* CEP Column */}
+              {!isSimplified && (
+                <TableHead className="min-w-[90px] bg-background">
+                  CEP
+                </TableHead>
+              )}
               <TableHead className="min-w-[80px] text-center bg-background">
                 Contador
               </TableHead>
-
               {!isCobrancaMode && (
                 <TableHead className="w-[80px] bg-background">Pedido</TableHead>
               )}
@@ -358,8 +381,6 @@ export function DebtTable({
               >
                 <div className="flex flex-col items-center gap-1">
                   <span>Rota</span>
-                  {/* Removed checkbox logic for bulk selection in Rota header as requested */}
-                  {/* {onToggleAll && ( ... ) } - Removed */}
                 </div>
               </TableHead>
             </TableRow>
@@ -368,7 +389,7 @@ export function DebtTable({
             {flattenedData.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={isCobrancaMode ? 14 : 18} // Adjusted colspan estimation
+                  colSpan={isCobrancaMode ? 15 : 19} // Adjusted colspan
                   className="h-24 text-center text-muted-foreground"
                 >
                   Nenhum registro encontrado.
@@ -420,8 +441,15 @@ export function DebtTable({
                         {row.city || '-'}
                       </TableCell>
                     )}
+                    {!isSimplified && (
+                      <TableCell
+                        className="text-xs text-muted-foreground font-mono"
+                        title={row.cep || ''}
+                      >
+                        {row.cep || '-'}
+                      </TableCell>
+                    )}
 
-                    {/* New Counter Cell */}
                     <TableCell className="text-center font-mono text-xs text-muted-foreground">
                       {row.clientTotalActions}
                     </TableCell>
@@ -510,14 +538,18 @@ export function DebtTable({
                               : 'outline'
                         }
                         className={cn(
-                          'text-[10px] px-2 py-0.5 h-6 whitespace-nowrap',
+                          'text-[10px] px-2 py-0.5 h-6 whitespace-nowrap capitalize',
                           row.status === 'PAGO' &&
                             'bg-green-100 text-green-700 hover:bg-green-200 border-transparent',
                           row.status === 'A VENCER' &&
                             'bg-green-50 text-green-600 border-green-200 hover:bg-green-100 font-bold',
                         )}
                       >
-                        {row.status}
+                        {row.status === 'VENCIDO'
+                          ? 'vencido'
+                          : row.status === 'A VENCER'
+                            ? 'a vencer'
+                            : row.status.toLowerCase()}
                       </Badge>
                     </TableCell>
                     <TableCell>

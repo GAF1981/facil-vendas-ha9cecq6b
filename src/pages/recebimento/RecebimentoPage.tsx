@@ -1,381 +1,307 @@
-import { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ClientSearch } from '@/components/acerto/ClientSearch'
-import { ClientDetails } from '@/components/acerto/ClientDetails'
+import { useEffect, useState, useMemo } from 'react'
 import {
-  AcertoHistoryTable,
-  HistoryRow,
-} from '@/components/acerto/AcertoHistoryTable'
-import { AcertoPaymentSummary } from '@/components/acerto/AcertoPaymentSummary'
-import { ClientRow } from '@/types/client'
-import { bancoDeDadosService } from '@/services/bancoDeDadosService'
-import { recebimentoService } from '@/services/recebimentoService'
-import { acertoService } from '@/services/acertoService'
-import {
-  ArrowDownCircle,
-  Save,
-  Loader2,
-  AlertCircle,
-  AlertTriangle,
-} from 'lucide-react'
-import { PaymentEntry } from '@/types/payment'
-import { useUserStore } from '@/stores/useUserStore'
-import { useToast } from '@/hooks/use-toast'
+  confirmationService,
+  ConfirmationRow,
+} from '@/services/confirmationService'
 import { Button } from '@/components/ui/button'
-import { format } from 'date-fns'
-import { fechamentoService } from '@/services/fechamentoService'
-import { rotaService } from '@/services/rotaService'
+import { Input } from '@/components/ui/input'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Checkbox } from '@/components/ui/checkbox'
+import { formatCurrency } from '@/lib/formatters'
+import { format, parseISO } from 'date-fns'
+import { Loader2, Search } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 
 export default function RecebimentoPage() {
-  const { employee } = useUserStore()
+  const [loading, setLoading] = useState(true)
+  const [data, setData] = useState<ConfirmationRow[]>([])
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [searchTerm, setSearchTerm] = useState('')
+  const [processing, setProcessing] = useState(false)
   const { toast } = useToast()
 
-  const [client, setClient] = useState<ClientRow | null>(null)
-  const [monthlyAverage, setMonthlyAverage] = useState(0)
-  const [lastAcerto, setLastAcerto] = useState<{
-    date: string
-    time: string
-  } | null>(null)
-  const [loadingLastAcerto, setLoadingLastAcerto] = useState(false)
-
-  // Payment State
-  const [payments, setPayments] = useState<PaymentEntry[]>([])
-  const [historyData, setHistoryData] = useState<HistoryRow[]>([])
-  const [totalDebt, setTotalDebt] = useState(0)
-  const [loadingHistory, setLoadingHistory] = useState(false)
-  const [saving, setSaving] = useState(false)
-
-  // Selected Order State
-  const [selectedOrder, setSelectedOrder] = useState<HistoryRow | null>(null)
-
-  // Fetch data when client changes
-  useEffect(() => {
-    if (client) {
-      setLoadingHistory(true)
-      setSelectedOrder(null)
-
-      // 1. Fetch Monthly Average
-      bancoDeDadosService
-        .getMonthlyAverage(client.CODIGO)
-        .then((avg) => setMonthlyAverage(avg))
-        .catch((err) => console.error('Error fetching monthly average', err))
-
-      // 2. Fetch Last Acerto for ClientDetails
-      setLoadingLastAcerto(true)
-      bancoDeDadosService
-        .getLastAcerto(client.CODIGO)
-        .then((data) => setLastAcerto(data))
-        .catch((err) => console.error('Error fetching last acerto', err))
-        .finally(() => setLoadingLastAcerto(false))
-
-      // 3. Fetch History to calculate Total Debt
-      fetchHistory()
-    } else {
-      setMonthlyAverage(0)
-      setLastAcerto(null)
-      setHistoryData([])
-      setTotalDebt(0)
-      setPayments([])
-      setSelectedOrder(null)
-    }
-  }, [client])
-
-  const fetchHistory = () => {
-    if (!client) return
-    bancoDeDadosService
-      .getAcertoHistory(client.CODIGO)
-      .then((data) => {
-        setHistoryData(data)
-        // Calculate Total Debt (Sum of all positive debts)
-        const debt = data.reduce((acc, row) => acc + row.debito, 0)
-        setTotalDebt(debt)
-      })
-      .catch((err) => console.error('Error fetching history', err))
-      .finally(() => setLoadingHistory(false))
-  }
-
-  const handleClientSelect = (selected: ClientRow) => {
-    setClient(selected)
-  }
-
-  const handleOrderSelect = (order: HistoryRow | null) => {
-    setSelectedOrder(order)
-    // Requirement Update: No payment method selected by default
-    setPayments([])
-  }
-
-  const handleSaveRecebimento = async () => {
-    if (!client || !employee) {
-      toast({
-        title: 'Dados inválidos',
-        description: 'Cliente ou funcionário não identificado.',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    // CHECK CLOSURE BLOCK
+  const loadData = async () => {
+    setLoading(true)
     try {
-      const activeRota = await rotaService.getActiveRota()
-      if (activeRota) {
-        const closureStatus = await fechamentoService.getClosureStatus(
-          activeRota.id,
-          employee.id,
-        )
-        if (closureStatus === 'Aberto' || closureStatus === 'Fechado') {
-          toast({
-            title: 'Ação Bloqueada',
-            description:
-              'Seu Caixa está fechado para a Rota !!! Você deve aguardar abrir uma Nova Rota !!!',
-            variant: 'destructive',
-          })
-          return
-        }
-      }
+      const result = await confirmationService.getConfirmationData()
+      setData(result)
     } catch (error) {
-      console.error('Error checking closure status:', error)
-    }
-
-    if (!selectedOrder) {
-      toast({
-        title: 'Pedido não selecionado',
-        description:
-          'Por favor, selecione um pedido no histórico abaixo para realizar o pagamento.',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    if (payments.length === 0) {
-      toast({
-        title: 'Pagamento vazio',
-        description: 'Adicione pelo menos uma forma de pagamento.',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    const totalPaid = payments.reduce((acc, p) => acc + p.paidValue, 0)
-    if (totalPaid <= 0) {
-      toast({
-        title: 'Valor inválido',
-        description: 'O valor pago deve ser maior que zero.',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    // Validation: Total Selected must match Balance Due
-    const balanceDue = selectedOrder.saldoAPagar
-    if (Math.abs(totalPaid - balanceDue) > 0.01) {
-      toast({
-        title: 'Valor Divergente',
-        description:
-          'O valor total selecionado deve ser igual ao saldo a pagar.',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    setSaving(true)
-    try {
-      await recebimentoService.saveRecebimento(
-        client,
-        employee,
-        payments,
-        selectedOrder.id,
-      )
-
-      // Generate Receipt PDF
-      try {
-        const now = new Date()
-        const pdfData = {
-          client,
-          employee,
-          date: now.toISOString(),
-          acertoTipo: 'Recebimento',
-          totalVendido: selectedOrder.valorVendaTotal,
-          valorDesconto: 0,
-          valorAcerto: selectedOrder.saldoAPagar,
-          valorPago: totalPaid,
-          debito: Math.max(0, selectedOrder.debito - totalPaid),
-          payments,
-          history: historyData.slice(0, 12),
-          monthlyAverage,
-          orderNumber: selectedOrder.id,
-          isReceipt: true,
-          issuerName: employee.nome_completo,
-        }
-
-        const pdfBlob = await acertoService.generatePdf(pdfData, {
-          preview: false,
-        })
-
-        const url = window.URL.createObjectURL(pdfBlob)
-        window.open(url, '_blank')
-
-        setTimeout(() => {
-          window.URL.revokeObjectURL(url)
-        }, 1000)
-      } catch (pdfError) {
-        console.error('Error generating receipt:', pdfError)
-        toast({
-          title: 'Erro ao gerar Recibo',
-          description:
-            'O pagamento foi salvo, mas o recibo não pôde ser gerado.',
-          variant: 'destructive',
-        })
-      }
-
-      toast({
-        title: 'Recebimento salvo',
-        description: `Pagamento registrado para o pedido #${selectedOrder.id}.`,
-        className: 'bg-green-50 border-green-200 text-green-900',
-      })
-
-      setPayments([])
-      setSelectedOrder(null)
-      setLoadingHistory(true)
-      fetchHistory()
-    } catch (error: any) {
       console.error(error)
       toast({
-        title: 'Erro ao salvar',
-        description:
-          error.message || 'Não foi possível registrar o recebimento.',
+        title: 'Erro',
+        description: 'Não foi possível carregar os recebimentos.',
         variant: 'destructive',
       })
     } finally {
-      setSaving(false)
+      setLoading(false)
     }
   }
 
-  const currentDebt = selectedOrder ? selectedOrder.debito : totalDebt
+  useEffect(() => {
+    loadData()
+  }, [])
 
-  // Determine if confirm button should be disabled based on value match
-  const totalSelectedValue = payments.reduce((acc, p) => acc + p.value, 0)
-  const isValueMatched =
-    selectedOrder &&
-    Math.abs(totalSelectedValue - selectedOrder.saldoAPagar) < 0.01
+  const filteredData = useMemo(() => {
+    if (!searchTerm) return data
+    const lower = searchTerm.toLowerCase()
+    return data.filter(
+      (row) =>
+        row.clientCode.toString().includes(lower) ||
+        row.orderId.toString().includes(lower) ||
+        (row.employee && row.employee.toLowerCase().includes(lower)),
+    )
+  }, [data, searchTerm])
+
+  const toggleSelection = (id: number) => {
+    const newSet = new Set(selectedIds)
+    if (newSet.has(id)) {
+      newSet.delete(id)
+    } else {
+      newSet.add(id)
+    }
+    setSelectedIds(newSet)
+  }
+
+  const toggleAll = (checked: boolean) => {
+    if (checked) {
+      const allIds = filteredData.map((d) => d.orderId)
+      setSelectedIds(new Set(allIds))
+    } else {
+      setSelectedIds(new Set())
+    }
+  }
+
+  const selectedRows = data.filter((row) => selectedIds.has(row.orderId))
+  const totalSaldoPagar = selectedRows.reduce(
+    (acc, row) => acc + row.amountToPay,
+    0,
+  )
+  const totalSelecionado = selectedRows.reduce(
+    (acc, row) => acc + row.registeredAmount,
+    0,
+  )
+
+  // Validation Logic: Difference must be less than 0.10
+  const difference = Math.abs(totalSaldoPagar - totalSelecionado)
+  const isValid = difference < 0.1
+  const canSubmit = selectedIds.size > 0 && isValid
+
+  const handleConfirm = async () => {
+    if (!canSubmit) return
+
+    setProcessing(true)
+    try {
+      for (const row of selectedRows) {
+        await confirmationService.confirmPayment(row.orderId, { pix: true })
+      }
+
+      toast({
+        title: 'Sucesso',
+        description: `${selectedRows.length} recebimentos confirmados.`,
+        className: 'bg-green-600 text-white',
+      })
+      setSelectedIds(new Set())
+      await loadData()
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: 'Erro',
+        description: 'Falha ao confirmar recebimentos.',
+        variant: 'destructive',
+      })
+    } finally {
+      setProcessing(false)
+    }
+  }
 
   return (
-    <div className="space-y-6 animate-fade-in p-2 pb-24 sm:p-6">
-      <div className="flex items-center gap-4">
-        <div className="p-3 bg-emerald-100 text-emerald-700 rounded-lg shrink-0">
-          <ArrowDownCircle className="w-6 h-6" />
-        </div>
+    <div className="space-y-6 animate-fade-in p-4 sm:p-6 pb-20">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Recebimentos</h1>
+          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+            Confirmar Recebimentos
+          </h1>
           <p className="text-muted-foreground">
-            Gerencie pagamentos e consulte o histórico financeiro.
+            Valide e confirme pagamentos pendentes.
           </p>
         </div>
+        <Button variant="outline" onClick={loadData} disabled={loading}>
+          <Loader2 className={cn('mr-2 h-4 w-4', loading && 'animate-spin')} />
+          Atualizar
+        </Button>
       </div>
 
-      <div className="space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Buscar Cliente</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ClientSearch onSelect={handleClientSelect} disabled={saving} />
-          </CardContent>
-        </Card>
-
-        {client && (
-          <div className="space-y-6 animate-fade-in-up">
-            <ClientDetails
-              client={client}
-              lastAcerto={lastAcerto}
-              loading={loadingLastAcerto}
-            />
-
-            <div className="space-y-4">
-              {selectedOrder ? (
-                <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-md flex items-center justify-between animate-fade-in">
-                  <span className="font-medium">
-                    Pagando Pedido Selecionado:{' '}
-                    <strong>#{selectedOrder.id}</strong>
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleOrderSelect(null)}
-                    className="text-blue-800 hover:text-blue-900 hover:bg-blue-100"
-                  >
-                    Cancelar Seleção
-                  </Button>
+      <div className="grid gap-6 md:grid-cols-12">
+        <div className="md:col-span-8 space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex justify-between items-center">
+                <CardTitle className="text-lg">Pagamentos Pendentes</CardTitle>
+                <div className="relative w-64">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar pedido, cliente..."
+                    className="pl-8"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
                 </div>
-              ) : (
-                <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-md flex items-center gap-2 animate-fade-in">
-                  <AlertCircle className="h-5 w-5" />
-                  <span className="font-medium">
-                    Selecione um pedido no histórico abaixo para habilitar o
-                    pagamento.
-                  </span>
-                </div>
-              )}
-
-              <AcertoPaymentSummary
-                saldoAPagar={currentDebt}
-                payments={payments}
-                onPaymentsChange={setPayments}
-                disabled={saving || !selectedOrder}
-                isReceiptMode={true} // Enable Strict Receipt Mode
-              />
-
-              <div className="flex flex-col items-end pt-2 gap-2">
-                <Button
-                  size="lg"
-                  onClick={handleSaveRecebimento}
-                  disabled={
-                    saving ||
-                    payments.length === 0 ||
-                    !selectedOrder ||
-                    !isValueMatched
-                  }
-                  className="w-full sm:w-auto min-w-[200px]"
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Salvando...
-                    </>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[50px] text-center">
+                      <Checkbox
+                        checked={
+                          selectedIds.size > 0 &&
+                          selectedIds.size === filteredData.length
+                        }
+                        onCheckedChange={(checked) => toggleAll(!!checked)}
+                      />
+                    </TableHead>
+                    <TableHead>Pedido</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Funcionário</TableHead>
+                    <TableHead className="text-right">Saldo a Pagar</TableHead>
+                    <TableHead className="text-right">A Confirmar</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="h-24 text-center">
+                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredData.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="h-24 text-center text-muted-foreground"
+                      >
+                        Nenhum recebimento pendente encontrado.
+                      </TableCell>
+                    </TableRow>
                   ) : (
-                    <>
-                      <Save className="mr-2 h-4 w-4" />
-                      Confirmar Recebimento
-                    </>
+                    filteredData.map((row) => {
+                      const isSelected = selectedIds.has(row.orderId)
+                      return (
+                        <TableRow
+                          key={row.orderId}
+                          className={isSelected ? 'bg-muted/50' : ''}
+                        >
+                          <TableCell className="text-center">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() =>
+                                toggleSelection(row.orderId)
+                              }
+                            />
+                          </TableCell>
+                          <TableCell className="font-mono">
+                            {row.orderId}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span className="font-medium text-sm">
+                                Cod: {row.clientCode}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {format(parseISO(row.date), 'dd/MM/yyyy')}
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            {row.employee}
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            {formatCurrency(row.amountToPay)}
+                          </TableCell>
+                          <TableCell className="text-right font-bold text-green-600">
+                            {formatCurrency(row.registeredAmount)}
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })
                   )}
-                </Button>
-                {selectedOrder && !isValueMatched && (
-                  <div className="text-sm text-amber-600 flex items-center gap-1.5 bg-amber-50 px-3 py-1 rounded-md border border-amber-100">
-                    <AlertTriangle className="h-4 w-4" />
-                    Este botão não poderá ser acionado se o valor 'Saldo a
-                    Pagar' for diferente do 'Total Selecionado'
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="md:col-span-4 space-y-4">
+          <Card className="sticky top-6">
+            <CardHeader>
+              <CardTitle>Resumo da Seleção</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    Itens Selecionados
+                  </span>
+                  <span className="font-medium">{selectedIds.size}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    Saldo a Pagar (Total)
+                  </span>
+                  <span className="font-medium">
+                    {formatCurrency(totalSaldoPagar)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-lg font-bold pt-2 border-t">
+                  <span>Total Selecionado</span>
+                  <span className="text-green-600">
+                    {formatCurrency(totalSelecionado)}
+                  </span>
+                </div>
+                {selectedIds.size > 0 && (
+                  <div
+                    className={cn(
+                      'text-xs text-right',
+                      isValid ? 'text-green-600' : 'text-red-500',
+                    )}
+                  >
+                    Diferença: {formatCurrency(difference)}
                   </div>
                 )}
               </div>
-            </div>
 
-            <div className="pt-2">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-lg font-semibold">Histórico de Pedidos</h3>
-                <span className="text-sm text-muted-foreground">
-                  Selecione um pedido para pagar individualmente
-                </span>
-              </div>
-              <AcertoHistoryTable
-                clientId={client.CODIGO}
-                monthlyAverage={monthlyAverage}
-                data={historyData}
-                onSelectOrder={handleOrderSelect}
-                selectedOrderId={selectedOrder?.id}
-                hideHeader
-              />
-            </div>
-          </div>
-        )}
+              <Button
+                className="w-full"
+                size="lg"
+                onClick={handleConfirm}
+                disabled={!canSubmit || processing}
+              >
+                {processing && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Confirmar Recebimento
+              </Button>
+
+              {!isValid && selectedIds.size > 0 && (
+                <div className="p-3 bg-red-50 text-red-700 text-xs rounded-md border border-red-100">
+                  esse botão não poderá ser acionado se o valor o &apos;Saldo a
+                  Pagar&apos; for igual ao &apos;Total Selecionado&apos;
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   )
