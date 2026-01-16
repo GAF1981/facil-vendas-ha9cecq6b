@@ -11,10 +11,17 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
-import { Label } from '@/components/ui/label' // Added Label import
+import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Loader2, ChevronsUpDown, Check, Plus } from 'lucide-react'
+import {
+  Loader2,
+  ChevronsUpDown,
+  Check,
+  Plus,
+  MapPin,
+  ArrowRight,
+} from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -70,6 +77,10 @@ export function ClientForm({
   const [searchingCep, setSearchingCep] = useState(false)
   const [newGroupOpen, setNewGroupOpen] = useState(false)
   const [newGroupName, setNewGroupName] = useState('')
+
+  // Address helper state
+  const [addressNumber, setAddressNumber] = useState('')
+  const [addressPopoverOpen, setAddressPopoverOpen] = useState(false)
 
   // Duplicate check
   const [duplicateWarning, setDuplicateWarning] = useState<{
@@ -266,6 +277,19 @@ export function ClientForm({
       setNewGroupOpen(false)
       setNewGroupName('')
     }
+  }
+
+  const appendAddressNumber = () => {
+    if (!addressNumber.trim()) return
+
+    const currentAddress = form.getValues('ENDEREÇO') || ''
+    const newAddress = currentAddress
+      ? `${currentAddress}, ${addressNumber.trim()}`
+      : addressNumber.trim()
+
+    form.setValue('ENDEREÇO', newAddress)
+    setAddressNumber('')
+    setAddressPopoverOpen(false)
   }
 
   return (
@@ -603,13 +627,62 @@ export function ClientForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Endereço Completo *</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Rua, Número, Comp."
-                          {...field}
-                          value={field.value || ''}
-                        />
-                      </FormControl>
+                      <div className="flex gap-2">
+                        <FormControl>
+                          <Input
+                            placeholder="Rua, Número, Comp."
+                            {...field}
+                            value={field.value || ''}
+                          />
+                        </FormControl>
+                        <Popover
+                          open={addressPopoverOpen}
+                          onOpenChange={setAddressPopoverOpen}
+                        >
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              title="Adicionar Número"
+                              type="button"
+                              className="shrink-0"
+                            >
+                              <MapPin className="h-4 w-4" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-56 p-2">
+                            <div className="flex flex-col gap-2">
+                              <p className="text-xs font-medium text-muted-foreground">
+                                Adicionar número ao endereço
+                              </p>
+                              <div className="flex gap-2">
+                                <Input
+                                  placeholder="Número"
+                                  value={addressNumber}
+                                  onChange={(e) =>
+                                    setAddressNumber(e.target.value)
+                                  }
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault()
+                                      appendAddressNumber()
+                                    }
+                                  }}
+                                  className="h-8"
+                                />
+                                <Button
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={appendAddressNumber}
+                                  type="button"
+                                >
+                                  <ArrowRight className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}

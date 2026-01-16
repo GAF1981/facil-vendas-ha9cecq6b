@@ -5,6 +5,7 @@ import { parseISO, isAfter, isBefore, isEqual } from 'date-fns'
 export const pixService = {
   async getPixReceipts(): Promise<PixReceiptRow[]> {
     // 1. Fetch from RECEBIMENTOS
+    // Filtering out records with 0 or null value as requested
     const { data, error } = await supabase
       .from('RECEBIMENTOS')
       .select(
@@ -15,6 +16,7 @@ export const pixService = {
       `,
       )
       .ilike('forma_pagamento', '%Pix%')
+      .gt('valor_pago', 0) // Filter strictly greater than 0
       .order('created_at', { ascending: false })
       .limit(2000)
 
@@ -142,6 +144,7 @@ export const pixService = {
       .select('id, PIX(confirmado_por)')
       .eq('funcionario_id', employeeId)
       .ilike('forma_pagamento', '%Pix%')
+      .gt('valor_pago', 0) // Consistent filtering
       .gte('created_at', rota.data_inicio)
       // If route closed, check upper bound
       .lte(

@@ -38,19 +38,19 @@ export function DuplicateWarningDialog({
           </AlertDialogTitle>
           <AlertDialogDescription className="space-y-2 text-foreground">
             <p>
-              Já existe um cliente com este CNPJ:{' '}
+              Já existe um cliente com aquele CNPJ:{' '}
               <strong>{duplicateData.name}</strong>.
             </p>
             <p className="pt-2 font-medium">
-              Deseja realmente fazer o cadastro?
+              Realmente deseja fazer o cadastro?
             </p>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={() => onOpenChange(false)}>
-            Não
+            NÃO
           </AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm}>Sim</AlertDialogAction>
+          <AlertDialogAction onClick={onConfirm}>SIM</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
