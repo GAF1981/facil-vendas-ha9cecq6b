@@ -11,7 +11,13 @@ import { ClientRow } from '@/types/client'
 import { bancoDeDadosService } from '@/services/bancoDeDadosService'
 import { recebimentoService } from '@/services/recebimentoService'
 import { acertoService } from '@/services/acertoService'
-import { ArrowDownCircle, Save, Loader2, AlertCircle } from 'lucide-react'
+import {
+  ArrowDownCircle,
+  Save,
+  Loader2,
+  AlertCircle,
+  AlertTriangle,
+} from 'lucide-react'
 import { PaymentEntry } from '@/types/payment'
 import { useUserStore } from '@/stores/useUserStore'
 import { useToast } from '@/hooks/use-toast'
@@ -94,26 +100,8 @@ export default function RecebimentoPage() {
 
   const handleOrderSelect = (order: HistoryRow | null) => {
     setSelectedOrder(order)
-    if (order) {
-      if (order.debito > 0) {
-        const today = new Date()
-        const dueDate = format(today, 'yyyy-MM-dd')
-        const newEntry: PaymentEntry = {
-          method: 'Dinheiro',
-          value: order.debito,
-          paidValue: order.debito,
-          installments: 1,
-          dueDate: dueDate,
-        }
-        setPayments([newEntry])
-      } else {
-        setPayments([])
-      }
-    } else {
-      const debt = historyData.reduce((acc, row) => acc + row.debito, 0)
-      setTotalDebt(debt)
-      setPayments([])
-    }
+    // Requirement Update: No payment method selected by default
+    setPayments([])
   }
 
   const handleSaveRecebimento = async () => {
@@ -172,6 +160,18 @@ export default function RecebimentoPage() {
       toast({
         title: 'Valor inválido',
         description: 'O valor pago deve ser maior que zero.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // Validation: Total Selected must match Balance Due
+    const balanceDue = selectedOrder.saldoAPagar
+    if (Math.abs(totalPaid - balanceDue) > 0.01) {
+      toast({
+        title: 'Valor Divergente',
+        description:
+          'O valor total selecionado deve ser igual ao saldo a pagar.',
         variant: 'destructive',
       })
       return
@@ -252,6 +252,12 @@ export default function RecebimentoPage() {
 
   const currentDebt = selectedOrder ? selectedOrder.debito : totalDebt
 
+  // Determine if confirm button should be disabled based on value match
+  const totalSelectedValue = payments.reduce((acc, p) => acc + p.value, 0)
+  const isValueMatched =
+    selectedOrder &&
+    Math.abs(totalSelectedValue - selectedOrder.saldoAPagar) < 0.01
+
   return (
     <div className="space-y-6 animate-fade-in p-2 pb-24 sm:p-6">
       <div className="flex items-center gap-4">
@@ -315,13 +321,19 @@ export default function RecebimentoPage() {
                 payments={payments}
                 onPaymentsChange={setPayments}
                 disabled={saving || !selectedOrder}
+                isReceiptMode={true} // Enable Strict Receipt Mode
               />
 
-              <div className="flex justify-end pt-2">
+              <div className="flex flex-col items-end pt-2 gap-2">
                 <Button
                   size="lg"
                   onClick={handleSaveRecebimento}
-                  disabled={saving || payments.length === 0 || !selectedOrder}
+                  disabled={
+                    saving ||
+                    payments.length === 0 ||
+                    !selectedOrder ||
+                    !isValueMatched
+                  }
                   className="w-full sm:w-auto min-w-[200px]"
                 >
                   {saving ? (
@@ -336,6 +348,13 @@ export default function RecebimentoPage() {
                     </>
                   )}
                 </Button>
+                {selectedOrder && !isValueMatched && (
+                  <div className="text-sm text-amber-600 flex items-center gap-1.5 bg-amber-50 px-3 py-1 rounded-md border border-amber-100">
+                    <AlertTriangle className="h-4 w-4" />
+                    Este botão não poderá ser acionado se o valor 'Saldo a
+                    Pagar' for diferente do 'Total Selecionado'
+                  </div>
+                )}
               </div>
             </div>
 

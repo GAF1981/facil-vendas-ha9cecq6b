@@ -18,13 +18,14 @@ import {
   PaymentInstallment,
 } from '@/types/payment'
 import { cn } from '@/lib/utils'
-import { addDays, format } from 'date-fns'
+import { addDays, format, isAfter, startOfDay } from 'date-fns'
 
 interface AcertoPaymentSummaryProps {
   saldoAPagar: number
   payments: PaymentEntry[]
   onPaymentsChange: (payments: PaymentEntry[]) => void
   disabled?: boolean
+  isReceiptMode?: boolean // New prop to enable stricter receipt validation
 }
 
 export function AcertoPaymentSummary({
@@ -32,10 +33,18 @@ export function AcertoPaymentSummary({
   payments,
   onPaymentsChange,
   disabled = false,
+  isReceiptMode = false,
 }: AcertoPaymentSummaryProps) {
   const totalRegistered = payments.reduce((acc, p) => acc + p.value, 0)
   const remaining = saldoAPagar - totalRegistered
   const isComplete = Math.abs(remaining) < 0.01
+
+  // Helper to check if method is restricted in receipt mode
+  const isRestrictedMethod = (method: string) => {
+    return (
+      isReceiptMode && ['Pix', 'Dinheiro', 'Boleto', 'Cheque'].includes(method)
+    )
+  }
 
   // Helper to generate installments based on business rules
   const generateInstallments = (
@@ -46,9 +55,22 @@ export function AcertoPaymentSummary({
     baseDate: string = format(new Date(), 'yyyy-MM-dd'),
   ): PaymentInstallment[] => {
     let effectiveCount = count
-    if (hasZeroDownPayment && (method === 'Pix' || method === 'Dinheiro')) {
+
+    // Logic for Sales (Acerto) - NOT Receipt Mode
+    if (
+      !isReceiptMode &&
+      hasZeroDownPayment &&
+      (method === 'Pix' || method === 'Dinheiro')
+    ) {
       effectiveCount = count - 1
     }
+
+    // In Receipt Mode for restricted methods, count is always 1 (enforced by caller/UI)
+    // and Zero Down Payment is not applicable/allowed usually, but if passed we ignore for restricted
+    if (isRestrictedMethod(method)) {
+      effectiveCount = 1
+    }
+
     if (effectiveCount < 1) effectiveCount = 1
 
     const installmentValue =
@@ -68,27 +90,46 @@ export function AcertoPaymentSummary({
 
       const isEntry = i === 0
 
-      if (isEntry && (method === 'Pix' || method === 'Dinheiro')) {
-        if (hasZeroDownPayment) {
-          value = 0
-          paidValue = 0
-        } else {
+      if (isReceiptMode) {
+        // Receipt Mode Logic
+        if (isRestrictedMethod(method)) {
+          // Strict Sync: Paid Value = Value
           paidValue = value
+          // Add remainder to the single installment
+          if (i === 0) value += remainder
+          if (i === 0) paidValue = value
+        } else {
+          // Other methods in receipt mode (e.g. Credit Card?) - Default behavior
+          if (i === count - 1) value += remainder
+          paidValue = value // Assuming receipts are paid immediately unless specified
         }
       } else {
-        if (hasZeroDownPayment && (method === 'Pix' || method === 'Dinheiro')) {
-          if (i === count - 1) value += remainder
+        // Sales (Acerto) Mode Logic (Legacy)
+        if (isEntry && (method === 'Pix' || method === 'Dinheiro')) {
+          if (hasZeroDownPayment) {
+            value = 0
+            paidValue = 0
+          } else {
+            paidValue = value
+          }
         } else {
-          if (i === count - 1) value += remainder
+          if (
+            hasZeroDownPayment &&
+            (method === 'Pix' || method === 'Dinheiro')
+          ) {
+            if (i === count - 1) value += remainder
+          } else {
+            if (i === count - 1) value += remainder
+          }
         }
-      }
 
-      if (method === 'Boleto') {
-        paidValue = 0
-      }
+        if (method === 'Boleto') {
+          paidValue = 0
+        }
 
-      if (method === 'Cheque') {
-        paidValue = value
+        if (method === 'Cheque') {
+          paidValue = value
+        }
       }
 
       return {
@@ -106,14 +147,14 @@ export function AcertoPaymentSummary({
     if (checked) {
       const defaultValue = Number(Math.max(0, remaining).toFixed(2))
       const today = new Date()
-      // UPDATED: Automatically set vencimento to current date for Boleto/Cheque(1x)
-      // For Boleto, we default to Today as per user story requirement.
-      const dueDateDate = today
-      const dueDate = format(dueDateDate, 'yyyy-MM-dd')
+      const dueDate = format(today, 'yyyy-MM-dd')
+
+      // Receipt Mode Constraint: Force 1x
+      const installments = isRestrictedMethod(method) ? 1 : 1
 
       const details = generateInstallments(
         defaultValue,
-        1,
+        installments,
         method,
         false,
         dueDate,
@@ -124,7 +165,7 @@ export function AcertoPaymentSummary({
         method,
         value: defaultValue,
         paidValue: initialPaidValue,
-        installments: 1,
+        installments: installments,
         dueDate: dueDate,
         hasZeroDownPayment: false,
         details: details,
@@ -133,6 +174,18 @@ export function AcertoPaymentSummary({
     } else {
       onPaymentsChange(payments.filter((p) => p.method !== method))
     }
+  }
+
+  const validateDate = (dateStr: string, method: PaymentMethodType) => {
+    if (!isRestrictedMethod(method)) return dateStr
+
+    const inputDate = new Date(`${dateStr}T00:00:00`)
+    const today = startOfDay(new Date())
+
+    if (isAfter(inputDate, today)) {
+      return format(today, 'yyyy-MM-dd')
+    }
+    return dateStr
   }
 
   const handleUpdateEntry = (
@@ -147,13 +200,32 @@ export function AcertoPaymentSummary({
         if (p.method !== method) return p
         if (field === 'paidValue') return p
 
-        const updated = { ...p, [field]: value }
+        // Receipt Mode Constraint: Installments
+        if (
+          field === 'installments' &&
+          isRestrictedMethod(method) &&
+          value > 1
+        ) {
+          return p // Ignore attempts to increase installments
+        }
 
-        // Date Sync Logic: If modifying main date
+        let updatedValue = value
+
+        // Receipt Mode Constraint: Date
+        if (field === 'dueDate' && isRestrictedMethod(method)) {
+          updatedValue = validateDate(value as string, method)
+        }
+
+        const updated = { ...p, [field]: updatedValue }
+
+        // Date Sync Logic
         if (field === 'dueDate') {
-          const newDate = value as string
+          const newDate = updatedValue as string
           const shouldSyncDetails =
-            (method === 'Boleto' || method === 'Cheque') && p.installments === 1
+            (method === 'Boleto' ||
+              method === 'Cheque' ||
+              isRestrictedMethod(method)) &&
+            p.installments === 1
 
           const isSemEntrada = p.hasZeroDownPayment
 
@@ -184,10 +256,15 @@ export function AcertoPaymentSummary({
               ? (value as boolean)
               : p.hasZeroDownPayment
 
-          // UPDATED: Sync to Today if toggling Sem Entrada
           let baseDate = p.dueDate
           if (field === 'hasZeroDownPayment' && zeroDown) {
             baseDate = format(new Date(), 'yyyy-MM-dd')
+            updated.dueDate = baseDate
+          }
+
+          // Re-validate date just in case
+          if (isRestrictedMethod(method)) {
+            baseDate = validateDate(baseDate, method)
             updated.dueDate = baseDate
           }
 
@@ -203,7 +280,6 @@ export function AcertoPaymentSummary({
             newDetails.reduce((acc, d) => acc + d.paidValue, 0).toFixed(2),
           )
 
-          // Auto-sync main date if Sem Entrada is toggled or if 1x
           if (count === 1 || zeroDown) {
             updated.dueDate = newDetails[0].dueDate
           }
@@ -226,24 +302,33 @@ export function AcertoPaymentSummary({
       payments.map((p) => {
         if (p.method !== method || !p.details) return p
 
+        // Receipt Mode Constraint: Date
+        let updatedValue = value
+        if (field === 'dueDate' && isRestrictedMethod(method)) {
+          updatedValue = validateDate(value as string, method)
+        }
+
         if (field === 'dueDate' && index === 0) {
           const shouldSyncMain =
-            (method === 'Boleto' || method === 'Cheque') && p.installments === 1
+            (method === 'Boleto' ||
+              method === 'Cheque' ||
+              isRestrictedMethod(method)) &&
+            p.installments === 1
           const isSemEntrada = p.hasZeroDownPayment
 
           if (shouldSyncMain || isSemEntrada) {
             return {
               ...p,
-              dueDate: value as string,
+              dueDate: updatedValue as string,
               details: p.details.map((d, i) =>
-                i === index ? { ...d, [field]: value } : d,
+                i === index ? { ...d, [field]: updatedValue } : d,
               ),
             }
           }
         }
 
         const newDetails = [...p.details]
-        newDetails[index] = { ...newDetails[index], [field]: value }
+        newDetails[index] = { ...newDetails[index], [field]: updatedValue }
 
         let newValue = p.value
         let newPaidValue = p.paidValue
@@ -252,7 +337,11 @@ export function AcertoPaymentSummary({
           newValue = Number(
             newDetails.reduce((acc, curr) => acc + curr.value, 0).toFixed(2),
           )
-          if (method === 'Cheque') {
+
+          // Sync paid value if restricted method
+          if (isRestrictedMethod(method)) {
+            newDetails[index].paidValue = newDetails[index].value
+          } else if (method === 'Cheque') {
             newDetails[index].paidValue = newDetails[index].value
           }
         }
@@ -378,8 +467,13 @@ export function AcertoPaymentSummary({
                 const isOverpaid = entry.paidValue > entry.value + 0.01
                 const isPixOrDinheiro =
                   entry.method === 'Pix' || entry.method === 'Dinheiro'
+                const isRestricted = isRestrictedMethod(entry.method)
+
+                // Hide installments if restricted in receipt mode
                 const isInstallmentsDisabled =
-                  disabled || (isPixOrDinheiro && !entry.hasZeroDownPayment)
+                  disabled ||
+                  (isPixOrDinheiro && !entry.hasZeroDownPayment) ||
+                  isRestricted
 
                 return (
                   <div
@@ -397,7 +491,8 @@ export function AcertoPaymentSummary({
                           </div>
                         </div>
 
-                        {isPixOrDinheiro && (
+                        {/* Hide Sem Entrada check if restricted in Receipt Mode, as it implies strict 1x payment */}
+                        {isPixOrDinheiro && !isRestricted && (
                           <div className="flex items-center gap-2 pt-1">
                             <Checkbox
                               id={`no-entry-${entry.method}`}
@@ -477,41 +572,43 @@ export function AcertoPaymentSummary({
                         </div>
                       </div>
 
-                      <div className="w-full md:w-20">
-                        <Label className="text-xs font-medium mb-1.5 block">
-                          Parcelas
-                        </Label>
-                        <Select
-                          value={entry.installments.toString()}
-                          disabled={isInstallmentsDisabled}
-                          onValueChange={(val) =>
-                            handleUpdateEntry(
-                              entry.method,
-                              'installments',
-                              parseInt(val),
-                            )
-                          }
-                        >
-                          <SelectTrigger
-                            className={cn(
-                              'h-10 px-2',
-                              isInstallmentsDisabled &&
-                                'opacity-50 cursor-not-allowed bg-muted',
-                            )}
+                      {!isRestricted && (
+                        <div className="w-full md:w-20">
+                          <Label className="text-xs font-medium mb-1.5 block">
+                            Parcelas
+                          </Label>
+                          <Select
+                            value={entry.installments.toString()}
+                            disabled={isInstallmentsDisabled}
+                            onValueChange={(val) =>
+                              handleUpdateEntry(
+                                entry.method,
+                                'installments',
+                                parseInt(val),
+                              )
+                            }
                           >
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Array.from({ length: 12 }, (_, i) => i + 1).map(
-                              (n) => (
-                                <SelectItem key={n} value={n.toString()}>
-                                  {n}x
-                                </SelectItem>
-                              ),
-                            )}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                            <SelectTrigger
+                              className={cn(
+                                'h-10 px-2',
+                                isInstallmentsDisabled &&
+                                  'opacity-50 cursor-not-allowed bg-muted',
+                              )}
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Array.from({ length: 12 }, (_, i) => i + 1).map(
+                                (n) => (
+                                  <SelectItem key={n} value={n.toString()}>
+                                    {n}x
+                                  </SelectItem>
+                                ),
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
 
                       <div className="w-full md:w-32">
                         <Label className="text-xs font-medium mb-1.5 flex items-center gap-1">
@@ -521,6 +618,11 @@ export function AcertoPaymentSummary({
                           type="date"
                           className="h-10 px-2 text-xs"
                           value={entry.dueDate}
+                          max={
+                            isRestricted
+                              ? format(new Date(), 'yyyy-MM-dd')
+                              : undefined
+                          }
                           disabled={disabled}
                           onChange={(e) =>
                             handleUpdateEntry(
@@ -533,118 +635,120 @@ export function AcertoPaymentSummary({
                       </div>
                     </div>
 
-                    {entry.installments >= 1 && entry.details && (
-                      <div className="pl-4 border-l-2 border-muted space-y-3">
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-xs font-semibold text-muted-foreground uppercase">
-                            Detalhamento de Parcelas
-                          </h4>
-                        </div>
+                    {entry.installments >= 1 &&
+                      entry.details &&
+                      !isRestricted && (
+                        <div className="pl-4 border-l-2 border-muted space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-xs font-semibold text-muted-foreground uppercase">
+                              Detalhamento de Parcelas
+                            </h4>
+                          </div>
 
-                        <div className="grid gap-3">
-                          {entry.details.map((inst, idx) => {
-                            const isEntrada = idx === 0 && isPixOrDinheiro
-                            const isBoleto = entry.method === 'Boleto'
-                            const isZeroEntry =
-                              isEntrada && entry.hasZeroDownPayment
-                            const isPaidDisabled =
-                              disabled ||
-                              isBoleto ||
-                              isZeroEntry ||
-                              (!isEntrada && isPixOrDinheiro)
+                          <div className="grid gap-3">
+                            {entry.details.map((inst, idx) => {
+                              const isEntrada = idx === 0 && isPixOrDinheiro
+                              const isBoleto = entry.method === 'Boleto'
+                              const isZeroEntry =
+                                isEntrada && entry.hasZeroDownPayment
+                              const isPaidDisabled =
+                                disabled ||
+                                isBoleto ||
+                                isZeroEntry ||
+                                (!isEntrada && isPixOrDinheiro)
 
-                            return (
-                              <div
-                                key={idx}
-                                className={cn(
-                                  'flex flex-col sm:flex-row gap-3 items-center p-2 rounded-md',
-                                  isEntrada
-                                    ? 'bg-blue-50/50 border border-blue-100'
-                                    : 'bg-muted/20',
-                                )}
-                              >
+                              return (
                                 <div
+                                  key={idx}
                                   className={cn(
-                                    'w-full sm:w-20 text-sm font-medium',
+                                    'flex flex-col sm:flex-row gap-3 items-center p-2 rounded-md',
                                     isEntrada
-                                      ? 'text-blue-700 font-bold'
-                                      : 'text-muted-foreground',
+                                      ? 'bg-blue-50/50 border border-blue-100'
+                                      : 'bg-muted/20',
                                   )}
                                 >
-                                  {isEntrada
-                                    ? 'ENTRADA'
-                                    : `${idx + 1}ª Parcela`}
-                                </div>
-                                <div className="w-full sm:flex-1 relative">
-                                  <span className="absolute left-2.5 top-2 text-muted-foreground text-xs">
-                                    R$
-                                  </span>
-                                  <Input
-                                    type="number"
-                                    step="0.01"
-                                    className="h-8 pl-7 text-sm"
-                                    value={inst.value}
-                                    disabled={disabled || isZeroEntry}
-                                    onChange={(e) =>
-                                      handleUpdateInstallment(
-                                        entry.method,
-                                        idx,
-                                        'value',
-                                        parseFloat(e.target.value) || 0,
-                                      )
-                                    }
-                                  />
-                                </div>
-
-                                <div className="w-full sm:flex-1 relative">
-                                  <span className="absolute left-2.5 top-2 text-muted-foreground text-xs">
-                                    Pago: R$
-                                  </span>
-                                  <Input
-                                    type="number"
-                                    step="0.01"
+                                  <div
                                     className={cn(
-                                      'h-8 pl-16 text-sm',
-                                      isPaidDisabled
-                                        ? 'bg-gray-100 text-gray-400'
-                                        : 'bg-white font-medium',
+                                      'w-full sm:w-20 text-sm font-medium',
+                                      isEntrada
+                                        ? 'text-blue-700 font-bold'
+                                        : 'text-muted-foreground',
                                     )}
-                                    value={inst.paidValue}
-                                    disabled={isPaidDisabled}
-                                    readOnly={isPaidDisabled}
-                                    onChange={(e) =>
-                                      handleUpdateInstallment(
-                                        entry.method,
-                                        idx,
-                                        'paidValue',
-                                        parseFloat(e.target.value) || 0,
-                                      )
-                                    }
-                                  />
-                                </div>
+                                  >
+                                    {isEntrada
+                                      ? 'ENTRADA'
+                                      : `${idx + 1}ª Parcela`}
+                                  </div>
+                                  <div className="w-full sm:flex-1 relative">
+                                    <span className="absolute left-2.5 top-2 text-muted-foreground text-xs">
+                                      R$
+                                    </span>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      className="h-8 pl-7 text-sm"
+                                      value={inst.value}
+                                      disabled={disabled || isZeroEntry}
+                                      onChange={(e) =>
+                                        handleUpdateInstallment(
+                                          entry.method,
+                                          idx,
+                                          'value',
+                                          parseFloat(e.target.value) || 0,
+                                        )
+                                      }
+                                    />
+                                  </div>
 
-                                <div className="w-full sm:w-32">
-                                  <Input
-                                    type="date"
-                                    className="h-8 text-sm px-2"
-                                    value={inst.dueDate}
-                                    disabled={disabled}
-                                    onChange={(e) =>
-                                      handleUpdateInstallment(
-                                        entry.method,
-                                        idx,
-                                        'dueDate',
-                                        e.target.value,
-                                      )
-                                    }
-                                  />
+                                  <div className="w-full sm:flex-1 relative">
+                                    <span className="absolute left-2.5 top-2 text-muted-foreground text-xs">
+                                      Pago: R$
+                                    </span>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      className={cn(
+                                        'h-8 pl-16 text-sm',
+                                        isPaidDisabled
+                                          ? 'bg-gray-100 text-gray-400'
+                                          : 'bg-white font-medium',
+                                      )}
+                                      value={inst.paidValue}
+                                      disabled={isPaidDisabled}
+                                      readOnly={isPaidDisabled}
+                                      onChange={(e) =>
+                                        handleUpdateInstallment(
+                                          entry.method,
+                                          idx,
+                                          'paidValue',
+                                          parseFloat(e.target.value) || 0,
+                                        )
+                                      }
+                                    />
+                                  </div>
+
+                                  <div className="w-full sm:w-32">
+                                    <Input
+                                      type="date"
+                                      className="h-8 text-sm px-2"
+                                      value={inst.dueDate}
+                                      disabled={disabled}
+                                      onChange={(e) =>
+                                        handleUpdateInstallment(
+                                          entry.method,
+                                          idx,
+                                          'dueDate',
+                                          e.target.value,
+                                        )
+                                      }
+                                    />
+                                  </div>
                                 </div>
-                              </div>
-                            )
-                          })}
+                              )
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
                   </div>
                 )
               })}

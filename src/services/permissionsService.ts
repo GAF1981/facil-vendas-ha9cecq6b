@@ -31,6 +31,13 @@ const MODULES_LIST = [
   'Veículos',
 ]
 
+// Sectors authorized to finalize routes
+export const AUTHORIZED_ROTE_FINALIZERS = [
+  'Administrador',
+  'Gerente',
+  'Financeiro',
+]
+
 export const permissionsService = {
   async getAll() {
     const { data, error } = await supabase
@@ -111,5 +118,11 @@ export const permissionsService = {
 
   getAvailableModules() {
     return MODULES_LIST
+  },
+
+  canFinalizeRoute(userSectors: string | string[] | null | undefined): boolean {
+    if (!userSectors) return false
+    const sectors = Array.isArray(userSectors) ? userSectors : [userSectors]
+    return sectors.some((s) => AUTHORIZED_ROTE_FINALIZERS.includes(s))
   },
 }
