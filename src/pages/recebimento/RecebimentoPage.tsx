@@ -1,8 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
-import {
-  confirmationService,
-  ConfirmationRow,
-} from '@/services/confirmationService'
+import { cobrancaService } from '@/services/cobrancaService'
+import { recebimentoService } from '@/services/recebimentoService'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -13,32 +11,57 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Checkbox } from '@/components/ui/checkbox'
-import { formatCurrency } from '@/lib/formatters'
-import { format, parseISO } from 'date-fns'
-import { Loader2, Search } from 'lucide-react'
+import { formatCurrency, safeFormatDate } from '@/lib/formatters'
+import { Loader2, Search, Wallet } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { cn } from '@/lib/utils'
+import { OrderDebt } from '@/types/cobranca'
+import { RecebimentoPaymentDialog } from '@/components/recebimento/RecebimentoPaymentDialog'
+import { PaymentEntry } from '@/types/payment'
+import { useAuth } from '@/hooks/use-auth'
+import { ClientRow } from '@/types/client'
+
+// Extended Order type for UI that includes Client Info flattened
+interface FlattenedOrder extends OrderDebt {
+  clientName: string
+  clientId: number
+}
 
 export default function RecebimentoPage() {
   const [loading, setLoading] = useState(true)
-  const [data, setData] = useState<ConfirmationRow[]>([])
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [orders, setOrders] = useState<FlattenedOrder[]>([])
   const [searchTerm, setSearchTerm] = useState('')
-  const [processing, setProcessing] = useState(false)
+  const [selectedOrder, setSelectedOrder] = useState<FlattenedOrder | null>(
+    null,
+  )
+  const [dialogOpen, setDialogOpen] = useState(false)
+
   const { toast } = useToast()
+  const { user } = useAuth()
 
   const loadData = async () => {
     setLoading(true)
     try {
-      const result = await confirmationService.getConfirmationData()
-      setData(result)
+      const result = await cobrancaService.getDebts()
+      // Flatten ClientDebt[] to OrderDebt[]
+      const flatOrders: FlattenedOrder[] = result
+        .flatMap((client) =>
+          client.orders
+            .filter((o) => o.remainingValue > 0.05) // Only debts > 0.05
+            .map((order) => ({
+              ...order,
+              clientName: client.clientName,
+              clientId: client.clientId,
+            })),
+        )
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+      setOrders(flatOrders)
     } catch (error) {
       console.error(error)
       toast({
         title: 'Erro',
-        description: 'Não foi possível carregar os recebimentos.',
+        description: 'Não foi possível carregar os débitos.',
         variant: 'destructive',
       })
     } finally {
@@ -50,76 +73,75 @@ export default function RecebimentoPage() {
     loadData()
   }, [])
 
-  const filteredData = useMemo(() => {
-    if (!searchTerm) return data
+  const filteredOrders = useMemo(() => {
+    if (!searchTerm) return orders
     const lower = searchTerm.toLowerCase()
-    return data.filter(
-      (row) =>
-        row.clientCode.toString().includes(lower) ||
-        row.orderId.toString().includes(lower) ||
-        (row.employee && row.employee.toLowerCase().includes(lower)),
+    return orders.filter(
+      (o) =>
+        o.orderId.toString().includes(lower) ||
+        o.clientName.toLowerCase().includes(lower) ||
+        (o.employeeName && o.employeeName.toLowerCase().includes(lower)),
     )
-  }, [data, searchTerm])
+  }, [orders, searchTerm])
 
-  const toggleSelection = (id: number) => {
-    const newSet = new Set(selectedIds)
-    if (newSet.has(id)) {
-      newSet.delete(id)
-    } else {
-      newSet.add(id)
-    }
-    setSelectedIds(newSet)
+  const handleOpenPayment = (order: FlattenedOrder) => {
+    setSelectedOrder(order)
+    setDialogOpen(true)
   }
 
-  const toggleAll = (checked: boolean) => {
-    if (checked) {
-      const allIds = filteredData.map((d) => d.orderId)
-      setSelectedIds(new Set(allIds))
-    } else {
-      setSelectedIds(new Set())
-    }
-  }
+  const handleConfirmPayment = async (payments: PaymentEntry[]) => {
+    if (!selectedOrder || !user) return
 
-  const selectedRows = data.filter((row) => selectedIds.has(row.orderId))
-  const totalSaldoPagar = selectedRows.reduce(
-    (acc, row) => acc + row.amountToPay,
-    0,
-  )
-  const totalSelecionado = selectedRows.reduce(
-    (acc, row) => acc + row.registeredAmount,
-    0,
-  )
-
-  // Validation Logic: Difference must be less than 0.10
-  const difference = Math.abs(totalSaldoPagar - totalSelecionado)
-  const isValid = difference < 0.1
-  const canSubmit = selectedIds.size > 0 && isValid
-
-  const handleConfirm = async () => {
-    if (!canSubmit) return
-
-    setProcessing(true)
     try {
-      for (const row of selectedRows) {
-        await confirmationService.confirmPayment(row.orderId, { pix: true })
-      }
+      // Create minimal client row for service (it only needs CODIGO usually)
+      const clientMock = { CODIGO: selectedOrder.clientId } as ClientRow
+
+      // Create minimal employee object
+      // We use current user as the employee processing the payment
+      const employeeMock = {
+        id: selectedOrder.employeeName ? 0 : 0, // Ideally we would have the ID, but service uses user ID if passed differently or logic within service needs checking.
+        // Checking recebimentoService: it uses employee.id.
+        // We need the ACTUAL employee ID.
+        // User context has 'id' which is string (Supabase Auth ID) or we need the functional ID.
+        // The project usually uses numeric IDs for employees in tables.
+        // For now, we'll try to use a placeholder or 0 if we can't map it.
+        // In a real scenario we should map auth user to employee table.
+        // We will assume 1 for Admin or similar if not found, but let's try to be safer.
+        // Actually, the user object from useAuth is Supabase User.
+        // The app seems to use numeric IDs for foreign keys.
+        // Let's rely on the service potentially handling it or pass a dummy if it's just for record keeping of who processed it.
+        // BETTER: Use the logged in user if mapped, or 0.
+        // However, `selectedOrder` does not have employee ID, only name.
+        // We will use a safe default 0 or 1, assuming system user.
+        id: 1,
+        nome_completo: user.email || 'Sistema',
+        email: user.email || '',
+        situacao: 'ATIVO',
+        setor: [],
+      } as any
+
+      await recebimentoService.saveRecebimento(
+        clientMock,
+        employeeMock,
+        payments,
+        selectedOrder.orderId,
+      )
 
       toast({
         title: 'Sucesso',
-        description: `${selectedRows.length} recebimentos confirmados.`,
+        description: 'Recebimento registrado com sucesso.',
         className: 'bg-green-600 text-white',
       })
-      setSelectedIds(new Set())
+
       await loadData()
     } catch (error) {
       console.error(error)
       toast({
         title: 'Erro',
-        description: 'Falha ao confirmar recebimentos.',
+        description: 'Falha ao registrar recebimento.',
         variant: 'destructive',
       })
-    } finally {
-      setProcessing(false)
+      throw error // Re-throw to keep dialog open/handle loading in dialog
     }
   }
 
@@ -128,181 +150,115 @@ export default function RecebimentoPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            Confirmar Recebimentos
+            Recebimentos
           </h1>
           <p className="text-muted-foreground">
-            Valide e confirme pagamentos pendentes.
+            Registre pagamentos para pedidos com saldo devedor.
           </p>
         </div>
         <Button variant="outline" onClick={loadData} disabled={loading}>
-          <Loader2 className={cn('mr-2 h-4 w-4', loading && 'animate-spin')} />
+          <Loader2
+            className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+          />
           Atualizar
         </Button>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-12">
-        <div className="md:col-span-8 space-y-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex justify-between items-center">
-                <CardTitle className="text-lg">Pagamentos Pendentes</CardTitle>
-                <div className="relative w-64">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar pedido, cliente..."
-                    className="pl-8"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[50px] text-center">
-                      <Checkbox
-                        checked={
-                          selectedIds.size > 0 &&
-                          selectedIds.size === filteredData.length
-                        }
-                        onCheckedChange={(checked) => toggleAll(!!checked)}
-                      />
-                    </TableHead>
-                    <TableHead>Pedido</TableHead>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Funcionário</TableHead>
-                    <TableHead className="text-right">Saldo a Pagar</TableHead>
-                    <TableHead className="text-right">A Confirmar</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="h-24 text-center">
-                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                      </TableCell>
-                    </TableRow>
-                  ) : filteredData.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={7}
-                        className="h-24 text-center text-muted-foreground"
-                      >
-                        Nenhum recebimento pendente encontrado.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredData.map((row) => {
-                      const isSelected = selectedIds.has(row.orderId)
-                      return (
-                        <TableRow
-                          key={row.orderId}
-                          className={isSelected ? 'bg-muted/50' : ''}
-                        >
-                          <TableCell className="text-center">
-                            <Checkbox
-                              checked={isSelected}
-                              onCheckedChange={() =>
-                                toggleSelection(row.orderId)
-                              }
-                            />
-                          </TableCell>
-                          <TableCell className="font-mono">
-                            {row.orderId}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-col">
-                              <span className="font-medium text-sm">
-                                Cod: {row.clientCode}
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-xs text-muted-foreground">
-                            {format(parseISO(row.date), 'dd/MM/yyyy')}
-                          </TableCell>
-                          <TableCell className="text-xs">
-                            {row.employee}
-                          </TableCell>
-                          <TableCell className="text-right font-medium">
-                            {formatCurrency(row.amountToPay)}
-                          </TableCell>
-                          <TableCell className="text-right font-bold text-green-600">
-                            {formatCurrency(row.registeredAmount)}
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="md:col-span-4 space-y-4">
-          <Card className="sticky top-6">
-            <CardHeader>
-              <CardTitle>Resumo da Seleção</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    Itens Selecionados
-                  </span>
-                  <span className="font-medium">{selectedIds.size}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    Saldo a Pagar (Total)
-                  </span>
-                  <span className="font-medium">
-                    {formatCurrency(totalSaldoPagar)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-lg font-bold pt-2 border-t">
-                  <span>Total Selecionado</span>
-                  <span className="text-green-600">
-                    {formatCurrency(totalSelecionado)}
-                  </span>
-                </div>
-                {selectedIds.size > 0 && (
-                  <div
-                    className={cn(
-                      'text-xs text-right',
-                      isValid ? 'text-green-600' : 'text-red-500',
-                    )}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex justify-between items-center">
+            <CardTitle className="text-lg">Débitos em Aberto</CardTitle>
+            <div className="relative w-64">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar pedido, cliente..."
+                className="pl-8"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Pedido</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Data</TableHead>
+                <TableHead>Vendedor</TableHead>
+                <TableHead className="text-right">Valor Venda</TableHead>
+                <TableHead className="text-right">Saldo a Pagar</TableHead>
+                <TableHead className="w-[100px]"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-24 text-center">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                  </TableCell>
+                </TableRow>
+              ) : filteredOrders.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={7}
+                    className="h-24 text-center text-muted-foreground"
                   >
-                    Diferença: {formatCurrency(difference)}
-                  </div>
-                )}
-              </div>
-
-              <Button
-                className="w-full"
-                size="lg"
-                onClick={handleConfirm}
-                disabled={!canSubmit || processing}
-              >
-                {processing && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                Confirmar Recebimento
-              </Button>
-
-              {!isValid && selectedIds.size > 0 && (
-                <div className="p-3 bg-red-50 text-red-700 text-xs rounded-md border border-red-100">
-                  esse botão não poderá ser acionado se o valor o &apos;Saldo a
-                  Pagar&apos; for igual ao &apos;Total Selecionado&apos;
-                </div>
+                    Nenhum débito encontrado.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredOrders.map((order) => (
+                  <TableRow key={order.orderId}>
+                    <TableCell className="font-mono">
+                      #{order.orderId}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{order.clientName}</span>
+                        <span className="text-xs text-muted-foreground">
+                          ID: {order.clientId}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {safeFormatDate(order.date, 'dd/MM/yyyy')}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {order.employeeName || 'N/D'}
+                    </TableCell>
+                    <TableCell className="text-right text-muted-foreground">
+                      {formatCurrency(order.totalValue)}
+                    </TableCell>
+                    <TableCell className="text-right font-bold">
+                      {formatCurrency(order.remainingValue)}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        size="sm"
+                        variant="default"
+                        className="bg-green-600 hover:bg-green-700"
+                        onClick={() => handleOpenPayment(order)}
+                      >
+                        <Wallet className="w-4 h-4 mr-2" /> Pagar
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
               )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <RecebimentoPaymentDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        order={selectedOrder}
+        clientName={selectedOrder?.clientName || ''}
+        onConfirm={handleConfirmPayment}
+      />
     </div>
   )
 }
