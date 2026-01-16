@@ -34,6 +34,7 @@ export default function CobrancaPage() {
 
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [isSimplified, setIsSimplified] = useState(false)
+  const [activeTab, setActiveTab] = useState('geral')
   const { toast } = useToast()
 
   const loadDebts = async () => {
@@ -83,9 +84,15 @@ export default function CobrancaPage() {
       result = result.filter((d) => d.city === cityFilter)
     }
 
+    // Advanced Filters (Status, Motoqueiro, Data Combinada)
+    // If we are in "Rota Motoqueiro" tab (activeTab === 'motoqueiro'), we should IGNORE motoqueiroFilter
+    // because we want to see selected items regardless of their current status (prioritize manual selection).
+    // However, we still respect statusFilter and dataCombinadaFilter as per requirements.
+    const shouldIgnoreMotoqueiroFilter = activeTab === 'motoqueiro'
+
     if (
       statusFilter !== 'todos' ||
-      motoqueiroFilter !== 'todos' ||
+      (!shouldIgnoreMotoqueiroFilter && motoqueiroFilter !== 'todos') ||
       dataCombinadaFilter
     ) {
       result = result.filter((client) => {
@@ -99,7 +106,8 @@ export default function CobrancaPage() {
               inst.dataCombinada !== dataCombinadaFilter
             )
               matches = false
-            if (motoqueiroFilter !== 'todos') {
+
+            if (!shouldIgnoreMotoqueiroFilter && motoqueiroFilter !== 'todos') {
               if (
                 motoqueiroFilter === 'com_rota' &&
                 inst.formaCobranca !== 'MOTOQUEIRO'
@@ -125,6 +133,7 @@ export default function CobrancaPage() {
     cityFilter,
     motoqueiroFilter,
     dataCombinadaFilter,
+    activeTab,
   ])
 
   const handleToggleItem = (id: string) => {
@@ -147,6 +156,14 @@ export default function CobrancaPage() {
       ids.forEach((id) => newSelected.add(id))
     }
     setSelectedItems(newSelected)
+  }
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value)
+    if (value === 'motoqueiro') {
+      // When entering Rota View, reset motoqueiro filter to avoid hiding selected items that are not yet "com_rota"
+      setMotoqueiroFilter('todos')
+    }
   }
 
   const totalDebt = filteredDebts.reduce((acc, curr) => acc + curr.totalDebt, 0)
@@ -267,7 +284,12 @@ export default function CobrancaPage() {
             </div>
           </div>
 
-          <Tabs defaultValue="geral" className="w-full">
+          <Tabs
+            defaultValue="geral"
+            value={activeTab}
+            onValueChange={handleTabChange}
+            className="w-full"
+          >
             <TabsList>
               <TabsTrigger value="geral" className="flex items-center gap-2">
                 <Users className="h-4 w-4" /> Geral
@@ -275,7 +297,6 @@ export default function CobrancaPage() {
               <TabsTrigger
                 value="motoqueiro"
                 className="flex items-center gap-2"
-                onClick={() => setMotoqueiroFilter('com_rota')} // Auto set filter for convenience
               >
                 Rota Motoqueiro
                 {selectedItems.size > 0 && (
@@ -298,6 +319,7 @@ export default function CobrancaPage() {
                 statusFilter={statusFilter}
                 motoqueiroFilter={motoqueiroFilter}
                 dataCombinadaFilter={dataCombinadaFilter}
+                showOnlySelected={false}
               />
             </TabsContent>
 
@@ -323,8 +345,9 @@ export default function CobrancaPage() {
                 onToggleAll={handleToggleAll}
                 isSimplified={isSimplified}
                 statusFilter={statusFilter}
-                motoqueiroFilter="com_rota" // Force filter here? No, let user logic prevail or just force it for this view.
+                motoqueiroFilter={motoqueiroFilter}
                 dataCombinadaFilter={dataCombinadaFilter}
+                showOnlySelected={true}
               />
             </TabsContent>
           </Tabs>

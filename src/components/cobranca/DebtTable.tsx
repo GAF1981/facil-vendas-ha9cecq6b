@@ -53,6 +53,7 @@ interface DebtTableProps {
   statusFilter?: string
   dataCombinadaFilter?: string
   motoqueiroFilter?: string
+  showOnlySelected?: boolean
 }
 
 interface FlatRow {
@@ -99,6 +100,7 @@ export function DebtTable({
   statusFilter = 'todos',
   dataCombinadaFilter = '',
   motoqueiroFilter = 'todos',
+  showOnlySelected = false,
 }: DebtTableProps) {
   const [selectedClient, setSelectedClient] = useState<ClientDebt | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -201,12 +203,30 @@ export function DebtTable({
       filtered = filtered.filter((r) => r.dataCombinada === dataCombinadaFilter)
     }
 
-    if (motoqueiroFilter !== 'todos') {
+    // Motoqueiro Filter Logic
+    // If showOnlySelected is true (Rota Motoqueiro view), we prioritize selection over this filter.
+    // However, if the user explicitly changed motoqueiroFilter from 'todos' even while in this view,
+    // they might want to filter within their selection. But based on requirements, prioritization implies consistency.
+    // We will apply motoqueiroFilter normally unless it conflicts with the "show only selected" mandate.
+    // Actually, if showOnlySelected is true, filtering by selection is the primary action.
+    // We will assume that if the user is in "Rota View", they want to see the selected items.
+    // If we apply the motoqueiroFilter strictly, we might hide selected items that are not yet marked as 'com_rota'.
+    // To solve this, we can skip motoqueiroFilter check if showOnlySelected is true, OR
+    // we can rely on the fact that CobrancaPage likely reset motoqueiroFilter to 'todos'.
+    // BUT, solely relying on CobrancaPage reset is brittle.
+    // Let's implement robust logic: If showOnlySelected is true, we ignore motoqueiroFilter status check to ensure visibility.
+
+    if (!showOnlySelected && motoqueiroFilter !== 'todos') {
       if (motoqueiroFilter === 'com_rota') {
         filtered = filtered.filter((r) => r.formaCobranca === 'MOTOQUEIRO')
       } else if (motoqueiroFilter === 'sem_rota') {
         filtered = filtered.filter((r) => r.formaCobranca !== 'MOTOQUEIRO')
       }
+    }
+
+    // Selection Filter (The core requirement)
+    if (showOnlySelected) {
+      filtered = filtered.filter((r) => selectedItems.has(r.uniqueId))
     }
 
     if (sortConfig) {
@@ -232,6 +252,8 @@ export function DebtTable({
     statusFilter,
     dataCombinadaFilter,
     motoqueiroFilter,
+    showOnlySelected,
+    selectedItems,
   ])
 
   const requestSort = (key: keyof FlatRow) => {
@@ -392,7 +414,9 @@ export function DebtTable({
                   colSpan={isCobrancaMode ? 15 : 19} // Adjusted colspan
                   className="h-24 text-center text-muted-foreground"
                 >
-                  Nenhum registro encontrado.
+                  {showOnlySelected
+                    ? 'Nenhum item selecionado.'
+                    : 'Nenhum registro encontrado.'}
                 </TableCell>
               </TableRow>
             ) : (
