@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/lib/supabase/client'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
+import { useUserStore } from '@/stores/useUserStore'
 
 export default function RotaPage() {
   const [activeRota, setActiveRota] = useState<Rota | null>(null)
@@ -22,6 +23,7 @@ export default function RotaPage() {
   const [pendingUpdates, setPendingUpdates] = useState(0)
   const [pendingClosures, setPendingClosures] = useState<string[]>([])
   const { toast } = useToast()
+  const { employee } = useUserStore()
 
   const [isSelectionMode, setIsSelectionMode] = useState(false)
   const [showFilters, setShowFilters] = useState(true)
@@ -448,6 +450,34 @@ export default function RotaPage() {
   )
 
   const handleExportExcel = () => {
+    // Permission check for export limit
+    let rowsToExport = sortedRows
+    let limitMessage = ''
+
+    // Robust sector check
+    const sectors = employee?.setor
+      ? Array.isArray(employee.setor)
+        ? employee.setor
+        : [employee.setor]
+      : []
+
+    const isAdmin = sectors.includes('Administrador')
+
+    if (!isAdmin && sortedRows.length > 150) {
+      rowsToExport = sortedRows.slice(0, 150)
+      limitMessage =
+        'Exportação limitada aos primeiros 150 registros para seu perfil.'
+    }
+
+    if (limitMessage) {
+      toast({
+        title: 'Limite de Exportação',
+        description: limitMessage,
+        variant: 'default',
+        className: 'bg-yellow-50 border-yellow-200 text-yellow-900',
+      })
+    }
+
     const headers = [
       'Débito',
       'Vencimento',
@@ -472,7 +502,7 @@ export default function RotaPage() {
 
     const csvContent = [
       headers.join(';'),
-      ...sortedRows.map((row) => {
+      ...rowsToExport.map((row) => {
         const sellerName =
           sellers.find((s) => s.id === row.vendedor_id)?.nome_completo || ''
 

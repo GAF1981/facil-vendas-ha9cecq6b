@@ -17,6 +17,7 @@ import {
   ChevronRight,
   ArrowLeft,
   Filter,
+  CreditCard,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
@@ -30,6 +31,7 @@ const ClientsPage = () => {
   const [clients, setClients] = useState<ClientRow[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [cnpjFilter, setCnpjFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [municipioFilter, setMunicipioFilter] = useState<string>('all')
   const [groupFilter, setGroupFilter] = useState<string>('all')
@@ -47,6 +49,7 @@ const ClientsPage = () => {
   const { toast } = useToast()
 
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm)
+  const [debouncedCnpj, setDebouncedCnpj] = useState(cnpjFilter)
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -56,9 +59,17 @@ const ClientsPage = () => {
   }, [searchTerm])
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedCnpj(cnpjFilter)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [cnpjFilter])
+
+  useEffect(() => {
     setPage(1)
   }, [
     debouncedSearch,
+    debouncedCnpj,
     typeFilter,
     municipioFilter,
     groupFilter,
@@ -100,20 +111,11 @@ const ClientsPage = () => {
         municipioFilter,
         groupFilter,
         routeFilter,
+        debouncedCnpj,
       )
 
-      let filteredData = data
-      // Client-side filtering for duplicates if enabled (since standard filters don't support ID list easily with pagination efficiently in this setup without complex query)
-      // Actually, if duplicate filter is ON, we might need to filter data.
-      // Current implementation of service paginates at DB level.
-      // For proper Duplicate Filter, we would need DB query support OR fetch all and filter client side.
-      // Given constraints, visual marker is key.
-      // If checkbox is checked, we can just filter the current page or maybe accept that it's a visual aid mostly.
-      // However, user story implies a filter. Let's try to filter client-side on the fetched page or inform user.
-      // Ideally update service to accept ID list.
-      // For now, visual marker is implemented.
-
-      setClients(filteredData)
+      // Only client-side logic would go here if needed
+      setClients(data)
       setTotalCount(count)
     } catch (error) {
       toast({
@@ -132,6 +134,7 @@ const ClientsPage = () => {
     municipioFilter,
     groupFilter,
     routeFilter,
+    debouncedCnpj,
     toast,
   ])
 
@@ -170,7 +173,7 @@ const ClientsPage = () => {
       </div>
 
       <div className="bg-card p-4 rounded-lg border shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col lg:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -180,7 +183,16 @@ const ClientsPage = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <div className="w-full sm:w-[200px]">
+          <div className="relative w-full lg:w-[250px]">
+            <CreditCard className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por CNPJ/CPF..."
+              className="pl-8"
+              value={cnpjFilter}
+              onChange={(e) => setCnpjFilter(e.target.value)}
+            />
+          </div>
+          <div className="w-full lg:w-[200px]">
             <Select value={typeFilter} onValueChange={setTypeFilter}>
               <SelectTrigger>
                 <Filter className="w-4 h-4 mr-2 text-muted-foreground" />

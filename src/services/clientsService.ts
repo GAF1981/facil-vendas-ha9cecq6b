@@ -11,6 +11,7 @@ export const clientsService = {
     municipioFilter: string | 'all' = 'all',
     groupFilter: string | 'all' = 'all',
     routeFilter: string | 'all' = 'all',
+    cnpjFilter: string = '',
   ) {
     let query = supabase.from('CLIENTES').select('*', { count: 'exact' })
 
@@ -24,6 +25,13 @@ export const clientsService = {
         )
       } else {
         query = query.ilike('NOME CLIENTE', `%${searchTerm}%`)
+      }
+    }
+
+    if (cnpjFilter) {
+      const cleanCnpj = cnpjFilter.trim()
+      if (cleanCnpj) {
+        query = query.ilike('CNPJ', `%${cleanCnpj}%`)
       }
     }
 
