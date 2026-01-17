@@ -215,7 +215,9 @@ export const recebimentoService = {
     // 1. Fetch current state
     const { data: current, error: fetchError } = await supabase
       .from('RECEBIMENTOS')
-      .select('valor_pago, valor_registrado')
+      .select(
+        'valor_pago, valor_registrado, cliente_id, funcionario_id, venda_id',
+      )
       .eq('id', installmentId)
       .single()
 
@@ -223,7 +225,8 @@ export const recebimentoService = {
 
     const newTotalPaid = (current.valor_pago || 0) + amountPaid
 
-    // 2. Update Installment
+    // 2. Update Installment in RECEBIMENTOS table
+    // Per Requirements: We update the existing record to maintain the schedule linkage.
     const { error: updateError } = await supabase
       .from('RECEBIMENTOS')
       .update({
@@ -247,7 +250,21 @@ export const recebimentoService = {
       })
     }
 
-    // 4. Sync Debt History
+    // 4. Create Audit Log for "Data Insertion" traceability
+    await supabase.from('system_logs').insert({
+      type: 'PAYMENT_RECEIVED',
+      description: `Pagamento recebido de R$ ${amountPaid} no pedido #${orderId}`,
+      user_id: null, // System context if unknown
+      meta: {
+        installmentId,
+        amountPaid,
+        method,
+        orderId,
+      },
+    })
+
+    // 5. Sync Debt History - Critical for Cross-Tab Consistency
+    // Calls the RPC function 'update_debito_historico_order'
     await reportsService.updateDebtHistoryForOrder(orderId)
   },
 }

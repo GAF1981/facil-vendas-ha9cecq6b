@@ -19,16 +19,15 @@ import { Badge } from '@/components/ui/badge'
 import { formatCurrency } from '@/lib/formatters'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
+import { supabase } from '@/lib/supabase/client'
 
 export default function CobrancaPage() {
   const [loading, setLoading] = useState(true)
   const [debts, setDebts] = useState<ClientDebt[]>([])
   const [filteredDebts, setFilteredDebts] = useState<ClientDebt[]>([])
   const [searchTerm, setSearchTerm] = useState('')
-  // Updated status filter to normalized 'VENCIDO'
   const [statusFilter, setStatusFilter] = useState<string>('todos')
   const [cityFilter, setCityFilter] = useState<string>('todos')
-  // New Filters
   const [motoqueiroFilter, setMotoqueiroFilter] = useState<string>('todos')
   const [dataCombinadaFilter, setDataCombinadaFilter] = useState<string>('')
 
@@ -54,8 +53,25 @@ export default function CobrancaPage() {
     }
   }
 
+  // Realtime Subscription for automatic updates on payment
   useEffect(() => {
+    const channel = supabase
+      .channel('cobranca-updates')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'debitos_historico' },
+        (payload) => {
+          console.log('Debitos updated, refreshing...', payload)
+          loadDebts()
+        },
+      )
+      .subscribe()
+
     loadDebts()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [])
 
   // Derived Filters
@@ -84,10 +100,6 @@ export default function CobrancaPage() {
       result = result.filter((d) => d.city === cityFilter)
     }
 
-    // Advanced Filters (Status, Motoqueiro, Data Combinada)
-    // If we are in "Rota Motoqueiro" tab (activeTab === 'motoqueiro'), we should IGNORE motoqueiroFilter
-    // because we want to see selected items regardless of their current status (prioritize manual selection).
-    // However, we still respect statusFilter and dataCombinadaFilter as per requirements.
     const shouldIgnoreMotoqueiroFilter = activeTab === 'motoqueiro'
 
     if (
@@ -161,7 +173,6 @@ export default function CobrancaPage() {
   const handleTabChange = (value: string) => {
     setActiveTab(value)
     if (value === 'motoqueiro') {
-      // When entering Rota View, reset motoqueiro filter to avoid hiding selected items that are not yet "com_rota"
       setMotoqueiroFilter('todos')
     }
   }

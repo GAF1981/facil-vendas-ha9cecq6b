@@ -120,7 +120,7 @@ export default function RecebimentoPage() {
 
       toast({
         title: 'Sucesso',
-        description: 'Pagamento processado com sucesso.',
+        description: 'Pagamento processado e débito atualizado com sucesso.',
         className: 'bg-green-600 text-white',
       })
 
@@ -130,9 +130,11 @@ export default function RecebimentoPage() {
       console.error(error)
       toast({
         title: 'Erro',
-        description: 'Falha ao processar pagamento.',
+        description: 'Falha ao processar pagamento. Verifique a conexão.',
         variant: 'destructive',
       })
+      // Re-throw to let modal know it failed if necessary, but logic here handles it
+      throw error
     }
   }
 

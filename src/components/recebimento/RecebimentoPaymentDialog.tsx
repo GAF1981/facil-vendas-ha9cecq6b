@@ -103,9 +103,12 @@ export function RecebimentoPaymentDialog({
         method,
         method === 'Pix' ? { nome: pixName, banco: pixBank } : undefined,
       )
+      // Close handled by parent or here? Usually parent handles success state, but prompt says "modal must only close after a successful response"
+      // onConfirm is Promise<void>, so if it resolves, we close.
       onOpenChange(false)
     } catch (error) {
       console.error(error)
+      // Error handling is usually done in the parent (toast), but we keep modal open
     } finally {
       setLoading(false)
     }
@@ -203,23 +206,27 @@ export function RecebimentoPaymentDialog({
           )}
 
           <div className="space-y-2">
-            {/* Updated Label as per requirements */}
-            <Label>Valor Recebido (R$)</Label>
+            <Label>Valor Recebido</Label>
             <Input
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               className="text-right font-bold text-lg"
+              placeholder="0,00"
             />
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={loading}
+          >
             Cancelar
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={loading}
+            disabled={loading || parseCurrency(amount) <= 0}
             className="bg-green-600 hover:bg-green-700"
           >
             {loading ? (
