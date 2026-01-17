@@ -434,9 +434,12 @@ Deno.serve(async (req) => {
       const headerHeight = 110 // Space for vertical text
       let currentX = margins.left
 
-      // We draw from bottom up
+      // Fix: Ensure we draw relative to the space allocated for headers
+      // We reserve headerHeight space below the current y
       const headerY = y
-      const headerTextStartY = headerY - 5 // a bit padding from line above
+
+      // We want the text to start at the bottom of the header row and go UP
+      const headerTextStartY = headerY - headerHeight + 5
 
       for (const col of columns) {
         const textX = currentX + col.width / 2 + 3 // Center in column + slight adjustment for font baseline

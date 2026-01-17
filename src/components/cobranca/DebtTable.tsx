@@ -50,7 +50,7 @@ interface DebtTableProps {
   isCobrancaMode: boolean
   onToggleAll?: (ids: string[]) => void
   isSimplified?: boolean
-  statusFilter?: string
+  statusFilter?: string[]
   dataCombinadaFilter?: string
   motoqueiroFilter?: string
   orderFilter?: string
@@ -98,7 +98,7 @@ export function DebtTable({
   isCobrancaMode,
   onToggleAll,
   isSimplified = false,
-  statusFilter = 'todos',
+  statusFilter = [],
   dataCombinadaFilter = '',
   motoqueiroFilter = 'todos',
   orderFilter = '',
@@ -203,8 +203,8 @@ export function DebtTable({
       )
     }
 
-    if (statusFilter !== 'todos') {
-      filtered = filtered.filter((r) => r.status === statusFilter)
+    if (statusFilter && statusFilter.length > 0) {
+      filtered = filtered.filter((r) => statusFilter.includes(r.status))
     }
 
     if (dataCombinadaFilter) {

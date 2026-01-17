@@ -18,6 +18,9 @@ import {
   HandCoins,
   Users,
   Banknote,
+  DollarSign,
+  CreditCard,
+  FileText,
 } from 'lucide-react'
 import { DebtTable } from '@/components/cobranca/DebtTable'
 import { useToast } from '@/hooks/use-toast'
@@ -27,6 +30,7 @@ import { formatCurrency } from '@/lib/formatters'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { supabase } from '@/lib/supabase/client'
+import { MultiSelect } from '@/components/common/MultiSelect'
 
 export default function CobrancaPage() {
   const [loading, setLoading] = useState(true)
@@ -37,7 +41,10 @@ export default function CobrancaPage() {
   const [clientFilter, setClientFilter] = useState('')
   const [orderFilter, setOrderFilter] = useState('')
 
-  const [statusFilter, setStatusFilter] = useState<string>('todos')
+  const [statusFilter, setStatusFilter] = useState<string[]>([
+    'VENCIDO',
+    'A VENCER',
+  ])
   const [cityFilter, setCityFilter] = useState<string>('todos')
   const [motoqueiroFilter, setMotoqueiroFilter] = useState<string>('todos')
   const [dataCombinadaFilter, setDataCombinadaFilter] = useState<string>('')
@@ -122,7 +129,7 @@ export default function CobrancaPage() {
     const shouldIgnoreMotoqueiroFilter = activeTab === 'motoqueiro'
 
     if (
-      statusFilter !== 'todos' ||
+      statusFilter.length > 0 ||
       (!shouldIgnoreMotoqueiroFilter && motoqueiroFilter !== 'todos') ||
       dataCombinadaFilter
     ) {
@@ -130,8 +137,10 @@ export default function CobrancaPage() {
         return client.orders.some((order) =>
           order.installments.some((inst) => {
             let matches = true
-            if (statusFilter !== 'todos' && inst.status !== statusFilter)
+
+            if (statusFilter.length > 0 && !statusFilter.includes(inst.status))
               matches = false
+
             if (
               dataCombinadaFilter &&
               inst.dataCombinada !== dataCombinadaFilter
@@ -198,62 +207,83 @@ export default function CobrancaPage() {
   }
 
   // Exact Calculation for Summary Cards based on applied filters
-  const { totalFilteredDebt, totalFilteredPaid } = useMemo(() => {
-    let debt = 0
-    let paid = 0
+  const { totalVendaTotal, totalSaldoPagar, totalValorPago, totalDebito } =
+    useMemo(() => {
+      let venda = 0
+      let saldo = 0
+      let paid = 0
+      let debt = 0
 
-    const shouldIgnoreMotoqueiroFilter = activeTab === 'motoqueiro'
+      const shouldIgnoreMotoqueiroFilter = activeTab === 'motoqueiro'
 
-    filteredDebts.forEach((client) => {
-      client.orders.forEach((order) => {
-        // Apply Order Filter (Strict check)
-        if (orderFilter && !order.orderId.toString().includes(orderFilter))
-          return
+      filteredDebts.forEach((client) => {
+        client.orders.forEach((order) => {
+          // Apply Order Filter (Strict check)
+          if (orderFilter && !order.orderId.toString().includes(orderFilter))
+            return
 
-        order.installments.forEach((inst) => {
-          let matches = true
+          order.installments.forEach((inst) => {
+            let matches = true
 
-          // Status Filter
-          if (statusFilter !== 'todos' && inst.status !== statusFilter)
-            matches = false
+            // Status Filter
+            if (statusFilter.length > 0 && !statusFilter.includes(inst.status))
+              matches = false
 
-          // Data Combinada Filter
-          if (dataCombinadaFilter && inst.dataCombinada !== dataCombinadaFilter)
-            matches = false
-
-          // Motoqueiro Filter
-          if (!shouldIgnoreMotoqueiroFilter && motoqueiroFilter !== 'todos') {
+            // Data Combinada Filter
             if (
-              motoqueiroFilter === 'com_rota' &&
-              inst.formaCobranca !== 'MOTOQUEIRO'
+              dataCombinadaFilter &&
+              inst.dataCombinada !== dataCombinadaFilter
             )
               matches = false
-            if (
-              motoqueiroFilter === 'sem_rota' &&
-              inst.formaCobranca === 'MOTOQUEIRO'
-            )
-              matches = false
-          }
 
-          if (matches) {
-            debt += Math.max(0, inst.valorRegistrado - inst.valorPago)
-            paid += inst.valorPago
-          }
+            // Motoqueiro Filter
+            if (!shouldIgnoreMotoqueiroFilter && motoqueiroFilter !== 'todos') {
+              if (
+                motoqueiroFilter === 'com_rota' &&
+                inst.formaCobranca !== 'MOTOQUEIRO'
+              )
+                matches = false
+              if (
+                motoqueiroFilter === 'sem_rota' &&
+                inst.formaCobranca === 'MOTOQUEIRO'
+              )
+                matches = false
+            }
+
+            if (matches) {
+              const currentDebt = Math.max(
+                0,
+                inst.valorRegistrado - inst.valorPago,
+              )
+              venda += inst.valorRegistrado
+              saldo += inst.valorRegistrado // Using Registered Value as the 'to pay' basis for installments
+              paid += inst.valorPago
+              debt += currentDebt
+            }
+          })
         })
       })
-    })
 
-    return { totalFilteredDebt: debt, totalFilteredPaid: paid }
-  }, [
-    filteredDebts,
-    orderFilter,
-    statusFilter,
-    dataCombinadaFilter,
-    motoqueiroFilter,
-    activeTab,
-  ])
+      return {
+        totalVendaTotal: venda,
+        totalSaldoPagar: saldo,
+        totalValorPago: paid,
+        totalDebito: debt,
+      }
+    }, [
+      filteredDebts,
+      orderFilter,
+      statusFilter,
+      dataCombinadaFilter,
+      motoqueiroFilter,
+      activeTab,
+    ])
 
-  const totalClients = filteredDebts.length
+  const statusOptions = [
+    { label: 'Vencido', value: 'VENCIDO' },
+    { label: 'A Vencer', value: 'A VENCER' },
+    { label: 'Pago', value: 'PAGO' },
+  ]
 
   return (
     <div className="space-y-6 animate-fade-in p-4 sm:p-6 pb-20">
@@ -294,18 +324,25 @@ export default function CobrancaPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total em Débito
-            </CardTitle>
-            <HandCoins className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Venda Total</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              R$ {formatCurrency(totalFilteredDebt)}
+            <div className="text-2xl font-bold">
+              R$ {formatCurrency(totalVendaTotal)}
             </div>
-            <p className="text-xs text-muted-foreground">
-              {totalClients} clientes listados
-            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Saldo a Pagar</CardTitle>
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
+              R$ {formatCurrency(totalSaldoPagar)}
+            </div>
           </CardContent>
         </Card>
 
@@ -316,11 +353,20 @@ export default function CobrancaPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              R$ {formatCurrency(totalFilteredPaid)}
+              R$ {formatCurrency(totalValorPago)}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Total recebido da lista
-            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Débito</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">
+              R$ {formatCurrency(totalDebito)}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -349,17 +395,14 @@ export default function CobrancaPage() {
               </div>
             </div>
 
-            <div className="w-full md:w-[150px]">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos Status</SelectItem>
-                  <SelectItem value="VENCIDO">vencido</SelectItem>
-                  <SelectItem value="A VENCER">a vencer</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="w-full md:w-[250px]">
+              <MultiSelect
+                options={statusOptions}
+                selected={statusFilter}
+                onChange={setStatusFilter}
+                placeholder="Status"
+                className="w-full"
+              />
             </div>
             <div className="w-full md:w-[150px]">
               <Select
