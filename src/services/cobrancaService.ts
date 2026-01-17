@@ -314,6 +314,7 @@ export const cobrancaService = {
           cep: cInfo?.cep || null,
           situacao: cInfo?.situacao || 'ATIVO',
           totalDebt: 0,
+          totalPaid: 0,
           orderCount: 0,
           status: 'SEM DÉBITO',
           lastAcertoDate: dateAcerto,
@@ -326,6 +327,7 @@ export const cobrancaService = {
 
       const client = clientsMap.get(cid)!
       client.totalDebt += rawDebt
+      client.totalPaid += rawPaid
       client.orderCount++
       client.orders.push(orderObj)
 

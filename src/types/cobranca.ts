@@ -71,6 +71,7 @@ export interface ClientDebt {
   clientName: string
   clientType: string
   totalDebt: number
+  totalPaid: number // Added field for total paid value
   orderCount: number
   status: 'VENCIDO' | 'A VENCER' | 'SEM DÉBITO'
   lastAcertoDate: string

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { cobrancaService } from '@/services/cobrancaService'
 import { ClientDebt } from '@/types/cobranca'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -11,7 +11,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, Search, RefreshCw, HandCoins, Users } from 'lucide-react'
+import {
+  Loader2,
+  Search,
+  RefreshCw,
+  HandCoins,
+  Users,
+  Banknote,
+} from 'lucide-react'
 import { DebtTable } from '@/components/cobranca/DebtTable'
 import { useToast } from '@/hooks/use-toast'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -190,7 +197,62 @@ export default function CobrancaPage() {
     }
   }
 
-  const totalDebt = filteredDebts.reduce((acc, curr) => acc + curr.totalDebt, 0)
+  // Exact Calculation for Summary Cards based on applied filters
+  const { totalFilteredDebt, totalFilteredPaid } = useMemo(() => {
+    let debt = 0
+    let paid = 0
+
+    const shouldIgnoreMotoqueiroFilter = activeTab === 'motoqueiro'
+
+    filteredDebts.forEach((client) => {
+      client.orders.forEach((order) => {
+        // Apply Order Filter (Strict check)
+        if (orderFilter && !order.orderId.toString().includes(orderFilter))
+          return
+
+        order.installments.forEach((inst) => {
+          let matches = true
+
+          // Status Filter
+          if (statusFilter !== 'todos' && inst.status !== statusFilter)
+            matches = false
+
+          // Data Combinada Filter
+          if (dataCombinadaFilter && inst.dataCombinada !== dataCombinadaFilter)
+            matches = false
+
+          // Motoqueiro Filter
+          if (!shouldIgnoreMotoqueiroFilter && motoqueiroFilter !== 'todos') {
+            if (
+              motoqueiroFilter === 'com_rota' &&
+              inst.formaCobranca !== 'MOTOQUEIRO'
+            )
+              matches = false
+            if (
+              motoqueiroFilter === 'sem_rota' &&
+              inst.formaCobranca === 'MOTOQUEIRO'
+            )
+              matches = false
+          }
+
+          if (matches) {
+            debt += Math.max(0, inst.valorRegistrado - inst.valorPago)
+            paid += inst.valorPago
+          }
+        })
+      })
+    })
+
+    return { totalFilteredDebt: debt, totalFilteredPaid: paid }
+  }, [
+    filteredDebts,
+    orderFilter,
+    statusFilter,
+    dataCombinadaFilter,
+    motoqueiroFilter,
+    activeTab,
+  ])
+
   const totalClients = filteredDebts.length
 
   return (
@@ -238,11 +300,26 @@ export default function CobrancaPage() {
             <HandCoins className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              R$ {formatCurrency(totalDebt)}
+            <div className="text-2xl font-bold text-red-600">
+              R$ {formatCurrency(totalFilteredDebt)}
             </div>
             <p className="text-xs text-muted-foreground">
               {totalClients} clientes listados
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Valor Pago</CardTitle>
+            <Banknote className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              R$ {formatCurrency(totalFilteredPaid)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Total recebido da lista
             </p>
           </CardContent>
         </Card>
