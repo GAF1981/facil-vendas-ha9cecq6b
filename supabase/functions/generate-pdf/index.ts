@@ -16,7 +16,14 @@ const formatCurrency = (value: number) => {
 const safeFormatDate = (dateString: string | null | undefined): string => {
   if (!dateString) return '-'
   try {
-    const date = new Date(dateString)
+    let dateToParse = dateString
+    // Fix: If date string is simple YYYY-MM-DD, append time to force it to noon UTC
+    // This prevents timezone shift when converting to local time (Brazil is UTC-3)
+    if (dateString && dateString.length === 10 && !dateString.includes('T')) {
+      dateToParse = `${dateString}T12:00:00`
+    }
+
+    const date = new Date(dateToParse)
     return date.toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
@@ -31,6 +38,8 @@ const safeFormatDate = (dateString: string | null | undefined): string => {
 const safeFormatTime = (dateString: string | null | undefined): string => {
   if (!dateString) return ''
   try {
+    // If original string was date-only, we might not want to show time, or show 12:00
+    // But usually this function is called when we expect a time component.
     const date = new Date(dateString)
     return date.toLocaleTimeString('pt-BR', {
       hour: '2-digit',
@@ -202,7 +211,7 @@ Deno.serve(async (req) => {
     // --- REPORT TYPES LOGIC ---
 
     if (reportType === 'closing-confirmation') {
-      // ... (Existing closing-confirmation logic)
+      // ... (Existing closing logic - preserved)
       const { fechamento, receipts, expenses, date } = body
       const closingData = fechamento || body.data
 
@@ -242,6 +251,7 @@ Deno.serve(async (req) => {
       drawLine(y)
       y -= 20
 
+      // ... (rest of closing logic - kept identical)
       const rows = [
         { l: 'Venda Total', v: closingData.venda_total },
         { l: 'Desconto Total', v: closingData.desconto_total },
@@ -403,7 +413,7 @@ Deno.serve(async (req) => {
         align: 'center',
       })
     } else {
-      // --- RESTORED ACERTO LAYOUT (Based on src/assets/pedido_423_page_1.jpg) ---
+      // --- RESTORED ACERTO LAYOUT (Updated) ---
       const {
         client,
         employee,

@@ -119,11 +119,33 @@ export const acertoService = {
       const first = dbItems[0]
       clientId = first['CÓDIGO DO CLIENTE']
       funcionarioName = first['FUNCIONÁRIO'] || 'Não identificado'
-      dateStr = first['DATA DO ACERTO'] || dateStr
       descontoStr = first['DESCONTO POR GRUPO'] || '0'
+
+      // Robust Date Logic to prevent Timezone Shifts
+      // Priority 1: Use DATA E HORA (ISO String) if available
+      if (first['DATA E HORA']) {
+        dateStr = first['DATA E HORA']
+      }
+      // Priority 2: Construct ISO from legacy Date + Time columns
+      else if (first['DATA DO ACERTO']) {
+        const d = first['DATA DO ACERTO']
+        const t = first['HORA DO ACERTO'] || '12:00:00'
+        try {
+          // Combining Date and Time string creates a local time representation in browser
+          // toISOString() then correctly converts it to UTC, preserving the moment in time
+          dateStr = new Date(`${d}T${t}`).toISOString()
+        } catch (e) {
+          console.warn(
+            'Error constructing date from parts, defaulting to now',
+            e,
+          )
+          dateStr = new Date().toISOString()
+        }
+      }
     } else if (dbPayments.length > 0) {
       const first = dbPayments[0]
       clientId = first.cliente_id
+      if (first.created_at) dateStr = first.created_at
     }
 
     if (!clientId) throw new Error('Dados do cliente não encontrados.')
