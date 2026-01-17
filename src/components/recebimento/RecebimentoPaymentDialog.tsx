@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { PAYMENT_METHODS, PaymentMethodType } from '@/types/payment'
+import { PAYMENT_METHODS } from '@/types/payment'
 
 interface RecebimentoPaymentDialogProps {
   open: boolean
@@ -203,7 +203,8 @@ export function RecebimentoPaymentDialog({
           )}
 
           <div className="space-y-2">
-            <Label>Valor a Pagar (R$)</Label>
+            {/* Updated Label as per requirements */}
+            <Label>Valor Recebido (R$)</Label>
             <Input
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
