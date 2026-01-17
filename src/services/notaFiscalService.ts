@@ -190,9 +190,10 @@ export const notaFiscalService = {
     const valorPago = payments.reduce((acc, p) => acc + (p.paidValue || 0), 0)
     const debito = Math.max(0, totalAPagar - valorPago)
 
-    // Map data to expected format for PDF (Acerto Layout)
+    // Map data to expected format for PDF
     const items = itemsData.map((item) => {
       return {
+        codigo: item['COD. PRODUTO'],
         produtoNome: item['MERCADORIA'] || 'Produto sem nome',
         precoUnitario: parseCurrency(item['PREÇO VENDIDO']),
         saldoInicial: item['SALDO INICIAL'] || 0,
@@ -201,12 +202,14 @@ export const notaFiscalService = {
         valorVendido: parseCurrency(item['VALOR VENDIDO']),
         saldoFinal: item['SALDO FINAL'] || 0,
         tipo: item['TIPO'] || '-',
+        novasConsignacoes: parseCurrency(item['NOVAS CONSIGNAÇÕES']),
+        recolhido: parseCurrency(item['RECOLHIDO']),
       }
     })
 
     // Construct Payload for Edge Function
     const payload = {
-      reportType: 'acerto', // Using 'acerto' layout which supports A4 and details
+      reportType: 'detailed-order-report', // CHANGED to specific report type
       format: 'A4',
       client: {
         'NOME CLIENTE': clientData?.['NOME CLIENTE'] || first['CLIENTE'],
@@ -216,6 +219,8 @@ export const notaFiscalService = {
         MUNICÍPIO: clientData?.['MUNICÍPIO'],
         CNPJ: clientData?.CNPJ,
         CEP: clientData?.['CEP OFICIO'],
+        'FONE 1': clientData?.['FONE 1'],
+        'CONTATO 1': clientData?.['CONTATO 1'],
       },
       employee: {
         nome_completo: first['FUNCIONÁRIO'] || 'Não identificado',
@@ -229,7 +234,7 @@ export const notaFiscalService = {
       valorPago,
       debito,
       payments,
-      history: [], // Can be added if needed, but keeping it light for now
+      history: [],
     }
 
     const { data: pdfBlob, error: pdfError } = await supabase.functions.invoke(
