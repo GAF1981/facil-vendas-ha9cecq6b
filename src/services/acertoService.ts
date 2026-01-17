@@ -84,7 +84,7 @@ export const acertoService = {
   async reprintReceipt(
     orderId: number,
     issuerName?: string,
-    format: 'A4' | '80mm' = 'A4',
+    format: 'A4' | '80mm' = '80mm',
   ) {
     return this.generateDocument(
       orderId,
@@ -158,9 +158,12 @@ export const acertoService = {
 
     // Fetch History
     const history = await bancoDeDadosService.getHistoryForPdf(clientId)
-    const previousOrders = history.filter((h) => h.id !== orderId)
-    const lastOrder = previousOrders.length > 0 ? previousOrders[0] : null
-    const recentHistory = previousOrders
+    // Filter out current order if it appears in history to avoid duplication in "Previous History" section
+    // Although sometimes seeing current order in history context is desired, usually 'history' implies past.
+    // The requirement image shows history including #438, #436 when printing #439.
+    // So we should filter out orderId.
+    const recentHistory = history.filter((h) => h.id !== orderId)
+    const lastOrder = recentHistory.length > 0 ? recentHistory[0] : null
 
     // Fetch Monthly Average for the PDF report
     const monthlyAverage = await bancoDeDadosService.getMonthlyAverage(clientId)
@@ -184,7 +187,7 @@ export const acertoService = {
         method: p.forma_pagamento as any,
         value: p.valor_registrado || 0,
         paidValue: p.valor_pago || 0,
-        installments: 1,
+        installments: 1, // Defaulting to 1 for flat list, but if logic allows deduction...
         dueDate: p.vencimento ? p.vencimento.split('T')[0] : '',
         details: [
           {

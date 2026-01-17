@@ -8,7 +8,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -27,7 +26,6 @@ import {
   AlertCircle,
   Search,
   FileText,
-  FileCheck,
   RotateCcw,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -83,17 +81,12 @@ export function AcertoHistoryTable({
   hideHeader = false,
   className,
   data: externalData,
-  onSelectOrder,
-  selectedOrderId,
 }: AcertoHistoryTableProps) {
   const { employee: loggedInUser } = useUserStore()
   const [history, setHistory] = useState<HistoryRow[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
   const [printingId, setPrintingId] = useState<number | null>(null)
-  const [printingReceiptId, setPrintingReceiptId] = useState<number | null>(
-    null,
-  )
   const { toast } = useToast()
 
   // State for Payment Details Modal
@@ -145,16 +138,6 @@ export function AcertoHistoryTable({
     }
   }, [clientId, externalData])
 
-  const handleCheckboxChange = (order: HistoryRow, checked: boolean) => {
-    if (onSelectOrder) {
-      if (checked) {
-        onSelectOrder(order)
-      } else {
-        onSelectOrder(null)
-      }
-    }
-  }
-
   const handleShowDetails = (order: HistoryRow) => {
     setSelectedPaymentDetails(order.paymentDetails || [])
     setSelectedOrderRef(order.id)
@@ -167,8 +150,9 @@ export function AcertoHistoryTable({
       const pdfBlob = await acertoService.reprintOrder(
         order.id,
         loggedInUser?.nome_completo,
+        '80mm', // Always 80mm for receipt as per User Story
       )
-      downloadPdf(pdfBlob, `Pedido_${order.id}`)
+      downloadPdf(pdfBlob, `Recibo_Pedido_${order.id}`)
     } catch (err) {
       console.error(err)
       toast({
@@ -178,26 +162,6 @@ export function AcertoHistoryTable({
       })
     } finally {
       setPrintingId(null)
-    }
-  }
-
-  const handleReprintReceipt = async (order: HistoryRow) => {
-    setPrintingReceiptId(order.id)
-    try {
-      const pdfBlob = await acertoService.reprintReceipt(
-        order.id,
-        loggedInUser?.nome_completo,
-      )
-      downloadPdf(pdfBlob, `Recibo_Pedido_${order.id}`)
-    } catch (err) {
-      console.error(err)
-      toast({
-        title: 'Erro no Recibo',
-        description: 'Não foi possível gerar o recibo.',
-        variant: 'destructive',
-      })
-    } finally {
-      setPrintingReceiptId(null)
     }
   }
 
@@ -211,11 +175,7 @@ export function AcertoHistoryTable({
     a.click()
     a.remove()
     window.URL.revokeObjectURL(url)
-    toast({
-      title: 'Download Iniciado',
-      description: 'O arquivo PDF está sendo baixado.',
-      className: 'bg-green-50 border-green-200 text-green-900',
-    })
+    window.open(url, '_blank')
   }
 
   const handleReverseClick = (payment: { id: number; value: number }) => {
@@ -259,9 +219,6 @@ export function AcertoHistoryTable({
       setReversing(false)
     }
   }
-
-  const isAnyOrderSelected =
-    selectedOrderId !== null && selectedOrderId !== undefined
 
   // Permission Check
   const canReverse =
@@ -321,28 +278,25 @@ export function AcertoHistoryTable({
                     <TableHead>Vendedor</TableHead>
                     <TableHead className="text-right">Média Mensal</TableHead>
                     <TableHead className="text-right">Valor da Venda</TableHead>
-                    <TableHead className="text-right text-blue-600">
+                    <TableHead className="text-right text-blue-600 font-semibold bg-blue-50/50">
                       Saldo a Pagar
                     </TableHead>
-                    <TableHead className="text-right text-green-600">
+                    <TableHead className="text-right text-green-600 font-semibold bg-green-50/50">
                       Valor Pago
                     </TableHead>
-                    <TableHead className="text-right text-red-600">
+                    <TableHead className="text-right text-red-600 font-semibold">
                       Débito
                     </TableHead>
-                    <TableHead className="text-center w-[120px]">
+                    <TableHead className="text-center w-[100px]">
                       Ações
                     </TableHead>
-                    {onSelectOrder && (
-                      <TableHead className="w-[50px]"></TableHead>
-                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {history.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={onSelectOrder ? 10 : 9}
+                        colSpan={9}
                         className="h-24 text-center text-muted-foreground"
                       >
                         Nenhum histórico encontrado para este cliente.
@@ -350,14 +304,8 @@ export function AcertoHistoryTable({
                     </TableRow>
                   ) : (
                     history.map((row) => {
-                      const isSelected = selectedOrderId === row.id
-                      const hasDebt = row.debito > 0.005
-                      const showCheckbox =
-                        isSelected || (!isAnyOrderSelected && hasDebt)
-                      const canPrintReceipt = row.valorPago > 0
-
-                      // Per Acceptance Criteria: "Saldo a Pagar" must equal "Valor Venda - Total Valor Pago"
-                      // Overriding standard net value calculation if necessary
+                      // Per Acceptance Criteria and Screenshot visual fidelity:
+                      // "Saldo a Pagar" here represents the gap between Sales and Payment in the context of the table view
                       const saldoAPagarDisplay =
                         row.valorVendaTotal - row.valorPago
 
@@ -397,18 +345,15 @@ export function AcertoHistoryTable({
                           <TableCell className="text-right font-mono font-medium text-green-600 bg-green-50/30 p-2">
                             <div className="flex items-center justify-end gap-2">
                               <span>R$ {formatCurrency(row.valorPago)}</span>
-                              {row.paymentDetails &&
-                                row.paymentDetails.length > 0 && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 text-green-700 hover:text-green-800 hover:bg-green-200"
-                                    onClick={() => handleShowDetails(row)}
-                                    title="Ver detalhes"
-                                  >
-                                    <Search className="h-3.5 w-3.5" />
-                                  </Button>
-                                )}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-green-700 hover:text-green-800 hover:bg-green-200"
+                                onClick={() => handleShowDetails(row)}
+                                title="Ver detalhes"
+                              >
+                                <Search className="h-3.5 w-3.5" />
+                              </Button>
                             </div>
                           </TableCell>
                           <TableCell
@@ -429,53 +374,27 @@ export function AcertoHistoryTable({
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8"
+                                onClick={() => handleShowDetails(row)}
+                                title="Ver Detalhes"
+                              >
+                                <Search className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
                                 onClick={() => handleReprintOrder(row)}
-                                disabled={
-                                  printingId === row.id ||
-                                  printingReceiptId === row.id
-                                }
-                                title="Imprimir Pedido"
+                                disabled={printingId === row.id}
+                                title="Gerar PDF"
                               >
                                 {printingId === row.id ? (
                                   <Loader2 className="h-4 w-4 animate-spin" />
                                 ) : (
-                                  <FileText className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                                  <FileText className="h-4 w-4 text-green-600 hover:text-green-800" />
                                 )}
                               </Button>
-                              {canPrintReceipt && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  onClick={() => handleReprintReceipt(row)}
-                                  disabled={
-                                    printingReceiptId === row.id ||
-                                    printingId === row.id
-                                  }
-                                  title="Gerar Recibo"
-                                >
-                                  {printingReceiptId === row.id ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <FileCheck className="h-4 w-4 text-green-600 hover:text-green-800" />
-                                  )}
-                                </Button>
-                              )}
                             </div>
                           </TableCell>
-                          {onSelectOrder && (
-                            <TableCell>
-                              {showCheckbox && (
-                                <Checkbox
-                                  checked={isSelected}
-                                  onCheckedChange={(c) =>
-                                    handleCheckboxChange(row, c as boolean)
-                                  }
-                                  aria-label="Selecionar"
-                                />
-                              )}
-                            </TableCell>
-                          )}
                         </TableRow>
                       )
                     })
@@ -492,7 +411,6 @@ export function AcertoHistoryTable({
           <DialogHeader>
             <DialogTitle>Detalhes do Pagamento</DialogTitle>
           </DialogHeader>
-          {/* Reuse existing logic for modal content */}
           <div className="space-y-4">
             <div className="flex items-center justify-between text-sm text-muted-foreground border-b pb-2">
               <span>Pedido #{selectedOrderRef}</span>

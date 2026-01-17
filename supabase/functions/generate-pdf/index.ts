@@ -92,13 +92,14 @@ Deno.serve(async (req) => {
             else installmentsCount += 1
           })
         }
+        // Increased height estimation per section to accommodate details
         estimatedHeight =
-          400 +
-          itemsCount * 90 +
+          450 + // Header + Info
+          itemsCount * 100 + // Items with details
           paymentsCount * 40 +
           installmentsCount * 30 +
-          historyCount * 130 +
-          300
+          historyCount * 160 + // History blocks
+          300 // Footer
       }
 
       page = pdfDoc.addPage([226, Math.max(400, estimatedHeight)])
@@ -193,84 +194,341 @@ Deno.serve(async (req) => {
 
     // --- REPORT TYPES LOGIC ---
 
-    if (reportType === 'receipt') {
-      // Receipt Data Structure
-      const r = data
+    if (
+      isThermal &&
+      (!reportType || reportType === 'acerto' || reportType === 'receipt')
+    ) {
+      // --- THERMAL 80MM ACERTO/RECEIPT LAYOUT ---
+      const {
+        client,
+        employee,
+        items = [],
+        date,
+        orderNumber,
+        totalVendido = 0,
+        valorDesconto = 0,
+        valorAcerto = 0,
+        valorPago = 0,
+        debito = 0,
+        payments = [],
+        history = [],
+        signature,
+      } = body
 
+      const sellerName = employee?.nome_completo || 'N/D'
+      const clientName = client?.['NOME CLIENTE'] || 'Consumidor'
+      const clientCode = client?.CODIGO || '0'
+      const clientAddress = `${client?.ENDEREÇO || ''}, ${client?.BAIRRO || ''}`
+      const clientCity = `${client?.MUNICÍPIO || ''}`
+
+      // Header
       drawText('FACIL VENDAS', width / 2, y, {
-        size: 14,
+        size: 16,
         font: fontBold,
         align: 'center',
       })
       y -= 20
-      drawText('RECIBO DE PAGAMENTO', width / 2, y, {
-        size: 12,
+      drawText(`PEDIDO ${orderNumber || 'N/D'}`, width / 2, y, {
+        size: 14,
         font: fontBold,
         align: 'center',
       })
-      y -= 15
+      y -= 10
       drawLine(y)
       y -= 15
 
+      // Client Info
+      const infoSize = 9
+      drawText(`Cliente: ${clientCode} - ${clientName}`, margins.left, y, {
+        size: infoSize,
+        font: fontBold,
+        maxWidth: width - 20,
+      })
+      y -= 12
+      drawText(`End: ${clientAddress}`, margins.left, y, {
+        size: infoSize,
+        maxWidth: width - 20,
+      })
+      y -= 12
+      drawText(`${clientCity}`, margins.left, y, { size: infoSize })
+      y -= 12
       drawText(
-        `Cliente: ${r.cliente_codigo || ''} - ${r.cliente_nome || ''}`,
+        `Data: ${safeFormatDate(date)} ${safeFormatTime(date)}`,
         margins.left,
         y,
-        { size: 10, maxWidth: width - 20 },
+        { size: infoSize },
       )
-      y -= 15
-      drawText(`Pedido Origem: #${r.venda_id}`, margins.left, y, { size: 10 })
-      y -= 15
-      drawText(
-        `Data Pagamento: ${safeFormatDate(r.data_pagamento || new Date().toISOString())}`,
-        margins.left,
-        y,
-        { size: 10 },
-      )
-      y -= 15
+      y -= 12
+      drawText(`Vendedor: ${sellerName}`, margins.left, y, {
+        size: infoSize,
+        maxWidth: width - 20,
+      })
+      y -= 10
       drawLine(y)
       y -= 15
-      // ... (Receipt rest logic same as before, abbreviated for brevity as focus is detailed report)
-      drawText('Detalhes da Parcela', width / 2, y, {
+
+      // Items Section
+      drawText('ITENS DO PEDIDO', width / 2, y, {
         size: 10,
         font: fontBold,
         align: 'center',
       })
       y -= 15
-      const drawRow = (label: string, val: string, bold = false) => {
-        drawText(label, margins.left, y, {
+
+      for (const item of items) {
+        checkPageBreak(100)
+        // Product Line
+        const priceStr = `R$ ${formatCurrency(item.precoUnitario)}`
+        drawText(`${item.produtoNome}`, margins.left, y, {
           size: 9,
-          font: bold ? fontBold : fontRegular,
+          font: fontBold,
+          maxWidth: width - 80,
         })
-        drawText(val, width - margins.right, y, {
+        drawText(priceStr, width - margins.right, y, {
           size: 9,
+          font: fontBold,
           align: 'right',
-          font: bold ? fontBold : fontRegular,
+        })
+        y -= 12
+
+        // Details
+        const drawDetail = (label: string, val: any) => {
+          drawText(label, margins.left, y, { size: 9 })
+          drawText(String(val), width - margins.right, y, {
+            size: 9,
+            align: 'right',
+          })
+          y -= 11
+        }
+
+        drawDetail('Saldo Inicial:', item.saldoInicial)
+        drawDetail('Contagem:', item.contagem)
+        drawDetail('Qtd. Vendida:', item.quantVendida)
+        drawDetail('Saldo Final:', item.saldoFinal)
+
+        drawText('Total:', margins.left, y, { size: 9, font: fontBold })
+        drawText(
+          `R$ ${formatCurrency(item.valorVendido)}`,
+          width - margins.right,
+          y,
+          { size: 9, font: fontBold, align: 'right' },
+        )
+        y -= 15
+      }
+      drawLine(y)
+      y -= 15
+
+      // Totals
+      const drawTotal = (label: string, val: number, isBig = false) => {
+        const f = isBig ? fontBold : fontRegular
+        drawText(label, margins.left, y, { size: 9, font: f })
+        drawText(`R$ ${formatCurrency(val)}`, width - margins.right, y, {
+          size: 9,
+          font: f,
+          align: 'right',
         })
         y -= 12
       }
-      drawRow('Vencimento:', safeFormatDate(r.vencimento))
-      drawRow(
-        'Valor Original:',
-        `R$ ${formatCurrency(r.valor_registrado || 0)}`,
-      )
-      drawRow('Valor Pago Total:', `R$ ${formatCurrency(r.valor_pago || 0)}`)
-      y -= 5
-      drawRow('SALDO RESTANTE:', `R$ ${formatCurrency(r.saldo || 0)}`, true)
+
+      drawTotal('Total Vendido:', totalVendido)
+      drawTotal('Desconto:', valorDesconto)
+      y -= 2
+      drawTotal('TOTAL A PAGAR:', valorAcerto, true)
       y -= 15
       drawLine(y)
+      y -= 15
+
+      // Payments
+      drawText('PAGAMENTOS', width / 2, y, {
+        size: 10,
+        font: fontBold,
+        align: 'center',
+      })
+      y -= 15
+
+      let hasImmediate = false
+      for (const p of payments) {
+        // Filter immediate payments if needed, or list all
+        // Usually receipts show what was paid.
+        // Assuming 'payments' contains registered payments for this order
+        // If installments > 1, listed in 'A PAGAR' section or here?
+        // User story image shows "Nenhum pagamento imediato" and "A PAGAR" separately.
+        // Let's check logic: if payment has value > 0 and paidValue > 0 => Immediate.
+        if (p.paidValue > 0) {
+          drawText(`${p.method} - Hoje`, margins.left, y, { size: 9 })
+          drawText(
+            `R$ ${formatCurrency(p.paidValue)}`,
+            width - margins.right,
+            y,
+            { size: 9, align: 'right' },
+          )
+          y -= 12
+          hasImmediate = true
+        }
+      }
+      if (!hasImmediate) {
+        drawText('Nenhum pagamento imediato.', margins.left, y, {
+          size: 9,
+          font: fontBold,
+        })
+        y -= 15
+      }
+      y -= 5
+      drawLine(y)
+      y -= 15
+
+      // A PAGAR (Scheduled)
+      drawText('A PAGAR', width / 2, y, {
+        size: 10,
+        font: fontBold,
+        align: 'center',
+      })
+      y -= 15
+
+      let hasScheduled = false
+      for (const p of payments) {
+        if (p.details && p.details.length > 0) {
+          for (const d of p.details) {
+            // If due date is future
+            if (
+              new Date(d.dueDate) > new Date(new Date().setHours(0, 0, 0, 0))
+            ) {
+              hasScheduled = true
+              checkPageBreak(20)
+              const label = `${p.method} (${d.number}/${p.installments}) - ${safeFormatDate(d.dueDate)}`
+              drawText(label, margins.left, y, {
+                size: 9,
+                maxWidth: width - 80,
+              })
+              drawText(
+                `R$ ${formatCurrency(d.value)}`,
+                width - margins.right,
+                y,
+                { size: 9, align: 'right' },
+              )
+              y -= 12
+            }
+          }
+        }
+      }
+      if (!hasScheduled) {
+        // Logic to check if there is remaining debt
+        if (debito > 0.01) {
+          drawText('Saldo Devedor Pendente.', margins.left, y, { size: 9 })
+          y -= 12
+        } else {
+          drawText('Nenhum pagamento agendado.', margins.left, y, { size: 9 })
+          y -= 12
+        }
+      }
+      y -= 5
+      drawLine(y)
+      y -= 15
+
+      // Financial Summary
+      drawText('RESUMO FINANCEIRO', margins.left, y, {
+        size: 9,
+        font: fontBold,
+      })
+      y -= 15
+      drawText('Valor Total Pago (Hoje):', margins.left, y, {
+        size: 9,
+        font: fontBold,
+      })
+      drawText(`R$ ${formatCurrency(valorPago)}`, width - margins.right, y, {
+        size: 9,
+        align: 'right',
+        font: fontBold,
+      })
+      y -= 12
+      drawText('RESTANTE (DEBITO):', margins.left, y, {
+        size: 9,
+        font: fontBold,
+      })
+      drawText(`R$ ${formatCurrency(debito)}`, width - margins.right, y, {
+        size: 9,
+        align: 'right',
+        font: fontBold,
+      })
+      y -= 15
+      drawLine(y)
+      y -= 15
+
+      // Settlement History
+      drawText('RESUMO DE ACERTOS (HISTORICO)', width / 2, y, {
+        size: 10,
+        font: fontBold,
+        align: 'center',
+      })
+      y -= 15
+
+      for (const h of history) {
+        checkPageBreak(120)
+
+        const drawHistLine = (l: string, v: string | number) => {
+          drawText(l, margins.left, y, { size: 9, font: fontBold })
+          drawText(String(v), width - margins.right, y, {
+            size: 9,
+            font: fontBold,
+            align: 'right',
+          })
+          y -= 11
+        }
+
+        // Mapping fields based on requirement
+        // Data, Venda, Desconto, A pagar, Pago, Debito, Vendedor, Media Mensal, Pedido
+        drawHistLine('Data:', safeFormatDate(h.data))
+        drawHistLine('Venda:', `R$ ${formatCurrency(h.valorVendaTotal)}`)
+        drawHistLine('Desconto:', `R$ ${formatCurrency(h.desconto || 0)}`)
+        drawHistLine('A pagar:', `R$ ${formatCurrency(h.saldoAPagar)}`)
+        drawHistLine('Pago:', `R$ ${formatCurrency(h.valorPago)}`)
+        drawHistLine('Debito:', `R$ ${formatCurrency(h.debito)}`)
+
+        // Vendedor can be long
+        drawText('Vendedor:', margins.left, y, { size: 9, font: fontBold })
+        drawText(h.vendedor || '-', width - margins.right, y, {
+          size: 9,
+          align: 'right',
+          font: fontBold,
+          maxWidth: 120,
+        })
+        y -= 11
+
+        drawHistLine(
+          'Media Mensal:',
+          `R$ ${formatCurrency(h.mediaMensal || 0)}`,
+        )
+        drawHistLine('Pedido:', `#${h.id}`)
+
+        y -= 8 // Spacing between blocks
+      }
+
+      drawLine(y)
       y -= 30
+
+      // Footer / Signature
+      checkPageBreak(50)
       const sigLineY = y
       page.drawLine({
         start: { x: margins.left + 20, y: sigLineY },
         end: { x: width - margins.right - 20, y: sigLineY },
         thickness: 1,
+        color: rgb(0, 0, 0),
       })
-      drawText('Assinatura Responsavel', width / 2, sigLineY - 15, {
+      y -= 15
+      drawText('Assinatura do Cliente', width / 2, y, {
         size: 9,
+        font: fontBold,
+        align: 'center',
+      })
+      y -= 12
+      drawText(`Emitido por: ${sellerName}`, width / 2, y, {
+        size: 9,
+        font: fontBold,
         align: 'center',
       })
     } else if (reportType === 'closing-confirmation') {
+      // ... (Preserve existing closing logic)
       const { fechamento, receipts, expenses, date: closingDate } = body
       const closingData = fechamento || body.data
 
@@ -292,7 +550,6 @@ Deno.serve(async (req) => {
       drawLine(y)
       y -= 15
 
-      // ... (Rest of closing confirmation logic preserved)
       drawText(
         `Data: ${safeFormatDate(closingDate)} ${safeFormatTime(closingDate)}`,
         margins.left,
@@ -339,414 +596,10 @@ Deno.serve(async (req) => {
         })
         y -= 15
       }
-      // ... (Detailed lists preserved in original file content, I'm just bridging context)
-    } else if (reportType === 'detailed-order-report') {
-      const {
-        client,
-        employee,
-        items = [],
-        date,
-        orderNumber,
-        totalVendido = 0,
-        valorDesconto = 0,
-        valorAcerto = 0,
-      } = body
-
-      // Header
-      drawText('RELATORIO DETALHADO DE PEDIDO', width / 2, y, {
-        size: 16,
-        font: fontBold,
-        align: 'center',
-      })
-      y -= 20
-      drawLine(y)
-      y -= 20
-
-      // Metadata Grid
-      const col1X = margins.left
-      const col2X = width / 2 + 20
-      const startY = y
-      const lineHeight = 14
-      const fontSize = 10
-
-      // Left Column
-      drawText(`Numero do Pedido: ${orderNumber}`, col1X, y, {
-        size: fontSize,
-        font: fontBold,
-      })
-      y -= lineHeight
-      drawText(
-        `Cliente: ${client.CODIGO || ''} - ${client['NOME CLIENTE'] || ''}`,
-        col1X,
-        y,
-        { size: fontSize, font: fontBold },
-      )
-      y -= lineHeight
-      drawText(`Endereco: ${client.ENDEREÇO || ''}`, col1X, y, {
-        size: fontSize,
-      })
-      y -= lineHeight
-      drawText(`Municipio: ${client.MUNICÍPIO || ''}`, col1X, y, {
-        size: fontSize,
-      })
-      y -= lineHeight
-      drawText(`Contato: ${client['CONTATO 1'] || ''}`, col1X, y, {
-        size: fontSize,
-      })
-      y -= lineHeight
-      drawText(`Funcionario: ${employee.nome_completo || ''}`, col1X, y, {
-        size: fontSize,
-      })
-
-      // Right Column
-      y = startY // Reset Y
-      drawText(`Data do Acerto: ${safeFormatDate(date)}`, col2X, y, {
-        size: fontSize,
-      })
-      y -= lineHeight
-      drawText(`CNPJ/CPF: ${client.CNPJ || ''}`, col2X, y, { size: fontSize })
-      y -= lineHeight
-      drawText(`CEP: ${client.CEP || ''}`, col2X, y, { size: fontSize })
-      y -= lineHeight
-      drawText(`Telefone: ${client['FONE 1'] || ''}`, col2X, y, {
-        size: fontSize,
-      })
-
-      y -= 30
-      drawLine(y)
-      y -= 20
-
-      // Table Definition
-      const columns = [
-        { label: 'CODIGO', width: 45, align: 'left' },
-        { label: 'MERCADORIA', width: 150, align: 'left' },
-        { label: 'TIPO', width: 35, align: 'center' },
-        { label: 'SALDO INICIAL', width: 35, align: 'center' },
-        { label: 'CONTAGEM', width: 35, align: 'center' },
-        { label: 'QUANTIDADE VENDIDA', width: 35, align: 'center' },
-        { label: 'VALOR VENDIDO', width: 55, align: 'right' },
-        { label: 'SALDO FINAL', width: 35, align: 'center' },
-        { label: 'NOVAS CONSIGNACOES', width: 45, align: 'center' },
-        { label: 'RECOLHIDO', width: 45, align: 'center' },
-      ]
-
-      // Draw Headers (Rotated)
-      const headerHeight = 110 // Space for vertical text
-      let currentX = margins.left
-
-      // Fix: Ensure we draw relative to the space allocated for headers
-      // We reserve headerHeight space below the current y
-      const headerY = y
-
-      // We want the text to start at the bottom of the header row and go UP
-      const headerTextStartY = headerY - headerHeight + 5
-
-      for (const col of columns) {
-        const textX = currentX + col.width / 2 + 3 // Center in column + slight adjustment for font baseline
-        // Vertical text drawing:
-        // x is the baseline x
-        // y is the start y
-        drawText(col.label, textX, headerTextStartY, {
-          size: 8,
-          font: fontBold,
-          rotate: degrees(90),
-        })
-        currentX += col.width
-      }
-
-      y -= headerHeight
-      drawLine(y)
-      y -= 15
-
-      // Draw Items
-      for (const item of items) {
-        checkPageBreak(20)
-
-        currentX = margins.left
-        const rowFontSize = 8
-
-        // Codigo
-        drawText(String(item.codigo || ''), currentX, y, { size: rowFontSize })
-        currentX += columns[0].width
-
-        // Mercadoria (Truncate if needed)
-        drawText(item.produtoNome || '', currentX, y, {
-          size: rowFontSize,
-          maxWidth: columns[1].width - 5,
-        })
-        currentX += columns[1].width
-
-        // Tipo
-        drawText(item.tipo || '', currentX + columns[2].width / 2, y, {
-          size: rowFontSize,
-          align: 'center',
-        })
-        currentX += columns[2].width
-
-        // Saldo Inicial
-        drawText(
-          String(item.saldoInicial || 0),
-          currentX + columns[3].width / 2,
-          y,
-          { size: rowFontSize, align: 'center' },
-        )
-        currentX += columns[3].width
-
-        // Contagem
-        drawText(
-          String(item.contagem || 0),
-          currentX + columns[4].width / 2,
-          y,
-          { size: rowFontSize, align: 'center' },
-        )
-        currentX += columns[4].width
-
-        // Qtd Vendida
-        drawText(
-          String(item.quantVendida || 0),
-          currentX + columns[5].width / 2,
-          y,
-          { size: rowFontSize, align: 'center' },
-        )
-        currentX += columns[5].width
-
-        // Valor Vendido
-        drawText(
-          formatCurrency(item.valorVendido || 0),
-          currentX + columns[6].width,
-          y,
-          { size: rowFontSize, align: 'right' },
-        )
-        currentX += columns[6].width
-
-        // Saldo Final
-        drawText(
-          String(item.saldoFinal || 0),
-          currentX + columns[7].width / 2,
-          y,
-          { size: rowFontSize, align: 'center' },
-        )
-        currentX += columns[7].width
-
-        // Novas Consignacoes
-        drawText(
-          formatCurrency(item.novasConsignacoes || 0),
-          currentX + columns[8].width,
-          y,
-          { size: rowFontSize, align: 'right' },
-        )
-        currentX += columns[8].width
-
-        // Recolhido
-        drawText(
-          formatCurrency(item.recolhido || 0),
-          currentX + columns[9].width,
-          y,
-          { size: rowFontSize, align: 'right' },
-        )
-        currentX += columns[9].width
-
-        y -= 12
-      }
-
-      y -= 5
-      drawLine(y)
-      y -= 20
-
-      // Financial Summary
-      checkPageBreak(80)
-      drawText('RESUMO FINANCEIRO', width - margins.right, y, {
-        size: 10,
-        font: fontBold,
-        align: 'right',
-      })
-      y -= 15
-
-      const summaryXLabel = width - margins.right - 100
-      const summaryXValue = width - margins.right
-
-      drawText('Total Vendido:', summaryXLabel, y, { size: 10, align: 'right' })
-      drawText(`R$ ${formatCurrency(totalVendido)}`, summaryXValue, y, {
-        size: 10,
-        align: 'right',
-      })
-      y -= 15
-
-      drawText('Desconto:', summaryXLabel, y, { size: 10, align: 'right' })
-      drawText(`R$ ${formatCurrency(valorDesconto)}`, summaryXValue, y, {
-        size: 10,
-        align: 'right',
-        color: rgb(1, 0, 0), // RED
-      })
-      y -= 15
-
-      drawText('TOTAL A PAGAR:', summaryXLabel, y, {
-        size: 12,
-        font: fontBold,
-        align: 'right',
-      })
-      drawText(`R$ ${formatCurrency(valorAcerto)}`, summaryXValue, y, {
-        size: 12,
-        font: fontBold,
-        align: 'right',
-      })
     } else {
-      // --- ACERTO LAYOUT (Default / Original) ---
-      const {
-        client,
-        employee,
-        items = [],
-        date,
-        orderNumber,
-        totalVendido = 0,
-        valorDesconto = 0,
-        valorAcerto = 0,
-        valorPago = 0,
-        debito = 0,
-        payments = [],
-        history = [],
-        signature,
-      } = body
-
-      const sellerName = employee?.nome_completo || 'N/D'
-      const clientName = client?.['NOME CLIENTE'] || 'Consumidor'
-      const clientCode = client?.CODIGO || '0'
-      const clientAddress = `${client?.ENDEREÇO || ''}, ${client?.BAIRRO || ''}`
-      const clientCity = `${client?.MUNICÍPIO || ''}`
-
-      drawText('FACIL VENDAS', width / 2, y, {
-        size: 16,
-        font: fontBold,
-        align: 'center',
-      })
-      y -= 20
-      drawText(`PEDIDO ${orderNumber || 'N/D'}`, width / 2, y, {
-        size: 14,
-        font: fontBold,
-        align: 'center',
-      })
-      y -= 10
-      drawLine(y)
-      y -= 15
-      // ... (Rest of existing Acerto layout)
-      const infoSize = 9
-      drawText(`Cliente: ${clientCode} - ${clientName}`, margins.left, y, {
-        size: infoSize,
-        font: fontBold,
-      })
-      y -= 12
-      drawText(`End: ${clientAddress}`, margins.left, y, {
-        size: infoSize,
-        maxWidth: width - 20,
-      })
-      y -= 12
-      drawText(`${clientCity}`, margins.left, y, { size: infoSize })
-      y -= 12
-      drawText(
-        `Data: ${safeFormatDate(date)} ${safeFormatTime(date)}`,
-        margins.left,
-        y,
-        { size: infoSize },
-      )
-      y -= 12
-      drawText(`Vendedor: ${sellerName}`, margins.left, y, { size: infoSize })
-      y -= 10
-      drawLine(y)
-      y -= 15
-
-      drawText('ITENS DO PEDIDO', width / 2, y, {
-        size: 10,
-        font: fontBold,
-        align: 'center',
-      })
-      y -= 15
-
-      for (const item of items) {
-        checkPageBreak(80)
-        drawText(
-          `${item.produtoNome} R$ ${formatCurrency(item.precoUnitario)}`,
-          margins.left,
-          y,
-          { size: 9, font: fontBold, maxWidth: width - 20 },
-        )
-        y -= 12
-        const drawDetailLine = (label: string, value: string | number) => {
-          drawText(label, margins.left, y, { size: 9 })
-          drawText(String(value), width - margins.right, y, {
-            size: 9,
-            align: 'right',
-          })
-          y -= 11
-        }
-        drawDetailLine('Saldo Inicial:', item.saldoInicial)
-        drawDetailLine('Contagem:', item.contagem)
-        drawDetailLine('Qtd. Vendida:', item.quantVendida)
-        drawDetailLine('Saldo Final:', item.saldoFinal)
-        drawText('Total:', margins.left, y, { size: 9, font: fontBold })
-        drawText(
-          `R$ ${formatCurrency(item.valorVendido)}`,
-          width - margins.right,
-          y,
-          { size: 9, align: 'right', font: fontBold },
-        )
-        y -= 15
-      }
-      drawLine(y)
-      y -= 15
-      // ... (Totals and Payments)
-      const drawTotalLine = (label: string, value: number, bold = false) => {
-        drawText(label, margins.left, y, {
-          size: 9,
-          font: bold ? fontBold : fontRegular,
-        })
-        drawText(`R$ ${formatCurrency(value)}`, width - margins.right, y, {
-          size: 9,
-          align: 'right',
-          font: bold ? fontBold : fontRegular,
-        })
-        y -= 12
-      }
-
-      drawTotalLine('Total Vendido:', totalVendido)
-      drawTotalLine('Desconto:', valorDesconto)
-      y -= 2
-      drawTotalLine('TOTAL A PAGAR:', valorAcerto, true)
-      y -= 5
-      drawLine(y)
-      y -= 15
-
-      drawText('PAGAMENTOS', width / 2, y, {
-        size: 10,
-        font: fontBold,
-        align: 'center',
-      })
-      y -= 15
-      let hasImmediatePayment = false
-      for (const p of payments) {
-        if (p.paidValue > 0.01) {
-          drawText(p.method, margins.left, y, { size: 9, font: fontBold })
-          drawText(
-            `R$ ${formatCurrency(p.paidValue)}`,
-            width - margins.right,
-            y,
-            { size: 9, align: 'right', font: fontBold },
-          )
-          y -= 12
-          hasImmediatePayment = true
-        }
-      }
-      if (!hasImmediatePayment) {
-        drawText('Nenhum pagamento imediato.', margins.left, y, {
-          size: 9,
-          font: fontRegular,
-          color: rgb(0.5, 0.5, 0.5),
-        })
-        y -= 12
-      }
-      y -= 5
-      drawLine(y)
-      y -= 15
-      // ... (Rest of footer for Acerto layout - abbreviated)
+      // Fallback for A4 or other types if necessary
+      // Assuming current logic is mostly Thermal 80mm based on User Story
+      drawText('Relatório não suportado neste formato.', margins.left, y)
     }
 
     const pdfBytes = await pdfDoc.save()
