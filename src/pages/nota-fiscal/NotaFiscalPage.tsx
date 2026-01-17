@@ -73,6 +73,7 @@ export default function NotaFiscalPage() {
     invoiceNumber: string
   }>({ open: false, item: null, invoiceNumber: '' })
   const [emitting, setEmitting] = useState(false)
+  const [generatingPdf, setGeneratingPdf] = useState<number | null>(null)
 
   const fetchAllSettlements = async () => {
     setLoading(true)
@@ -147,6 +148,8 @@ export default function NotaFiscalPage() {
   }
 
   const handleDownloadDetailedReport = async (orderId: number) => {
+    if (generatingPdf === orderId) return
+    setGeneratingPdf(orderId)
     try {
       toast({
         title: 'Gerando relatório...',
@@ -161,13 +164,15 @@ export default function NotaFiscalPage() {
       a.click()
       window.URL.revokeObjectURL(url)
       toast({ title: 'Relatório gerado com sucesso' })
-    } catch (error) {
+    } catch (error: any) {
       console.error(error)
       toast({
         title: 'Erro ao gerar relatório',
-        description: 'Não foi possível gerar o PDF detalhado.',
+        description: error.message || 'Não foi possível gerar o PDF detalhado.',
         variant: 'destructive',
       })
+    } finally {
+      setGeneratingPdf(null)
     }
   }
 
@@ -393,9 +398,14 @@ export default function NotaFiscalPage() {
                             onClick={() =>
                               handleDownloadDetailedReport(item.orderId)
                             }
+                            disabled={generatingPdf === item.orderId}
                             title="Baixar Relatório Detalhado (A4)"
                           >
-                            <Printer className="h-4 w-4" />
+                            {generatingPdf === item.orderId ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Printer className="h-4 w-4" />
+                            )}
                           </Button>
                         </div>
                       </TableCell>

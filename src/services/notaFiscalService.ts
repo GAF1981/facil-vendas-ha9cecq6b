@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase/client'
 import { NotaFiscalSettlement, EmitInvoicePayload } from '@/types/nota-fiscal'
 import { parseCurrency } from '@/lib/formatters'
+import { PaymentEntry } from '@/types/payment'
 
 export const notaFiscalService = {
   async getAllSettlements(): Promise<NotaFiscalSettlement[]> {
@@ -168,36 +169,6 @@ export const notaFiscalService = {
       console.error('Error fetching client details:', clientError)
     }
 
-    // --- NEW: Fetch Product Types Fallback ---
-    // Extract unique product codes (exclude nulls)
-    const productCodes = Array.from(
-      new Set(
-        itemsData
-          .map((item) => item['COD. PRODUTO'])
-          .filter((code) => code !== null && code !== undefined),
-      ),
-    ) as number[]
-
-    // Fetch TIPO from PRODUTOS table for these codes
-    const productTypeMap = new Map<number, string>()
-    if (productCodes.length > 0) {
-      const { data: productsData, error: productsError } = await supabase
-        .from('PRODUTOS')
-        .select('CODIGO, TIPO')
-        .in('CODIGO', productCodes)
-
-      if (productsError) {
-        console.error('Error fetching product types:', productsError)
-      } else if (productsData) {
-        productsData.forEach((p) => {
-          if (p.CODIGO !== null) {
-            productTypeMap.set(p.CODIGO, p.TIPO || '')
-          }
-        })
-      }
-    }
-    // -----------------------------------------
-
     // Calculate Financials
     let totalVendido = 0
     itemsData.forEach((item) => {
@@ -211,67 +182,60 @@ export const notaFiscalService = {
     const valorDesconto = totalVendido * discountFactor
     const totalAPagar = totalVendido - valorDesconto
 
-    const header = {
-      orderId: first['NÚMERO DO PEDIDO'],
-      cliente: first['CLIENTE'],
-      codigoCliente: first['CÓDIGO DO CLIENTE'],
-      funcionario: first['FUNCIONÁRIO'],
-      dataAcerto: first['DATA DO ACERTO'],
-      // Extra info
-      cnpj: clientData?.CNPJ || '',
-      endereco: clientData?.['ENDEREÇO'] || '',
-      municipio: clientData?.['MUNICÍPIO'] || '',
-      cep: clientData?.['CEP OFICIO'] || '',
-      contato: clientData?.['CONTATO 1'] || '',
-      telefone: clientData?.['FONE 1'] || '',
+    // Process Payments
+    let payments: PaymentEntry[] = []
+    if (first.DETALHES_PAGAMENTO && Array.isArray(first.DETALHES_PAGAMENTO)) {
+      payments = first.DETALHES_PAGAMENTO as PaymentEntry[]
     }
+    const valorPago = payments.reduce((acc, p) => acc + (p.paidValue || 0), 0)
+    const debito = Math.max(0, totalAPagar - valorPago)
 
-    const financials = {
-      totalVendido,
-      valorDesconto,
-      totalAPagar,
-    }
-
-    // Map data to expected format for PDF
+    // Map data to expected format for PDF (Acerto Layout)
     const items = itemsData.map((item) => {
-      let tipo = item['TIPO']
-      // Fallback logic for TIPO
-      if (!tipo || tipo.trim() === '') {
-        const code = item['COD. PRODUTO']
-        if (code !== null && code !== undefined) {
-          tipo = productTypeMap.get(code) || '-'
-        } else {
-          tipo = '-'
-        }
-      }
-
       return {
-        // Cast to String to ensure large numbers/EANs are preserved accurately
-        codProduto: item['COD. PRODUTO']
-          ? String(item['COD. PRODUTO'])
-          : item['COD. PRODUTO'],
-        produto: item['MERCADORIA'],
-        tipo: tipo,
-        saldoInicial: item['SALDO INICIAL'],
-        contagem: item['CONTAGEM'],
-        quantidadeVendida: item['QUANTIDADE VENDIDA'],
-        valorVendido: item['VALOR VENDIDO'],
-        saldoFinal: item['SALDO FINAL'],
-        novasConsignacoes: item['NOVAS CONSIGNAÇÕES'],
-        devolucoes: item['RECOLHIDO'],
+        produtoNome: item['MERCADORIA'] || 'Produto sem nome',
+        precoUnitario: parseCurrency(item['PREÇO VENDIDO']),
+        saldoInicial: item['SALDO INICIAL'] || 0,
+        contagem: item['CONTAGEM'] || 0,
+        quantVendida: parseCurrency(item['QUANTIDADE VENDIDA']),
+        valorVendido: parseCurrency(item['VALOR VENDIDO']),
+        saldoFinal: item['SALDO FINAL'] || 0,
+        tipo: item['TIPO'] || '-',
       }
     })
+
+    // Construct Payload for Edge Function
+    const payload = {
+      reportType: 'acerto', // Using 'acerto' layout which supports A4 and details
+      format: 'A4',
+      client: {
+        'NOME CLIENTE': clientData?.['NOME CLIENTE'] || first['CLIENTE'],
+        CODIGO: first['CÓDIGO DO CLIENTE'],
+        ENDEREÇO: clientData?.['ENDEREÇO'],
+        BAIRRO: clientData?.['BAIRRO'],
+        MUNICÍPIO: clientData?.['MUNICÍPIO'],
+        CNPJ: clientData?.CNPJ,
+        CEP: clientData?.['CEP OFICIO'],
+      },
+      employee: {
+        nome_completo: first['FUNCIONÁRIO'] || 'Não identificado',
+      },
+      items,
+      date: first['DATA DO ACERTO'] || new Date().toISOString(),
+      orderNumber: orderId,
+      totalVendido,
+      valorDesconto,
+      valorAcerto: totalAPagar,
+      valorPago,
+      debito,
+      payments,
+      history: [], // Can be added if needed, but keeping it light for now
+    }
 
     const { data: pdfBlob, error: pdfError } = await supabase.functions.invoke(
       'generate-pdf',
       {
-        body: {
-          reportType: 'detailed-order-report',
-          format: 'A4',
-          header,
-          items,
-          financials,
-        },
+        body: payload,
         responseType: 'blob',
       },
     )

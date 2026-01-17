@@ -75,7 +75,11 @@ Deno.serve(async (req) => {
         estimatedHeight = 800 + expensesCount * 40 + receiptsCount * 40
       } else if (reportType === 'receipt') {
         estimatedHeight = 400
-      } else if (!reportType || reportType === 'acerto') {
+      } else if (
+        !reportType ||
+        reportType === 'acerto' ||
+        reportType === 'detailed-order-report'
+      ) {
         // Acerto Receipt logic
         const itemsCount = body.items ? body.items.length : 0
         const historyCount = body.history ? body.history.length : 0
@@ -202,17 +206,6 @@ Deno.serve(async (req) => {
 
     if (reportType === 'receipt') {
       // Receipt Data Structure
-      // {
-      //   cliente_nome: string,
-      //   cliente_codigo: number,
-      //   venda_id: number,
-      //   vencimento: string,
-      //   valor_registrado: number,
-      //   valor_pago: number,
-      //   saldo: number,
-      //   forma_pagamento: string,
-      //   data_pagamento: string
-      // }
       const r = data
 
       drawText('FACIL VENDAS', width / 2, y, {
@@ -294,7 +287,6 @@ Deno.serve(async (req) => {
         align: 'center',
       })
     } else if (reportType === 'closing-confirmation') {
-      // ... Existing closing logic ...
       const { fechamento, receipts, expenses, date: closingDate } = body
       const closingData = fechamento || body.data
 
