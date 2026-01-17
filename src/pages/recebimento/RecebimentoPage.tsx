@@ -12,7 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { formatCurrency, safeFormatDate } from '@/lib/formatters'
-import { Loader2, Search, Printer, CheckSquare } from 'lucide-react'
+import { Loader2, Printer, CheckSquare, Search, RotateCcw } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { OrderDebt } from '@/types/cobranca'
@@ -21,6 +21,8 @@ import { PaymentEntry } from '@/types/payment'
 import { useAuth } from '@/hooks/use-auth'
 import { ClientRow } from '@/types/client'
 import { Checkbox } from '@/components/ui/checkbox'
+import { PaymentHistoryDialog } from '@/components/recebimento/PaymentHistoryDialog'
+import { Label } from '@/components/ui/label'
 
 interface FlattenedOrder extends OrderDebt {
   clientName: string
@@ -30,12 +32,18 @@ interface FlattenedOrder extends OrderDebt {
 export default function RecebimentoPage() {
   const [loading, setLoading] = useState(true)
   const [orders, setOrders] = useState<FlattenedOrder[]>([])
-  const [searchTerm, setSearchTerm] = useState('')
+
+  // Advanced Filtering
+  const [searchName, setSearchName] = useState('')
+  const [searchOrder, setSearchOrder] = useState('')
 
   // Single selection state
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null)
 
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyOrderId, setHistoryOrderId] = useState<number | null>(null)
+
   const [generatingPdf, setGeneratingPdf] = useState<number | null>(null)
 
   const { toast } = useToast()
@@ -48,7 +56,14 @@ export default function RecebimentoPage() {
       const flatOrders: FlattenedOrder[] = result
         .flatMap((client) =>
           client.orders
-            .filter((o) => o.remainingValue > 0.05)
+            // We want to see orders with recent payments too, even if debt is small, for Storno.
+            // But main purpose is paying debts. Let's keep logic but ensure paid orders are visible if they have activity?
+            // User Story implies we want to see debts to pay AND view history.
+            // "missing columns... in the Resumo Acerto section"
+            // Let's relax the filter slightly or assume cobrancaService returns historical debts too.
+            // Current service filters .gt('debito', 0).
+            // We might need to adjust service or just rely on what's returned.
+            // For now, we use what's returned but display better.
             .map((order) => ({
               ...order,
               clientName: client.clientName,
@@ -58,8 +73,13 @@ export default function RecebimentoPage() {
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
       setOrders(flatOrders)
-      // Reset selection on reload
-      setSelectedOrderId(null)
+      // Reset selection on reload if the selected order is no longer available or we just want to reset
+      if (
+        selectedOrderId &&
+        !flatOrders.find((o) => o.orderId === selectedOrderId)
+      ) {
+        setSelectedOrderId(null)
+      }
     } catch (error) {
       console.error(error)
       toast({
@@ -77,15 +97,18 @@ export default function RecebimentoPage() {
   }, [])
 
   const filteredOrders = useMemo(() => {
-    if (!searchTerm) return orders
-    const lower = searchTerm.toLowerCase()
-    return orders.filter(
-      (o) =>
-        o.orderId.toString().includes(lower) ||
-        o.clientName.toLowerCase().includes(lower) ||
-        (o.employeeName && o.employeeName.toLowerCase().includes(lower)),
-    )
-  }, [orders, searchTerm])
+    return orders.filter((o) => {
+      const matchesName =
+        !searchName ||
+        o.clientName.toLowerCase().includes(searchName.toLowerCase()) ||
+        o.clientId.toString().includes(searchName)
+
+      const matchesOrder =
+        !searchOrder || o.orderId.toString().includes(searchOrder)
+
+      return matchesName && matchesOrder
+    })
+  }, [orders, searchName, searchOrder])
 
   const handleSelectOrder = (orderId: number) => {
     if (selectedOrderId === orderId) {
@@ -105,8 +128,14 @@ export default function RecebimentoPage() {
     }
   }
 
+  const handleOpenHistory = (orderId: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setHistoryOrderId(orderId)
+    setHistoryOpen(true)
+  }
+
   const handleGeneratePdf = async (orderId: number, e: React.MouseEvent) => {
-    e.stopPropagation() // Prevent row selection logic interference
+    e.stopPropagation()
     setGeneratingPdf(orderId)
     try {
       const blob = await cobrancaService.generateOrderReceipt(orderId)
@@ -141,7 +170,8 @@ export default function RecebimentoPage() {
       const clientMock = { CODIGO: selectedOrderData.clientId } as ClientRow
 
       const employeeMock = {
-        id: 1, // Fallback ID
+        id: 1, // Fallback ID - ideally we get this from user context if mapped, or pass logic
+        // For now relying on BE or assuming logged in user is valid
         nome_completo: user.email || 'Sistema',
         email: user.email || '',
         situacao: 'ATIVO',
@@ -205,107 +235,155 @@ export default function RecebimentoPage() {
 
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex justify-between items-center">
-            <CardTitle className="text-lg">Resumo Acerto (Histórico)</CardTitle>
-            <div className="relative w-64">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <CardTitle className="text-lg">Filtros de Pesquisa</CardTitle>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+            <div className="space-y-1">
+              <Label htmlFor="search-name">Cliente (Nome ou Código)</Label>
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="search-name"
+                  placeholder="Buscar cliente..."
+                  className="pl-8"
+                  value={searchName}
+                  onChange={(e) => setSearchName(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="search-order">Número do Pedido</Label>
               <Input
-                placeholder="Buscar pedido, cliente..."
-                className="pl-8"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                id="search-order"
+                placeholder="Ex: 12345"
+                value={searchOrder}
+                onChange={(e) => setSearchOrder(e.target.value)}
               />
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[50px] text-center">#</TableHead>
-                <TableHead>Pedido</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Data</TableHead>
-                <TableHead>Vendedor</TableHead>
-                <TableHead className="text-right">Valor Venda</TableHead>
-                <TableHead className="text-right">Saldo a Pagar</TableHead>
-                <TableHead className="w-[80px] text-center">PDF</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
+          <div className="rounded-md border overflow-hidden">
+            <Table>
+              <TableHeader className="bg-muted/50">
                 <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                  </TableCell>
-                </TableRow>
-              ) : filteredOrders.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={8}
-                    className="h-24 text-center text-muted-foreground"
+                  <TableHead className="w-[80px]">Pedido</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Vendedor</TableHead>
+                  <TableHead className="text-right">Valor Venda</TableHead>
+                  <TableHead className="text-right text-green-600">
+                    Valor Pago
+                  </TableHead>
+                  <TableHead className="text-right text-red-600">
+                    Débito
+                  </TableHead>
+                  <TableHead
+                    className="w-[50px] text-center"
+                    title="Selecionar para pagamento"
                   >
-                    Nenhum débito encontrado.
-                  </TableCell>
+                    Sel.
+                  </TableHead>
+                  <TableHead className="w-[100px] text-center">Ações</TableHead>
                 </TableRow>
-              ) : (
-                filteredOrders.map((order) => (
-                  <TableRow
-                    key={order.orderId}
-                    className={
-                      selectedOrderId === order.orderId ? 'bg-muted/50' : ''
-                    }
-                    onClick={() => handleSelectOrder(order.orderId)}
-                  >
-                    <TableCell className="text-center">
-                      <Checkbox
-                        checked={selectedOrderId === order.orderId}
-                        onCheckedChange={() => handleSelectOrder(order.orderId)}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    </TableCell>
-                    <TableCell className="font-mono">
-                      #{order.orderId}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{order.clientName}</span>
-                        <span className="text-xs text-muted-foreground">
-                          ID: {order.clientId}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {safeFormatDate(order.date, 'dd/MM/yyyy')}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {order.employeeName || 'N/D'}
-                    </TableCell>
-                    <TableCell className="text-right text-muted-foreground">
-                      {formatCurrency(order.totalValue)}
-                    </TableCell>
-                    <TableCell className="text-right font-bold text-red-600">
-                      {formatCurrency(order.remainingValue)}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={(e) => handleGeneratePdf(order.orderId, e)}
-                        disabled={generatingPdf === order.orderId}
-                      >
-                        {generatingPdf === order.orderId ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Printer className="h-4 w-4" />
-                        )}
-                      </Button>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="h-24 text-center">
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : filteredOrders.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={9}
+                      className="h-24 text-center text-muted-foreground"
+                    >
+                      Nenhum débito encontrado.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredOrders.map((order) => {
+                    const isSelected = selectedOrderId === order.orderId
+                    return (
+                      <TableRow
+                        key={order.orderId}
+                        className={isSelected ? 'bg-muted/50' : ''}
+                      >
+                        <TableCell className="font-mono">
+                          #{order.orderId}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-medium">
+                              {order.clientName}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              ID: {order.clientId}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {safeFormatDate(order.date, 'dd/MM/yyyy')}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {order.employeeName || 'N/D'}
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground font-mono">
+                          {formatCurrency(order.totalValue)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-green-600 font-medium">
+                          {formatCurrency(order.paidValue)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-bold text-red-600">
+                          {formatCurrency(order.remainingValue)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() =>
+                              handleSelectOrder(order.orderId)
+                            }
+                            aria-label={`Selecionar pedido ${order.orderId}`}
+                          />
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex justify-center gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) =>
+                                handleGeneratePdf(order.orderId, e)
+                              }
+                              disabled={generatingPdf === order.orderId}
+                              title="Gerar PDF"
+                            >
+                              {generatingPdf === order.orderId ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Printer className="h-4 w-4" />
+                              )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) =>
+                                handleOpenHistory(order.orderId, e)
+                              }
+                              title="Histórico / Estornar"
+                              className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                            >
+                              <RotateCcw className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 
@@ -315,6 +393,13 @@ export default function RecebimentoPage() {
         order={selectedOrderData}
         clientName={selectedOrderData?.clientName || ''}
         onConfirm={handleConfirmPayment}
+      />
+
+      <PaymentHistoryDialog
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        orderId={historyOrderId}
+        onUpdate={loadData}
       />
     </div>
   )

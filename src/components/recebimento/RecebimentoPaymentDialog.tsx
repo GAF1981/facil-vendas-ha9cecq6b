@@ -86,16 +86,18 @@ export function RecebimentoPaymentDialog({
     }
   }, [open, order])
 
+  const isMethodRestricted = method && RESTRICTED_METHODS.includes(method)
+
   useEffect(() => {
     // Enforcement: If restricted method, force today as max date and 1 installment
-    if (method && RESTRICTED_METHODS.includes(method)) {
+    if (isMethodRestricted) {
       setInstallments(1)
       const today = format(new Date(), 'yyyy-MM-dd')
       if (date > today) {
         setDate(today)
       }
     }
-  }, [method, date])
+  }, [method, date, isMethodRestricted])
 
   const handleAddPayment = () => {
     if (!method) return
@@ -110,7 +112,7 @@ export function RecebimentoPaymentDialog({
     const newPayment: PaymentEntry = {
       method: method as PaymentMethodType,
       value: numValue,
-      paidValue: numValue, // Validated: Registered == Paid for these methods
+      paidValue: numValue, // Validated: Registered == Paid for these methods in this context
       dueDate: date,
       installments: installments,
       pixDetails:
@@ -151,10 +153,10 @@ export function RecebimentoPaymentDialog({
 
   const totalEntered = payments.reduce((acc, p) => acc + p.value, 0)
   const balanceDue = order.remainingValue
-  const diff = Math.abs(totalEntered - balanceDue)
-  const isValid = diff < 0.1 // Margin of 0.10
 
-  const isMethodRestricted = method && RESTRICTED_METHODS.includes(method)
+  // Validation Rule Change: allow partial payments, so we just check if any payment is added
+  const canConfirm = payments.length > 0
+
   const today = format(new Date(), 'yyyy-MM-dd')
 
   const canAdd =
@@ -187,23 +189,19 @@ export function RecebimentoPaymentDialog({
             <div
               className={cn(
                 'p-6 rounded-lg border flex flex-col items-center justify-center transition-colors',
-                isValid
-                  ? 'bg-green-50 border-green-200 text-green-700'
-                  : 'bg-red-50 border-red-200 text-red-700',
+                'bg-blue-50 border-blue-200 text-blue-700',
               )}
             >
               <span className="text-sm uppercase font-semibold opacity-80">
-                Total Selecionado
+                Total a Registrar
               </span>
               <span className="text-3xl font-bold mt-2">
                 {formatCurrency(totalEntered)}
               </span>
-              {!isValid && (
-                <span className="text-xs mt-1 font-medium">
-                  Diferença:{' '}
-                  {formatCurrency(Math.abs(balanceDue - totalEntered))}
-                </span>
-              )}
+              <span className="text-xs mt-1 font-medium">
+                Novo Saldo:{' '}
+                {formatCurrency(Math.max(0, balanceDue - totalEntered))}
+              </span>
             </div>
           </div>
 
@@ -258,8 +256,33 @@ export function RecebimentoPaymentDialog({
                     max={isMethodRestricted ? today : undefined}
                     onChange={(e) => setDate(e.target.value)}
                   />
+                  {isMethodRestricted && (
+                    <p className="text-[10px] text-muted-foreground">
+                      Limitado à data atual.
+                    </p>
+                  )}
                 </div>
               </div>
+
+              {/* Installments - Disabled for restricted methods */}
+              {!isMethodRestricted && (
+                <div className="space-y-2">
+                  <Label>Parcelas</Label>
+                  <Select
+                    value={installments.toString()}
+                    onValueChange={(v) => setInstallments(Number(v))}
+                    disabled={true} // Generally simplified for single payments in this context, or enable if needed
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1x (À vista)</SelectItem>
+                      {/* Add more if needed later */}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {/* Pix Specific Fields */}
               {method === 'Pix' && (
@@ -357,14 +380,6 @@ export function RecebimentoPaymentDialog({
               </div>
             </div>
           </div>
-
-          {/* Error Feedback */}
-          {!isValid && payments.length > 0 && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-800 text-sm font-medium flex items-center justify-center">
-              Este botão não poderá ser acionado porque os valores estão
-              diferentes.
-            </div>
-          )}
         </div>
 
         <DialogFooter className="gap-2 sm:gap-0">
@@ -373,12 +388,8 @@ export function RecebimentoPaymentDialog({
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={!isValid || payments.length === 0 || loading}
-            className={cn(
-              isValid
-                ? 'bg-green-600 hover:bg-green-700'
-                : 'opacity-50 cursor-not-allowed',
-            )}
+            disabled={!canConfirm || loading}
+            className="bg-green-600 hover:bg-green-700"
           >
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Confirmar Recebimento
