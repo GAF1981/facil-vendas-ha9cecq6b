@@ -263,8 +263,9 @@ export const recebimentoService = {
       },
     })
 
-    // 5. Sync Debt History - Critical for Cross-Tab Consistency
-    // Calls the RPC function 'update_debito_historico_order'
+    // 5. Sync Debt History - Critical for Cross-Module Sync
+    // Calls the RPC function 'update_debito_historico_order' which we improved
+    // This ensures Collection Center and Acerto History are updated
     await reportsService.updateDebtHistoryForOrder(orderId)
   },
 }

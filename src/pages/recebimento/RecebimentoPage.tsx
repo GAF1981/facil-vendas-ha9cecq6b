@@ -124,7 +124,7 @@ export default function RecebimentoPage() {
         className: 'bg-green-600 text-white',
       })
 
-      // Refresh data to reflect changes immediately
+      // Refresh data to reflect changes immediately in the UI (UI Consistency)
       await loadData()
     } catch (error) {
       console.error(error)
@@ -133,7 +133,7 @@ export default function RecebimentoPage() {
         description: 'Falha ao processar pagamento. Verifique a conexão.',
         variant: 'destructive',
       })
-      // Re-throw to let modal know it failed if necessary, but logic here handles it
+      // Re-throw to let modal know it failed
       throw error
     }
   }
