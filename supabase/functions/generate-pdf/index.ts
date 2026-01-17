@@ -17,12 +17,9 @@ const safeFormatDate = (dateString: string | null | undefined): string => {
   if (!dateString) return '-'
   try {
     let dateToParse = dateString
-    // Fix: If date string is simple YYYY-MM-DD, append time to force it to noon UTC
-    // This prevents timezone shift when converting to local time (Brazil is UTC-3)
     if (dateString && dateString.length === 10 && !dateString.includes('T')) {
       dateToParse = `${dateString}T12:00:00`
     }
-
     const date = new Date(dateToParse)
     return date.toLocaleDateString('pt-BR', {
       day: '2-digit',
@@ -38,8 +35,6 @@ const safeFormatDate = (dateString: string | null | undefined): string => {
 const safeFormatTime = (dateString: string | null | undefined): string => {
   if (!dateString) return ''
   try {
-    // If original string was date-only, we might not want to show time, or show 12:00
-    // But usually this function is called when we expect a time component.
     const date = new Date(dateString)
     return date.toLocaleTimeString('pt-BR', {
       hour: '2-digit',
@@ -58,7 +53,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json()
-    const { reportType, format } = body
+    const { reportType, format, data } = body
     const isThermal = format === '80mm'
 
     const pdfDoc = await PDFDocument.create()
@@ -78,12 +73,13 @@ Deno.serve(async (req) => {
         const expensesCount = body.expenses ? body.expenses.length : 0
         const receiptsCount = body.receipts ? body.receipts.length : 0
         estimatedHeight = 800 + expensesCount * 40 + receiptsCount * 40
+      } else if (reportType === 'receipt') {
+        estimatedHeight = 400
       } else if (!reportType || reportType === 'acerto') {
         // Acerto Receipt logic
         const itemsCount = body.items ? body.items.length : 0
         const historyCount = body.history ? body.history.length : 0
         const paymentsCount = body.payments ? body.payments.length : 0
-        // Calculate installments count
         let installmentsCount = 0
         if (body.payments) {
           body.payments.forEach((p: any) => {
@@ -91,15 +87,13 @@ Deno.serve(async (req) => {
             else installmentsCount += 1
           })
         }
-
-        // Detailed Height Estimation based on layout
         const headerHeight = 250
-        const itemHeight = 90 // 6 lines + spacing
+        const itemHeight = 90
         const totalsHeight = 80
-        const paymentsHeight = 40 // per immediate payment
-        const installmentsHeight = 30 // per installment
+        const paymentsHeight = 40
+        const installmentsHeight = 30
         const summaryHeight = 60
-        const historyItemHeight = 130 // ~9 lines + spacing
+        const historyItemHeight = 130
         const footerHeight = 150
 
         estimatedHeight =
@@ -111,10 +105,10 @@ Deno.serve(async (req) => {
           summaryHeight +
           historyCount * historyItemHeight +
           footerHeight +
-          100 // buffer
+          100
       }
 
-      page = pdfDoc.addPage([226, Math.max(842, estimatedHeight)])
+      page = pdfDoc.addPage([226, Math.max(400, estimatedHeight)])
       width = page.getSize().width
       height = page.getSize().height
       margins = { top: 20, bottom: 20, left: 10, right: 10 }
@@ -152,11 +146,9 @@ Deno.serve(async (req) => {
 
       const finalFont = isThermal ? fontBold : font
       const finalColor = isThermal ? rgb(0, 0, 0) : color
-
       const cleanText = removeAccents(text || '')
-
       let textToDraw = cleanText
-      // Simple truncation if maxWidth is provided
+
       if (maxWidth) {
         const textWidth = finalFont.widthOfTextAtSize(cleanText, size)
         if (textWidth > maxWidth) {
@@ -196,8 +188,6 @@ Deno.serve(async (req) => {
     const checkPageBreak = (spaceNeeded: number) => {
       if (y - spaceNeeded < margins.bottom) {
         if (isThermal) {
-          // For thermal, we typically don't page break in a continuous roll logic if we estimated correctly,
-          // but if we do, just add another page
           page = pdfDoc.addPage([width, height])
         } else {
           page = pdfDoc.addPage()
@@ -210,13 +200,105 @@ Deno.serve(async (req) => {
 
     // --- REPORT TYPES LOGIC ---
 
-    if (reportType === 'closing-confirmation') {
-      // ... (Existing closing logic - preserved)
-      const { fechamento, receipts, expenses, date } = body
+    if (reportType === 'receipt') {
+      // Receipt Data Structure
+      // {
+      //   cliente_nome: string,
+      //   cliente_codigo: number,
+      //   venda_id: number,
+      //   vencimento: string,
+      //   valor_registrado: number,
+      //   valor_pago: number,
+      //   saldo: number,
+      //   forma_pagamento: string,
+      //   data_pagamento: string
+      // }
+      const r = data
+
+      drawText('FACIL VENDAS', width / 2, y, {
+        size: 14,
+        font: fontBold,
+        align: 'center',
+      })
+      y -= 20
+      drawText('RECIBO DE PAGAMENTO', width / 2, y, {
+        size: 12,
+        font: fontBold,
+        align: 'center',
+      })
+      y -= 15
+      drawLine(y)
+      y -= 15
+
+      drawText(
+        `Cliente: ${r.cliente_codigo || ''} - ${r.cliente_nome || ''}`,
+        margins.left,
+        y,
+        { size: 10, maxWidth: width - 20 },
+      )
+      y -= 15
+      drawText(`Pedido Origem: #${r.venda_id}`, margins.left, y, { size: 10 })
+      y -= 15
+      drawText(
+        `Data Pagamento: ${safeFormatDate(r.data_pagamento || new Date().toISOString())}`,
+        margins.left,
+        y,
+        { size: 10 },
+      )
+      y -= 15
+      drawLine(y)
+      y -= 15
+
+      drawText('Detalhes da Parcela', width / 2, y, {
+        size: 10,
+        font: fontBold,
+        align: 'center',
+      })
+      y -= 15
+
+      const drawRow = (label: string, val: string, bold = false) => {
+        drawText(label, margins.left, y, {
+          size: 9,
+          font: bold ? fontBold : fontRegular,
+        })
+        drawText(val, width - margins.right, y, {
+          size: 9,
+          align: 'right',
+          font: bold ? fontBold : fontRegular,
+        })
+        y -= 12
+      }
+
+      drawRow('Vencimento:', safeFormatDate(r.vencimento))
+      drawRow(
+        'Valor Original:',
+        `R$ ${formatCurrency(r.valor_registrado || 0)}`,
+      )
+      drawRow('Valor Pago Total:', `R$ ${formatCurrency(r.valor_pago || 0)}`)
+
+      y -= 5
+      drawRow('SALDO RESTANTE:', `R$ ${formatCurrency(r.saldo || 0)}`, true)
+
+      y -= 15
+      drawLine(y)
+      y -= 30
+
+      const sigLineY = y
+      page.drawLine({
+        start: { x: margins.left + 20, y: sigLineY },
+        end: { x: width - margins.right - 20, y: sigLineY },
+        thickness: 1,
+      })
+      drawText('Assinatura Responsavel', width / 2, sigLineY - 15, {
+        size: 9,
+        align: 'center',
+      })
+    } else if (reportType === 'closing-confirmation') {
+      // ... Existing closing logic ...
+      const { fechamento, receipts, expenses, date: closingDate } = body
       const closingData = fechamento || body.data
 
       if (!closingData) throw new Error('No closing data provided')
-
       const empName = closingData.funcionario?.nome_completo || 'N/D'
 
       drawText('FACIL VENDAS', width / 2, y, {
@@ -235,7 +317,7 @@ Deno.serve(async (req) => {
       y -= 15
 
       drawText(
-        `Data: ${safeFormatDate(date)} ${safeFormatTime(date)}`,
+        `Data: ${safeFormatDate(closingDate)} ${safeFormatTime(closingDate)}`,
         margins.left,
         y,
         { size: 10 },
@@ -251,7 +333,6 @@ Deno.serve(async (req) => {
       drawLine(y)
       y -= 20
 
-      // ... (rest of closing logic - kept identical)
       const rows = [
         { l: 'Venda Total', v: closingData.venda_total },
         { l: 'Desconto Total', v: closingData.desconto_total },
@@ -351,12 +432,10 @@ Deno.serve(async (req) => {
           align: 'center',
         })
         y -= 15
-
         for (const r of receipts) {
           if (checkPageBreak(40)) y -= 10
           const clientName = r.clienteNome || 'Cliente'
           const line = `${safeFormatDate(r.data)} - ${clientName.substring(0, 20)}`
-
           drawText(line, margins.left, y, { size: 8 })
           drawText(
             `(${r.forma})  R$ ${formatCurrency(r.valor)}`,
@@ -366,7 +445,6 @@ Deno.serve(async (req) => {
           )
           y -= 10
         }
-
         y -= 10
         drawLine(y)
         y -= 15
@@ -413,7 +491,7 @@ Deno.serve(async (req) => {
         align: 'center',
       })
     } else {
-      // --- RESTORED ACERTO LAYOUT (Updated) ---
+      // --- ACERTO LAYOUT ---
       const {
         client,
         employee,
@@ -422,9 +500,9 @@ Deno.serve(async (req) => {
         orderNumber,
         totalVendido = 0,
         valorDesconto = 0,
-        valorAcerto = 0, // Total A Pagar
-        valorPago = 0, // Total Pago (Imediato)
-        debito = 0, // Restante (Inclui parcelas futuras)
+        valorAcerto = 0,
+        valorPago = 0,
+        debito = 0,
         payments = [],
         history = [],
         signature,
@@ -436,7 +514,6 @@ Deno.serve(async (req) => {
       const clientAddress = `${client?.ENDEREÇO || ''}, ${client?.BAIRRO || ''}`
       const clientCity = `${client?.MUNICÍPIO || ''}`
 
-      // 1. Header
       drawText('FACIL VENDAS', width / 2, y, {
         size: 16,
         font: fontBold,
@@ -452,14 +529,12 @@ Deno.serve(async (req) => {
       drawLine(y)
       y -= 15
 
-      // 2. Client Info
       const infoSize = 9
       drawText(`Cliente: ${clientCode} - ${clientName}`, margins.left, y, {
         size: infoSize,
         font: fontBold,
       })
       y -= 12
-      // Wrap address if needed or simple truncation
       drawText(`End: ${clientAddress}`, margins.left, y, {
         size: infoSize,
         maxWidth: width - 20,
@@ -479,7 +554,6 @@ Deno.serve(async (req) => {
       drawLine(y)
       y -= 15
 
-      // 3. Items
       drawText('ITENS DO PEDIDO', width / 2, y, {
         size: 10,
         font: fontBold,
@@ -488,24 +562,14 @@ Deno.serve(async (req) => {
       y -= 15
 
       for (const item of items) {
-        if (checkPageBreak(80)) {
-          // Reprint header if page break? Usually no for receipt strip
-        }
-
-        // Product Name + Price Line
+        checkPageBreak(80)
         drawText(
           `${item.produtoNome} R$ ${formatCurrency(item.precoUnitario)}`,
           margins.left,
           y,
-          {
-            size: 9,
-            font: fontBold,
-            maxWidth: width - 20,
-          },
+          { size: 9, font: fontBold, maxWidth: width - 20 },
         )
         y -= 12
-
-        // Details Grid (Right aligned keys and values for clean look, or Left Key Right Value)
         const drawDetailLine = (label: string, value: string | number) => {
           drawText(label, margins.left, y, { size: 9 })
           drawText(String(value), width - margins.right, y, {
@@ -514,13 +578,10 @@ Deno.serve(async (req) => {
           })
           y -= 11
         }
-
         drawDetailLine('Saldo Inicial:', item.saldoInicial)
         drawDetailLine('Contagem:', item.contagem)
         drawDetailLine('Qtd. Vendida:', item.quantVendida)
         drawDetailLine('Saldo Final:', item.saldoFinal)
-
-        // Total Line
         drawText('Total:', margins.left, y, { size: 9, font: fontBold })
         drawText(
           `R$ ${formatCurrency(item.valorVendido)}`,
@@ -528,12 +589,11 @@ Deno.serve(async (req) => {
           y,
           { size: 9, align: 'right', font: fontBold },
         )
-        y -= 15 // Extra spacing between items
+        y -= 15
       }
       drawLine(y)
       y -= 15
 
-      // 4. Totals
       const drawTotalLine = (label: string, value: number, bold = false) => {
         drawText(label, margins.left, y, {
           size: 9,
@@ -549,20 +609,18 @@ Deno.serve(async (req) => {
 
       drawTotalLine('Total Vendido:', totalVendido)
       drawTotalLine('Desconto:', valorDesconto)
-      y -= 2 // tiny bit more space before Total A Pagar
+      y -= 2
       drawTotalLine('TOTAL A PAGAR:', valorAcerto, true)
       y -= 5
       drawLine(y)
       y -= 15
 
-      // 5. Payments (Immediate)
       drawText('PAGAMENTOS', width / 2, y, {
         size: 10,
         font: fontBold,
         align: 'center',
       })
       y -= 15
-
       let hasImmediatePayment = false
       for (const p of payments) {
         if (p.paidValue > 0.01) {
@@ -589,27 +647,21 @@ Deno.serve(async (req) => {
       drawLine(y)
       y -= 15
 
-      // 6. A PAGAR (Schedule)
       drawText('A PAGAR', width / 2, y, {
         size: 10,
         font: fontBold,
         align: 'center',
       })
       y -= 15
-
-      // List all installments where value > paidValue
-      // This effectively lists future payments
       let hasFuturePayments = false
       for (const p of payments) {
         if (p.details && p.details.length > 0) {
           p.details.forEach((det: any, idx: number) => {
-            // Only show pending amounts (Future dated payments have paidValue=0)
             const isPending = det.value > (det.paidValue || 0) + 0.01
             if (isPending) {
               const installmentNum = det.number || idx + 1
               const totalInstallments = p.installments || p.details.length
               const label = `${p.method} (${installmentNum}/${totalInstallments}) - ${safeFormatDate(det.dueDate)}`
-
               drawText(label, margins.left, y, { size: 9 })
               drawText(
                 `R$ ${formatCurrency(det.value)}`,
@@ -631,26 +683,21 @@ Deno.serve(async (req) => {
         })
         y -= 12
       }
-
       y -= 5
       drawLine(y)
       y -= 15
 
-      // 7. Resumo Financeiro
       drawText('RESUMO FINANCEIRO', margins.left, y, {
         size: 9,
         font: fontBold,
       })
       y -= 15
-
       drawText('Valor Total Pago (Hoje):', margins.left, y, { size: 9 })
       drawText(`R$ ${formatCurrency(valorPago)}`, width - margins.right, y, {
         size: 9,
         align: 'right',
       })
       y -= 12
-
-      // Matches "Valor a Pagar" per user story
       drawText('RESTANTE (DEBITO):', margins.left, y, {
         size: 9,
         font: fontBold,
@@ -664,7 +711,6 @@ Deno.serve(async (req) => {
       drawLine(y)
       y -= 15
 
-      // 8. Historico
       if (history && history.length > 0) {
         checkPageBreak(150)
         drawText('RESUMO DE ACERTOS (HISTORICO)', width / 2, y, {
@@ -673,18 +719,13 @@ Deno.serve(async (req) => {
           align: 'center',
         })
         y -= 15
-
         for (const h of history) {
-          if (checkPageBreak(120)) {
-            // header logic if needed
-          }
-
+          checkPageBreak(120)
           const drawHistLine = (label: string, val: string) => {
             drawText(label, margins.left, y, { size: 8 })
             drawText(val, width - margins.right, y, { size: 8, align: 'right' })
             y -= 10
           }
-
           drawHistLine('Data:', safeFormatDate(h.data))
           drawHistLine('Venda:', `R$ ${formatCurrency(h.valorVendaTotal || 0)}`)
           drawHistLine(
@@ -700,16 +741,13 @@ Deno.serve(async (req) => {
             `R$ ${formatCurrency(h.mediaMensal || 0)}`,
           )
           drawHistLine('Pedido:', `#${h.id}`)
-
           y -= 5
-          // Dashed separator or spacing
           y -= 5
         }
         drawLine(y)
         y -= 15
       }
 
-      // 9. Footer (Signature)
       y -= 30
       if (signature) {
         try {
@@ -722,9 +760,8 @@ Deno.serve(async (req) => {
             width: sigDims.width,
             height: sigDims.height,
           })
-          y -= 5 // Adjust for text below
+          y -= 5
         } catch {
-          // If signature fails, just line
           const lineY = y + 20
           page.drawLine({
             start: { x: margins.left + 20, y: lineY },
@@ -740,7 +777,6 @@ Deno.serve(async (req) => {
           thickness: 1,
         })
       }
-
       drawText('Assinatura do Cliente', width / 2, y, {
         size: 9,
         align: 'center',
@@ -754,7 +790,6 @@ Deno.serve(async (req) => {
     }
 
     const pdfBytes = await pdfDoc.save()
-
     return new Response(pdfBytes, {
       headers: { ...corsHeaders, 'Content-Type': 'application/pdf' },
     })

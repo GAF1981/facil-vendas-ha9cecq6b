@@ -4,6 +4,7 @@ import { Employee } from '@/types/employee'
 import { PaymentEntry } from '@/types/payment'
 import { RecebimentoInsert, RecebimentoInstallment } from '@/types/recebimento'
 import { reportsService } from '@/services/reportsService'
+import { startOfDay, endOfDay } from 'date-fns'
 
 export const recebimentoService = {
   async saveRecebimento(
@@ -135,6 +136,8 @@ export const recebimentoService = {
       search?: string
       status?: 'PENDENTE' | 'PAGO' | 'TODOS'
       orderId?: string
+      startDate?: Date
+      endDate?: Date
     } = {},
   ): Promise<RecebimentoInstallment[]> {
     let query = supabase
@@ -161,6 +164,17 @@ export const recebimentoService = {
           .not('CLIENTES', 'is', null)
           .filter('CLIENTES.NOME CLIENTE', 'ilike', `%${term}%`)
       }
+    }
+
+    if (filters.startDate) {
+      query = query.gte(
+        'vencimento',
+        startOfDay(filters.startDate).toISOString(),
+      )
+    }
+
+    if (filters.endDate) {
+      query = query.lte('vencimento', endOfDay(filters.endDate).toISOString())
     }
 
     const { data, error } = await query
@@ -192,7 +206,6 @@ export const recebimentoService = {
     pixDetails?: { nome: string; banco: string },
     userName?: string,
   ): Promise<{ success: boolean; syncWarning?: boolean }> {
-    // 1. Fetch current state
     const { data: current, error: fetchError } = await supabase
       .from('RECEBIMENTOS')
       .select('valor_pago')
@@ -203,7 +216,6 @@ export const recebimentoService = {
 
     const newTotalPaid = (current.valor_pago || 0) + amountPaid
 
-    // 2. Update Installment in RECEBIMENTOS table
     const { error: updateError } = await supabase
       .from('RECEBIMENTOS')
       .update({
@@ -215,7 +227,6 @@ export const recebimentoService = {
 
     if (updateError) throw updateError
 
-    // 3. Log Pix if applicable
     if (method === 'Pix' && pixDetails) {
       await supabase.from('PIX').insert({
         recebimento_id: installmentId,
@@ -227,7 +238,6 @@ export const recebimentoService = {
       })
     }
 
-    // 4. Create Audit Log for "Data Insertion" traceability
     await supabase.from('system_logs').insert({
       type: 'PAYMENT_RECEIVED',
       description: `Pagamento recebido de R$ ${amountPaid} no pedido #${orderId}`,
@@ -240,8 +250,6 @@ export const recebimentoService = {
       },
     })
 
-    // 5. Sync Debt History - Critical for Cross-Module Sync
-    // Calls the RPC function 'update_debito_historico_order'.
     try {
       await reportsService.updateDebtHistoryForOrder(orderId)
       return { success: true }
@@ -249,5 +257,35 @@ export const recebimentoService = {
       console.error('Sync failed for order:', orderId, syncError)
       return { success: true, syncWarning: true }
     }
+  },
+
+  async generateReceiptPdf(installment: RecebimentoInstallment) {
+    const balance = Math.max(
+      0,
+      (installment.valor_registrado || 0) - installment.valor_pago,
+    )
+
+    const receiptData = {
+      cliente_nome: installment.cliente_nome,
+      cliente_codigo: installment.cliente_codigo,
+      venda_id: installment.venda_id,
+      vencimento: installment.vencimento,
+      valor_registrado: installment.valor_registrado,
+      valor_pago: installment.valor_pago,
+      saldo: balance,
+      forma_pagamento: installment.forma_pagamento,
+      data_pagamento: installment.data_pagamento,
+    }
+
+    const { data, error } = await supabase.functions.invoke('generate-pdf', {
+      body: {
+        reportType: 'receipt',
+        format: '80mm',
+        data: receiptData,
+      },
+    })
+
+    if (error) throw error
+    return data
   },
 }
