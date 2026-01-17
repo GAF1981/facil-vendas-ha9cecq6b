@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { EstoqueCarroHeader } from '@/components/estoque-carro/EstoqueCarroHeader'
 import { EstoqueCarroControlBar } from '@/components/estoque-carro/EstoqueCarroControlBar'
 import { EstoqueCarroTable } from '@/components/estoque-carro/EstoqueCarroTable'
@@ -7,9 +7,11 @@ import { EstoqueCarroAcertoTab } from '@/components/estoque-carro/EstoqueCarroAc
 import { EstoqueCarroDeliveryHistory } from '@/components/estoque-carro/EstoqueCarroDeliveryHistory'
 import { BrindeDialog } from '@/components/estoque-carro/BrindeDialog'
 import { estoqueCarroService } from '@/services/estoqueCarroService'
+import { employeesService } from '@/services/employeesService'
 import { useUserStore } from '@/stores/useUserStore'
 import { useToast } from '@/hooks/use-toast'
 import { EstoqueCarroItem, EstoqueCarroSession } from '@/types/estoque_carro'
+import { Employee } from '@/types/employee'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   AlertDialog,
@@ -21,6 +23,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Label } from '@/components/ui/label'
 
 export default function EstoqueCarroPage() {
   const { employee } = useUserStore()
@@ -33,18 +43,54 @@ export default function EstoqueCarroPage() {
   const [isFinalizeDialogOpen, setIsFinalizeDialogOpen] = useState(false)
   const [isBrindeDialogOpen, setIsBrindeDialogOpen] = useState(false)
 
-  // Initialization
-  useEffect(() => {
-    if (employee) {
-      checkActiveSession()
-    }
+  // Employee Filter & Permissions
+  const [employees, setEmployees] = useState<Employee[]>([])
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('')
+
+  // Check permissions: 'Estoque' or 'Administrador'
+  const hasPermission = useMemo(() => {
+    if (!employee?.setor) return false
+    // Handle both string and array formats for robustness
+    const sectors = Array.isArray(employee.setor)
+      ? employee.setor
+      : [employee.setor]
+    return sectors.some(
+      (s) =>
+        s.toLowerCase() === 'estoque' || s.toLowerCase() === 'administrador',
+    )
   }, [employee])
 
-  const checkActiveSession = async () => {
-    if (!employee) return
+  // Initialization
+  useEffect(() => {
+    const init = async () => {
+      // 1. Fetch Employees list for dropdown
+      try {
+        const { data } = await employeesService.getEmployees(1, 100)
+        // Filter active employees
+        setEmployees(data.filter((e) => e.situacao === 'ATIVO'))
+      } catch (e) {
+        console.error('Failed to load employees', e)
+      }
+
+      // 2. Set default selection
+      if (employee) {
+        setSelectedEmployeeId(employee.id.toString())
+      }
+    }
+    init()
+  }, [employee])
+
+  // Watch for selection changes to load session
+  useEffect(() => {
+    if (selectedEmployeeId) {
+      checkActiveSession(parseInt(selectedEmployeeId))
+    }
+  }, [selectedEmployeeId])
+
+  const checkActiveSession = async (empId: number) => {
     setLoading(true)
     try {
-      const active = await estoqueCarroService.getActiveSession(employee.id)
+      const active = await estoqueCarroService.getActiveSession(empId)
       setSession(active)
       if (active) {
         await loadSessionData(active)
@@ -73,10 +119,11 @@ export default function EstoqueCarroPage() {
   }
 
   const handleStartSession = async () => {
-    if (!employee) return
+    if (!selectedEmployeeId) return
     setLoading(true)
     try {
-      const newSession = await estoqueCarroService.startSession(employee.id)
+      const empId = parseInt(selectedEmployeeId)
+      const newSession = await estoqueCarroService.startSession(empId)
       setSession(newSession)
       await loadSessionData(newSession)
       toast({ title: 'Sessão iniciada com sucesso' })
@@ -136,7 +183,9 @@ export default function EstoqueCarroPage() {
       await estoqueCarroService.finishSession(session, items)
       toast({ title: 'Sessão finalizada. Novo estoque iniciado.' })
       setIsFinalizeDialogOpen(false)
-      await checkActiveSession()
+      if (selectedEmployeeId) {
+        await checkActiveSession(parseInt(selectedEmployeeId))
+      }
     } catch (error) {
       toast({
         title: 'Erro',
@@ -148,12 +197,47 @@ export default function EstoqueCarroPage() {
     }
   }
 
+  const currentEmployeeName =
+    employees.find((e) => e.id.toString() === selectedEmployeeId)
+      ?.nome_completo ||
+    employee?.nome_completo ||
+    ''
+
   return (
     <div className="space-y-6 animate-fade-in p-4 sm:p-6 pb-20">
-      <EstoqueCarroHeader
-        session={session}
-        employeeName={employee?.nome_completo || ''}
-      />
+      <div className="flex flex-col sm:flex-row justify-between items-end sm:items-center gap-4">
+        <EstoqueCarroHeader
+          session={session}
+          employeeName={currentEmployeeName}
+        />
+
+        <div className="w-full sm:w-[300px] bg-card p-3 rounded-lg border shadow-sm">
+          <Label className="text-xs mb-1.5 block text-muted-foreground font-semibold uppercase">
+            Visualizar Estoque de:
+          </Label>
+          <Select
+            value={selectedEmployeeId}
+            onValueChange={setSelectedEmployeeId}
+            disabled={!hasPermission}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione um funcionário" />
+            </SelectTrigger>
+            <SelectContent>
+              {employees.map((emp) => (
+                <SelectItem key={emp.id} value={emp.id.toString()}>
+                  {emp.nome_completo}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {!hasPermission && (
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Visualização restrita ao seu usuário.
+            </p>
+          )}
+        </div>
+      </div>
 
       <Tabs defaultValue="produtos" className="w-full">
         <TabsList className="w-full justify-start border-b rounded-none p-0 h-auto bg-transparent overflow-x-auto">
@@ -187,6 +271,7 @@ export default function EstoqueCarroPage() {
             onBrinde={() => setIsBrindeDialogOpen(true)}
             loading={loading}
             disableFinalize={hasPendingItems}
+            canFinalize={hasPermission}
           />
 
           {session && (

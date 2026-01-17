@@ -8,9 +8,10 @@ interface Props {
   onReset: () => void
   onCount: () => void
   onFinalize: () => void
-  onBrinde: () => void // New prop
+  onBrinde: () => void
   loading: boolean
   disableFinalize?: boolean
+  canFinalize?: boolean // New prop for permissions
 }
 
 export function EstoqueCarroControlBar({
@@ -22,6 +23,7 @@ export function EstoqueCarroControlBar({
   onBrinde,
   loading,
   disableFinalize = false,
+  canFinalize = true, // Default to true if not provided
 }: Props) {
   return (
     <Card>
@@ -58,12 +60,14 @@ export function EstoqueCarroControlBar({
 
             <Button
               onClick={onFinalize}
-              disabled={loading || disableFinalize}
+              disabled={loading || disableFinalize || !canFinalize}
               className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               title={
-                disableFinalize
-                  ? 'Realize todas as contagens pendentes antes de finalizar.'
-                  : ''
+                !canFinalize
+                  ? 'Você não tem permissão para finalizar.'
+                  : disableFinalize
+                    ? 'Realize todas as contagens pendentes antes de finalizar.'
+                    : ''
               }
             >
               <CheckCircle2 className="mr-2 h-4 w-4" /> Finalizar Ajustes e

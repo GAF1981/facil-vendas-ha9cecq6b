@@ -79,6 +79,13 @@ export default function RecebimentoPage() {
     }
   }
 
+  const handleClearFilters = () => {
+    setSearchTerm('')
+    setOrderFilter('')
+    setStatusFilter('PENDENTE')
+    setDateRange(undefined)
+  }
+
   const selectedInstallment = useMemo(() => {
     return installments.find((i) => i.id === selectedInstallmentId) || null
   }, [installments, selectedInstallmentId])
@@ -201,6 +208,7 @@ export default function RecebimentoPage() {
             onStatusFilterChange={(v) => setStatusFilter(v as any)}
             dateRange={dateRange}
             onDateRangeChange={setDateRange}
+            onClear={handleClearFilters}
           />
         </CardHeader>
         <CardContent className="p-0">

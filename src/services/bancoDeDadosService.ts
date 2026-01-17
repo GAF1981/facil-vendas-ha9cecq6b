@@ -578,6 +578,21 @@ export const bancoDeDadosService = {
       if (nfError) console.error('Error inserting nota fiscal record:', nfError)
     }
 
+    // Automated Tax Invoice Logic (User Story Feature 2)
+    if (nfCadastro === 'NÃO' && nfVenda === 'SIM') {
+      const { error: clientUpdateError } = await supabase
+        .from('CLIENTES')
+        .update({ 'NOTA FISCAL': 'SIM' } as any)
+        .eq('CODIGO', client.CODIGO)
+
+      if (clientUpdateError) {
+        console.error(
+          'Error auto-updating client tax status:',
+          clientUpdateError,
+        )
+      }
+    }
+
     // 7. Check Rota and Decrement x_na_rota
     try {
       await rotaService.checkAndDecrementXNaRota(client.CODIGO, date)

@@ -18,9 +18,9 @@ import {
   HandCoins,
   Users,
   Banknote,
-  DollarSign,
   CreditCard,
   FileText,
+  Eraser,
 } from 'lucide-react'
 import { DebtTable } from '@/components/cobranca/DebtTable'
 import { useToast } from '@/hooks/use-toast'
@@ -207,83 +207,86 @@ export default function CobrancaPage() {
   }
 
   // Exact Calculation for Summary Cards based on applied filters
-  const { totalVendaTotal, totalSaldoPagar, totalValorPago, totalDebito } =
-    useMemo(() => {
-      let venda = 0
-      let saldo = 0
-      let paid = 0
-      let debt = 0
+  const { totalSaldoPagar, totalValorPago, totalDebito } = useMemo(() => {
+    let saldo = 0
+    let paid = 0
+    let debt = 0
 
-      const shouldIgnoreMotoqueiroFilter = activeTab === 'motoqueiro'
+    const shouldIgnoreMotoqueiroFilter = activeTab === 'motoqueiro'
 
-      filteredDebts.forEach((client) => {
-        client.orders.forEach((order) => {
-          // Apply Order Filter (Strict check)
-          if (orderFilter && !order.orderId.toString().includes(orderFilter))
-            return
+    filteredDebts.forEach((client) => {
+      client.orders.forEach((order) => {
+        // Apply Order Filter (Strict check)
+        if (orderFilter && !order.orderId.toString().includes(orderFilter))
+          return
 
-          order.installments.forEach((inst) => {
-            let matches = true
+        order.installments.forEach((inst) => {
+          let matches = true
 
-            // Status Filter
-            if (statusFilter.length > 0 && !statusFilter.includes(inst.status))
-              matches = false
+          // Status Filter
+          if (statusFilter.length > 0 && !statusFilter.includes(inst.status))
+            matches = false
 
-            // Data Combinada Filter
+          // Data Combinada Filter
+          if (dataCombinadaFilter && inst.dataCombinada !== dataCombinadaFilter)
+            matches = false
+
+          // Motoqueiro Filter
+          if (!shouldIgnoreMotoqueiroFilter && motoqueiroFilter !== 'todos') {
             if (
-              dataCombinadaFilter &&
-              inst.dataCombinada !== dataCombinadaFilter
+              motoqueiroFilter === 'com_rota' &&
+              inst.formaCobranca !== 'MOTOQUEIRO'
             )
               matches = false
+            if (
+              motoqueiroFilter === 'sem_rota' &&
+              inst.formaCobranca === 'MOTOQUEIRO'
+            )
+              matches = false
+          }
 
-            // Motoqueiro Filter
-            if (!shouldIgnoreMotoqueiroFilter && motoqueiroFilter !== 'todos') {
-              if (
-                motoqueiroFilter === 'com_rota' &&
-                inst.formaCobranca !== 'MOTOQUEIRO'
-              )
-                matches = false
-              if (
-                motoqueiroFilter === 'sem_rota' &&
-                inst.formaCobranca === 'MOTOQUEIRO'
-              )
-                matches = false
-            }
-
-            if (matches) {
-              const currentDebt = Math.max(
-                0,
-                inst.valorRegistrado - inst.valorPago,
-              )
-              venda += inst.valorRegistrado
-              saldo += inst.valorRegistrado // Using Registered Value as the 'to pay' basis for installments
-              paid += inst.valorPago
-              debt += currentDebt
-            }
-          })
+          if (matches) {
+            const currentDebt = Math.max(
+              0,
+              inst.valorRegistrado - inst.valorPago,
+            )
+            saldo += inst.valorRegistrado // Using Registered Value as the 'to pay' basis for installments
+            paid += inst.valorPago
+            debt += currentDebt
+          }
         })
       })
+    })
 
-      return {
-        totalVendaTotal: venda,
-        totalSaldoPagar: saldo,
-        totalValorPago: paid,
-        totalDebito: debt,
-      }
-    }, [
-      filteredDebts,
-      orderFilter,
-      statusFilter,
-      dataCombinadaFilter,
-      motoqueiroFilter,
-      activeTab,
-    ])
+    return {
+      totalSaldoPagar: saldo,
+      totalValorPago: paid,
+      totalDebito: debt,
+    }
+  }, [
+    filteredDebts,
+    orderFilter,
+    statusFilter,
+    dataCombinadaFilter,
+    motoqueiroFilter,
+    activeTab,
+  ])
 
   const statusOptions = [
     { label: 'Vencido', value: 'VENCIDO' },
     { label: 'A Vencer', value: 'A VENCER' },
     { label: 'Pago', value: 'PAGO' },
   ]
+
+  const resetFilters = () => {
+    setClientFilter('')
+    setOrderFilter('')
+    setStatusFilter(['VENCIDO', 'A VENCER'])
+    setCityFilter('todos')
+    setMotoqueiroFilter('todos')
+    setDataCombinadaFilter('')
+    // Keep isSimplified and activeTab as user preference
+  }
 
   return (
     <div className="space-y-6 animate-fade-in p-4 sm:p-6 pb-20">
@@ -321,19 +324,7 @@ export default function CobrancaPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Venda Total</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              R$ {formatCurrency(totalVendaTotal)}
-            </div>
-          </CardContent>
-        </Card>
-
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Saldo a Pagar</CardTitle>
@@ -373,7 +364,7 @@ export default function CobrancaPage() {
 
       <Card>
         <CardContent className="p-4 space-y-4">
-          <div className="flex flex-col md:flex-row gap-4 flex-wrap">
+          <div className="flex flex-col md:flex-row gap-4 flex-wrap items-center">
             <div className="flex flex-col sm:flex-row gap-4 flex-1">
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -443,6 +434,15 @@ export default function CobrancaPage() {
                 </SelectContent>
               </Select>
             </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={resetFilters}
+              title="Limpar filtros"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <Eraser className="h-5 w-5" />
+            </Button>
           </div>
 
           <Tabs

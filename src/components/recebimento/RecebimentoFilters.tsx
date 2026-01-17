@@ -1,6 +1,6 @@
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Search } from 'lucide-react'
+import { Search, Eraser } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -22,6 +22,7 @@ interface RecebimentoFiltersProps {
   onStatusFilterChange: (val: string) => void
   dateRange: DateRange | undefined
   onDateRangeChange: (range: DateRange | undefined) => void
+  onClear: () => void
 }
 
 export function RecebimentoFilters({
@@ -33,6 +34,7 @@ export function RecebimentoFilters({
   onStatusFilterChange,
   dateRange,
   onDateRangeChange,
+  onClear,
 }: RecebimentoFiltersProps) {
   const setToday = () => {
     onDateRangeChange({ from: startOfToday(), to: startOfToday() })
@@ -89,7 +91,7 @@ export function RecebimentoFilters({
         </Select>
       </div>
 
-      <div className="space-y-1 col-span-12 md:col-span-5 flex flex-col gap-2">
+      <div className="space-y-1 col-span-12 md:col-span-4 flex flex-col gap-2">
         <Label>Vencimento</Label>
         <div className="flex gap-2">
           <DateRangePicker
@@ -124,6 +126,17 @@ export function RecebimentoFilters({
             </Button>
           )}
         </div>
+      </div>
+      <div className="col-span-12 md:col-span-1 flex justify-end md:justify-center pb-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onClear}
+          title="Limpar filtros"
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <Eraser className="h-5 w-5" />
+        </Button>
       </div>
     </div>
   )

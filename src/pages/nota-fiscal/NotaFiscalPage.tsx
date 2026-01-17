@@ -38,6 +38,7 @@ import {
   FileCheck,
   FileSignature,
   Printer,
+  Eraser,
 } from 'lucide-react'
 import { notaFiscalService } from '@/services/notaFiscalService'
 import { acertoService } from '@/services/acertoService'
@@ -123,6 +124,13 @@ export default function NotaFiscalPage() {
 
   const clearClientSelection = () => {
     setSelectedClient(null)
+    fetchAllSettlements()
+  }
+
+  const resetFilters = () => {
+    setSelectedClient(null)
+    setStatusFilter('all')
+    setOrderFilter('')
     fetchAllSettlements()
   }
 
@@ -278,7 +286,7 @@ export default function NotaFiscalPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
         <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle>Filtrar por Cliente (Opcional)</CardTitle>
@@ -328,17 +336,30 @@ export default function NotaFiscalPage() {
         </Card>
 
         {/* Order Filter */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Buscar Pedido</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Input
-              placeholder="Número do Pedido"
-              value={orderFilter}
-              onChange={(e) => setOrderFilter(e.target.value)}
-            />
-          </CardContent>
+        <Card className="flex flex-row items-end">
+          <div className="flex-1">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Buscar Pedido</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Input
+                placeholder="Número do Pedido"
+                value={orderFilter}
+                onChange={(e) => setOrderFilter(e.target.value)}
+              />
+            </CardContent>
+          </div>
+          <div className="p-6 pt-0 pl-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={resetFilters}
+              title="Limpar filtros"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <Eraser className="h-5 w-5" />
+            </Button>
+          </div>
         </Card>
       </div>
 
