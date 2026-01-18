@@ -26,6 +26,7 @@ interface CollectionActionsSheetProps {
   clientName: string
   clientId: number
   onActionAdded: () => void
+  defaultShowForm?: boolean
 }
 
 export function CollectionActionsSheet({
@@ -35,10 +36,11 @@ export function CollectionActionsSheet({
   clientName,
   clientId,
   onActionAdded,
+  defaultShowForm = false,
 }: CollectionActionsSheetProps) {
   const [actions, setActions] = useState<CollectionAction[]>([])
   const [loading, setLoading] = useState(false)
-  const [showForm, setShowForm] = useState(false)
+  const [showForm, setShowForm] = useState(defaultShowForm)
   const [submitting, setSubmitting] = useState(false)
   const { toast } = useToast()
   const { employee } = useUserStore()
@@ -70,13 +72,13 @@ export function CollectionActionsSheet({
   useEffect(() => {
     if (isOpen) {
       fetchActions()
-      setShowForm(false)
+      setShowForm(defaultShowForm)
       setNewAction({
         acao: '',
         dataAcao: format(new Date(), 'yyyy-MM-dd'),
       })
     }
-  }, [isOpen, orderId])
+  }, [isOpen, orderId, defaultShowForm])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -103,13 +105,13 @@ export function CollectionActionsSheet({
       await cobrancaService.addCollectionAction({
         acao: newAction.acao,
         dataAcao: newAction.dataAcao,
-        novaDataCombinada: null, // Always null as per request to remove feature
+        novaDataCombinada: null,
         funcionarioId: employee.id,
         funcionarioNome: employee.nome_completo,
         pedidoId: Number(orderId),
         clienteId: clientId,
         clienteNome: clientName,
-        installments: [], // Always empty as per request to remove feature
+        installments: [],
       })
 
       toast({
@@ -238,7 +240,6 @@ export function CollectionActionsSheet({
                       <div className="font-medium whitespace-pre-wrap">
                         {action.acao}
                       </div>
-                      {/* Show Installments Details (Read Only Legacy) */}
                       {action.installments && action.installments.length > 0 ? (
                         <div className="mt-2 pt-2 border-t">
                           <p className="text-xs font-semibold text-muted-foreground mb-1">
