@@ -32,6 +32,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { PaymentHistoryDetail } from '@/types/cobranca'
 
 interface RotaMotoqueiroItem {
   clientId: number
@@ -51,7 +52,7 @@ interface RotaMotoqueiroItem {
   email_cobranca?: string | null
   clientStatus?: string | null
   motivo?: string | null
-  paymentsMade?: { method?: string; employeeName?: string; value: number }[]
+  paymentHistory?: PaymentHistoryDetail[]
 }
 
 interface RotaMotoqueiroCardItemProps {
@@ -223,35 +224,40 @@ export function RotaMotoqueiroCardItem({
                     <PopoverTrigger>
                       <AlertCircle className="h-3 w-3 text-amber-500 cursor-pointer" />
                     </PopoverTrigger>
-                    <PopoverContent className="w-60 p-2 text-xs">
+                    <PopoverContent className="w-72 p-3 text-xs">
                       <h4 className="font-semibold mb-2 text-muted-foreground">
-                        Detalhes do Pagamento
+                        Histórico de Pagamentos (Parcela)
                       </h4>
                       <div className="space-y-2">
-                        {item.paymentsMade && item.paymentsMade.length > 0 ? (
-                          item.paymentsMade.map((p, i) => (
+                        {item.paymentHistory &&
+                        item.paymentHistory.length > 0 ? (
+                          item.paymentHistory.map((h, i) => (
                             <div
                               key={i}
-                              className="flex justify-between border-b pb-1 last:border-0"
+                              className="flex justify-between items-center border-b pb-1 last:border-0"
                             >
                               <div className="flex flex-col">
                                 <span className="font-medium">
-                                  {p.method || 'N/D'}
+                                  {safeFormatDate(h.date, 'dd/MM/yy')}
                                 </span>
                                 <span className="text-[10px] text-muted-foreground">
-                                  Rec: {p.employeeName}
+                                  {h.employee} • {h.method}
                                 </span>
                               </div>
                               <span className="font-bold text-green-600">
-                                R$ {formatCurrency(p.value)}
+                                {formatCurrency(h.value)}
                               </span>
                             </div>
                           ))
                         ) : (
                           <span className="italic text-muted-foreground">
-                            Sem detalhes disponíveis
+                            Nenhum pagamento registrado
                           </span>
                         )}
+                        <div className="pt-2 border-t flex justify-between font-bold">
+                          <span>Total Pago:</span>
+                          <span>{formatCurrency(item.pago)}</span>
+                        </div>
                       </div>
                     </PopoverContent>
                   </Popover>

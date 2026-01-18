@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { cobrancaService } from '@/services/cobrancaService'
-import { ClientDebt } from '@/types/cobranca'
+import { ClientDebt, PaymentHistoryDetail } from '@/types/cobranca'
 import { Loader2, Bike, RefreshCw, AlertCircle, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,7 +32,7 @@ interface MotoqueiroItem {
   email_cobranca?: string | null
   clientStatus?: string | null
   motivo?: string | null
-  paymentsMade?: { method?: string; employeeName?: string; value: number }[]
+  paymentHistory?: PaymentHistoryDetail[]
 }
 
 export default function RotaMotoqueiroPage() {
@@ -102,7 +102,7 @@ export default function RotaMotoqueiroPage() {
                 email_cobranca: client.email_cobranca,
                 clientStatus: client.situacao,
                 motivo: inst.motivo || null,
-                paymentsMade: order.paymentsMade, // Pass payments info
+                paymentHistory: inst.paymentHistory || [],
               })
             }
           })
