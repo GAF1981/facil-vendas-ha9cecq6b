@@ -1,9 +1,18 @@
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { RotateCcw, Play, Calculator, CheckCircle2, Gift } from 'lucide-react'
+import { EstoqueCarroSession } from '@/types/estoque_carro'
+import {
+  RotateCcw,
+  Play,
+  Calculator,
+  CheckCircle2,
+  Gift,
+  Lock,
+} from 'lucide-react'
 
 interface Props {
-  hasActiveSession: boolean
+  viewedSession: EstoqueCarroSession | null
+  activeSession: EstoqueCarroSession | null
   onStart: () => void
   onReset: () => void
   onCount: () => void
@@ -11,11 +20,12 @@ interface Props {
   onBrinde: () => void
   loading: boolean
   disableFinalize?: boolean
-  canFinalize?: boolean // New prop for permissions
+  canFinalize?: boolean
 }
 
 export function EstoqueCarroControlBar({
-  hasActiveSession,
+  viewedSession,
+  activeSession,
   onStart,
   onReset,
   onCount,
@@ -23,12 +33,26 @@ export function EstoqueCarroControlBar({
   onBrinde,
   loading,
   disableFinalize = false,
-  canFinalize = true, // Default to true if not provided
+  canFinalize = true,
 }: Props) {
+  // Logic determining what to show
+  // 1. If viewedSession is null, we can only start a session if one doesn't exist (handled by outer logic mostly, but button is here)
+  // 2. If viewedSession is closed (data_fim != null), show READ ONLY
+  // 3. If viewedSession is OPEN (data_fim == null), show ACTIONS
+
+  const isViewedSessionClosed = !!viewedSession?.data_fim
+  const isViewedSessionActive =
+    viewedSession &&
+    activeSession &&
+    viewedSession.id === activeSession.id &&
+    !isViewedSessionClosed
+  const canStartNew = !activeSession
+
   return (
     <Card>
-      <CardContent className="p-4 flex flex-wrap gap-2">
-        {!hasActiveSession ? (
+      <CardContent className="p-4 flex flex-wrap gap-2 items-center">
+        {/* State: No View Session OR No Active Session (Show Start) */}
+        {!viewedSession && canStartNew && (
           <Button
             onClick={onStart}
             disabled={loading}
@@ -36,7 +60,20 @@ export function EstoqueCarroControlBar({
           >
             <Play className="mr-2 h-4 w-4" /> Iniciar Carro Estoque
           </Button>
-        ) : (
+        )}
+
+        {/* State: Viewing Closed History */}
+        {viewedSession && isViewedSessionClosed && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded text-gray-600 border border-gray-200 w-full sm:w-auto">
+            <Lock className="h-4 w-4" />
+            <span className="font-medium text-sm">
+              Histórico - Sessão Finalizada
+            </span>
+          </div>
+        )}
+
+        {/* State: Viewing Active Session */}
+        {viewedSession && isViewedSessionActive && (
           <>
             <Button variant="outline" onClick={onReset} disabled={loading}>
               <RotateCcw className="mr-2 h-4 w-4 text-red-600" /> Reset Saldo

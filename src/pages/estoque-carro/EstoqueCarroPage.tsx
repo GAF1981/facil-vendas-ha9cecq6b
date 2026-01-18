@@ -31,13 +31,22 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
+import { safeFormatDate } from '@/lib/formatters'
 
 export default function EstoqueCarroPage() {
   const { employee } = useUserStore()
   const { toast } = useToast()
 
   const [loading, setLoading] = useState(false)
-  const [session, setSession] = useState<EstoqueCarroSession | null>(null)
+
+  // Session State
+  const [sessions, setSessions] = useState<EstoqueCarroSession[]>([])
+  const [activeSession, setActiveSession] =
+    useState<EstoqueCarroSession | null>(null)
+  const [viewedSession, setViewedSession] =
+    useState<EstoqueCarroSession | null>(null)
+  const [selectedSessionId, setSelectedSessionId] = useState<string>('')
+
   const [items, setItems] = useState<EstoqueCarroItem[]>([])
   const [isCountDialogOpen, setIsCountDialogOpen] = useState(false)
   const [isFinalizeDialogOpen, setIsFinalizeDialogOpen] = useState(false)
@@ -60,10 +69,9 @@ export default function EstoqueCarroPage() {
     )
   }, [employee])
 
-  // Initialization
+  // Initialization: Load Employees
   useEffect(() => {
     const init = async () => {
-      // 1. Fetch Employees list for dropdown
       try {
         const { data } = await employeesService.getEmployees(1, 100)
         // Filter active employees
@@ -72,7 +80,7 @@ export default function EstoqueCarroPage() {
         console.error('Failed to load employees', e)
       }
 
-      // 2. Set default selection
+      // Set default selection
       if (employee) {
         setSelectedEmployeeId(employee.id.toString())
       }
@@ -80,28 +88,62 @@ export default function EstoqueCarroPage() {
     init()
   }, [employee])
 
-  // Watch for selection changes to load session
+  // Watch for Employee change -> Load Sessions
   useEffect(() => {
     if (selectedEmployeeId) {
-      checkActiveSession(parseInt(selectedEmployeeId))
+      loadEmployeeSessions(parseInt(selectedEmployeeId))
+    } else {
+      setSessions([])
+      setActiveSession(null)
+      setViewedSession(null)
+      setSelectedSessionId('')
+      setItems([])
     }
   }, [selectedEmployeeId])
 
-  const checkActiveSession = async (empId: number) => {
+  // Watch for Session Selection change -> Load Session Data
+  useEffect(() => {
+    if (selectedSessionId) {
+      const session = sessions.find(
+        (s) => s.id.toString() === selectedSessionId,
+      )
+      if (session) {
+        setViewedSession(session)
+        loadSessionData(session)
+      }
+    } else {
+      setViewedSession(null)
+      setItems([])
+    }
+  }, [selectedSessionId, sessions])
+
+  const loadEmployeeSessions = async (empId: number) => {
     setLoading(true)
     try {
-      const active = await estoqueCarroService.getActiveSession(empId)
-      setSession(active)
+      const fetchedSessions = await estoqueCarroService.getSessions(empId)
+      setSessions(fetchedSessions)
+
+      // Find active session (data_fim is null)
+      const active = fetchedSessions.find((s) => !s.data_fim) || null
+      setActiveSession(active)
+
+      // Determine initial selection
+      // Priority: Active Session > Latest History > None
       if (active) {
-        await loadSessionData(active)
+        setSelectedSessionId(active.id.toString())
+      } else if (fetchedSessions.length > 0) {
+        // Use latest (first in list due to descending sort)
+        setSelectedSessionId(fetchedSessions[0].id.toString())
       } else {
+        setSelectedSessionId('')
+        setViewedSession(null)
         setItems([])
       }
     } catch (error) {
       console.error(error)
       toast({
         title: 'Erro',
-        description: 'Falha ao carregar sessão de estoque.',
+        description: 'Falha ao carregar sessões de estoque.',
         variant: 'destructive',
       })
     } finally {
@@ -109,12 +151,20 @@ export default function EstoqueCarroPage() {
     }
   }
 
-  const loadSessionData = async (activeSession: EstoqueCarroSession) => {
+  const loadSessionData = async (session: EstoqueCarroSession) => {
+    setLoading(true)
     try {
-      const data = await estoqueCarroService.getSessionData(activeSession)
+      const data = await estoqueCarroService.getSessionData(session)
       setItems(data)
     } catch (error) {
       console.error(error)
+      toast({
+        title: 'Erro',
+        description: 'Falha ao carregar dados da sessão.',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -123,10 +173,10 @@ export default function EstoqueCarroPage() {
     setLoading(true)
     try {
       const empId = parseInt(selectedEmployeeId)
-      const newSession = await estoqueCarroService.startSession(empId)
-      setSession(newSession)
-      await loadSessionData(newSession)
+      await estoqueCarroService.startSession(empId)
       toast({ title: 'Sessão iniciada com sucesso' })
+      // Refresh sessions
+      await loadEmployeeSessions(empId)
     } catch (error) {
       toast({
         title: 'Erro',
@@ -139,14 +189,14 @@ export default function EstoqueCarroPage() {
   }
 
   const handleReset = async () => {
-    if (!session) return
+    if (!viewedSession) return
     if (!confirm('Tem certeza? Isso zerará o saldo inicial de todos os itens.'))
       return
 
     setLoading(true)
     try {
-      await estoqueCarroService.resetInitialBalance(session.id)
-      await loadSessionData(session)
+      await estoqueCarroService.resetInitialBalance(viewedSession.id)
+      await loadSessionData(viewedSession)
       toast({ title: 'Saldo inicial resetado' })
     } catch (error) {
       console.error(error)
@@ -161,7 +211,7 @@ export default function EstoqueCarroPage() {
   )
 
   const handleFinalize = async () => {
-    if (!session) return
+    if (!viewedSession) return
 
     if (hasPendingItems) {
       toast({
@@ -177,14 +227,15 @@ export default function EstoqueCarroPage() {
   }
 
   const confirmFinalize = async () => {
-    if (!session) return
+    if (!viewedSession) return
     setLoading(true)
     try {
-      await estoqueCarroService.finishSession(session, items)
+      await estoqueCarroService.finishSession(viewedSession, items)
       toast({ title: 'Sessão finalizada. Novo estoque iniciado.' })
       setIsFinalizeDialogOpen(false)
+      // Refresh sessions to pick up the change and the new active session
       if (selectedEmployeeId) {
-        await checkActiveSession(parseInt(selectedEmployeeId))
+        await loadEmployeeSessions(parseInt(selectedEmployeeId))
       }
     } catch (error) {
       toast({
@@ -207,35 +258,60 @@ export default function EstoqueCarroPage() {
     <div className="space-y-6 animate-fade-in p-4 sm:p-6 pb-20">
       <div className="flex flex-col sm:flex-row justify-between items-end sm:items-center gap-4">
         <EstoqueCarroHeader
-          session={session}
+          session={viewedSession}
           employeeName={currentEmployeeName}
         />
 
-        <div className="w-full sm:w-[300px] bg-card p-3 rounded-lg border shadow-sm">
-          <Label className="text-xs mb-1.5 block text-muted-foreground font-semibold uppercase">
-            Visualizar Estoque de:
-          </Label>
-          <Select
-            value={selectedEmployeeId}
-            onValueChange={setSelectedEmployeeId}
-            disabled={!hasPermission}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione um funcionário" />
-            </SelectTrigger>
-            <SelectContent>
-              {employees.map((emp) => (
-                <SelectItem key={emp.id} value={emp.id.toString()}>
-                  {emp.nome_completo}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {!hasPermission && (
-            <p className="text-[10px] text-muted-foreground mt-1">
-              Visualização restrita ao seu usuário.
-            </p>
-          )}
+        <div className="flex flex-col gap-4 sm:flex-row w-full sm:w-auto">
+          <div className="w-full sm:w-[250px] bg-card p-3 rounded-lg border shadow-sm">
+            <Label className="text-xs mb-1.5 block text-muted-foreground font-semibold uppercase">
+              Visualizar Estoque de:
+            </Label>
+            <Select
+              value={selectedEmployeeId}
+              onValueChange={setSelectedEmployeeId}
+              disabled={!hasPermission}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione um funcionário" />
+              </SelectTrigger>
+              <SelectContent>
+                {employees.map((emp) => (
+                  <SelectItem key={emp.id} value={emp.id.toString()}>
+                    {emp.nome_completo}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {!hasPermission && (
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Visualização restrita ao seu usuário.
+              </p>
+            )}
+          </div>
+
+          <div className="w-full sm:w-[200px] bg-card p-3 rounded-lg border shadow-sm">
+            <Label className="text-xs mb-1.5 block text-muted-foreground font-semibold uppercase">
+              ID Estoque Carro:
+            </Label>
+            <Select
+              value={selectedSessionId}
+              onValueChange={setSelectedSessionId}
+              disabled={sessions.length === 0}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione..." />
+              </SelectTrigger>
+              <SelectContent>
+                {sessions.map((s) => (
+                  <SelectItem key={s.id} value={s.id.toString()}>
+                    #{s.id} - {safeFormatDate(s.data_inicio, 'dd/MM/yyyy')}
+                    {s.data_fim ? '' : ' (Ativo)'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
@@ -263,7 +339,8 @@ export default function EstoqueCarroPage() {
 
         <TabsContent value="produtos" className="space-y-4 pt-4">
           <EstoqueCarroControlBar
-            hasActiveSession={!!session}
+            viewedSession={viewedSession}
+            activeSession={activeSession}
             onStart={handleStartSession}
             onReset={handleReset}
             onCount={() => setIsCountDialogOpen(true)}
@@ -274,29 +351,29 @@ export default function EstoqueCarroPage() {
             canFinalize={hasPermission}
           />
 
-          {session && (
+          {viewedSession && (
             <>
               <EstoqueCarroTable
                 items={items}
-                onRefresh={() => loadSessionData(session)}
+                onRefresh={() => loadSessionData(viewedSession)}
               />
               <EstoqueCarroCountDialog
                 open={isCountDialogOpen}
                 onOpenChange={(open) => {
                   setIsCountDialogOpen(open)
-                  if (!open && session) loadSessionData(session)
+                  if (!open && viewedSession) loadSessionData(viewedSession)
                 }}
-                sessionId={session.id}
+                sessionId={viewedSession.id}
               />
               <BrindeDialog
                 open={isBrindeDialogOpen}
                 onOpenChange={(open) => {
                   setIsBrindeDialogOpen(open)
-                  if (!open && session) loadSessionData(session)
+                  if (!open && viewedSession) loadSessionData(viewedSession)
                 }}
-                sessionId={session.id}
+                sessionId={viewedSession.id}
                 onSuccess={() => {
-                  if (session) loadSessionData(session)
+                  if (viewedSession) loadSessionData(viewedSession)
                 }}
               />
             </>
@@ -304,8 +381,15 @@ export default function EstoqueCarroPage() {
         </TabsContent>
 
         <TabsContent value="acerto" className="pt-4">
-          {session && (
+          {viewedSession && !viewedSession.data_fim ? (
             <EstoqueCarroAcertoTab employee={employee || undefined} />
+          ) : (
+            <div className="text-center p-8 text-muted-foreground border rounded-md bg-muted/20">
+              <p>
+                A aba de Acerto só está disponível para sessões ativas (não
+                finalizadas).
+              </p>
+            </div>
           )}
         </TabsContent>
 

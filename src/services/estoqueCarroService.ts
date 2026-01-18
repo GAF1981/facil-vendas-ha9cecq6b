@@ -10,6 +10,18 @@ import {
 import { AcertoItem } from '@/types/acerto'
 
 export const estoqueCarroService = {
+  async getSessions(funcionarioId: number) {
+    const { data, error } = await supabase
+      .from('ID ESTOQUE CARRO')
+      .select('*')
+      .eq('funcionario_id', funcionarioId)
+      .order('data_inicio', { ascending: false })
+      .limit(100)
+
+    if (error) throw error
+    return data as EstoqueCarroSession[]
+  },
+
   async getActiveSession(funcionarioId: number) {
     const { data, error } = await supabase
       .from('ID ESTOQUE CARRO')
