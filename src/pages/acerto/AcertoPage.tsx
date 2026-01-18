@@ -354,6 +354,7 @@ export default function AcertoPage() {
       return
     }
 
+    // Cashier Status Validation
     try {
       const activeRota = await rotaService.getActiveRota()
       if (activeRota) {
@@ -361,12 +362,12 @@ export default function AcertoPage() {
           activeRota.id,
           emp.id,
         )
-        // If status is NOT null (meaning 'Aberto' or 'Fechado'), block action
-        if (closureStatus !== null) {
+        // Check strict status: 'Aberto' (Processing) or 'Fechado' (Closed)
+        if (closureStatus === 'Aberto' || closureStatus === 'Fechado') {
           toast({
             title: 'Ação Bloqueada',
             description:
-              'Não é permitido realizar acertos ou recebimentos com o caixa fechado ou em processo de fechamento.',
+              'Ações bloqueadas: o caixa para esta rota está fechado ou em processo de fechamento.',
             variant: 'destructive',
           })
           return

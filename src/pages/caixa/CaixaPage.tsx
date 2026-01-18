@@ -109,17 +109,6 @@ export default function CaixaPage() {
     return userSectors.some((s) => allowedSectors.includes(s))
   }, [loggedInUser])
 
-  // Check if current user is Motoqueiro
-  const isMotoqueiro = useMemo(() => {
-    if (!loggedInUser) return false
-    const userSectors = Array.isArray(loggedInUser.setor)
-      ? loggedInUser.setor
-      : loggedInUser.setor
-        ? [loggedInUser.setor]
-        : []
-    return userSectors.some((s) => s.toLowerCase() === 'motoqueiro')
-  }, [loggedInUser])
-
   useEffect(() => {
     fetchRoutes()
     fetchActiveEmployees()
@@ -127,9 +116,13 @@ export default function CaixaPage() {
 
   useEffect(() => {
     if (loggedInUser && selectedEmployeeId === 'all') {
-      setSelectedEmployeeId(loggedInUser.id.toString())
+      if (canSelectEmployee) {
+        // Admin stays on 'all'
+      } else {
+        setSelectedEmployeeId(loggedInUser.id.toString())
+      }
     }
-  }, [loggedInUser, selectedEmployeeId])
+  }, [loggedInUser, selectedEmployeeId, canSelectEmployee])
 
   const fetchActiveEmployees = async () => {
     try {
@@ -195,7 +188,7 @@ export default function CaixaPage() {
 
   // Ensure individual receipts are properly filtered by employee ID if selected
   const filteredReceipts = useMemo(() => {
-    // If no employee selected (or All), show ALL receipts
+    // If "All" selected, show all receipts associated with the route
     if (!selectedEmployeeId || selectedEmployeeId === 'all') return allReceipts
     // Otherwise filter by selected employee
     return allReceipts.filter(
@@ -214,16 +207,7 @@ export default function CaixaPage() {
     let data = summaryData
 
     if (!selectedEmployeeId || selectedEmployeeId === 'all') {
-      data = data.filter((row) => {
-        const emp = activeEmployees.find((e) => e.id === row.funcionarioId)
-        const sectors = emp?.setor
-          ? Array.isArray(emp.setor)
-            ? emp.setor
-            : [emp.setor]
-          : []
-        // Optional: Filter out logic if needed, but requirements say Admins see all
-        return true
-      })
+      // Show all data if 'all' is selected
     } else {
       data = data.filter(
         (s) => s.funcionarioId.toString() === selectedEmployeeId,
@@ -231,7 +215,7 @@ export default function CaixaPage() {
     }
 
     return data
-  }, [summaryData, selectedEmployeeId, activeEmployees])
+  }, [summaryData, selectedEmployeeId])
 
   const totalRecebido = filteredReceipts.reduce((acc, r) => acc + r.valor, 0)
   const totalDespesas = filteredExpenses
@@ -267,6 +251,7 @@ export default function CaixaPage() {
         parseInt(selectedRouteId),
         targetEmpId,
       )
+      // Blocking logic: 'Aberto' means started, 'Fechado' means finished
       if (status === 'Aberto' || status === 'Fechado') {
         toast({
           title: 'Ação Bloqueada',
@@ -601,14 +586,17 @@ export default function CaixaPage() {
               <div className="bg-background border px-3 py-1 rounded-md">
                 <span className="text-muted-foreground mr-2">Início:</span>
                 <span className="font-medium">
-                  {safeFormatDate(selectedRoute.data_inicio)}
+                  {safeFormatDate(
+                    selectedRoute.data_inicio,
+                    'dd/MM/yyyy HH:mm',
+                  )}
                 </span>
               </div>
               <div className="bg-background border px-3 py-1 rounded-md">
                 <span className="text-muted-foreground mr-2">Fim:</span>
                 <span className="font-medium">
                   {selectedRoute.data_fim
-                    ? safeFormatDate(selectedRoute.data_fim)
+                    ? safeFormatDate(selectedRoute.data_fim, 'dd/MM/yyyy HH:mm')
                     : 'Em andamento'}
                 </span>
               </div>

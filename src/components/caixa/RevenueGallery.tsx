@@ -1,7 +1,8 @@
 import { ReceiptDetail } from '@/services/caixaService'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
-import { formatCurrency, safeFormatDate } from '@/lib/formatters'
+import { formatCurrency } from '@/lib/formatters'
+import { formatDateTimeBR } from '@/lib/dateUtils'
 import {
   ArrowDownCircle,
   QrCode,
@@ -54,7 +55,7 @@ export function RevenueGallery({ items }: RevenueGalleryProps) {
           <Table>
             <TableHeader className="bg-muted/50 sticky top-0 z-10">
               <TableRow>
-                <TableHead className="w-[120px]">Data</TableHead>
+                <TableHead className="w-[140px]">Data/Hora</TableHead>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Funcionário</TableHead>
                 <TableHead>Forma</TableHead>
@@ -74,8 +75,8 @@ export function RevenueGallery({ items }: RevenueGalleryProps) {
               ) : (
                 listItems.map((item) => (
                   <TableRow key={item.id} className="hover:bg-muted/30">
-                    <TableCell className="text-xs whitespace-nowrap">
-                      {safeFormatDate(item.data, 'dd/MM/yy HH:mm')}
+                    <TableCell className="text-xs whitespace-nowrap font-mono text-muted-foreground">
+                      {formatDateTimeBR(item.data)}
                     </TableCell>
                     <TableCell className="font-medium text-sm">
                       <div className="flex flex-col">

@@ -122,12 +122,12 @@ export default function RecebimentoPage() {
             activeRota.id,
             employee.id,
           )
-          // If status is NOT null (meaning 'Aberto' or 'Fechado'), block action
-          if (closureStatus !== null) {
+          // Strict status check: 'Aberto' or 'Fechado' implies blocked for processing
+          if (closureStatus === 'Aberto' || closureStatus === 'Fechado') {
             toast({
               title: 'Ação Bloqueada',
               description:
-                'Não é permitido realizar acertos ou recebimentos com o caixa fechado ou em processo de fechamento.',
+                'Ações bloqueadas: o caixa para esta rota está fechado ou em processo de fechamento.',
               variant: 'destructive',
             })
             return

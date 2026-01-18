@@ -1,7 +1,8 @@
 import { ExpenseDetail } from '@/services/caixaService'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { formatCurrency, safeFormatDate } from '@/lib/formatters'
+import { formatCurrency } from '@/lib/formatters'
+import { formatDateTimeBR } from '@/lib/dateUtils'
 import { ArrowUpCircle, CheckCircle2, XCircle } from 'lucide-react'
 import {
   Table,
@@ -61,8 +62,8 @@ export function ExpenseGallery({ items }: ExpenseGalleryProps) {
               ) : (
                 items.map((item) => (
                   <TableRow key={item.id} className="hover:bg-muted/30">
-                    <TableCell className="text-xs">
-                      {safeFormatDate(item.data, 'dd/MM/yy')}
+                    <TableCell className="text-xs whitespace-nowrap font-mono text-muted-foreground">
+                      {formatDateTimeBR(item.data)}
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col">
