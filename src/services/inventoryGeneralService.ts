@@ -260,8 +260,30 @@ export const inventoryGeneralService = {
       }
 
       // 2. Insert into REPOSIÇÃO E DEVOLUÇÃO (for Car Stock Sync with strict linking)
+      // FIX: Check for active session in "DATAS DE INVENTÁRIO" to comply with FK constraint
+      const { data: datasInvData, error: datasInvError } = await supabase
+        .from('DATAS DE INVENTÁRIO')
+        .select('"ID INVENTÁRIO"')
+        .is('"Data de Fechamento de Inventário"', null)
+        .order('"Data de Início de Inventário"', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (datasInvError) {
+        console.error('Error fetching DATAS DE INVENTÁRIO:', datasInvError)
+        throw new Error('Erro ao verificar sessão de inventário ativa.')
+      }
+
+      if (!datasInvData) {
+        throw new Error(
+          'Não foi possível identificar uma sessão de inventário ativa. Verifique se o inventário foi iniciado.',
+        )
+      }
+
+      const datasInvId = datasInvData['ID INVENTÁRIO']
+
       const repoItems = items.map((i) => ({
-        session_id: sessionId,
+        session_id: datasInvId, // Use the correct FK ID from DATAS DE INVENTÁRIO
         id_estoque_carro: activeSession.id,
         funcionario_id: i.extra?.funcionarioId,
         produto_id: i.productId,
