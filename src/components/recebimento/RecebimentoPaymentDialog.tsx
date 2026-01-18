@@ -64,9 +64,6 @@ export function RecebimentoPaymentDialog({
   const [paymentDate, setPaymentDate] = useState(
     format(new Date(), 'yyyy-MM-dd'),
   )
-  const [registrationDate, setRegistrationDate] = useState(
-    format(new Date(), 'dd/MM/yyyy'),
-  )
   const [method, setMethod] = useState<string>('')
 
   // Pix State
@@ -75,23 +72,18 @@ export function RecebimentoPaymentDialog({
 
   useEffect(() => {
     if (open && installment) {
-      const remaining = Math.max(
-        0,
-        (installment.valor_registrado || 0) - installment.valor_pago,
-      )
+      // Use the specific installment saldo
+      const remaining = Math.max(0, installment.saldo)
       setAmount(formatCurrency(remaining))
       setPaymentDate(format(new Date(), 'yyyy-MM-dd'))
-      setRegistrationDate(format(new Date(), 'dd/MM/yyyy'))
-      // Preserve original method or default if missing
+      // Preserve original method or default
       setMethod(installment.forma_pagamento || 'Dinheiro')
       setPixName('')
       setPixBank('BS2')
     }
   }, [open, installment])
 
-  const remainingBalance = installment
-    ? Math.max(0, (installment.valor_registrado || 0) - installment.valor_pago)
-    : 0
+  const remainingBalance = installment ? Math.max(0, installment.saldo) : 0
 
   const handleConfirm = async () => {
     if (!installment) return
@@ -100,11 +92,12 @@ export function RecebimentoPaymentDialog({
     // Validation
     if (numAmount <= 0) return
     if (!method) return
+
+    // Strict Overpayment Validation
     if (numAmount > remainingBalance + 0.05) {
-      // Allowing small margin for rounding errors, or strict?
-      // User Story: "prevent recording a payment amount that would result in a total 'Valor Pago' exceeding the original debt."
-      // Let's be strict but mindful of float.
-      alert('O valor do pagamento não pode exceder o saldo devedor.')
+      alert(
+        `O valor do pagamento (R$ ${formatCurrency(numAmount)}) não pode exceder o saldo devedor desta parcela (R$ ${formatCurrency(remainingBalance)}).`,
+      )
       return
     }
 
@@ -116,7 +109,7 @@ export function RecebimentoPaymentDialog({
     setLoading(true)
     try {
       await onConfirm(
-        installment.id, // Passed but usually ignored in favor of selectedItem state in parent
+        installment.id,
         numAmount,
         paymentDate,
         method,
@@ -139,40 +132,31 @@ export function RecebimentoPaymentDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Processar Pagamento do Pedido</DialogTitle>
+          <DialogTitle>Processar Pagamento de Parcela</DialogTitle>
           <DialogDescription>
-            Pedido #{installment.venda_id} - {installment.cliente_nome}
+            Parcela #{installment.id} - Pedido #{installment.venda_id}
+            <br />
+            Cliente: {installment.cliente_nome}
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
           <div className="bg-muted p-4 rounded-lg border flex flex-col items-center justify-center">
             <span className="text-xs text-muted-foreground uppercase font-semibold">
-              Saldo a Pagar
+              Saldo da Parcela
             </span>
             <span className="text-2xl font-bold mt-1 text-blue-600">
               R$ {formatCurrency(remainingBalance)}
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Data de Registro</Label>
-              <Input
-                value={registrationDate}
-                disabled
-                readOnly
-                className="bg-muted text-muted-foreground"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Data do Recebimento</Label>
-              <Input
-                type="date"
-                value={paymentDate}
-                onChange={(e) => setPaymentDate(e.target.value)}
-              />
-            </div>
+          <div className="space-y-2">
+            <Label>Data do Pagamento</Label>
+            <Input
+              type="date"
+              value={paymentDate}
+              onChange={(e) => setPaymentDate(e.target.value)}
+            />
           </div>
 
           <div className="space-y-2">
@@ -221,7 +205,7 @@ export function RecebimentoPaymentDialog({
           )}
 
           <div className="space-y-2">
-            <Label>Valor Recebido</Label>
+            <Label>Valor a Pagar</Label>
             <Input
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
@@ -249,7 +233,7 @@ export function RecebimentoPaymentDialog({
             ) : (
               <CheckSquare className="mr-2 h-4 w-4" />
             )}
-            Confirmar Recebimento
+            Confirmar
           </Button>
         </DialogFooter>
       </DialogContent>

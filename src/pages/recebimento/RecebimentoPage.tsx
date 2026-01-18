@@ -27,7 +27,10 @@ export default function RecebimentoPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
 
   // Selection
-  const [selectedVendaId, setSelectedVendaId] = useState<number | null>(null)
+  // Tracks the ID of the specific INSTALLMENT (RECEBIMENTOS.id), NOT the Order ID anymore
+  const [selectedInstallmentId, setSelectedInstallmentId] = useState<
+    number | null
+  >(null)
   const [dialogOpen, setDialogOpen] = useState(false)
 
   const { toast } = useToast()
@@ -54,10 +57,10 @@ export default function RecebimentoPage() {
       setItems(data)
 
       if (
-        selectedVendaId &&
-        !data.find((i) => i.venda_id === selectedVendaId)
+        selectedInstallmentId &&
+        !data.find((i) => i.id === selectedInstallmentId)
       ) {
-        setSelectedVendaId(null)
+        setSelectedInstallmentId(null)
       }
     } catch (error) {
       console.error(error)
@@ -78,11 +81,11 @@ export default function RecebimentoPage() {
     return () => clearTimeout(timer)
   }, [searchTerm, statusFilter, orderFilter, dateRange])
 
-  const handleSelectVenda = (vendaId: number) => {
-    if (selectedVendaId === vendaId) {
-      setSelectedVendaId(null)
+  const handleSelectInstallment = (id: number) => {
+    if (selectedInstallmentId === id) {
+      setSelectedInstallmentId(null)
     } else {
-      setSelectedVendaId(vendaId)
+      setSelectedInstallmentId(id)
     }
   }
 
@@ -94,30 +97,34 @@ export default function RecebimentoPage() {
   }
 
   const selectedItem = useMemo(() => {
-    return items.find((i) => i.venda_id === selectedVendaId) || null
-  }, [items, selectedVendaId])
+    return items.find((i) => i.id === selectedInstallmentId) || null
+  }, [items, selectedInstallmentId])
 
   const handleProcessPayment = async (
-    _id: number, // Legacy ID param, ignored in favor of selectedItem
+    installmentId: number,
     amount: number,
     date: string,
     method: string,
     pixDetails?: { nome: string; banco: string },
   ) => {
-    if (!selectedItem) return
+    // Re-verify selection
+    const target = items.find((i) => i.id === installmentId)
+    if (!target) return
 
     try {
       const userName = employee?.nome_completo || user?.email || 'Sistema'
 
+      // We pass the installmentId to link the payment specifically to this installment
       const result = await recebimentoService.processOrderPayment(
-        selectedItem.venda_id,
-        selectedItem.cliente_id,
+        target.venda_id,
+        target.cliente_id,
         amount,
         date,
         method,
         pixDetails,
         userName,
         employee?.id,
+        installmentId, // New Param
       )
 
       if (result.syncWarning) {
@@ -173,7 +180,7 @@ export default function RecebimentoPage() {
             Recebimentos
           </h1>
           <p className="text-muted-foreground">
-            Gerencie pagamentos e débitos consolidados por pedido.
+            Gerencie pagamentos e parcelas dos pedidos.
           </p>
         </div>
         <div className="flex gap-2">
@@ -185,7 +192,7 @@ export default function RecebimentoPage() {
           </Button>
           <Button
             onClick={() => setDialogOpen(true)}
-            disabled={!selectedVendaId}
+            disabled={!selectedInstallmentId}
             variant="default"
             className="bg-green-600 hover:bg-green-700"
           >
@@ -214,8 +221,8 @@ export default function RecebimentoPage() {
           <RecebimentoTable
             loading={loading}
             installments={items}
-            selectedVendaId={selectedVendaId}
-            onSelectVenda={handleSelectVenda}
+            selectedVendaId={selectedInstallmentId}
+            onSelectVenda={handleSelectInstallment}
             onGenerateReceipt={handleGenerateReceipt}
           />
         </CardContent>

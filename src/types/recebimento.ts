@@ -43,8 +43,11 @@ export interface PaymentHistoryItem {
   funcionario: string
   forma_pagamento: string
   valor: number
+  original_payment_id?: number // To track origin if split
 }
 
 export interface ConsolidatedRecebimento extends RecebimentoInstallment {
   history: PaymentHistoryItem[]
+  saldo: number
+  status_calculado?: 'VENCIDA' | 'A VENCER' | 'PAGO'
 }

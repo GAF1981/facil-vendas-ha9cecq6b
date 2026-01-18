@@ -6,9 +6,10 @@ import {
   RecebimentoInsert,
   RecebimentoInstallment,
   ConsolidatedRecebimento,
+  PaymentHistoryItem,
 } from '@/types/recebimento'
 import { reportsService } from '@/services/reportsService'
-import { startOfDay, endOfDay } from 'date-fns'
+import { startOfDay, endOfDay, isBefore, isAfter, parseISO } from 'date-fns'
 
 export const recebimentoService = {
   async saveRecebimento(
@@ -39,7 +40,7 @@ export const recebimentoService = {
             valor_registrado: detail.value,
             valor_pago: 0,
             vencimento: new Date(`${detail.dueDate}T12:00:00`).toISOString(),
-            ID_da_fêmea: linkedOrderId,
+            ID_da_fêmea: linkedOrderId, // Initial link to order
           })
         })
       } else {
@@ -145,12 +146,11 @@ export const recebimentoService = {
       endDate?: Date
     } = {},
   ): Promise<ConsolidatedRecebimento[]> {
-    // 1. Find Orders with DEBT Records matching the filters
-    // We filter "RECEBIMENTOS" where valor_registrado > 0 to identify the debts of interest
+    // 1. Initial Query to find relevant rows (Installments)
     let query = supabase
       .from('RECEBIMENTOS')
       .select(
-        'venda_id, cliente_id, vencimento, CLIENTES!inner(CODIGO, "NOME CLIENTE")',
+        '*, CLIENTES!inner(CODIGO, "NOME CLIENTE"), FUNCIONARIOS(nome_completo)',
       )
       .gt('valor_registrado', 0)
 
@@ -181,83 +181,196 @@ export const recebimentoService = {
       query = query.lte('vencimento', endOfDay(filters.endDate).toISOString())
     }
 
-    const { data: ordersData, error: ordersError } = await query
-    if (ordersError) throw ordersError
+    const { data: installmentsData, error: instError } = await query
+    if (instError) throw instError
 
-    if (!ordersData || ordersData.length === 0) return []
+    if (!installmentsData || installmentsData.length === 0) return []
 
-    // Extract unique Order IDs
-    const vendaIds = Array.from(new Set(ordersData.map((r) => r.venda_id)))
+    // 2. Extract Order IDs to fetch all related payments
+    const orderIds = Array.from(
+      new Set(installmentsData.map((r) => r.venda_id)),
+    )
 
-    // 2. Fetch ALL records for these orders (Debts AND Payments)
-    // We need everything to calculate the balance correctly
-    const { data: allData, error: allError } = await supabase
+    // 3. Fetch Payments (records with valor_pago > 0 AND valor_registrado = 0)
+    // We also fetch records with valor_registrado > 0 if they have payments, but those are already in installmentsData.
+    // However, to be thorough and simple, let's just fetch ALL payments for these orders.
+    const { data: paymentsData, error: payError } = await supabase
       .from('RECEBIMENTOS')
-      .select(
-        '*, CLIENTES(CODIGO, "NOME CLIENTE"), FUNCIONARIOS(nome_completo)',
-      )
-      .in('venda_id', vendaIds)
-      .order('vencimento', { ascending: true })
+      .select('*, FUNCIONARIOS(nome_completo)')
+      .in('venda_id', orderIds)
+      .gt('valor_pago', 0)
 
-    if (allError) throw allError
+    if (payError) throw payError
 
-    // 3. Group by Order ID and Aggregate
-    const groups = new Map<number, ConsolidatedRecebimento>()
+    // 4. Organize Installments
+    const installmentMap = new Map<number, ConsolidatedRecebimento>()
+    const installmentsByOrder = new Map<number, ConsolidatedRecebimento[]>()
 
-    allData?.forEach((row: any) => {
-      const vid = row.venda_id
-      if (!groups.has(vid)) {
-        groups.set(vid, {
-          ...row,
-          // Initialize consolidated fields
-          cliente_nome: row.CLIENTES?.['NOME CLIENTE'] || 'Desconhecido',
-          cliente_codigo: row.CLIENTES?.CODIGO || 0,
-          funcionario_nome: row.FUNCIONARIOS?.nome_completo || 'N/D',
-          valor_registrado: 0,
-          valor_pago: 0,
-          history: [],
-        })
-      }
-      const group = groups.get(vid)!
-
-      // Aggregate Debt (Registered Value)
-      if ((row.valor_registrado || 0) > 0) {
-        group.valor_registrado =
-          (group.valor_registrado || 0) + row.valor_registrado
-
-        // Preserve original method from the debt record(s)
-        if (!group.forma_pagamento || group.forma_pagamento === 'Pix') {
-          group.forma_pagamento = row.forma_pagamento
-        }
+    installmentsData.forEach((row: any) => {
+      const inst: ConsolidatedRecebimento = {
+        ...row,
+        cliente_nome: row.CLIENTES?.['NOME CLIENTE'] || 'Desconhecido',
+        cliente_codigo: row.CLIENTES?.CODIGO || 0,
+        funcionario_nome: row.FUNCIONARIOS?.nome_completo || 'N/D',
+        history: [],
+        saldo: row.valor_registrado || 0,
+        // Reset valor_pago to 0 initially, we will recalculate from history/allocation
+        // EXCEPT if the row itself has immediate payment
+        valor_pago: 0,
       }
 
-      // Aggregate Payments
+      // If the installment row itself has payment (paid on creation), add it
       if ((row.valor_pago || 0) > 0) {
-        group.valor_pago += row.valor_pago
-
-        // Add to history
-        group.history.push({
+        const paid = row.valor_pago
+        inst.valor_pago += paid
+        inst.saldo -= paid
+        inst.history.push({
           id: row.id,
           data:
             row.data_pagamento || row.created_at || new Date().toISOString(),
           funcionario: row.FUNCIONARIOS?.nome_completo || 'Sistema',
           forma_pagamento: row.forma_pagamento,
-          valor: row.valor_pago,
+          valor: paid,
+          original_payment_id: row.id,
         })
+      }
+
+      installmentMap.set(row.id, inst)
+
+      if (!installmentsByOrder.has(row.venda_id)) {
+        installmentsByOrder.set(row.venda_id, [])
+      }
+      installmentsByOrder.get(row.venda_id)!.push(inst)
+    })
+
+    // Sort installments by due date for FIFO logic
+    installmentsByOrder.forEach((list) => {
+      list.sort((a, b) => {
+        const dateA = a.vencimento ? new Date(a.vencimento).getTime() : 0
+        const dateB = b.vencimento ? new Date(b.vencimento).getTime() : 0
+        return dateA - dateB
+      })
+    })
+
+    // 5. Distribute Payments
+    // We filter paymentsData to only those that are NOT already processed as installments
+    // (i.e. valor_registrado == 0).
+    // If a row has both (processed above), we skip it here.
+    const purePayments =
+      paymentsData?.filter((p) => (p.valor_registrado || 0) === 0) || []
+
+    purePayments.forEach((pay: any) => {
+      const payId = pay.id
+      const amount = pay.valor_pago
+      const linkId = pay.ID_da_fêmea
+      const orderId = pay.venda_id
+
+      let allocated = false
+
+      // Strategy 1: Direct Link (ID_da_fêmea points to Installment ID)
+      if (linkId && installmentMap.has(linkId)) {
+        const target = installmentMap.get(linkId)!
+        target.valor_pago += amount
+        target.saldo = Math.max(0, target.valor_registrado! - target.valor_pago)
+        target.history.push({
+          id: payId,
+          data:
+            pay.data_pagamento || pay.created_at || new Date().toISOString(),
+          funcionario: pay.FUNCIONARIOS?.nome_completo || 'Sistema',
+          forma_pagamento: pay.forma_pagamento,
+          valor: amount,
+          original_payment_id: payId,
+        })
+        allocated = true
+      }
+
+      // Strategy 2: General Order Payment (ID_da_fêmea points to Order ID or Legacy)
+      if (!allocated && installmentsByOrder.has(orderId)) {
+        const candidates = installmentsByOrder.get(orderId)!
+        let remainingAmount = amount
+
+        for (const inst of candidates) {
+          if (remainingAmount <= 0) break
+          const remainingDebt =
+            (inst.valor_registrado || 0) - (inst.valor_pago || 0)
+
+          if (remainingDebt > 0.01) {
+            // Tolerance for float
+            const take = Math.min(remainingDebt, remainingAmount)
+            inst.valor_pago += take
+            inst.saldo = Math.max(
+              0,
+              (inst.valor_registrado || 0) - inst.valor_pago,
+            )
+            inst.history.push({
+              id: payId,
+              data:
+                pay.data_pagamento ||
+                pay.created_at ||
+                new Date().toISOString(),
+              funcionario: pay.FUNCIONARIOS?.nome_completo || 'Sistema',
+              forma_pagamento: pay.forma_pagamento,
+              valor: take,
+              original_payment_id: payId,
+            })
+            remainingAmount -= take
+          }
+        }
+        // If there's still remaining amount (Overpayment), we could attach it to the last installment
+        // or ignore/log. For now, we attach to the last one to show totals correctly even if negative debt.
+        if (remainingAmount > 0.01 && candidates.length > 0) {
+          const last = candidates[candidates.length - 1]
+          last.valor_pago += remainingAmount
+          last.saldo = (last.valor_registrado || 0) - last.valor_pago // Can be negative
+          last.history.push({
+            id: payId,
+            data:
+              pay.data_pagamento || pay.created_at || new Date().toISOString(),
+            funcionario: pay.FUNCIONARIOS?.nome_completo || 'Sistema',
+            forma_pagamento: pay.forma_pagamento,
+            valor: remainingAmount,
+            original_payment_id: payId,
+          })
+        }
       }
     })
 
-    let results = Array.from(groups.values())
+    // 6. Calculate Status and Flatten
+    let results = Array.from(installmentMap.values())
 
-    // 4. Filter by Status (in memory, after aggregation)
+    results.forEach((item) => {
+      const debt = item.valor_registrado || 0
+      const paid = item.valor_pago || 0
+      const now = new Date()
+      const dueDate = item.vencimento ? new Date(item.vencimento) : now
+
+      if (paid >= debt - 0.01) {
+        item.status_calculado = 'PAGO'
+      } else {
+        if (isBefore(endOfDay(dueDate), now)) {
+          item.status_calculado = 'VENCIDA'
+        } else {
+          item.status_calculado = 'A VENCER'
+        }
+      }
+    })
+
+    // 7. Filter by Status (in memory)
     if (filters.status && filters.status !== 'TODOS') {
       results = results.filter((item) => {
-        const debt = item.valor_registrado || 0
-        const paid = item.valor_pago || 0
-        const isPaid = paid >= debt && debt > 0
-        return filters.status === 'PAGO' ? isPaid : !isPaid
+        if (filters.status === 'PAGO') return item.status_calculado === 'PAGO'
+        if (filters.status === 'PENDENTE')
+          return item.status_calculado !== 'PAGO'
+        return true
       })
     }
+
+    // Sort by Due Date
+    results.sort((a, b) => {
+      const dateA = a.vencimento ? new Date(a.vencimento).getTime() : 0
+      const dateB = b.vencimento ? new Date(b.vencimento).getTime() : 0
+      return dateA - dateB
+    })
 
     return results
   },
@@ -271,6 +384,7 @@ export const recebimentoService = {
     pixDetails?: { nome: string; banco: string },
     userName?: string,
     employeeId?: number,
+    installmentId?: number, // New parameter for direct linking
   ): Promise<{ success: boolean; syncWarning?: boolean }> {
     // 1. Insert New Payment Record
     const insertPayload: any = {
@@ -282,7 +396,8 @@ export const recebimentoService = {
       valor_pago: amountPaid,
       vencimento: new Date().toISOString(), // Use current timestamp
       data_pagamento: new Date(`${paymentDate}T12:00:00`).toISOString(),
-      ID_da_fêmea: orderId, // Link to order for grouping
+      // Link to installment if provided, otherwise link to order (Legacy behavior)
+      ID_da_fêmea: installmentId || orderId,
       motivo: 'Pagamento de Pedido',
     }
 
@@ -309,13 +424,14 @@ export const recebimentoService = {
     // 3. Log
     await supabase.from('system_logs').insert({
       type: 'PAYMENT_RECEIVED',
-      description: `Pagamento recebido de R$ ${amountPaid} no pedido #${orderId}`,
+      description: `Pagamento recebido de R$ ${amountPaid} no pedido #${orderId} ${installmentId ? `(Parcela #${installmentId})` : ''}`,
       user_id: employeeId || null,
       meta: {
         newReceiptId: insertedData.id,
         amountPaid,
         method,
         orderId,
+        installmentId,
         processedBy: userName,
       },
       created_at: new Date().toISOString(),
@@ -331,7 +447,7 @@ export const recebimentoService = {
     }
   },
 
-  async generateReceiptPdf(installment: RecebimentoInstallment) {
+  async generateReceiptPdf(installment: ConsolidatedRecebimento) {
     const payload = {
       reportType: 'receipt',
       format: '80mm',
@@ -353,10 +469,7 @@ export const recebimentoService = {
       valorPago: installment.valor_pago,
       items: [],
       history: [],
-      debito: Math.max(
-        0,
-        (installment.valor_registrado || 0) - installment.valor_pago,
-      ),
+      debito: Math.max(0, installment.saldo),
     }
 
     const { data, error } = await supabase.functions.invoke('generate-pdf', {

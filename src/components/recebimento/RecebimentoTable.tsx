@@ -22,8 +22,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 interface RecebimentoTableProps {
   loading: boolean
   installments: ConsolidatedRecebimento[]
-  selectedVendaId: number | null
-  onSelectVenda: (vendaId: number) => void
+  selectedVendaId: number | null // Note: This now tracks the INSTALLMENT ID (Row ID) not Venda ID, despite prop name in legacy.
+  onSelectVenda: (installmentId: number) => void
   onGenerateReceipt: (inst: ConsolidatedRecebimento) => void
 }
 
@@ -39,7 +39,7 @@ export function RecebimentoTable({
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow>
-            <TableHead>Data Pedido</TableHead>
+            <TableHead>Vencimento</TableHead>
             <TableHead>Cliente</TableHead>
             <TableHead>Pedido</TableHead>
             <TableHead>Método Orig.</TableHead>
@@ -72,43 +72,38 @@ export function RecebimentoTable({
             </TableRow>
           ) : (
             installments.map((inst) => {
-              const isSelected = selectedVendaId === inst.venda_id
-              const saldo = Math.max(
-                0,
-                (inst.valor_registrado || 0) - inst.valor_pago,
-              )
-              const valReg = inst.valor_registrado || 0
-              const valPago = inst.valor_pago || 0
+              // Note: selectedVendaId here acts as Selected Installment ID
+              const isSelected = selectedVendaId === inst.id
 
               let statusBadge
-              if (valPago >= valReg && valReg > 0) {
+              if (inst.status_calculado === 'PAGO') {
                 statusBadge = (
                   <Badge className="bg-green-100 text-green-800 hover:bg-green-200 border-none">
                     Pago
                   </Badge>
                 )
-              } else if (valPago > 0) {
+              } else if (inst.status_calculado === 'VENCIDA') {
                 statusBadge = (
-                  <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-none">
-                    Parcial
+                  <Badge
+                    variant="destructive"
+                    className="bg-red-100 text-red-800 hover:bg-red-200 border-none"
+                  >
+                    Vencida
                   </Badge>
                 )
               } else {
                 statusBadge = (
-                  <Badge
-                    variant="outline"
-                    className="text-amber-600 border-amber-200 bg-amber-50"
-                  >
-                    Pendente
+                  <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200 border-none">
+                    A Vencer
                   </Badge>
                 )
               }
 
               return (
                 <TableRow
-                  key={inst.venda_id}
+                  key={inst.id}
                   className={isSelected ? 'bg-muted/50' : ''}
-                  onClick={() => onSelectVenda(inst.venda_id)}
+                  onClick={() => onSelectVenda(inst.id)}
                 >
                   <TableCell>
                     {safeFormatDate(inst.vencimento, 'dd/MM/yyyy')}
@@ -144,8 +139,11 @@ export function RecebimentoTable({
                           <PopoverContent className="w-80 p-0" align="end">
                             <div className="p-3 border-b bg-muted/20">
                               <h4 className="font-semibold text-sm">
-                                Histórico de Pagamentos
+                                Detalhes de Pagamento
                               </h4>
+                              <p className="text-xs text-muted-foreground">
+                                Parcela #{inst.id}
+                              </p>
                             </div>
                             <ScrollArea className="h-[200px]">
                               <Table>
@@ -209,12 +207,12 @@ export function RecebimentoTable({
                     </div>
                   </TableCell>
                   <TableCell className="text-right font-mono font-bold text-red-600">
-                    {formatCurrency(saldo)}
+                    {formatCurrency(inst.saldo)}
                   </TableCell>
                   <TableCell className="text-center">
                     <Checkbox
                       checked={isSelected}
-                      onCheckedChange={() => onSelectVenda(inst.venda_id)}
+                      onCheckedChange={() => onSelectVenda(inst.id)}
                       onClick={(e) => e.stopPropagation()}
                     />
                   </TableCell>
