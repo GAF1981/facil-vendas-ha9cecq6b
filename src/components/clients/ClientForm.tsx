@@ -103,6 +103,9 @@ export function ClientForm({
           Desconto: initialData.Desconto
             ? initialData.Desconto.replace('%', '')
             : '30',
+          telefone_cobranca:
+            initialData.telefone_cobranca || initialData['FONE 1'],
+          email_cobranca: initialData.email_cobranca || initialData.EMAIL,
         }
       : {
           CODIGO: 0,
@@ -133,9 +136,29 @@ export function ClientForm({
           'GRUPO ROTA': '',
           'OBSERVAÇÃO FIXA': '',
           'ALTERAÇÃO CLIENTE': '',
+          telefone_cobranca: '',
+          email_cobranca: '',
         },
     mode: 'onChange',
   })
+
+  // Watch fields for auto-population logic
+  const watchFone1 = form.watch('FONE 1')
+  const watchEmail = form.watch('EMAIL')
+
+  useEffect(() => {
+    // Only auto-populate if cobrança field is empty
+    if (watchFone1 && !form.getValues('telefone_cobranca')) {
+      form.setValue('telefone_cobranca', watchFone1)
+    }
+  }, [watchFone1, form])
+
+  useEffect(() => {
+    // Only auto-populate if cobrança field is empty
+    if (watchEmail && !form.getValues('email_cobranca')) {
+      form.setValue('email_cobranca', watchEmail)
+    }
+  }, [watchEmail, form])
 
   useEffect(() => {
     clientsService.getRoutes().then((data) => setRoutes(data))
@@ -144,7 +167,6 @@ export function ClientForm({
       const mergedTypes = Array.from(new Set([...defaultTypes, ...data]))
       setClientTypes(mergedTypes)
     })
-    // Fetch Groups
     clientsService.getUniqueGroups().then((data) => setGroups(data))
 
     if (!initialData) {
@@ -275,7 +297,7 @@ export function ClientForm({
   const handleAddNewGroup = () => {
     if (newGroupName.trim()) {
       const newG = newGroupName.trim()
-      setGroups((prev) => [...prev, newG]) // Update local list immediately
+      setGroups((prev) => [...prev, newG])
       form.setValue('GRUPO', newG)
       setNewGroupOpen(false)
       setNewGroupName('')
@@ -299,7 +321,6 @@ export function ClientForm({
     <>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          {/* Identificação Fields Omitted for Brevity - Keeping Structure */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Identificação</h3>
             <Separator />
@@ -476,7 +497,7 @@ export function ClientForm({
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-lg font-medium">Contato</h3>
+            <h3 className="text-lg font-medium">Contato e Cobrança</h3>
             <Separator />
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
               <div className="md:col-span-4">
@@ -500,6 +521,27 @@ export function ClientForm({
                 />
               </div>
 
+              <div className="md:col-span-4">
+                <FormField
+                  control={form.control}
+                  name="email_cobranca"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email de Cobrança</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="cobranca@email.com"
+                          {...field}
+                          value={field.value || ''}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
               <div className="md:col-span-2">
                 <FormField
                   control={form.control}
@@ -507,6 +549,29 @@ export function ClientForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Telefone 1</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="(00) 0000-0000"
+                          {...field}
+                          value={field.value || ''}
+                          onChange={(e) =>
+                            field.onChange(maskPhone(e.target.value))
+                          }
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <FormField
+                  control={form.control}
+                  name="telefone_cobranca"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Telefone Cobrança</FormLabel>
                       <FormControl>
                         <Input
                           placeholder="(00) 0000-0000"
@@ -733,7 +798,6 @@ export function ClientForm({
             </div>
           </div>
 
-          {/* Comercial / Financeiro */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Comercial</h3>
             <Separator />
@@ -841,7 +905,6 @@ export function ClientForm({
                 />
               </div>
 
-              {/* Dynamic Group Dropdown */}
               <div className="md:col-span-6">
                 <div className="flex items-end gap-2">
                   <div className="flex-1">
@@ -1019,7 +1082,6 @@ export function ClientForm({
                 />
               </div>
 
-              {/* Disabled Discount Fields */}
               <div className="md:col-span-3">
                 <FormField
                   control={form.control}
@@ -1110,7 +1172,6 @@ export function ClientForm({
             </div>
           </div>
 
-          {/* Observações */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Observações</h3>
             <Separator />

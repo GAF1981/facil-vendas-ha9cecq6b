@@ -79,6 +79,7 @@ interface FlatRow {
   status: 'VENCIDO' | 'A VENCER' | 'PAGO'
   formaCobranca: string | null
   dataCombinada: string | null
+  motivo: string | null
   collectionActionCount: number
   orderTotal: number
   orderPayments: { method: string; value: number; dueDate: string }[]
@@ -117,7 +118,7 @@ export function DebtTable({
   const { toast } = useToast()
 
   const [localUpdates, setLocalUpdates] = useState<
-    Record<string, { formaCobranca?: any; dataCombinada?: any }>
+    Record<string, { formaCobranca?: any; dataCombinada?: any; motivo?: any }>
   >({})
 
   const handleOpenDetails = (client: ClientDebt) => {
@@ -159,6 +160,9 @@ export function DebtTable({
               ? updates.dataCombinada
               : inst.dataCombinada
 
+          const currentMotivo =
+            updates.motivo !== undefined ? updates.motivo : inst.motivo
+
           return {
             uniqueId,
             receivableId: inst.id,
@@ -181,6 +185,7 @@ export function DebtTable({
             status: inst.status,
             formaCobranca: currentFormaCobranca,
             dataCombinada: currentDataCombinada,
+            motivo: currentMotivo,
             collectionActionCount: order.collectionActionCount,
             orderTotal: order.netValue,
             orderPayments: order.paymentsMade.map((pd) => ({
@@ -266,14 +271,18 @@ export function DebtTable({
 
   const handleUpdateField = async (
     row: FlatRow,
-    field: 'forma_cobranca' | 'data_combinada',
+    field: 'forma_cobranca' | 'data_combinada' | 'motivo',
     value: any,
   ) => {
     setLocalUpdates((prev) => ({
       ...prev,
       [row.uniqueId]: {
         ...prev[row.uniqueId],
-        [field === 'forma_cobranca' ? 'formaCobranca' : 'dataCombinada']: value,
+        [field === 'forma_cobranca'
+          ? 'formaCobranca'
+          : field === 'data_combinada'
+            ? 'dataCombinada'
+            : 'motivo']: value,
       },
     }))
 
@@ -390,6 +399,10 @@ export function DebtTable({
               <TableHead className="min-w-[150px] bg-background">
                 Data Combinada
               </TableHead>
+              {/* New Motivo Column */}
+              <TableHead className="min-w-[150px] bg-background">
+                Motivo
+              </TableHead>
               <TableHead className="min-w-[80px] text-center bg-background">
                 Ações
               </TableHead>
@@ -407,7 +420,7 @@ export function DebtTable({
             {flattenedData.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={isCobrancaMode ? 15 : 19} // Adjusted colspan
+                  colSpan={isCobrancaMode ? 16 : 20} // Adjusted colspan
                   className="h-24 text-center text-muted-foreground"
                 >
                   {showOnlySelected
@@ -637,6 +650,36 @@ export function DebtTable({
                           <Eraser className="h-3 w-3" />
                         </Button>
                       </div>
+                    </TableCell>
+                    {/* Motivo Dropdown */}
+                    <TableCell>
+                      <Select
+                        value={row.motivo || ''}
+                        onValueChange={(val) =>
+                          handleUpdateField(
+                            row,
+                            'motivo',
+                            val === '' || val === 'VAZIO' ? null : val,
+                          )
+                        }
+                      >
+                        <SelectTrigger className="h-7 text-xs w-full">
+                          <SelectValue placeholder="-" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="VAZIO">VAZIO</SelectItem>
+                          <SelectItem value="Autorizou ida">
+                            Autorizou ida
+                          </SelectItem>
+                          <SelectItem value="Avisou ida">Avisou ida</SelectItem>
+                          <SelectItem value="Combinou motoqueiro">
+                            Combinou motoqueiro
+                          </SelectItem>
+                          <SelectItem value="Sem Contato">
+                            Sem Contato
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-1">

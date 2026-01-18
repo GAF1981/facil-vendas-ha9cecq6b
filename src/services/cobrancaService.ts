@@ -53,6 +53,8 @@ export const cobrancaService = {
         cep: string | null
         situacao: string | null
         phone: string | null
+        telefone_cobranca: string | null
+        email_cobranca: string | null
       }
     >()
 
@@ -63,7 +65,7 @@ export const cobrancaService = {
         const { data: clientData, error: clientError } = await supabase
           .from('CLIENTES')
           .select(
-            'CODIGO, "TIPO DE CLIENTE", GRUPO, "GRUPO ROTA", ENDEREÇO, BAIRRO, MUNICÍPIO, situacao, "CEP OFICIO", "FONE 1", "FONE 2"',
+            'CODIGO, "TIPO DE CLIENTE", GRUPO, "GRUPO ROTA", ENDEREÇO, BAIRRO, MUNICÍPIO, situacao, "CEP OFICIO", "FONE 1", "FONE 2", telefone_cobranca, email_cobranca',
           )
           .in('CODIGO', chunk)
 
@@ -82,6 +84,8 @@ export const cobrancaService = {
               cep: (c as any)['CEP OFICIO'] || null,
               situacao: (c as any)['situacao'] || 'ATIVO',
               phone: (c as any)['FONE 1'] || (c as any)['FONE 2'] || null,
+              telefone_cobranca: (c as any)['telefone_cobranca'] || null,
+              email_cobranca: (c as any)['email_cobranca'] || null,
             })
           })
         }
@@ -147,7 +151,7 @@ export const cobrancaService = {
       const { data: recData, error: recError } = await supabase
         .from('RECEBIMENTOS')
         .select(
-          'id, venda_id, valor_pago, vencimento, valor_registrado, forma_pagamento, forma_cobranca, data_combinada',
+          'id, venda_id, valor_pago, vencimento, valor_registrado, forma_pagamento, forma_cobranca, data_combinada, motivo',
         )
         .in('venda_id', chunk)
 
@@ -215,6 +219,7 @@ export const cobrancaService = {
             status: isOverdue ? 'VENCIDO' : 'A VENCER',
             formaCobranca: null,
             dataCombinada: row.nova_data_combinada || null,
+            motivo: null, // View might not have this yet
             source: 'NEGOTIATION',
           }
         })
@@ -247,6 +252,7 @@ export const cobrancaService = {
             status,
             formaCobranca: r.forma_cobranca || null,
             dataCombinada: r.data_combinada || null,
+            motivo: r.motivo || null,
             source: 'RECEIPT',
           }
         })
@@ -262,6 +268,7 @@ export const cobrancaService = {
           status: 'A VENCER',
           formaCobranca: null,
           dataCombinada: null,
+          motivo: null,
           source: 'ORIGINAL',
         })
       }
@@ -323,6 +330,8 @@ export const cobrancaService = {
           orders: [],
           totalActionCount: clientActionCounts.get(cid) || 0,
           phone: cInfo?.phone || null,
+          telefone_cobranca: cInfo?.telefone_cobranca || null,
+          email_cobranca: cInfo?.email_cobranca || null,
         })
       }
 
@@ -347,7 +356,7 @@ export const cobrancaService = {
   async updateReceivableField(
     receivableId: number,
     orderId: number,
-    field: 'forma_cobranca' | 'data_combinada',
+    field: 'forma_cobranca' | 'data_combinada' | 'motivo',
     value: any,
     syntheticData?: {
       valorRegistrado: number
@@ -397,7 +406,11 @@ export const cobrancaService = {
 
   async bulkUpdateReceivables(
     items: { receivableId: number; orderId: number }[],
-    updates: { forma_cobranca?: string | null; data_combinada?: string | null },
+    updates: {
+      forma_cobranca?: string | null
+      data_combinada?: string | null
+      motivo?: string | null
+    },
   ) {
     const realIds = items.map((i) => i.receivableId).filter((id) => id > 0)
 
@@ -410,11 +423,7 @@ export const cobrancaService = {
       if (error) throw error
     }
 
-    // Handle synthetic IDs individually (slow but necessary if creating records)
-    const syntheticItems = items.filter((i) => i.receivableId < 0)
-    for (const item of syntheticItems) {
-      // For simplicity in bulk actions, we skip creation if complex data is needed
-    }
+    // Handle synthetic IDs individually if strictly necessary
   },
 
   async getCollectionActions(orderId: string): Promise<CollectionAction[]> {
@@ -438,6 +447,7 @@ export const cobrancaService = {
       pedidoId: row.pedido_id,
       clienteId: row.cliente_id,
       clienteNome: row.cliente_nome,
+      motivo: row.motivo,
       installments: row.acoes_cobranca_vencimentos?.map((inst: any) => ({
         id: inst.id,
         vencimento: inst.vencimento,
@@ -457,6 +467,7 @@ export const cobrancaService = {
       pedido_id: action.pedidoId,
       cliente_id: action.clienteId,
       cliente_nome: action.clienteNome,
+      motivo: action.motivo || null, // Ensure field is passed
     }
 
     const { data: insertedAction, error } = await supabase
@@ -505,13 +516,12 @@ export const cobrancaService = {
     method: string
     date: string
   }): Promise<void> {
-    // 1. Insert into RECEBIMENTOS
     const insertPayload = {
       venda_id: payload.orderId,
       cliente_id: payload.clientId,
       funcionario_id: payload.employeeId,
       forma_pagamento: payload.method,
-      valor_registrado: payload.value, // Usually equals paid value for single registration
+      valor_registrado: payload.value,
       valor_pago: payload.value,
       vencimento: new Date(payload.date).toISOString(),
       data_pagamento: new Date().toISOString(),
@@ -522,7 +532,6 @@ export const cobrancaService = {
 
     if (error) throw error
 
-    // 2. Update Debt History
     try {
       await reportsService.updateDebtHistoryForOrder(payload.orderId)
     } catch (syncError) {
@@ -531,7 +540,6 @@ export const cobrancaService = {
         payload.orderId,
         syncError,
       )
-      // We don't throw here to avoid failing the operation for user, but log it
     }
   },
 

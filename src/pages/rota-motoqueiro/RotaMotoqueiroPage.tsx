@@ -27,6 +27,9 @@ interface MotoqueiroItem {
   neighborhood: string | null
   city: string | null
   phone: string | null
+  telefone_cobranca?: string | null
+  email_cobranca?: string | null
+  clientStatus?: string | null
 }
 
 export default function RotaMotoqueiroPage() {
@@ -92,6 +95,9 @@ export default function RotaMotoqueiroPage() {
                 neighborhood: client.neighborhood,
                 city: client.city,
                 phone: client.phone,
+                telefone_cobranca: client.telefone_cobranca,
+                email_cobranca: client.email_cobranca,
+                clientStatus: client.situacao,
               })
             }
           })
@@ -189,7 +195,7 @@ export default function RotaMotoqueiroPage() {
         description: 'Falha ao registrar recebimento.',
         variant: 'destructive',
       })
-      throw error // Re-throw to keep dialog open if needed, or handle inside dialog
+      throw error
     }
   }
 

@@ -1,6 +1,6 @@
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Search, Eraser } from 'lucide-react'
+import { Search, Eraser, Filter } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -12,6 +12,8 @@ import { DateRangePicker } from '@/components/common/DateRangePicker'
 import { DateRange } from 'react-day-picker'
 import { Button } from '@/components/ui/button'
 import { startOfToday, startOfWeek, endOfWeek } from 'date-fns'
+import { Toggle } from '@/components/ui/toggle'
+import { useState } from 'react'
 
 interface RecebimentoFiltersProps {
   searchTerm: string
@@ -36,6 +38,8 @@ export function RecebimentoFilters({
   onDateRangeChange,
   onClear,
 }: RecebimentoFiltersProps) {
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+
   const setToday = () => {
     onDateRangeChange({ from: startOfToday(), to: startOfToday() })
   }
@@ -77,56 +81,74 @@ export function RecebimentoFilters({
         />
       </div>
 
-      <div className="space-y-1 col-span-12 md:col-span-2">
-        <Label>Status</Label>
-        <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="PENDENTE">Pendentes</SelectItem>
-            <SelectItem value="PAGO">Pagos</SelectItem>
-            <SelectItem value="TODOS">Todos</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="col-span-12 md:col-span-1 flex items-center justify-center pb-1">
+        <Toggle
+          pressed={showAdvancedFilters}
+          onPressedChange={setShowAdvancedFilters}
+          variant="outline"
+          aria-label="Toggle filters"
+          className="w-full"
+        >
+          <Filter className="h-4 w-4 mr-2" />
+          Filtros
+        </Toggle>
       </div>
 
-      <div className="space-y-1 col-span-12 md:col-span-4 flex flex-col gap-2">
-        <Label>Vencimento</Label>
-        <div className="flex gap-2">
-          <DateRangePicker
-            date={dateRange}
-            setDate={onDateRangeChange}
-            className="flex-1"
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={setToday}
-            className="px-2"
-          >
-            Hoje
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={setThisWeek}
-            className="px-2"
-          >
-            Semana
-          </Button>
-          {dateRange && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearDate}
-              className="px-2 text-destructive"
-            >
-              X
-            </Button>
-          )}
-        </div>
-      </div>
+      {showAdvancedFilters && (
+        <>
+          <div className="space-y-1 col-span-12 md:col-span-2 animate-in fade-in slide-in-from-top-2">
+            <Label>Status</Label>
+            <Select value={statusFilter} onValueChange={onStatusFilterChange}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="PENDENTE">Pendentes</SelectItem>
+                <SelectItem value="PAGO">Pagos</SelectItem>
+                <SelectItem value="TODOS">Todos</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1 col-span-12 md:col-span-3 flex flex-col gap-2 animate-in fade-in slide-in-from-top-2">
+            <Label>Vencimento</Label>
+            <div className="flex gap-2">
+              <DateRangePicker
+                date={dateRange}
+                setDate={onDateRangeChange}
+                className="flex-1"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={setToday}
+                className="px-2"
+              >
+                Hoje
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={setThisWeek}
+                className="px-2"
+              >
+                Semana
+              </Button>
+              {dateRange && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearDate}
+                  className="px-2 text-destructive"
+                >
+                  X
+                </Button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
       <div className="col-span-12 md:col-span-1 flex justify-end md:justify-center pb-1">
         <Button
           variant="ghost"

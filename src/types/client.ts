@@ -10,6 +10,8 @@ interface AdditionalFields {
   GRUPO?: string | null
   'GRUPO ROTA'?: string | null
   situacao?: string | null
+  telefone_cobranca?: string | null
+  email_cobranca?: string | null
 }
 
 export type ClientRow = Database['public']['Tables']['CLIENTES']['Row'] &
@@ -72,6 +74,8 @@ export const clientSchema = z.object({
   'OBSERVAÇÃO FIXA': z.string().optional().nullable(),
   'ALTERAÇÃO CLIENTE': z.string().optional().nullable(),
   situacao: z.string().optional().nullable(),
+  telefone_cobranca: z.string().optional().nullable(),
+  email_cobranca: z.string().optional().nullable(),
 })
 
 export type ClientFormData = z.infer<typeof clientSchema>

@@ -96,7 +96,7 @@ export default function CaixaPage() {
   }>({ open: false, empId: null, empName: '' })
 
   const [generatingPdf, setGeneratingPdf] = useState(false)
-  const [printFormat, setPrintFormat] = useState<'A4' | '80mm'>('80mm')
+  const [printFormat, setPrintFormat] = useState<'A4' | '80mm'>('A4') // Default to A4 per requirement
 
   const canSelectEmployee = useMemo(() => {
     if (!loggedInUser) return false
@@ -116,6 +116,10 @@ export default function CaixaPage() {
 
   useEffect(() => {
     if (loggedInUser && !selectedEmployeeId) {
+      // If user is Motoqueiro, maybe we shouldn't auto-select?
+      // Requirement says "hide employee summaries for the Motoqueiro sector".
+      // But if I am a Motoqueiro, I probably want to see my own data.
+      // The requirement likely applies to the Manager view.
       setSelectedEmployeeId(loggedInUser.id.toString())
     }
   }, [loggedInUser, selectedEmployeeId])
@@ -197,11 +201,31 @@ export default function CaixaPage() {
   }, [allExpenses, selectedEmployeeId])
 
   const filteredSummary = useMemo(() => {
-    if (!selectedEmployeeId) return []
-    return summaryData.filter(
-      (s) => s.funcionarioId.toString() === selectedEmployeeId,
-    )
-  }, [summaryData, selectedEmployeeId])
+    let data = summaryData
+
+    // Filter out Motoqueiro sector from the list (unless specifically selected)
+    // We filter FIRST, then apply selection filter if needed.
+    // If no selection, we show everyone EXCEPT Motoqueiro.
+    if (!selectedEmployeeId) {
+      data = data.filter((row) => {
+        const emp = activeEmployees.find((e) => e.id === row.funcionarioId)
+        const sectors = emp?.setor
+          ? Array.isArray(emp.setor)
+            ? emp.setor
+            : [emp.setor]
+          : []
+        // Normalize sector check
+        const isMoto = sectors.some((s) => s.toLowerCase() === 'motoqueiro')
+        return !isMoto
+      })
+    } else {
+      data = data.filter(
+        (s) => s.funcionarioId.toString() === selectedEmployeeId,
+      )
+    }
+
+    return data
+  }, [summaryData, selectedEmployeeId, activeEmployees])
 
   const totalRecebido = filteredReceipts.reduce((acc, r) => acc + r.valor, 0)
   const totalDespesas = filteredExpenses
@@ -276,7 +300,8 @@ export default function CaixaPage() {
         employeeId ||
         (selectedEmployeeId ? parseInt(selectedEmployeeId) : undefined)
 
-      const reportType = targetId ? 'employee-cash-summary' : 'cash-summary'
+      // Use the specific report type for A4 layout as per requirement
+      const reportType = 'employee-cash-summary'
       const employeeData = targetId
         ? {
             id: targetId,
@@ -299,6 +324,8 @@ export default function CaixaPage() {
       let finalTotalSaldo = totalSaldo
       let finalSaldoDeAcerto = saldoDeAcerto
 
+      let settlements = []
+
       if (targetId) {
         const empSummary = summaryData.find((s) => s.funcionarioId === targetId)
         if (empSummary) {
@@ -315,7 +342,33 @@ export default function CaixaPage() {
           .filter((r) => r.forma === 'Pix')
           .reduce((acc, r) => acc + r.valor, 0)
         finalSaldoDeAcerto = finalTotalSaldo - empPix
+
+        // Fetch additional data for detailed report if needed (Settlements)
+        // This makes the report consistent with Fechamento de Caixa
+        const allSettlements =
+          await resumoAcertosService.getSettlements(selectedRoute)
+        settlements = allSettlements.filter((s) => s.employeeId === targetId)
       }
+
+      // Calculate totals for A4 breakdown
+      const valorDinheiro = receiptsToPass
+        .filter((r) => r.forma === 'Dinheiro')
+        .reduce((acc, r) => acc + r.valor, 0)
+      const valorPix = receiptsToPass
+        .filter((r) => r.forma === 'Pix')
+        .reduce((acc, r) => acc + r.valor, 0)
+      const valorCheque = receiptsToPass
+        .filter((r) => r.forma === 'Cheque')
+        .reduce((acc, r) => acc + r.valor, 0)
+
+      const vendaTotal = settlements.reduce(
+        (acc, s) => acc + s.totalSalesValue,
+        0,
+      )
+      const descontoTotal = settlements.reduce(
+        (acc, s) => acc + s.totalDiscount,
+        0,
+      )
 
       const { data: pdfBlob, error } = await supabase.functions.invoke(
         'generate-pdf',
@@ -337,6 +390,20 @@ export default function CaixaPage() {
             },
             employee: employeeData,
             date: new Date().toISOString(),
+            // Pass enriched data for the new template
+            fechamento: {
+              valor_dinheiro: valorDinheiro,
+              valor_pix: valorPix,
+              valor_cheque: valorCheque,
+              valor_despesas: finalTotalDespesas,
+              saldo_acerto: finalSaldoDeAcerto,
+              venda_total: vendaTotal,
+              desconto_total: descontoTotal,
+              rota_id: selectedRoute.id,
+              funcionario: employeeData
+                ? { nome_completo: employeeData.name }
+                : null,
+            },
           },
         },
       )
@@ -366,17 +433,6 @@ export default function CaixaPage() {
 
   const canCloseCashier = useMemo(() => {
     if (!loggedInUser) return false
-    const allowedSectors = ['Administrador', 'Gerente', 'Financeiro']
-    const userSectors = Array.isArray(loggedInUser.setor)
-      ? loggedInUser.setor
-      : loggedInUser.setor
-        ? [loggedInUser.setor]
-        : []
-    // All users can close their OWN cashier, but admins can select others.
-    // The previous logic was: "only admins can use the button".
-    // But usually everyone closes their own cashier.
-    // The requirement says "Administrative roles... can now select which employee...".
-    // So everyone should access the button, but only admins can change selection inside dialog.
     return true
   }, [loggedInUser])
 
@@ -427,7 +483,12 @@ export default function CaixaPage() {
               onClick={() => handleGeneratePdf()}
               variant="outline"
               size="sm"
-              disabled={generatingPdf || loading || !selectedRoute}
+              disabled={
+                generatingPdf ||
+                loading ||
+                !selectedRoute ||
+                !selectedEmployeeId
+              }
               className="flex-1 sm:flex-none"
             >
               {generatingPdf ? (

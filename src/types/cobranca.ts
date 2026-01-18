@@ -10,6 +10,7 @@ export interface Receivable {
   // New granular fields for collection control
   formaCobranca?: string | null
   dataCombinada?: string | null
+  motivo?: string | null // New field
   // Metadata to indicate source
   source?: 'NEGOTIATION' | 'RECEIPT' | 'ORIGINAL'
 }
@@ -32,6 +33,7 @@ export interface CollectionAction {
   clienteId: number | null
   clienteNome: string | null
   installments?: CollectionInstallment[]
+  motivo?: string | null // New field
 }
 
 export interface CollectionActionInsert {
@@ -44,6 +46,7 @@ export interface CollectionActionInsert {
   clienteId: number
   clienteNome: string
   installments?: CollectionInstallment[]
+  motivo?: string | null // New field
 }
 
 export interface OrderDebt {
@@ -92,6 +95,8 @@ export interface ClientDebt {
   totalActionCount: number
   // NEW: Phone number
   phone: string | null
+  telefone_cobranca: string | null // New
+  email_cobranca: string | null // New
 }
 
 export interface LatestCollectionActionView {
@@ -106,4 +111,5 @@ export interface LatestCollectionActionView {
   installment_vencimento: string | null
   installment_valor: number | null
   installment_forma_pagamento: string | null
+  motivo?: string | null // New field if view is updated, otherwise manual fetch
 }
