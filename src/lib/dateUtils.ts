@@ -10,7 +10,10 @@ export const getBrazilDateString = (date?: Date | string) => {
       ? new Date(date)
       : date
     : new Date()
-  return d.toLocaleDateString('en-CA', { timeZone: TIMEZONE }) // YYYY-MM-DD
+
+  // Format to YYYY-MM-DD using Brazil Timezone
+  // This ensures that even if it's late night in Brazil (and next day in UTC), we get Brazil date
+  return d.toLocaleDateString('en-CA', { timeZone: TIMEZONE })
 }
 
 export const getBrazilTimeString = (date?: Date | string) => {

@@ -187,12 +187,15 @@ export default function RotaMotoqueiroPage() {
         method,
         date,
       })
+
       toast({
         title: 'Sucesso',
-        description: 'Recebimento registrado com sucesso!',
+        description: 'Recebimento registrado. Atualizando lista...',
         className: 'bg-green-600 text-white',
       })
-      fetchData()
+
+      // Immediately refresh data to reflect debt change
+      await fetchData()
     } catch (error) {
       console.error(error)
       toast({

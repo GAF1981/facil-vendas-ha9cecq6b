@@ -42,22 +42,7 @@ export const cobrancaService = {
       ),
     ]
 
-    let clientInfoMap = new Map<
-      number,
-      {
-        type: string
-        group: string | null
-        route: string | null
-        address: string | null
-        neighborhood: string | null
-        city: string | null
-        cep: string | null
-        situacao: string | null
-        phone: string | null
-        telefone_cobranca: string | null
-        email_cobranca: string | null
-      }
-    >()
+    let clientInfoMap = new Map<number, any>()
 
     if (clientIds.length > 0) {
       const chunkSize = 1000
@@ -98,12 +83,12 @@ export const cobrancaService = {
       const chunkSize = 1000
       for (let i = 0; i < clientIds.length; i += chunkSize) {
         const chunk = clientIds.slice(i, i + chunkSize)
-        const { data: actionsData, error: actionsError } = await supabase
+        const { data: actionsData } = await supabase
           .from('acoes_cobranca')
           .select('cliente_id')
           .in('cliente_id', chunk)
 
-        if (!actionsError && actionsData) {
+        if (actionsData) {
           actionsData.forEach((a) => {
             if (a.cliente_id) {
               clientActionCounts.set(
@@ -211,6 +196,14 @@ export const cobrancaService = {
         rawInstallments: [],
       }
 
+      // Debt Allocation Logic for correct display in cards
+      // Calculate unallocated payment pool for this order
+      // (This is primarily to update the 'valorPago' of the original debt/installment
+      // if it wasn't directly updated in DB)
+
+      // Total Paid recorded in DB (which might include partial payments not yet applied to the installment)
+      const totalAllocatable = paymentInfo.totalPaid
+
       if (actionRows && actionRows.length > 0) {
         installments = actionRows.map((row) => {
           const vDate = row.installment_vencimento
@@ -222,65 +215,126 @@ export const cobrancaService = {
             id: row.installment_id || 0,
             vencimento: vDate || null,
             valorRegistrado: Number(row.installment_valor) || 0,
-            valorPago: 0,
+            valorPago: 0, // Actions usually don't track payment directly in view, depends on logic
             formaPagamento: row.installment_forma_pagamento || 'Outros',
             status: isOverdue ? 'VENCIDO' : 'A VENCER',
             formaCobranca: null,
             dataCombinada: row.nova_data_combinada || null,
-            motivo: row.motivo || null, // Map motivo from view
+            motivo: row.motivo || null,
             source: 'NEGOTIATION',
           }
         })
       } else {
-        installments = paymentInfo.rawInstallments.map((r) => {
-          const valReg = Number(r.valor_registrado) || 0
-          const valPago = Number(r.valor_pago) || 0
-          let status: 'VENCIDO' | 'A VENCER' | 'PAGO' = 'A VENCER'
+        // Build installments from RECEBIMENTOS that are marked as DEBTS (valor_registrado > 0)
+        // If none, assume ORIGINAL DEBT from debitos_historico
+        const dbInstallments = paymentInfo.rawInstallments.filter(
+          (r) => (Number(r.valor_registrado) || 0) > 0,
+        )
 
-          const vDate = r.vencimento
-          const parsedDate = vDate ? parseISO(vDate) : null
+        if (dbInstallments.length > 0) {
+          // FIFO Allocation of totalAllocatable across these installments
+          let remainingPool = totalAllocatable
 
-          if (valPago >= valReg && valReg > 0) {
-            status = 'PAGO'
-          } else if (
-            parsedDate &&
-            isValid(parsedDate) &&
-            isBefore(parsedDate, today) &&
-            valPago < valReg
-          ) {
-            status = 'VENCIDO'
-          }
+          installments = dbInstallments.map((r) => {
+            const valReg = Number(r.valor_registrado) || 0
 
-          return {
-            id: r.id,
-            vencimento: vDate || null,
+            // Current Paid in DB for this row
+            let valPago = Number(r.valor_pago) || 0
+
+            // If totalAllocatable > sum of individual valPago, we allocate more?
+            // Actually, simply take the paid amount from this row if it matches logic.
+            // BUT, if we have partial payments as separate rows (Reg=0), we must allocate them.
+
+            // Simple allocation logic:
+            // Calculate allocated for this row based on pool
+            // But we must respect what's already in DB if it's correct.
+            // Here we re-calculate 'valPago' based on pool to ensure partials are reflected.
+
+            const needed = valReg - valPago
+            if (needed > 0 && remainingPool > valPago) {
+              // This logic is tricky if DB is partially consistent.
+              // Simplest: Assume 'totalAllocatable' covers debts FIFO.
+            }
+            // Let's stick to DB values primarily, but if debt is monolithic (1 item), ensure it reflects totalPaid.
+          })
+
+          // REWRITE: Simplified Logic
+          // We have 'dbInstallments' which are the debts.
+          // We have 'paymentInfo.history' which are payments.
+          // Sum of payments = totalAllocatable.
+
+          let pool = totalAllocatable
+
+          installments = dbInstallments.map((r) => {
+            const valReg = Number(r.valor_registrado) || 0
+            const currentPaid = Number(r.valor_pago) || 0
+
+            // If DB says 0 paid, but we have pool, allocate from pool?
+            // Yes, because payments might be separate rows (Reg=0).
+            // However, we shouldn't double count if the payment row IS this row.
+            // But here we filtered `dbInstallments` to be Reg > 0.
+            // Payment rows (Reg=0) contribute to `pool` but are not in `dbInstallments`.
+            // So `pool` consists of:
+            // 1. Payments on Debt Rows (Reg>0, Paid>0)
+            // 2. Payments on Payment Rows (Reg=0, Paid>0)
+
+            // So we can just drain the pool FIFO against the debts.
+
+            const allocation = Math.min(valReg, pool)
+            pool -= allocation
+
+            const effectivePaid = Math.max(currentPaid, allocation)
+            // (Use max to avoid reducing if DB is weird, though allocation should be correct)
+
+            const vDate = r.vencimento
+            const parsedDate = vDate ? parseISO(vDate) : null
+            let status: 'VENCIDO' | 'A VENCER' | 'PAGO' = 'A VENCER'
+
+            if (effectivePaid >= valReg - 0.05) {
+              status = 'PAGO'
+            } else if (
+              parsedDate &&
+              isValid(parsedDate) &&
+              isBefore(parsedDate, today)
+            ) {
+              status = 'VENCIDO'
+            }
+
+            return {
+              id: r.id,
+              vencimento: vDate || null,
+              valorRegistrado: valReg,
+              valorPago: effectivePaid,
+              formaPagamento: r.forma_pagamento || 'N/D',
+              status,
+              formaCobranca: r.forma_cobranca || null,
+              dataCombinada: r.data_combinada || null,
+              motivo: r.motivo || null,
+              source: 'RECEIPT',
+            }
+          })
+        } else {
+          // No installments in DB, create one from Debito History
+          // And apply totalPaid
+          const valReg = rawTotal // Original Sale Value
+          const effectivePaid = rawPaid // Comes from debitos_historico which includes total payments
+
+          installments.push({
+            id: -pid,
+            vencimento: dateAcerto,
             valorRegistrado: valReg,
-            valorPago: valPago,
-            formaPagamento: r.forma_pagamento || 'N/D',
-            status,
-            formaCobranca: r.forma_cobranca || null,
-            dataCombinada: r.data_combinada || null,
-            motivo: r.motivo || null,
-            source: 'RECEIPT',
-          }
-        })
+            valorPago: effectivePaid,
+            formaPagamento: 'N/D',
+            status: 'A VENCER', // Will be recalculated below
+            formaCobranca: null,
+            dataCombinada: null,
+            motivo: null,
+            source: 'ORIGINAL',
+          })
+        }
       }
 
-      if (installments.length === 0) {
-        installments.push({
-          id: -pid,
-          vencimento: dateAcerto,
-          valorRegistrado: rawDebt,
-          valorPago: rawPaid,
-          formaPagamento: 'N/D',
-          status: 'A VENCER',
-          formaCobranca: null,
-          dataCombinada: null,
-          motivo: null,
-          source: 'ORIGINAL',
-        })
-      }
-
+      // Final Status Check
       let status: 'VENCIDO' | 'A VENCER' | 'SEM DÉBITO' = 'SEM DÉBITO'
       let oldestOverdue: string | null = null
 
@@ -466,7 +520,8 @@ export const cobrancaService = {
   async addCollectionAction(action: CollectionActionInsert): Promise<void> {
     const payload = {
       acao: action.acao,
-      data_acao: action.dataAcao || getBrazilDateString(), // Use Brazil Date if missing
+      // Use Brazil Date String for Data Acao to ensure timezone correctness
+      data_acao: action.dataAcao || getBrazilDateString(),
       nova_data_combinada: action.novaDataCombinada || null,
       funcionario_nome: action.funcionarioNome,
       funcionario_id: action.funcionarioId,
@@ -527,7 +582,8 @@ export const cobrancaService = {
       cliente_id: payload.clientId,
       funcionario_id: payload.employeeId,
       forma_pagamento: payload.method,
-      valor_registrado: payload.value,
+      // IMPORTANT: valor_registrado must be 0 for payment entries to avoid doubling the debt calculation
+      valor_registrado: 0,
       valor_pago: payload.value,
       vencimento: new Date(payload.date).toISOString(),
       data_pagamento: new Date().toISOString(),
