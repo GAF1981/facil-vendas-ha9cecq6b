@@ -210,41 +210,42 @@ export const recebimentoService = {
     userName?: string,
     employeeId?: number,
   ): Promise<{ success: boolean; syncWarning?: boolean }> {
-    // 1. Fetch current data to handle partial payments accumulation
+    // 1. Fetch current data to get linkage info (venda_id, cliente_id)
     const { data: current, error: fetchError } = await supabase
       .from('RECEBIMENTOS')
-      .select('valor_pago')
+      .select('venda_id, cliente_id, ID_da_fêmea')
       .eq('id', installmentId)
       .single()
 
     if (fetchError) throw fetchError
 
-    const newTotalPaid = (current.valor_pago || 0) + amountPaid
-
-    // 2. Prepare Update Payload
-    // We update the existing installment to reflect the payment
-    const updatePayload: any = {
-      valor_pago: newTotalPaid,
-      data_pagamento: new Date(`${paymentDate}T12:00:00`).toISOString(),
+    // 2. Prepare Insert Payload (New Record)
+    // We insert a NEW row for individual transaction logging
+    const insertPayload: any = {
+      venda_id: current.venda_id,
+      cliente_id: current.cliente_id,
+      funcionario_id: employeeId || null,
       forma_pagamento: method,
+      valor_registrado: 0, // 0 because this is purely a payment entry
+      valor_pago: amountPaid,
+      vencimento: new Date().toISOString(), // Use current timestamp for sorting or reference
+      data_pagamento: new Date(`${paymentDate}T12:00:00`).toISOString(),
+      ID_da_fêmea: current.ID_da_fêmea || current.venda_id,
+      motivo: 'Pagamento de Parcela',
     }
 
-    // Update funcionario_id to reflect who processed the payment if employeeId is provided
-    if (employeeId) {
-      updatePayload.funcionario_id = employeeId
-    }
-
-    const { error: updateError } = await supabase
+    const { data: insertedData, error: insertError } = await supabase
       .from('RECEBIMENTOS')
-      .update(updatePayload)
-      .eq('id', installmentId)
+      .insert(insertPayload)
+      .select()
+      .single()
 
-    if (updateError) throw updateError
+    if (insertError) throw insertError
 
     // 3. Handle Pix Record insertion if applicable
-    if (method === 'Pix' && pixDetails) {
+    if (method === 'Pix' && pixDetails && insertedData) {
       await supabase.from('PIX').insert({
-        recebimento_id: installmentId,
+        recebimento_id: insertedData.id,
         nome_no_pix: pixDetails.nome,
         banco_pix: pixDetails.banco,
         data_pix_realizado: new Date().toISOString(),
@@ -256,10 +257,11 @@ export const recebimentoService = {
     // 4. Log the transaction
     await supabase.from('system_logs').insert({
       type: 'PAYMENT_RECEIVED',
-      description: `Pagamento recebido de R$ ${amountPaid} no pedido #${orderId}`,
+      description: `Pagamento recebido de R$ ${amountPaid} no pedido #${orderId} (Ref: Parcela ${installmentId})`,
       user_id: employeeId || null,
       meta: {
-        installmentId,
+        originalInstallmentId: installmentId,
+        newReceiptId: insertedData.id,
         amountPaid,
         method,
         orderId,

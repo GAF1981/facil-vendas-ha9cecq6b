@@ -131,19 +131,25 @@ export const caixaService = {
     })
 
     // 3. Receipts
+    // We select all receipts greater than 0 that fall within the route period
     const { data: receipts, error: recError } = await supabase
       .from('RECEBIMENTOS')
-      .select('funcionario_id, valor_pago, created_at, forma_pagamento')
+      .select(
+        'funcionario_id, valor_pago, created_at, forma_pagamento, data_pagamento',
+      )
       .gte('created_at', rota.data_inicio)
       .gt('valor_pago', 0)
 
     if (recError) throw recError
 
     receipts?.forEach((rec) => {
-      if (!rec.created_at) return
       if (rec.forma_pagamento === 'Boleto') return
 
-      const recDate = parseISO(rec.created_at)
+      // Prefer data_pagamento if available, otherwise created_at
+      const dateToCheck = rec.data_pagamento || rec.created_at
+      if (!dateToCheck) return
+
+      const recDate = parseISO(dateToCheck)
       const isAfterStart =
         isAfter(recDate, routeStart) || isEqual(recDate, routeStart)
       const isBeforeEnd =

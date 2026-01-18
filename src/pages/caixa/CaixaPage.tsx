@@ -193,6 +193,7 @@ export default function CaixaPage() {
 
   const selectedRoute = routes.find((r) => r.id.toString() === selectedRouteId)
 
+  // Ensure individual receipts are properly filtered by employee ID if selected
   const filteredReceipts = useMemo(() => {
     if (!selectedEmployeeId) return []
     return allReceipts.filter(

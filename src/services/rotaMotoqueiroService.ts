@@ -35,6 +35,10 @@ export const rotaMotoqueiroService = {
   },
 
   async create(data: RotaMotoqueiroKmInsert) {
+    if (!data.funcionario_id) {
+      throw new Error('ID do funcionário é obrigatório para registrar KM.')
+    }
+
     const { data: created, error } = await supabase
       .from('rota_motoqueiro_km')
       .insert(data)

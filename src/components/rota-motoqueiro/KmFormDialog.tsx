@@ -156,7 +156,7 @@ export function KmFormDialog({
             <Input
               type="number"
               step="0.1"
-              min="0"
+              min="0.1"
               {...form.register('km_percorrido')}
             />
             {form.formState.errors.km_percorrido && (
