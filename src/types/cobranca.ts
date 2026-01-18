@@ -90,6 +90,8 @@ export interface ClientDebt {
   situacao: string | null
   // New field for Total Action Count
   totalActionCount: number
+  // NEW: Phone number
+  phone: string | null
 }
 
 export interface LatestCollectionActionView {

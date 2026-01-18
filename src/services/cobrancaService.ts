@@ -8,6 +8,7 @@ import {
   LatestCollectionActionView,
 } from '@/types/cobranca'
 import { isBefore, parseISO, startOfDay, isValid } from 'date-fns'
+import { reportsService } from '@/services/reportsService'
 
 export const cobrancaService = {
   async getDebts(): Promise<ClientDebt[]> {
@@ -51,6 +52,7 @@ export const cobrancaService = {
         city: string | null
         cep: string | null
         situacao: string | null
+        phone: string | null
       }
     >()
 
@@ -61,7 +63,7 @@ export const cobrancaService = {
         const { data: clientData, error: clientError } = await supabase
           .from('CLIENTES')
           .select(
-            'CODIGO, "TIPO DE CLIENTE", GRUPO, "GRUPO ROTA", ENDEREÇO, BAIRRO, MUNICÍPIO, situacao, "CEP OFICIO"',
+            'CODIGO, "TIPO DE CLIENTE", GRUPO, "GRUPO ROTA", ENDEREÇO, BAIRRO, MUNICÍPIO, situacao, "CEP OFICIO", "FONE 1", "FONE 2"',
           )
           .in('CODIGO', chunk)
 
@@ -79,6 +81,7 @@ export const cobrancaService = {
               city: (c as any)['MUNICÍPIO'] || null,
               cep: (c as any)['CEP OFICIO'] || null,
               situacao: (c as any)['situacao'] || 'ATIVO',
+              phone: (c as any)['FONE 1'] || (c as any)['FONE 2'] || null,
             })
           })
         }
@@ -319,6 +322,7 @@ export const cobrancaService = {
           earliestUnpaidDate: null,
           orders: [],
           totalActionCount: clientActionCounts.get(cid) || 0,
+          phone: cInfo?.phone || null,
         })
       }
 
@@ -410,12 +414,6 @@ export const cobrancaService = {
     const syntheticItems = items.filter((i) => i.receivableId < 0)
     for (const item of syntheticItems) {
       // For simplicity in bulk actions, we skip creation if complex data is needed
-      // or we assume they don't exist yet and just skip.
-      // However, to be robust, we should try update via the order ID if possible or skip.
-      // The requirement focuses on clearing existing data mainly.
-      // If we need to clear, and record doesn't exist, we do nothing.
-      // If we need to set, we would need syntheticData which is hard to pass in bulk.
-      // So we focus on Real IDs for bulk updates.
     }
   },
 
@@ -496,6 +494,44 @@ export const cobrancaService = {
         .from('RECEBIMENTOS')
         .update({ data_combinada: action.novaDataCombinada } as any)
         .eq('venda_id', action.pedidoId)
+    }
+  },
+
+  async registerReceipt(payload: {
+    orderId: number
+    clientId: number
+    employeeId: number
+    value: number
+    method: string
+    date: string
+  }): Promise<void> {
+    // 1. Insert into RECEBIMENTOS
+    const insertPayload = {
+      venda_id: payload.orderId,
+      cliente_id: payload.clientId,
+      funcionario_id: payload.employeeId,
+      forma_pagamento: payload.method,
+      valor_registrado: payload.value, // Usually equals paid value for single registration
+      valor_pago: payload.value,
+      vencimento: new Date(payload.date).toISOString(),
+      data_pagamento: new Date().toISOString(),
+      ID_da_fêmea: payload.orderId,
+    }
+
+    const { error } = await supabase.from('RECEBIMENTOS').insert(insertPayload)
+
+    if (error) throw error
+
+    // 2. Update Debt History
+    try {
+      await reportsService.updateDebtHistoryForOrder(payload.orderId)
+    } catch (syncError) {
+      console.error(
+        'Failed to sync debt history for order:',
+        payload.orderId,
+        syncError,
+      )
+      // We don't throw here to avoid failing the operation for user, but log it
     }
   },
 

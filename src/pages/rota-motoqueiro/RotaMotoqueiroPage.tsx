@@ -6,9 +6,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { RotaMotoqueiroCardItem } from '@/components/rota-motoqueiro/RotaMotoqueiroCardItem'
 import { CollectionActionsSheet } from '@/components/cobranca/CollectionActionsSheet'
+import { MotoqueiroReceiptDialog } from '@/components/rota-motoqueiro/MotoqueiroReceiptDialog'
 import { useToast } from '@/hooks/use-toast'
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
+import { useUserStore } from '@/stores/useUserStore'
 
 interface MotoqueiroItem {
   uniqueId: string
@@ -21,6 +23,10 @@ interface MotoqueiroItem {
   debito: number
   dataCombinada: string | null
   status: string
+  address: string | null
+  neighborhood: string | null
+  city: string | null
+  phone: string | null
 }
 
 export default function RotaMotoqueiroPage() {
@@ -29,7 +35,9 @@ export default function RotaMotoqueiroPage() {
   const [filteredItems, setFilteredItems] = useState<MotoqueiroItem[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const { toast } = useToast()
+  const { employee } = useUserStore()
 
+  // State for Action Sheet (Negotiation)
   const [actionSheet, setActionSheet] = useState<{
     open: boolean
     orderId: string
@@ -42,6 +50,19 @@ export default function RotaMotoqueiroPage() {
     clientId: 0,
     clientName: '',
     showForm: false,
+  })
+
+  // State for Receipt Dialog
+  const [receiptDialog, setReceiptDialog] = useState<{
+    open: boolean
+    orderId: string
+    clientId: number
+    clientName: string
+  }>({
+    open: false,
+    orderId: '',
+    clientId: 0,
+    clientName: '',
   })
 
   const fetchData = async () => {
@@ -67,6 +88,10 @@ export default function RotaMotoqueiroPage() {
                 debito: Math.max(0, inst.valorRegistrado - inst.valorPago),
                 dataCombinada: inst.dataCombinada,
                 status: inst.status,
+                address: client.address,
+                neighborhood: client.neighborhood,
+                city: client.city,
+                phone: client.phone,
               })
             }
           })
@@ -117,6 +142,55 @@ export default function RotaMotoqueiroPage() {
       clientName: item.clientName,
       showForm,
     })
+  }
+
+  const handleRegisterReceipt = (item: MotoqueiroItem) => {
+    setReceiptDialog({
+      open: true,
+      orderId: item.orderId.toString(),
+      clientId: item.clientId,
+      clientName: item.clientName,
+    })
+  }
+
+  const handleConfirmReceipt = async (
+    amount: number,
+    method: string,
+    date: string,
+  ) => {
+    if (!employee) {
+      toast({
+        title: 'Erro',
+        description: 'Funcionário não identificado.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      await cobrancaService.registerReceipt({
+        orderId: Number(receiptDialog.orderId),
+        clientId: receiptDialog.clientId,
+        employeeId: employee.id,
+        value: amount,
+        method,
+        date,
+      })
+      toast({
+        title: 'Sucesso',
+        description: 'Recebimento registrado com sucesso!',
+        className: 'bg-green-600 text-white',
+      })
+      fetchData()
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: 'Erro',
+        description: 'Falha ao registrar recebimento.',
+        variant: 'destructive',
+      })
+      throw error // Re-throw to keep dialog open if needed, or handle inside dialog
+    }
   }
 
   return (
@@ -187,7 +261,8 @@ export default function RotaMotoqueiroPage() {
               key={item.uniqueId}
               item={item}
               onConsult={() => handleAction(item, false)}
-              onRegister={() => handleAction(item, true)}
+              onRegisterAction={() => handleAction(item, true)}
+              onRegisterReceipt={() => handleRegisterReceipt(item)}
             />
           ))}
         </div>
@@ -201,6 +276,15 @@ export default function RotaMotoqueiroPage() {
         clientName={actionSheet.clientName}
         defaultShowForm={actionSheet.showForm}
         onActionAdded={fetchData}
+      />
+
+      <MotoqueiroReceiptDialog
+        open={receiptDialog.open}
+        onClose={() => setReceiptDialog((prev) => ({ ...prev, open: false }))}
+        orderId={receiptDialog.orderId}
+        clientId={receiptDialog.clientId}
+        clientName={receiptDialog.clientName}
+        onConfirm={handleConfirmReceipt}
       />
     </div>
   )
