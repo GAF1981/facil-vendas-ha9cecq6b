@@ -17,6 +17,7 @@ import {
   Printer,
   Phone,
   Mail,
+  Info,
 } from 'lucide-react'
 import { formatCurrency, safeFormatDate } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
@@ -41,7 +42,8 @@ interface RotaMotoqueiroItem {
   phone: string | null
   telefone_cobranca?: string | null
   email_cobranca?: string | null
-  clientStatus?: string | null // Assuming available from query or added
+  clientStatus?: string | null
+  motivo?: string | null
 }
 
 interface RotaMotoqueiroCardItemProps {
@@ -185,6 +187,16 @@ export function RotaMotoqueiroCardItem({
               </p>
             </div>
           </div>
+
+          {item.motivo && (
+            <div className="text-xs bg-yellow-50 border border-yellow-200 rounded p-2 text-yellow-800 flex gap-2 items-start">
+              <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              <div>
+                <span className="font-semibold block mb-0.5">Motivo:</span>
+                {item.motivo}
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-3 gap-2 text-sm pt-2 border-t">
             <div className="space-y-0.5">

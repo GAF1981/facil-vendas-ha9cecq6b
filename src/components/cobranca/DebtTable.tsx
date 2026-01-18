@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import {
   Table,
   TableBody,
@@ -120,6 +120,39 @@ export function DebtTable({
   const [localUpdates, setLocalUpdates] = useState<
     Record<string, { formaCobranca?: any; dataCombinada?: any; motivo?: any }>
   >({})
+
+  // Refs for dual scrolling
+  const tableContainerRef = useRef<HTMLDivElement>(null)
+  const topScrollRef = useRef<HTMLDivElement>(null)
+  const [scrollWidth, setScrollWidth] = useState(0)
+  const isScrolling = useRef(false)
+
+  useEffect(() => {
+    const tableContainer = tableContainerRef.current
+    if (tableContainer) {
+      setScrollWidth(tableContainer.scrollWidth)
+    }
+  }, [data, isSimplified, isCobrancaMode]) // Recalculate when data or layout changes
+
+  const handleScrollTable = () => {
+    if (isScrolling.current) return
+    if (!tableContainerRef.current || !topScrollRef.current) return
+    isScrolling.current = true
+    topScrollRef.current.scrollLeft = tableContainerRef.current.scrollLeft
+    setTimeout(() => {
+      isScrolling.current = false
+    }, 50)
+  }
+
+  const handleScrollTop = () => {
+    if (isScrolling.current) return
+    if (!tableContainerRef.current || !topScrollRef.current) return
+    isScrolling.current = true
+    tableContainerRef.current.scrollLeft = topScrollRef.current.scrollLeft
+    setTimeout(() => {
+      isScrolling.current = false
+    }, 50)
+  }
 
   const handleOpenDetails = (client: ClientDebt) => {
     setSelectedClient(client)
@@ -325,8 +358,19 @@ export function DebtTable({
 
   return (
     <>
-      <div className="rounded-md border bg-card">
-        <Table>
+      <div className="flex flex-col border rounded-md bg-card">
+        {/* Top Horizontal Scrollbar */}
+        <div
+          ref={topScrollRef}
+          onScroll={handleScrollTop}
+          className="w-full overflow-x-auto border-b bg-muted/10 h-4"
+          style={{ overflowY: 'hidden' }}
+        >
+          <div style={{ width: scrollWidth, height: '1px' }} />
+        </div>
+
+        {/* Table Container */}
+        <Table containerRef={tableContainerRef} onScroll={handleScrollTable}>
           <TableHeader className="bg-background sticky top-0 z-10 shadow-sm">
             <TableRow>
               <TableHead className="w-[70px] bg-background">Código</TableHead>

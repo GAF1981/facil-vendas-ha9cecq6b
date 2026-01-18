@@ -219,7 +219,7 @@ export const cobrancaService = {
             status: isOverdue ? 'VENCIDO' : 'A VENCER',
             formaCobranca: null,
             dataCombinada: row.nova_data_combinada || null,
-            motivo: null, // View might not have this yet
+            motivo: row.motivo || null, // Map motivo from view
             source: 'NEGOTIATION',
           }
         })

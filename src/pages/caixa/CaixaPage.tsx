@@ -109,6 +109,17 @@ export default function CaixaPage() {
     return userSectors.some((s) => allowedSectors.includes(s))
   }, [loggedInUser])
 
+  // Check if current user is Motoqueiro
+  const isMotoqueiro = useMemo(() => {
+    if (!loggedInUser) return false
+    const userSectors = Array.isArray(loggedInUser.setor)
+      ? loggedInUser.setor
+      : loggedInUser.setor
+        ? [loggedInUser.setor]
+        : []
+    return userSectors.some((s) => s.toLowerCase() === 'motoqueiro')
+  }, [loggedInUser])
+
   useEffect(() => {
     fetchRoutes()
     fetchActiveEmployees()
@@ -715,26 +726,28 @@ export default function CaixaPage() {
         <ExpenseGallery items={filteredExpenses} />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Resumo por Funcionário</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="flex justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : (
-            <FinancialSummaryTable
-              data={filteredSummary}
-              onAddExpense={handleAddExpense}
-              onViewReceipts={handleViewReceipts}
-              onViewExpenses={handleViewExpenses}
-              onGeneratePdf={handleGeneratePdf}
-            />
-          )}
-        </CardContent>
-      </Card>
+      {!isMotoqueiro && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Resumo por Funcionário</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {loading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <FinancialSummaryTable
+                data={filteredSummary}
+                onAddExpense={handleAddExpense}
+                onViewReceipts={handleViewReceipts}
+                onViewExpenses={handleViewExpenses}
+                onGeneratePdf={handleGeneratePdf}
+              />
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <ExpenseFormDialog
         open={isExpenseDialogOpen}

@@ -61,6 +61,7 @@ export type Database = {
           funcionario_id: number | null
           funcionario_nome: string | null
           id: number
+          motivo: string | null
           nova_data_combinada: string | null
           pedido_id: number | null
         }
@@ -73,6 +74,7 @@ export type Database = {
           funcionario_id?: number | null
           funcionario_nome?: string | null
           id?: number
+          motivo?: string | null
           nova_data_combinada?: string | null
           pedido_id?: number | null
         }
@@ -85,6 +87,7 @@ export type Database = {
           funcionario_id?: number | null
           funcionario_nome?: string | null
           id?: number
+          motivo?: string | null
           nova_data_combinada?: string | null
           pedido_id?: number | null
         }
@@ -358,6 +361,7 @@ export type Database = {
           'DESCONTO BRINQUEDO': string | null
           'DESCONTO OUTROS': string | null
           EMAIL: string | null
+          email_cobranca: string | null
           ENDEREÇO: string | null
           EXPOSITOR: string | null
           'FONE 1': string | null
@@ -372,6 +376,7 @@ export type Database = {
           'OBSERVAÇÃO FIXA': string | null
           'RAZÃO SOCIAL': string | null
           situacao: string | null
+          telefone_cobranca: string | null
           TIPO: string | null
           'TIPO DE CLIENTE': string
         }
@@ -389,6 +394,7 @@ export type Database = {
           'DESCONTO BRINQUEDO'?: string | null
           'DESCONTO OUTROS'?: string | null
           EMAIL?: string | null
+          email_cobranca?: string | null
           ENDEREÇO?: string | null
           EXPOSITOR?: string | null
           'FONE 1'?: string | null
@@ -403,6 +409,7 @@ export type Database = {
           'OBSERVAÇÃO FIXA'?: string | null
           'RAZÃO SOCIAL'?: string | null
           situacao?: string | null
+          telefone_cobranca?: string | null
           TIPO?: string | null
           'TIPO DE CLIENTE'?: string
         }
@@ -420,6 +427,7 @@ export type Database = {
           'DESCONTO BRINQUEDO'?: string | null
           'DESCONTO OUTROS'?: string | null
           EMAIL?: string | null
+          email_cobranca?: string | null
           ENDEREÇO?: string | null
           EXPOSITOR?: string | null
           'FONE 1'?: string | null
@@ -434,6 +442,7 @@ export type Database = {
           'OBSERVAÇÃO FIXA'?: string | null
           'RAZÃO SOCIAL'?: string | null
           situacao?: string | null
+          telefone_cobranca?: string | null
           TIPO?: string | null
           'TIPO DE CLIENTE'?: string
         }
@@ -1880,6 +1889,7 @@ export type Database = {
           funcionario_id: number
           id: number
           ID_da_fêmea: number | null
+          motivo: string | null
           valor_pago: number
           valor_registrado: number | null
           vencimento: string | null
@@ -1895,6 +1905,7 @@ export type Database = {
           funcionario_id: number
           id?: number
           ID_da_fêmea?: number | null
+          motivo?: string | null
           valor_pago: number
           valor_registrado?: number | null
           vencimento?: string | null
@@ -1910,6 +1921,7 @@ export type Database = {
           funcionario_id?: number
           id?: number
           ID_da_fêmea?: number | null
+          motivo?: string | null
           valor_pago?: number
           valor_registrado?: number | null
           vencimento?: string | null

@@ -30,6 +30,7 @@ interface MotoqueiroItem {
   telefone_cobranca?: string | null
   email_cobranca?: string | null
   clientStatus?: string | null
+  motivo?: string | null
 }
 
 export default function RotaMotoqueiroPage() {
@@ -98,6 +99,7 @@ export default function RotaMotoqueiroPage() {
                 telefone_cobranca: client.telefone_cobranca,
                 email_cobranca: client.email_cobranca,
                 clientStatus: client.situacao,
+                motivo: inst.motivo || null,
               })
             }
           })

@@ -112,7 +112,7 @@ export const permissionsService = {
 
     const { error } = await supabase
       .from('permissoes')
-      .upsert(inserts, { onConflict: 'setor,modulo' })
+      .upsert(inserts, { onConflict: 'setor,modulo', ignoreDuplicates: true })
 
     if (error) console.error('Error init permissions', error)
   },
