@@ -70,7 +70,7 @@ export default function CaixaPage() {
   const [allExpenses, setAllExpenses] = useState<ExpenseDetail[]>([])
   const [activeEmployees, setActiveEmployees] = useState<Employee[]>([])
 
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('')
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('all')
   const { employee: loggedInUser } = useUserStore()
 
   const { toast } = useToast()
@@ -126,7 +126,7 @@ export default function CaixaPage() {
   }, [])
 
   useEffect(() => {
-    if (loggedInUser && !selectedEmployeeId) {
+    if (loggedInUser && selectedEmployeeId === 'all') {
       setSelectedEmployeeId(loggedInUser.id.toString())
     }
   }, [loggedInUser, selectedEmployeeId])
@@ -196,7 +196,7 @@ export default function CaixaPage() {
   // Ensure individual receipts are properly filtered by employee ID if selected
   const filteredReceipts = useMemo(() => {
     // If no employee selected (or All), show ALL receipts
-    if (!selectedEmployeeId) return allReceipts
+    if (!selectedEmployeeId || selectedEmployeeId === 'all') return allReceipts
     // Otherwise filter by selected employee
     return allReceipts.filter(
       (r) => r.funcionarioId?.toString() === selectedEmployeeId,
@@ -204,7 +204,7 @@ export default function CaixaPage() {
   }, [allReceipts, selectedEmployeeId])
 
   const filteredExpenses = useMemo(() => {
-    if (!selectedEmployeeId) return allExpenses
+    if (!selectedEmployeeId || selectedEmployeeId === 'all') return allExpenses
     return allExpenses.filter(
       (e) => e.funcionarioId?.toString() === selectedEmployeeId,
     )
@@ -213,7 +213,7 @@ export default function CaixaPage() {
   const filteredSummary = useMemo(() => {
     let data = summaryData
 
-    if (!selectedEmployeeId) {
+    if (!selectedEmployeeId || selectedEmployeeId === 'all') {
       data = data.filter((row) => {
         const emp = activeEmployees.find((e) => e.id === row.funcionarioId)
         const sectors = emp?.setor
@@ -255,9 +255,10 @@ export default function CaixaPage() {
   const handleOpenGeneralExpense = async () => {
     if (!loggedInUser || !selectedRouteId) return
 
-    const targetEmpId = selectedEmployeeId
-      ? parseInt(selectedEmployeeId)
-      : loggedInUser.id
+    const targetEmpId =
+      selectedEmployeeId && selectedEmployeeId !== 'all'
+        ? parseInt(selectedEmployeeId)
+        : loggedInUser.id
     const targetEmpName =
       activeEmployees.find((e) => e.id === targetEmpId)?.nome_completo || ''
 
@@ -304,7 +305,9 @@ export default function CaixaPage() {
     try {
       const targetId =
         employeeId ||
-        (selectedEmployeeId ? parseInt(selectedEmployeeId) : undefined)
+        (selectedEmployeeId && selectedEmployeeId !== 'all'
+          ? parseInt(selectedEmployeeId)
+          : undefined)
 
       const reportType = 'employee-cash-summary'
       const employeeData = targetId
@@ -458,7 +461,11 @@ export default function CaixaPage() {
             <Button
               onClick={() => setIsCloseCashierDialogOpen(true)}
               className="bg-purple-600 hover:bg-purple-700 flex-1 sm:flex-none text-white"
-              disabled={!selectedRoute || !selectedEmployeeId}
+              disabled={
+                !selectedRoute ||
+                !selectedEmployeeId ||
+                selectedEmployeeId === 'all'
+              }
             >
               <Lock className="mr-2 h-4 w-4" />
               Fechar Caixa
@@ -488,7 +495,7 @@ export default function CaixaPage() {
                 generatingPdf ||
                 loading ||
                 !selectedRoute ||
-                !selectedEmployeeId
+                (!selectedEmployeeId && selectedEmployeeId !== 'all')
               }
               className="flex-1 sm:flex-none"
             >
@@ -545,7 +552,7 @@ export default function CaixaPage() {
                     <SelectValue placeholder="Resumo Geral" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Resumo Geral (Todos)</SelectItem>
+                    <SelectItem value="all">Resumo Geral (Todos)</SelectItem>
                     {activeEmployees.map((emp) => (
                       <SelectItem key={emp.id} value={emp.id.toString()}>
                         {emp.nome_completo}
@@ -767,7 +774,9 @@ export default function CaixaPage() {
         currentRoute={selectedRoute}
         onSuccess={() => fetchData(selectedRouteId)}
         targetEmployeeId={
-          selectedEmployeeId ? parseInt(selectedEmployeeId) : undefined
+          selectedEmployeeId && selectedEmployeeId !== 'all'
+            ? parseInt(selectedEmployeeId)
+            : undefined
         }
       />
     </div>
