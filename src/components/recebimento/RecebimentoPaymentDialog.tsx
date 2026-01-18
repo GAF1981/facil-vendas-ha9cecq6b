@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label'
 import { formatCurrency, parseCurrency } from '@/lib/formatters'
 import { Loader2, CheckSquare } from 'lucide-react'
 import { format } from 'date-fns'
-import { RecebimentoInstallment } from '@/types/recebimento'
+import { ConsolidatedRecebimento } from '@/types/recebimento'
 import {
   Select,
   SelectContent,
@@ -26,7 +26,7 @@ import { PAYMENT_METHODS } from '@/types/payment'
 interface RecebimentoPaymentDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  installment: RecebimentoInstallment | null
+  installment: ConsolidatedRecebimento | null
   onConfirm: (
     installmentId: number,
     amount: number,
@@ -82,11 +82,16 @@ export function RecebimentoPaymentDialog({
       setAmount(formatCurrency(remaining))
       setPaymentDate(format(new Date(), 'yyyy-MM-dd'))
       setRegistrationDate(format(new Date(), 'dd/MM/yyyy'))
+      // Preserve original method or default if missing
       setMethod(installment.forma_pagamento || 'Dinheiro')
       setPixName('')
       setPixBank('BS2')
     }
   }, [open, installment])
+
+  const remainingBalance = installment
+    ? Math.max(0, (installment.valor_registrado || 0) - installment.valor_pago)
+    : 0
 
   const handleConfirm = async () => {
     if (!installment) return
@@ -95,6 +100,13 @@ export function RecebimentoPaymentDialog({
     // Validation
     if (numAmount <= 0) return
     if (!method) return
+    if (numAmount > remainingBalance + 0.05) {
+      // Allowing small margin for rounding errors, or strict?
+      // User Story: "prevent recording a payment amount that would result in a total 'Valor Pago' exceeding the original debt."
+      // Let's be strict but mindful of float.
+      alert('O valor do pagamento não pode exceder o saldo devedor.')
+      return
+    }
 
     // Pix Validation
     if (method === 'Pix') {
@@ -104,28 +116,21 @@ export function RecebimentoPaymentDialog({
     setLoading(true)
     try {
       await onConfirm(
-        installment.id,
+        installment.id, // Passed but usually ignored in favor of selectedItem state in parent
         numAmount,
         paymentDate,
         method,
         method === 'Pix' ? { nome: pixName, banco: pixBank } : undefined,
       )
-      // Close modal ONLY on success (when onConfirm resolves without error)
       onOpenChange(false)
     } catch (error) {
       console.error(error)
-      // Error is handled by parent (toast), modal stays open so user can retry
     } finally {
       setLoading(false)
     }
   }
 
   if (!installment) return null
-
-  const remainingBalance = Math.max(
-    0,
-    (installment.valor_registrado || 0) - installment.valor_pago,
-  )
 
   const isAmountValid = parseCurrency(amount) > 0
   const isPixValid = method !== 'Pix' || (!!pixName.trim() && !!pixBank)
@@ -134,7 +139,7 @@ export function RecebimentoPaymentDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Processar Pagamento de Parcela</DialogTitle>
+          <DialogTitle>Processar Pagamento do Pedido</DialogTitle>
           <DialogDescription>
             Pedido #{installment.venda_id} - {installment.cliente_nome}
           </DialogDescription>
@@ -143,7 +148,7 @@ export function RecebimentoPaymentDialog({
         <div className="grid gap-4 py-4">
           <div className="bg-muted p-4 rounded-lg border flex flex-col items-center justify-center">
             <span className="text-xs text-muted-foreground uppercase font-semibold">
-              Saldo a Pagar da Parcela
+              Saldo a Pagar
             </span>
             <span className="text-2xl font-bold mt-1 text-blue-600">
               R$ {formatCurrency(remainingBalance)}

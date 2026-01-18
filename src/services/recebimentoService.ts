@@ -2,7 +2,11 @@ import { supabase } from '@/lib/supabase/client'
 import { ClientRow } from '@/types/client'
 import { Employee } from '@/types/employee'
 import { PaymentEntry } from '@/types/payment'
-import { RecebimentoInsert, RecebimentoInstallment } from '@/types/recebimento'
+import {
+  RecebimentoInsert,
+  RecebimentoInstallment,
+  ConsolidatedRecebimento,
+} from '@/types/recebimento'
 import { reportsService } from '@/services/reportsService'
 import { startOfDay, endOfDay } from 'date-fns'
 
@@ -92,6 +96,7 @@ export const recebimentoService = {
       .from('RECEBIMENTOS')
       .select('*, FUNCIONARIOS(nome_completo)')
       .eq('venda_id', orderId)
+      .gt('valor_pago', 0)
       .order('created_at', { ascending: false })
 
     if (error) throw error
@@ -131,7 +136,7 @@ export const recebimentoService = {
     await reportsService.updateDebtHistoryForOrder(orderId)
   },
 
-  async getInstallments(
+  async getConsolidatedRecebimentos(
     filters: {
       search?: string
       status?: 'PENDENTE' | 'PAGO' | 'TODOS'
@@ -139,14 +144,15 @@ export const recebimentoService = {
       startDate?: Date
       endDate?: Date
     } = {},
-  ): Promise<RecebimentoInstallment[]> {
+  ): Promise<ConsolidatedRecebimento[]> {
+    // 1. Find Orders with DEBT Records matching the filters
+    // We filter "RECEBIMENTOS" where valor_registrado > 0 to identify the debts of interest
     let query = supabase
       .from('RECEBIMENTOS')
       .select(
-        '*, CLIENTES(CODIGO, "NOME CLIENTE"), FUNCIONARIOS(nome_completo)',
+        'venda_id, cliente_id, vencimento, CLIENTES!inner(CODIGO, "NOME CLIENTE")',
       )
-      .order('vencimento', { ascending: true })
-      .limit(1000)
+      .gt('valor_registrado', 0)
 
     if (filters.orderId) {
       query = query.eq('venda_id', filters.orderId)
@@ -158,13 +164,9 @@ export const recebimentoService = {
       if (isNumber) {
         if (!filters.orderId) {
           query = query.or(`cliente_id.eq.${term},venda_id.eq.${term}`)
-        } else {
-          query = query.eq('cliente_id', term)
         }
       } else {
-        query = query
-          .not('CLIENTES', 'is', null)
-          .filter('CLIENTES.NOME CLIENTE', 'ilike', `%${term}%`)
+        query = query.ilike('CLIENTES.NOME CLIENTE', `%${term}%`)
       }
     }
 
@@ -179,59 +181,109 @@ export const recebimentoService = {
       query = query.lte('vencimento', endOfDay(filters.endDate).toISOString())
     }
 
-    const { data, error } = await query
-    if (error) throw error
+    const { data: ordersData, error: ordersError } = await query
+    if (ordersError) throw ordersError
 
-    let installments = (data || []).map((row: any) => ({
-      ...row,
-      cliente_nome: row.CLIENTES?.['NOME CLIENTE'] || 'Desconhecido',
-      cliente_codigo: row.CLIENTES?.CODIGO || 0,
-      funcionario_nome: row.FUNCIONARIOS?.nome_completo || 'N/D',
-    })) as RecebimentoInstallment[]
+    if (!ordersData || ordersData.length === 0) return []
 
+    // Extract unique Order IDs
+    const vendaIds = Array.from(new Set(ordersData.map((r) => r.venda_id)))
+
+    // 2. Fetch ALL records for these orders (Debts AND Payments)
+    // We need everything to calculate the balance correctly
+    const { data: allData, error: allError } = await supabase
+      .from('RECEBIMENTOS')
+      .select(
+        '*, CLIENTES(CODIGO, "NOME CLIENTE"), FUNCIONARIOS(nome_completo)',
+      )
+      .in('venda_id', vendaIds)
+      .order('vencimento', { ascending: true })
+
+    if (allError) throw allError
+
+    // 3. Group by Order ID and Aggregate
+    const groups = new Map<number, ConsolidatedRecebimento>()
+
+    allData?.forEach((row: any) => {
+      const vid = row.venda_id
+      if (!groups.has(vid)) {
+        groups.set(vid, {
+          ...row,
+          // Initialize consolidated fields
+          cliente_nome: row.CLIENTES?.['NOME CLIENTE'] || 'Desconhecido',
+          cliente_codigo: row.CLIENTES?.CODIGO || 0,
+          funcionario_nome: row.FUNCIONARIOS?.nome_completo || 'N/D',
+          valor_registrado: 0,
+          valor_pago: 0,
+          history: [],
+        })
+      }
+      const group = groups.get(vid)!
+
+      // Aggregate Debt (Registered Value)
+      if ((row.valor_registrado || 0) > 0) {
+        group.valor_registrado =
+          (group.valor_registrado || 0) + row.valor_registrado
+
+        // Preserve original method from the debt record(s)
+        if (!group.forma_pagamento || group.forma_pagamento === 'Pix') {
+          group.forma_pagamento = row.forma_pagamento
+        }
+      }
+
+      // Aggregate Payments
+      if ((row.valor_pago || 0) > 0) {
+        group.valor_pago += row.valor_pago
+
+        // Add to history
+        group.history.push({
+          id: row.id,
+          data:
+            row.data_pagamento || row.created_at || new Date().toISOString(),
+          funcionario: row.FUNCIONARIOS?.nome_completo || 'Sistema',
+          forma_pagamento: row.forma_pagamento,
+          valor: row.valor_pago,
+        })
+      }
+    })
+
+    let results = Array.from(groups.values())
+
+    // 4. Filter by Status (in memory, after aggregation)
     if (filters.status && filters.status !== 'TODOS') {
-      installments = installments.filter((inst) => {
-        const valReg = inst.valor_registrado || 0
-        const valPago = inst.valor_pago || 0
-        const isPaid = valPago >= valReg && valReg > 0
+      results = results.filter((item) => {
+        const debt = item.valor_registrado || 0
+        const paid = item.valor_pago || 0
+        const isPaid = paid >= debt && debt > 0
         return filters.status === 'PAGO' ? isPaid : !isPaid
       })
     }
-    return installments
+
+    return results
   },
 
-  async processInstallmentPayment(
-    installmentId: number,
+  async processOrderPayment(
+    orderId: number,
+    clientId: number,
     amountPaid: number,
     paymentDate: string,
     method: string,
-    orderId: number,
     pixDetails?: { nome: string; banco: string },
     userName?: string,
     employeeId?: number,
   ): Promise<{ success: boolean; syncWarning?: boolean }> {
-    // 1. Fetch current data to get linkage info (venda_id, cliente_id)
-    const { data: current, error: fetchError } = await supabase
-      .from('RECEBIMENTOS')
-      .select('venda_id, cliente_id, ID_da_fêmea')
-      .eq('id', installmentId)
-      .single()
-
-    if (fetchError) throw fetchError
-
-    // 2. Prepare Insert Payload (New Record)
-    // We insert a NEW row for individual transaction logging
+    // 1. Insert New Payment Record
     const insertPayload: any = {
-      venda_id: current.venda_id,
-      cliente_id: current.cliente_id,
+      venda_id: orderId,
+      cliente_id: clientId,
       funcionario_id: employeeId || null,
       forma_pagamento: method,
-      valor_registrado: 0, // 0 because this is purely a payment entry
+      valor_registrado: 0, // 0 because this is strictly a payment
       valor_pago: amountPaid,
-      vencimento: new Date().toISOString(), // Use current timestamp for sorting or reference
+      vencimento: new Date().toISOString(), // Use current timestamp
       data_pagamento: new Date(`${paymentDate}T12:00:00`).toISOString(),
-      ID_da_fêmea: current.ID_da_fêmea || current.venda_id,
-      motivo: 'Pagamento de Parcela',
+      ID_da_fêmea: orderId, // Link to order for grouping
+      motivo: 'Pagamento de Pedido',
     }
 
     const { data: insertedData, error: insertError } = await supabase
@@ -242,7 +294,7 @@ export const recebimentoService = {
 
     if (insertError) throw insertError
 
-    // 3. Handle Pix Record insertion if applicable
+    // 2. Handle Pix
     if (method === 'Pix' && pixDetails && insertedData) {
       await supabase.from('PIX').insert({
         recebimento_id: insertedData.id,
@@ -254,13 +306,12 @@ export const recebimentoService = {
       })
     }
 
-    // 4. Log the transaction
+    // 3. Log
     await supabase.from('system_logs').insert({
       type: 'PAYMENT_RECEIVED',
-      description: `Pagamento recebido de R$ ${amountPaid} no pedido #${orderId} (Ref: Parcela ${installmentId})`,
+      description: `Pagamento recebido de R$ ${amountPaid} no pedido #${orderId}`,
       user_id: employeeId || null,
       meta: {
-        originalInstallmentId: installmentId,
         newReceiptId: insertedData.id,
         amountPaid,
         method,
@@ -270,7 +321,7 @@ export const recebimentoService = {
       created_at: new Date().toISOString(),
     })
 
-    // 5. Update Debt History (Recalculate Debito and Valor Pago for the order)
+    // 4. Update Debt History
     try {
       await reportsService.updateDebtHistoryForOrder(orderId)
       return { success: true }
@@ -281,7 +332,6 @@ export const recebimentoService = {
   },
 
   async generateReceiptPdf(installment: RecebimentoInstallment) {
-    // Construct payload matching what generate-pdf expects for Thermal Receipts
     const payload = {
       reportType: 'receipt',
       format: '80mm',
@@ -301,9 +351,8 @@ export const recebimentoService = {
         },
       ],
       valorPago: installment.valor_pago,
-      items: [], // Simplified receipt has no items
+      items: [],
       history: [],
-      // Use balance for remaining debt indication if needed
       debito: Math.max(
         0,
         (installment.valor_registrado || 0) - installment.valor_pago,

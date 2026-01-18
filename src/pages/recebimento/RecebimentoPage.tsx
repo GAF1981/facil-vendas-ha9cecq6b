@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { RotateCcw, CheckSquare } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { RecebimentoInstallment } from '@/types/recebimento'
+import { ConsolidatedRecebimento } from '@/types/recebimento'
 import { RecebimentoPaymentDialog } from '@/components/recebimento/RecebimentoPaymentDialog'
 import { useAuth } from '@/hooks/use-auth'
 import { useUserStore } from '@/stores/useUserStore'
@@ -15,7 +15,7 @@ import { useSearchParams } from 'react-router-dom'
 
 export default function RecebimentoPage() {
   const [loading, setLoading] = useState(true)
-  const [installments, setInstallments] = useState<RecebimentoInstallment[]>([])
+  const [items, setItems] = useState<ConsolidatedRecebimento[]>([])
   const [searchParams] = useSearchParams()
 
   // Filters
@@ -27,9 +27,7 @@ export default function RecebimentoPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
 
   // Selection
-  const [selectedInstallmentId, setSelectedInstallmentId] = useState<
-    number | null
-  >(null)
+  const [selectedVendaId, setSelectedVendaId] = useState<number | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
 
   const { toast } = useToast()
@@ -40,34 +38,32 @@ export default function RecebimentoPage() {
     const search = searchParams.get('search')
     if (search) {
       setSearchTerm(search)
-      // When coming from shortcut, usually one wants to see what is pending or everything for that client
-      // Default is PENDENTE, which is fine for 'paying'.
     }
   }, [searchParams])
 
   const loadData = async () => {
     setLoading(true)
     try {
-      const data = await recebimentoService.getInstallments({
+      const data = await recebimentoService.getConsolidatedRecebimentos({
         search: searchTerm,
         status: statusFilter,
         orderId: orderFilter,
         startDate: dateRange?.from,
         endDate: dateRange?.to,
       })
-      setInstallments(data)
+      setItems(data)
 
       if (
-        selectedInstallmentId &&
-        !data.find((i) => i.id === selectedInstallmentId)
+        selectedVendaId &&
+        !data.find((i) => i.venda_id === selectedVendaId)
       ) {
-        setSelectedInstallmentId(null)
+        setSelectedVendaId(null)
       }
     } catch (error) {
       console.error(error)
       toast({
         title: 'Erro',
-        description: 'Não foi possível carregar as parcelas.',
+        description: 'Não foi possível carregar os recebimentos.',
         variant: 'destructive',
       })
     } finally {
@@ -82,11 +78,11 @@ export default function RecebimentoPage() {
     return () => clearTimeout(timer)
   }, [searchTerm, statusFilter, orderFilter, dateRange])
 
-  const handleSelectInstallment = (id: number) => {
-    if (selectedInstallmentId === id) {
-      setSelectedInstallmentId(null)
+  const handleSelectVenda = (vendaId: number) => {
+    if (selectedVendaId === vendaId) {
+      setSelectedVendaId(null)
     } else {
-      setSelectedInstallmentId(id)
+      setSelectedVendaId(vendaId)
     }
   }
 
@@ -97,28 +93,28 @@ export default function RecebimentoPage() {
     setDateRange(undefined)
   }
 
-  const selectedInstallment = useMemo(() => {
-    return installments.find((i) => i.id === selectedInstallmentId) || null
-  }, [installments, selectedInstallmentId])
+  const selectedItem = useMemo(() => {
+    return items.find((i) => i.venda_id === selectedVendaId) || null
+  }, [items, selectedVendaId])
 
   const handleProcessPayment = async (
-    id: number,
+    _id: number, // Legacy ID param, ignored in favor of selectedItem
     amount: number,
     date: string,
     method: string,
     pixDetails?: { nome: string; banco: string },
   ) => {
-    if (!selectedInstallment) return
+    if (!selectedItem) return
 
     try {
       const userName = employee?.nome_completo || user?.email || 'Sistema'
 
-      const result = await recebimentoService.processInstallmentPayment(
-        id,
+      const result = await recebimentoService.processOrderPayment(
+        selectedItem.venda_id,
+        selectedItem.cliente_id,
         amount,
         date,
         method,
-        selectedInstallment.venda_id,
         pixDetails,
         userName,
         employee?.id,
@@ -128,7 +124,7 @@ export default function RecebimentoPage() {
         toast({
           title: 'Pagamento Registrado',
           description:
-            'O pagamento foi salvo, mas houve um atraso na sincronização com o histórico de débitos (Sync Delay).',
+            'O pagamento foi salvo, mas houve um atraso na sincronização com o histórico (Sync Delay).',
           className: 'bg-yellow-600 text-white',
         })
       } else {
@@ -144,20 +140,20 @@ export default function RecebimentoPage() {
       console.error(error)
       toast({
         title: 'Erro',
-        description: 'Falha ao processar pagamento. Verifique a conexão.',
+        description: 'Falha ao processar pagamento.',
         variant: 'destructive',
       })
       throw error
     }
   }
 
-  const handleGenerateReceipt = async (inst: RecebimentoInstallment) => {
+  const handleGenerateReceipt = async (inst: ConsolidatedRecebimento) => {
     try {
       toast({ title: 'Gerando comprovante...', duration: 2000 })
       const blob = await recebimentoService.generateReceiptPdf(inst)
 
       const url = window.URL.createObjectURL(blob)
-      window.open(url, '_blank') // Open in new tab/window for printing
+      window.open(url, '_blank')
       setTimeout(() => window.URL.revokeObjectURL(url), 1000)
     } catch (error) {
       console.error(error)
@@ -177,7 +173,7 @@ export default function RecebimentoPage() {
             Recebimentos
           </h1>
           <p className="text-muted-foreground">
-            Gerencie parcelas, pagamentos e emita comprovantes.
+            Gerencie pagamentos e débitos consolidados por pedido.
           </p>
         </div>
         <div className="flex gap-2">
@@ -189,7 +185,7 @@ export default function RecebimentoPage() {
           </Button>
           <Button
             onClick={() => setDialogOpen(true)}
-            disabled={!selectedInstallmentId}
+            disabled={!selectedVendaId}
             variant="default"
             className="bg-green-600 hover:bg-green-700"
           >
@@ -217,9 +213,9 @@ export default function RecebimentoPage() {
         <CardContent className="p-0">
           <RecebimentoTable
             loading={loading}
-            installments={installments}
-            selectedInstallmentId={selectedInstallmentId}
-            onSelectInstallment={handleSelectInstallment}
+            installments={items}
+            selectedVendaId={selectedVendaId}
+            onSelectVenda={handleSelectVenda}
             onGenerateReceipt={handleGenerateReceipt}
           />
         </CardContent>
@@ -228,7 +224,7 @@ export default function RecebimentoPage() {
       <RecebimentoPaymentDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        installment={selectedInstallment}
+        installment={selectedItem}
         onConfirm={handleProcessPayment}
       />
     </div>
