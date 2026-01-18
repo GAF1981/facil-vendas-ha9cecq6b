@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { RotaMotoqueiroCardItem } from '@/components/rota-motoqueiro/RotaMotoqueiroCardItem'
 import { CollectionActionsSheet } from '@/components/cobranca/CollectionActionsSheet'
 import { MotoqueiroReceiptDialog } from '@/components/rota-motoqueiro/MotoqueiroReceiptDialog'
+import { KmManagementSection } from '@/components/rota-motoqueiro/KmManagementSection'
 import { useToast } from '@/hooks/use-toast'
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
@@ -31,6 +32,7 @@ interface MotoqueiroItem {
   email_cobranca?: string | null
   clientStatus?: string | null
   motivo?: string | null
+  paymentsMade?: { method?: string; employeeName?: string; value: number }[]
 }
 
 export default function RotaMotoqueiroPage() {
@@ -100,6 +102,7 @@ export default function RotaMotoqueiroPage() {
                 email_cobranca: client.email_cobranca,
                 clientStatus: client.situacao,
                 motivo: inst.motivo || null,
+                paymentsMade: order.paymentsMade, // Pass payments info
               })
             }
           })
@@ -275,6 +278,9 @@ export default function RotaMotoqueiroPage() {
           ))}
         </div>
       )}
+
+      {/* New Section Integration */}
+      <KmManagementSection />
 
       <CollectionActionsSheet
         isOpen={actionSheet.open}

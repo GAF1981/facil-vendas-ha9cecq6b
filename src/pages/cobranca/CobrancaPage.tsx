@@ -322,8 +322,6 @@ export default function CobrancaPage() {
   }
 
   const handleRefreshCourierRoute = async () => {
-    // This function ensures data is fresh. Since we already fetch and subscribe,
-    // explicitly reloading is the main action to ensure "Courier Dashboard Card" sees latest data
     await loadDebts()
     toast({
       title: 'Rota Atualizada',

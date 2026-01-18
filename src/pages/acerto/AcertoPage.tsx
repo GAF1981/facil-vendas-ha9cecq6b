@@ -225,8 +225,6 @@ export default function AcertoPage() {
   }
 
   const handleQueueAdjustment = (adjustment: PendingStockAdjustment) => {
-    // Ensure date is properly formatted as ISO string before queueing
-    // This is defensive coding for the User Story
     const safeAdjustment = {
       ...adjustment,
       data_acerto: adjustment.data_acerto || new Date().toISOString(),
@@ -390,7 +388,6 @@ export default function AcertoPage() {
     const totalPaid = payments.reduce((acc, p) => acc + p.paidValue, 0)
     const totalRegistered = payments.reduce((acc, p) => acc + p.value, 0)
 
-    // Feature 4: Zero Balance Validation for Captação
     if (isCaptacao && totalPaid !== 0) {
       toast({
         title: 'Erro de Validação',
@@ -401,11 +398,7 @@ export default function AcertoPage() {
       return
     }
 
-    // STRICT VALIDATION for Normal Acerto
-    // The "Total Selecionado" (totalRegistered) value must be exactly equal to "Saldo a Pagar" (amountToPay)
-    // This implies that "Restante" must be 0
     if (!isCaptacao) {
-      // Using 0.01 epsilon for float comparison safety
       if (Math.abs(totalRegistered - amountToPay) > 0.01) {
         toast({
           title: 'Erro de Validação',
@@ -417,8 +410,6 @@ export default function AcertoPage() {
       }
     }
 
-    // Financial Validation: Paid Amount > Due Amount Check
-    // Use a small epsilon for floating point comparison safety
     if (totalPaid > amountToPay + 0.01) {
       toast({
         title: 'Erro Financeiro',
@@ -448,7 +439,6 @@ export default function AcertoPage() {
       return
     }
 
-    // Zero-Stock Inactivity Alert Check
     const totalStock = items.reduce(
       (acc, item) => acc + (item.saldoFinal || 0),
       0,
@@ -462,7 +452,6 @@ export default function AcertoPage() {
 
   const handleZeroStockConfirm = () => {
     setZeroStockDialogOpen(false)
-    // Pass true to flag for inactivation in the new table
     executeSave(true)
   }
 
@@ -475,7 +464,6 @@ export default function AcertoPage() {
     try {
       const now = new Date()
       // 1. Save Transaction and get final Order Number
-      // This call also triggers reportsService.updateDebtHistoryForOrder immediately after save
       const finalOrderNumber = await bancoDeDadosService.saveTransaction(
         client,
         emp,
@@ -487,14 +475,13 @@ export default function AcertoPage() {
       )
 
       // 2. Process Pending Stock Adjustments
-      // Ensure we send valid dates to prevent timestamp errors
       if (pendingAdjustments.length > 0) {
         for (const adj of pendingAdjustments) {
           try {
             await bancoDeDadosService.logInitialBalanceAdjustment({
               ...adj,
               numero_pedido: finalOrderNumber,
-              data_acerto: adj.data_acerto || now.toISOString(), // Ensure proper ISO timestamp
+              data_acerto: adj.data_acerto || now.toISOString(),
             })
           } catch (logError) {
             console.error('Failed to log adjustment', adj, logError)
@@ -505,13 +492,11 @@ export default function AcertoPage() {
       // 3. Handle Inactivation Flagging (New Requirement)
       if (flagInactivation) {
         const valorPagoTotal = payments.reduce((acc, p) => acc + p.paidValue, 0)
-        // Fetch total accumulated debt for accuracy
         let totalDebt = 0
         try {
           totalDebt = await cobrancaService.getClientDebtSummary(client.CODIGO)
         } catch (e) {
           console.error('Error fetching total debt for inactivation:', e)
-          // Fallback to current order calculation if fetch fails, though ideal is total
           totalDebt = Math.max(0, amountToPay - valorPagoTotal)
         }
 
@@ -530,7 +515,7 @@ export default function AcertoPage() {
       // 4. Fetch History for PDF
       const history = await bancoDeDadosService.getAcertoHistory(client.CODIGO)
 
-      // 5. Generate Final PDF
+      // 5. Generate Final PDF with Signature
       const pdfBlob = await acertoService.generatePdf(
         {
           client,
@@ -579,7 +564,6 @@ export default function AcertoPage() {
       setPendingAdjustments([])
 
       if (flagInactivation) {
-        // Redirect to Inativar Clientes as per user story
         navigate('/inativar-clientes')
       }
     } catch (err: any) {
@@ -681,7 +665,7 @@ export default function AcertoPage() {
                   saldoAPagar={amountToPay}
                   payments={payments}
                   onPaymentsChange={setPayments}
-                  disabled={saving || isCaptacao} // Feature 3: Disable payment fields in Captacao
+                  disabled={saving || isCaptacao}
                 />
               </div>
               <div className="lg:col-span-1 flex flex-col gap-6">

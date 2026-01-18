@@ -8,11 +8,16 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Loader2, Printer } from 'lucide-react'
+import { Loader2, Printer, AlertCircle } from 'lucide-react'
 import { formatCurrency, safeFormatDate } from '@/lib/formatters'
 import { RecebimentoInstallment } from '@/types/recebimento'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 
 interface RecebimentoTableProps {
   loading: boolean
@@ -124,18 +129,51 @@ export function RecebimentoTable({
                     <div className="flex items-center justify-end gap-2">
                       <span>{formatCurrency(inst.valor_pago)}</span>
                       {inst.valor_pago > 0 && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 p-0 hover:bg-green-100 text-green-700"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onGenerateReceipt(inst)
-                          }}
-                          title="Imprimir Recibo 80mm"
-                        >
-                          <Printer className="h-3 w-3" />
-                        </Button>
+                        <>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 p-0 text-amber-500 hover:text-amber-600"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <AlertCircle className="h-3 w-3" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-60 p-2 text-xs">
+                              <h4 className="font-semibold mb-2 text-muted-foreground">
+                                Detalhes do Recebimento
+                              </h4>
+                              <div className="space-y-1">
+                                <div className="flex justify-between border-b pb-1">
+                                  <span>Método:</span>
+                                  <span className="font-medium">
+                                    {inst.forma_pagamento}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Recebido por:</span>
+                                  <span className="font-medium">
+                                    {inst.funcionario_nome || 'N/D'}
+                                  </span>
+                                </div>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 p-0 hover:bg-green-100 text-green-700"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onGenerateReceipt(inst)
+                            }}
+                            title="Imprimir Recibo 80mm"
+                          >
+                            <Printer className="h-3 w-3" />
+                          </Button>
+                        </>
                       )}
                     </div>
                   </TableCell>

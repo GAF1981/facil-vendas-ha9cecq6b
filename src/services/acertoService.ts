@@ -159,9 +159,6 @@ export const acertoService = {
     // Fetch History
     const history = await bancoDeDadosService.getHistoryForPdf(clientId)
     // Filter out current order if it appears in history to avoid duplication in "Previous History" section
-    // Although sometimes seeing current order in history context is desired, usually 'history' implies past.
-    // The requirement image shows history including #438, #436 when printing #439.
-    // So we should filter out orderId.
     const recentHistory = history.filter((h) => h.id !== orderId)
     const lastOrder = recentHistory.length > 0 ? recentHistory[0] : null
 

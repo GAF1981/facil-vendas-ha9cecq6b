@@ -9,6 +9,7 @@ import {
 } from '@/types/cobranca'
 import { isBefore, parseISO, startOfDay, isValid } from 'date-fns'
 import { reportsService } from '@/services/reportsService'
+import { getBrazilDateString } from '@/lib/dateUtils'
 
 export const cobrancaService = {
   async getDebts(): Promise<ClientDebt[]> {
@@ -141,7 +142,12 @@ export const cobrancaService = {
       number,
       {
         totalPaid: number
-        history: { date: string; value: number }[]
+        history: {
+          date: string
+          value: number
+          method?: string
+          employeeName?: string
+        }[]
         rawInstallments: any[]
       }
     >()
@@ -151,7 +157,7 @@ export const cobrancaService = {
       const { data: recData, error: recError } = await supabase
         .from('RECEBIMENTOS')
         .select(
-          'id, venda_id, valor_pago, vencimento, valor_registrado, forma_pagamento, forma_cobranca, data_combinada, motivo',
+          'id, venda_id, valor_pago, vencimento, valor_registrado, forma_pagamento, forma_cobranca, data_combinada, motivo, FUNCIONARIOS(nome_completo)',
         )
         .in('venda_id', chunk)
 
@@ -176,6 +182,8 @@ export const cobrancaService = {
           entry.history.push({
             date: r.vencimento || '',
             value: valPago,
+            method: r.forma_pagamento || 'N/D',
+            employeeName: r.FUNCIONARIOS?.nome_completo || 'N/D',
           })
         }
 
@@ -422,8 +430,6 @@ export const cobrancaService = {
 
       if (error) throw error
     }
-
-    // Handle synthetic IDs individually if strictly necessary
   },
 
   async getCollectionActions(orderId: string): Promise<CollectionAction[]> {
@@ -460,14 +466,14 @@ export const cobrancaService = {
   async addCollectionAction(action: CollectionActionInsert): Promise<void> {
     const payload = {
       acao: action.acao,
-      data_acao: action.dataAcao,
+      data_acao: action.dataAcao || getBrazilDateString(), // Use Brazil Date if missing
       nova_data_combinada: action.novaDataCombinada || null,
       funcionario_nome: action.funcionarioNome,
       funcionario_id: action.funcionarioId,
       pedido_id: action.pedidoId,
       cliente_id: action.clienteId,
       cliente_nome: action.clienteNome,
-      motivo: action.motivo || null, // Ensure field is passed
+      motivo: action.motivo || null,
     }
 
     const { data: insertedAction, error } = await supabase

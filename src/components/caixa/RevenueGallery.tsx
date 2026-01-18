@@ -78,7 +78,14 @@ export function RevenueGallery({ items }: RevenueGalleryProps) {
                       {safeFormatDate(item.data, 'dd/MM/yy HH:mm')}
                     </TableCell>
                     <TableCell className="font-medium text-sm">
-                      {item.clienteNome}
+                      <div className="flex flex-col">
+                        <span>{item.clienteNome}</span>
+                        {item.orderId && (
+                          <span className="text-[10px] text-muted-foreground">
+                            Pedido #{item.orderId}
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-xs">
                       {item.funcionarioNome || 'N/D'}

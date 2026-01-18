@@ -18,6 +18,7 @@ import {
   Phone,
   Mail,
   Info,
+  AlertCircle,
 } from 'lucide-react'
 import { formatCurrency, safeFormatDate } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
@@ -26,6 +27,11 @@ import { useToast } from '@/hooks/use-toast'
 import { useState } from 'react'
 import { EditContactDialog } from './EditContactDialog'
 import { useNavigate } from 'react-router-dom'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 
 interface RotaMotoqueiroItem {
   clientId: number
@@ -45,6 +51,7 @@ interface RotaMotoqueiroItem {
   email_cobranca?: string | null
   clientStatus?: string | null
   motivo?: string | null
+  paymentsMade?: { method?: string; employeeName?: string; value: number }[]
 }
 
 interface RotaMotoqueiroCardItemProps {
@@ -58,7 +65,6 @@ export function RotaMotoqueiroCardItem({
   item,
   onConsult,
   onRegisterAction,
-  // onRegisterReceipt prop is kept for interface compatibility but handler logic is replaced by navigation
 }: RotaMotoqueiroCardItemProps) {
   const isOverdue = item.status === 'VENCIDO'
   const isPaid = item.status === 'PAGO'
@@ -210,7 +216,47 @@ export function RotaMotoqueiroCardItem({
               <p className="font-medium">{formatCurrency(item.valorParc)}</p>
             </div>
             <div className="space-y-0.5">
-              <span className="text-xs text-muted-foreground">Pago</span>
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                Pago
+                {item.pago > 0 && (
+                  <Popover>
+                    <PopoverTrigger>
+                      <AlertCircle className="h-3 w-3 text-amber-500 cursor-pointer" />
+                    </PopoverTrigger>
+                    <PopoverContent className="w-60 p-2 text-xs">
+                      <h4 className="font-semibold mb-2 text-muted-foreground">
+                        Detalhes do Pagamento
+                      </h4>
+                      <div className="space-y-2">
+                        {item.paymentsMade && item.paymentsMade.length > 0 ? (
+                          item.paymentsMade.map((p, i) => (
+                            <div
+                              key={i}
+                              className="flex justify-between border-b pb-1 last:border-0"
+                            >
+                              <div className="flex flex-col">
+                                <span className="font-medium">
+                                  {p.method || 'N/D'}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground">
+                                  Rec: {p.employeeName}
+                                </span>
+                              </div>
+                              <span className="font-bold text-green-600">
+                                R$ {formatCurrency(p.value)}
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <span className="italic text-muted-foreground">
+                            Sem detalhes disponíveis
+                          </span>
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                )}
+              </span>
               <p className="font-medium text-green-600">
                 {formatCurrency(item.pago)}
               </p>
@@ -223,7 +269,6 @@ export function RotaMotoqueiroCardItem({
             </div>
           </div>
 
-          {/* New Actions Row */}
           <div className="flex gap-2 mt-2">
             <Button
               variant="outline"
@@ -247,21 +292,31 @@ export function RotaMotoqueiroCardItem({
         </CardContent>
         <CardFooter className="p-3 bg-muted/20 flex flex-col gap-2">
           {item.telefone_cobranca && (
-            <div className="w-full text-center text-[10px] text-muted-foreground font-medium mb-1">
+            <div className="w-full text-center text-[10px] text-muted-foreground font-medium mb-1 flex items-center justify-center gap-2">
               Telefone Cobrança: {item.telefone_cobranca}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5 p-0 text-green-600 hover:text-green-700 hover:bg-green-100 rounded-full"
+                onClick={handleWhatsApp}
+                title="Abrir WhatsApp"
+              >
+                <MessageCircle className="h-3 w-3" />
+              </Button>
             </div>
           )}
 
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full text-green-700 border-green-200 hover:bg-green-50 hover:text-green-800 h-8"
-            onClick={handleWhatsApp}
-            disabled={!item.phone && !item.telefone_cobranca}
-          >
-            <MessageCircle className="w-4 h-4 mr-2" />
-            WhatsApp
-          </Button>
+          {!item.telefone_cobranca && item.phone && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full text-green-700 border-green-200 hover:bg-green-50 hover:text-green-800 h-8"
+              onClick={handleWhatsApp}
+            >
+              <MessageCircle className="w-4 h-4 mr-2" />
+              WhatsApp (Cadastro)
+            </Button>
+          )}
 
           {item.email_cobranca && (
             <div className="w-full text-center text-[10px] text-muted-foreground mb-1">
@@ -324,7 +379,7 @@ export function RotaMotoqueiroCardItem({
         clientName={item.clientName}
         initialValue={item.telefone_cobranca || item.phone || ''}
         type="phone"
-        onSuccess={onConsult} // Re-using onConsult to trigger refresh if parent handles it, otherwise just updates DB
+        onSuccess={onConsult}
       />
 
       <EditContactDialog

@@ -18,6 +18,7 @@ import {
   Info,
   ArrowUp,
   ArrowDown,
+  MessageCircle,
 } from 'lucide-react'
 import { ClientDebt } from '@/types/cobranca'
 import { formatCurrency } from '@/lib/formatters'
@@ -80,6 +81,8 @@ interface FlatRow {
   formaCobranca: string | null
   dataCombinada: string | null
   motivo: string | null
+  telefoneCobranca: string | null
+  emailCobranca: string | null
   collectionActionCount: number
   orderTotal: number
   orderPayments: { method: string; value: number; dueDate: string }[]
@@ -176,6 +179,13 @@ export function DebtTable({
     })
   }
 
+  const handleWhatsApp = (phone: string) => {
+    const cleanPhone = phone.replace(/\D/g, '')
+    if (cleanPhone) {
+      window.open(`https://wa.me/55${cleanPhone}`, '_blank')
+    }
+  }
+
   const flattenedData: FlatRow[] = useMemo(() => {
     const rows = data.flatMap((client) =>
       client.orders.flatMap((order) => {
@@ -219,6 +229,8 @@ export function DebtTable({
             formaCobranca: currentFormaCobranca,
             dataCombinada: currentDataCombinada,
             motivo: currentMotivo,
+            telefoneCobranca: client.telefone_cobranca || client.phone,
+            emailCobranca: client.email_cobranca,
             collectionActionCount: order.collectionActionCount,
             orderTotal: order.netValue,
             orderPayments: order.paymentsMade.map((pd) => ({
@@ -407,12 +419,6 @@ export function DebtTable({
                   </div>
                 </TableHead>
               )}
-              {/* CEP Column */}
-              {!isSimplified && (
-                <TableHead className="min-w-[90px] bg-background">
-                  CEP
-                </TableHead>
-              )}
               <TableHead className="min-w-[80px] text-center bg-background">
                 Contador
               </TableHead>
@@ -443,9 +449,15 @@ export function DebtTable({
               <TableHead className="min-w-[150px] bg-background">
                 Data Combinada
               </TableHead>
-              {/* New Motivo Column */}
               <TableHead className="min-w-[150px] bg-background">
                 Motivo
+              </TableHead>
+              {/* New Columns */}
+              <TableHead className="min-w-[150px] bg-background">
+                Telefone Cobrança
+              </TableHead>
+              <TableHead className="min-w-[150px] bg-background">
+                Email Cobrança
               </TableHead>
               <TableHead className="min-w-[80px] text-center bg-background">
                 Ações
@@ -464,7 +476,7 @@ export function DebtTable({
             {flattenedData.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={isCobrancaMode ? 16 : 20} // Adjusted colspan
+                  colSpan={isCobrancaMode ? 18 : 22}
                   className="h-24 text-center text-muted-foreground"
                 >
                   {showOnlySelected
@@ -516,14 +528,6 @@ export function DebtTable({
                         title={row.city || ''}
                       >
                         {row.city || '-'}
-                      </TableCell>
-                    )}
-                    {!isSimplified && (
-                      <TableCell
-                        className="text-xs text-muted-foreground font-mono"
-                        title={row.cep || ''}
-                      >
-                        {row.cep || '-'}
                       </TableCell>
                     )}
 
@@ -695,7 +699,6 @@ export function DebtTable({
                         </Button>
                       </div>
                     </TableCell>
-                    {/* Motivo Dropdown */}
                     <TableCell>
                       <Select
                         value={row.motivo || ''}
@@ -724,6 +727,37 @@ export function DebtTable({
                           </SelectItem>
                         </SelectContent>
                       </Select>
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {row.telefoneCobranca ? (
+                        <div className="flex items-center gap-1">
+                          <span
+                            className="truncate max-w-[100px]"
+                            title={row.telefoneCobranca}
+                          >
+                            {row.telefoneCobranca}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full"
+                            onClick={() =>
+                              handleWhatsApp(row.telefoneCobranca!)
+                            }
+                            title="Abrir WhatsApp"
+                          >
+                            <MessageCircle className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell
+                      className="text-xs truncate max-w-[120px]"
+                      title={row.emailCobranca || ''}
+                    >
+                      {row.emailCobranca || '-'}
                     </TableCell>
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-1">

@@ -9,6 +9,7 @@ import {
   startOfDay,
   format,
 } from 'date-fns'
+import { getBrazilDateString } from '@/lib/dateUtils'
 
 export interface CaixaSummaryRow {
   funcionarioId: number
@@ -27,6 +28,7 @@ export interface ReceiptDetail {
   forma: string
   funcionarioNome?: string
   funcionarioId?: number
+  orderId?: number
 }
 
 export interface ExpenseDetail {
@@ -45,30 +47,27 @@ export interface FuelReportRow {
   id: number
   date: string
   employeeName: string
-  employeeId?: number // Added for filtering
+  employeeId?: number
   gasolineValue: number
   initialOdometer: number | null
   finalOdometer: number
   costPerKm: number | null
-  vehiclePlate: string | null // New Field
-  vehicleId: number | null // New Field
-  fuelType?: string // New Field
+  vehiclePlate: string | null
+  vehicleId: number | null
+  fuelType?: string
 }
 
 export const caixaService = {
   async saveDespesa(despesa: DespesaInsert) {
-    // Fix: Save using Local Time (Brazil) converted to ISO safe string
     let dataToSave: string
 
     if (despesa.Data) {
       // If date is provided (YYYY-MM-DD), append Noon to be safe against timezone shifts
       dataToSave = new Date(`${despesa.Data}T12:00:00`).toISOString()
     } else {
-      // If no date (Today), get today in SP timezone YYYY-MM-DD
-      const todaySP = new Date().toLocaleDateString('en-CA', {
-        timeZone: 'America/Sao_Paulo',
-      })
-      dataToSave = new Date(`${todaySP}T12:00:00`).toISOString()
+      // Use Brazil Date Utils
+      const brazilDate = getBrazilDateString()
+      dataToSave = new Date(`${brazilDate}T12:00:00`).toISOString()
     }
 
     const { error } = await supabase.from('DESPESAS').insert({
@@ -172,17 +171,14 @@ export const caixaService = {
 
     expenses?.forEach((exp) => {
       if (!exp.Data) return
-      // Only count expenses that explicitly came out of the cashier for TOTALS
       if (exp.saiu_do_caixa === false) return
 
       const expDate = parseISO(exp.Data)
       const expDay = startOfDay(expDate)
 
-      // Check if expense day is same or after route start day
       const isAfterOrSameStartDay =
         isAfter(expDay, routeStartDay) || isEqual(expDay, routeStartDay)
 
-      // If route is closed, check if expense day is same or before route end day
       const isBeforeOrSameEndDay = rota.data_fim
         ? isBefore(expDay, routeEndDay) || isEqual(expDay, routeEndDay)
         : true
@@ -225,6 +221,8 @@ export const caixaService = {
         valor_pago,
         forma_pagamento,
         funcionario_id,
+        venda_id,
+        data_pagamento,
         CLIENTES ( "NOME CLIENTE" ),
         FUNCIONARIOS ( nome_completo )
       `,
@@ -236,23 +234,28 @@ export const caixaService = {
     if (error) throw error
 
     const filtered = (data || []).filter((rec) => {
-      if (!rec.created_at) return false
-      const recDate = parseISO(rec.created_at)
+      // Use data_pagamento if available, otherwise created_at
+      const dateToCheck = rec.data_pagamento || rec.created_at
+      if (!dateToCheck) return false
+
+      const recDate = parseISO(dateToCheck)
       const isAfterStart =
         isAfter(recDate, routeStart) || isEqual(recDate, routeStart)
       const isBeforeEnd =
         isBefore(recDate, routeEnd) || isEqual(recDate, routeEnd)
+
       return isAfterStart && (rota.data_fim ? isBeforeEnd : true)
     })
 
     return filtered.map((rec: any) => ({
       id: rec.id,
-      data: rec.created_at,
+      data: rec.data_pagamento || rec.created_at,
       clienteNome: rec.CLIENTES?.['NOME CLIENTE'] || 'N/D',
       valor: rec.valor_pago,
       forma: rec.forma_pagamento,
       funcionarioNome: rec.FUNCIONARIOS?.nome_completo || 'N/D',
       funcionarioId: rec.funcionario_id,
+      orderId: rec.venda_id,
     }))
   },
 
@@ -317,8 +320,10 @@ export const caixaService = {
         `
         id,
         created_at,
+        data_pagamento,
         valor_pago,
         forma_pagamento,
+        venda_id,
         CLIENTES (
           "NOME CLIENTE"
         )
@@ -332,8 +337,10 @@ export const caixaService = {
     if (error) throw error
 
     const filtered = (data || []).filter((rec) => {
-      if (!rec.created_at) return false
-      const recDate = parseISO(rec.created_at)
+      const dateToCheck = rec.data_pagamento || rec.created_at
+      if (!dateToCheck) return false
+
+      const recDate = parseISO(dateToCheck)
       const isAfterStart =
         isAfter(recDate, routeStart) || isEqual(recDate, routeStart)
       const isBeforeEnd =
@@ -343,10 +350,11 @@ export const caixaService = {
 
     return filtered.map((rec: any) => ({
       id: rec.id,
-      data: rec.created_at,
+      data: rec.data_pagamento || rec.created_at,
       clienteNome: rec.CLIENTES?.['NOME CLIENTE'] || 'N/D',
       valor: rec.valor_pago,
       forma: rec.forma_pagamento,
+      orderId: rec.venda_id,
     }))
   },
 
@@ -433,16 +441,13 @@ export const caixaService = {
       query = query.eq('funcionario_id', filters.employeeId)
     }
 
-    const { data, error } = await query.order('Data', { ascending: true }) // Sorted by date to calculate distances
+    const { data, error } = await query.order('Data', { ascending: true })
 
     if (error) throw error
 
-    // Group by Vehicle (Plate) for efficiency calc
-    // Fallback to Employee grouping if vehicle not present (legacy data support)
     const groupedData = new Map<string, any[]>()
 
     data?.forEach((row: any) => {
-      // Key is Vehicle ID if present, else Employee ID as fallback
       const key = row.veiculo_id
         ? `V-${row.veiculo_id}`
         : `E-${row.funcionario_id}`
@@ -454,7 +459,6 @@ export const caixaService = {
     const reportRows: FuelReportRow[] = []
 
     groupedData.forEach((entries) => {
-      // Sort entries by Date ascending within group
       entries.sort(
         (a, b) => new Date(a.Data).getTime() - new Date(b.Data).getTime(),
       )
@@ -470,8 +474,6 @@ export const caixaService = {
           initialOdo = previous.hodometro
           const distance = current.hodometro - initialOdo
           if (distance > 0 && previous.Valor > 0) {
-            // Formula from AC: Current Row Km percorrido / Previous Row Valor (R$)
-            // This is Km/R$ (Efficiency)
             costPerKm = distance / previous.Valor
           }
         }
@@ -492,7 +494,6 @@ export const caixaService = {
       }
     })
 
-    // Return sorted by date descending for report view
     return reportRows.sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
     )

@@ -26,7 +26,6 @@ export function SignatureModal({
 
   useEffect(() => {
     if (open && canvasRef.current) {
-      // Reset/Init canvas when opened
       const canvas = canvasRef.current
       const ctx = canvas.getContext('2d')
       if (ctx) {
@@ -61,7 +60,7 @@ export function SignatureModal({
   }
 
   const startDrawing = (event: React.MouseEvent | React.TouchEvent) => {
-    event.preventDefault() // Prevent scrolling on touch
+    event.preventDefault()
     setIsDrawing(true)
     const { x, y } = getCoordinates(event)
     const ctx = canvasRef.current?.getContext('2d')
@@ -103,11 +102,8 @@ export function SignatureModal({
   const handleSave = () => {
     if (canvasRef.current) {
       const dataUrl = canvasRef.current.toDataURL('image/png')
-      // Defensive check to prevent crash if onSave is not provided or not a function
       if (typeof onSave === 'function') {
         onSave(dataUrl)
-      } else {
-        console.error('onSave callback is missing or not a function')
       }
       onOpenChange(false)
     }

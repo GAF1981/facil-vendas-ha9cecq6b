@@ -96,7 +96,7 @@ export default function CaixaPage() {
   }>({ open: false, empId: null, empName: '' })
 
   const [generatingPdf, setGeneratingPdf] = useState(false)
-  const [printFormat, setPrintFormat] = useState<'A4' | '80mm'>('A4') // Default to A4 per requirement
+  const [printFormat, setPrintFormat] = useState<'A4' | '80mm'>('A4')
 
   const canSelectEmployee = useMemo(() => {
     if (!loggedInUser) return false
@@ -127,10 +127,6 @@ export default function CaixaPage() {
 
   useEffect(() => {
     if (loggedInUser && !selectedEmployeeId) {
-      // If user is Motoqueiro, maybe we shouldn't auto-select?
-      // Requirement says "hide employee summaries for the Motoqueiro sector".
-      // But if I am a Motoqueiro, I probably want to see my own data.
-      // The requirement likely applies to the Manager view.
       setSelectedEmployeeId(loggedInUser.id.toString())
     }
   }, [loggedInUser, selectedEmployeeId])
@@ -214,9 +210,6 @@ export default function CaixaPage() {
   const filteredSummary = useMemo(() => {
     let data = summaryData
 
-    // Filter out Motoqueiro sector from the list (unless specifically selected)
-    // We filter FIRST, then apply selection filter if needed.
-    // If no selection, we show everyone EXCEPT Motoqueiro.
     if (!selectedEmployeeId) {
       data = data.filter((row) => {
         const emp = activeEmployees.find((e) => e.id === row.funcionarioId)
@@ -225,7 +218,6 @@ export default function CaixaPage() {
             ? emp.setor
             : [emp.setor]
           : []
-        // Normalize sector check
         const isMoto = sectors.some((s) => s.toLowerCase() === 'motoqueiro')
         return !isMoto
       })
@@ -311,7 +303,6 @@ export default function CaixaPage() {
         employeeId ||
         (selectedEmployeeId ? parseInt(selectedEmployeeId) : undefined)
 
-      // Use the specific report type for A4 layout as per requirement
       const reportType = 'employee-cash-summary'
       const employeeData = targetId
         ? {
@@ -354,14 +345,11 @@ export default function CaixaPage() {
           .reduce((acc, r) => acc + r.valor, 0)
         finalSaldoDeAcerto = finalTotalSaldo - empPix
 
-        // Fetch additional data for detailed report if needed (Settlements)
-        // This makes the report consistent with Fechamento de Caixa
         const allSettlements =
           await resumoAcertosService.getSettlements(selectedRoute)
         settlements = allSettlements.filter((s) => s.employeeId === targetId)
       }
 
-      // Calculate totals for A4 breakdown
       const valorDinheiro = receiptsToPass
         .filter((r) => r.forma === 'Dinheiro')
         .reduce((acc, r) => acc + r.valor, 0)
@@ -401,7 +389,6 @@ export default function CaixaPage() {
             },
             employee: employeeData,
             date: new Date().toISOString(),
-            // Pass enriched data for the new template
             fechamento: {
               valor_dinheiro: valorDinheiro,
               valor_pix: valorPix,
