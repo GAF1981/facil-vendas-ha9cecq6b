@@ -137,7 +137,7 @@ export const caixaService = {
       .select(
         'funcionario_id, valor_pago, created_at, forma_pagamento, data_pagamento',
       )
-      .gte('created_at', rota.data_inicio)
+      .gte('created_at', rota.data_inicio) // Optimistic fetch
       .gt('valor_pago', 0)
 
     if (recError) throw recError
@@ -150,12 +150,16 @@ export const caixaService = {
       if (!dateToCheck) return
 
       const recDate = parseISO(dateToCheck)
-      const isAfterStart =
-        isAfter(recDate, routeStart) || isEqual(recDate, routeStart)
-      const isBeforeEnd =
-        isBefore(recDate, routeEnd) || isEqual(recDate, routeEnd)
+      const recDay = startOfDay(recDate)
 
-      if (isAfterStart && (rota.data_fim ? isBeforeEnd : true)) {
+      const isAfterOrSameStartDay =
+        isAfter(recDay, routeStartDay) || isEqual(recDay, routeStartDay)
+
+      const isBeforeOrSameEndDay = rota.data_fim
+        ? isBefore(recDay, routeEndDay) || isEqual(recDay, routeEndDay)
+        : true
+
+      if (isAfterOrSameStartDay && isBeforeOrSameEndDay) {
         const empId = rec.funcionario_id
         if (summaryMap.has(empId)) {
           const entry = summaryMap.get(empId)!
@@ -216,7 +220,9 @@ export const caixaService = {
 
   async getAllReceipts(rota: Rota): Promise<ReceiptDetail[]> {
     const routeStart = parseISO(rota.data_inicio)
+    const routeStartDay = startOfDay(routeStart)
     const routeEnd = rota.data_fim ? parseISO(rota.data_fim) : new Date()
+    const routeEndDay = startOfDay(routeEnd)
 
     const { data, error } = await supabase
       .from('RECEBIMENTOS')
@@ -233,7 +239,8 @@ export const caixaService = {
         FUNCIONARIOS ( nome_completo )
       `,
       )
-      .gte('created_at', rota.data_inicio)
+      // Use optimistic fetching on created_at to limit query size, but refine in memory
+      .gte('created_at', format(routeStartDay, 'yyyy-MM-dd'))
       .gt('valor_pago', 0)
       .order('created_at', { ascending: false })
 
@@ -245,12 +252,16 @@ export const caixaService = {
       if (!dateToCheck) return false
 
       const recDate = parseISO(dateToCheck)
-      const isAfterStart =
-        isAfter(recDate, routeStart) || isEqual(recDate, routeStart)
-      const isBeforeEnd =
-        isBefore(recDate, routeEnd) || isEqual(recDate, routeEnd)
+      const recDay = startOfDay(recDate)
 
-      return isAfterStart && (rota.data_fim ? isBeforeEnd : true)
+      const isAfterOrSameStartDay =
+        isAfter(recDay, routeStartDay) || isEqual(recDay, routeStartDay)
+
+      const isBeforeOrSameEndDay = rota.data_fim
+        ? isBefore(recDay, routeEndDay) || isEqual(recDay, routeEndDay)
+        : true
+
+      return isAfterOrSameStartDay && isBeforeOrSameEndDay
     })
 
     return filtered.map((rec: any) => ({
@@ -318,7 +329,9 @@ export const caixaService = {
     rota: Rota,
   ): Promise<ReceiptDetail[]> {
     const routeStart = parseISO(rota.data_inicio)
+    const routeStartDay = startOfDay(routeStart)
     const routeEnd = rota.data_fim ? parseISO(rota.data_fim) : new Date()
+    const routeEndDay = startOfDay(routeEnd)
 
     const { data, error } = await supabase
       .from('RECEBIMENTOS')
@@ -336,7 +349,7 @@ export const caixaService = {
       `,
       )
       .eq('funcionario_id', employeeId)
-      .gte('created_at', rota.data_inicio)
+      .gte('created_at', format(routeStartDay, 'yyyy-MM-dd'))
       .gt('valor_pago', 0)
       .order('created_at', { ascending: false })
 
@@ -347,11 +360,16 @@ export const caixaService = {
       if (!dateToCheck) return false
 
       const recDate = parseISO(dateToCheck)
-      const isAfterStart =
-        isAfter(recDate, routeStart) || isEqual(recDate, routeStart)
-      const isBeforeEnd =
-        isBefore(recDate, routeEnd) || isEqual(recDate, routeEnd)
-      return isAfterStart && (rota.data_fim ? isBeforeEnd : true)
+      const recDay = startOfDay(recDate)
+
+      const isAfterOrSameStartDay =
+        isAfter(recDay, routeStartDay) || isEqual(recDay, routeStartDay)
+
+      const isBeforeOrSameEndDay = rota.data_fim
+        ? isBefore(recDay, routeEndDay) || isEqual(recDay, routeEndDay)
+        : true
+
+      return isAfterOrSameStartDay && isBeforeOrSameEndDay
     })
 
     return filtered.map((rec: any) => ({

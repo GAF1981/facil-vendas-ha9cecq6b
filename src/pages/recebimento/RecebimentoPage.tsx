@@ -12,6 +12,8 @@ import { RecebimentoFilters } from '@/components/recebimento/RecebimentoFilters'
 import { RecebimentoTable } from '@/components/recebimento/RecebimentoTable'
 import { DateRange } from 'react-day-picker'
 import { useSearchParams } from 'react-router-dom'
+import { fechamentoService } from '@/services/fechamentoService'
+import { rotaService } from '@/services/rotaService'
 
 export default function RecebimentoPage() {
   const [loading, setLoading] = useState(true)
@@ -112,6 +114,27 @@ export default function RecebimentoPage() {
     if (!target) return
 
     try {
+      // 1. Process Integrity Validation
+      if (employee) {
+        const activeRota = await rotaService.getActiveRota()
+        if (activeRota) {
+          const closureStatus = await fechamentoService.getClosureStatus(
+            activeRota.id,
+            employee.id,
+          )
+          // If status is NOT null (meaning 'Aberto' or 'Fechado'), block action
+          if (closureStatus !== null) {
+            toast({
+              title: 'Ação Bloqueada',
+              description:
+                'Não é permitido realizar acertos ou recebimentos com o caixa fechado ou em processo de fechamento.',
+              variant: 'destructive',
+            })
+            return
+          }
+        }
+      }
+
       const userName = employee?.nome_completo || user?.email || 'Sistema'
 
       // We pass the installmentId to link the payment specifically to this installment

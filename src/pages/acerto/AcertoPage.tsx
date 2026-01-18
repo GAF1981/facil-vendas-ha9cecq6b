@@ -361,11 +361,12 @@ export default function AcertoPage() {
           activeRota.id,
           emp.id,
         )
-        if (closureStatus === 'Aberto' || closureStatus === 'Fechado') {
+        // If status is NOT null (meaning 'Aberto' or 'Fechado'), block action
+        if (closureStatus !== null) {
           toast({
             title: 'Ação Bloqueada',
             description:
-              'Seu Caixa está fechado para a Rota !!! Você deve aguardar abrir uma Nova Rota !!!',
+              'Não é permitido realizar acertos ou recebimentos com o caixa fechado ou em processo de fechamento.',
             variant: 'destructive',
           })
           return

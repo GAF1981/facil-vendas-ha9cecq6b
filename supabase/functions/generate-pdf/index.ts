@@ -78,8 +78,8 @@ Deno.serve(async (req) => {
       ) {
         const expensesCount = body.expenses ? body.expenses.length : 0
         const settlementsCount = body.settlements ? body.settlements.length : 0
-        estimatedHeight =
-          450 + expensesCount * 20 + (settlementsCount || 0) * 80
+        // Base size + dynamic items
+        estimatedHeight = 500 + expensesCount * 25 + settlementsCount * 80
       } else if (reportType === 'receipt') {
         estimatedHeight = 400
       } else if (!reportType || reportType === 'acerto') {
@@ -194,18 +194,17 @@ Deno.serve(async (req) => {
       return false
     }
 
-    // ... (Existing Report Logic for Closing/Receipt remains largely same, focus on signature at end) ...
-
     if (
       reportType === 'closing-confirmation' ||
       reportType === 'employee-cash-summary'
     ) {
-      // ... (Keep existing Closing Logic) ...
-      // Re-implementing simplified version to match context, assuming no changes needed here
-      // Just keeping minimal logic to avoid breaking other reports if they were passed
-      const { fechamento, date: closingDate } = body
+      const { fechamento, date: closingDate, expenses, settlements } = body
       const closingData = fechamento || body.data
       if (!closingData) throw new Error('No closing data provided')
+
+      const empName = closingData.funcionario?.nome_completo || 'Funcionario'
+      const routeId = closingData.rota_id || 'N/D'
+
       drawText('FACIL VENDAS', width / 2, y, {
         size: 16,
         font: fontBold,
@@ -220,14 +219,123 @@ Deno.serve(async (req) => {
       y -= 10
       drawLine(y)
       y -= 15
+
+      // Header
+      drawText(`Funcionario: ${empName}`, margins.left, y)
+      y -= 15
       drawText(
         `Data: ${safeFormatDate(closingDate)} ${safeFormatTime(closingDate)}`,
         margins.left,
         y,
-        { size: 10 },
       )
-      // ... rest of closing logic
-      // ...
+      y -= 15
+      drawText(`Rota ID: ${routeId}`, margins.left, y)
+      y -= 15
+      drawLine(y)
+      y -= 20
+
+      // Financial Summary
+      drawText('RESUMO FINANCEIRO', width / 2, y, {
+        size: 12,
+        font: fontBold,
+        align: 'center',
+      })
+      y -= 20
+
+      const drawRow = (label: string, value: number, isBold = false) => {
+        const f = isBold ? fontBold : fontRegular
+        drawText(label, margins.left, y, { size: 10, font: f })
+        drawText(`R$ ${formatCurrency(value)}`, width - margins.right, y, {
+          size: 10,
+          font: f,
+          align: 'right',
+        })
+        y -= 15
+      }
+
+      drawRow('Total Vendas:', closingData.venda_total)
+      y -= 5 // Spacing
+      drawText('RECEBIMENTOS:', margins.left, y, { size: 10, font: fontBold })
+      y -= 15
+      drawRow('  Dinheiro:', closingData.valor_dinheiro)
+      drawRow('  Pix:', closingData.valor_pix)
+      drawRow('  Cheque:', closingData.valor_cheque)
+      y -= 5
+      drawRow(
+        'Total Recebido:',
+        closingData.valor_dinheiro +
+          closingData.valor_pix +
+          closingData.valor_cheque,
+        true,
+      )
+      y -= 5
+      drawLine(y)
+      y -= 15
+
+      drawRow('Total Despesas:', closingData.valor_despesas, true)
+      y -= 5
+      drawLine(y)
+      y -= 15
+
+      // Final Balance
+      drawText('SALDO ACERTO:', margins.left, y, { size: 12, font: fontBold })
+      drawText(
+        `R$ ${formatCurrency(closingData.saldo_acerto)}`,
+        width - margins.right,
+        y,
+        { size: 12, font: fontBold, align: 'right' },
+      )
+      y -= 20
+      drawLine(y)
+      y -= 20
+
+      // Expenses Detail
+      if (expenses && expenses.length > 0) {
+        checkPageBreak(100)
+        drawText('DETALHAMENTO DE DESPESAS', width / 2, y, {
+          size: 11,
+          font: fontBold,
+          align: 'center',
+        })
+        y -= 20
+        expenses.forEach((exp: any) => {
+          checkPageBreak(40)
+          drawText(
+            `${safeFormatDate(exp.data)} - ${exp.detalhamento}`,
+            margins.left,
+            y,
+            { size: 9 },
+          )
+          drawText(
+            `R$ ${formatCurrency(exp.valor)}`,
+            width - margins.right,
+            y,
+            { size: 9, align: 'right' },
+          )
+          y -= 15
+        })
+        y -= 10
+        drawLine(y)
+        y -= 20
+      }
+
+      // Signatures
+      checkPageBreak(150)
+      y -= 40
+      drawLine(y)
+      y -= 15
+      drawText('Assinatura do Funcionario', width / 2, y, {
+        align: 'center',
+        size: 10,
+      })
+
+      y -= 50
+      drawLine(y)
+      y -= 15
+      drawText('Assinatura do Responsavel (Conferencia)', width / 2, y, {
+        align: 'center',
+        size: 10,
+      })
     } else if (
       isThermal &&
       (!reportType || reportType === 'acerto' || reportType === 'receipt')
@@ -367,58 +475,30 @@ Deno.serve(async (req) => {
       drawLine(y)
       y -= 15
 
-      // PAYMENTS
-      drawText('PAGAMENTOS', width / 2, y, {
-        size: 10,
-        font: fontBold,
-        align: 'center',
-      })
-      y -= 15
-
-      let hasImmediate = false
-      for (const p of payments) {
-        if (p.paidValue > 0) {
-          drawText(`${p.method} - Hoje`, margins.left, y, { size: 9 })
-          drawText(
-            `R$ ${formatCurrency(p.paidValue)}`,
-            width - margins.right,
-            y,
-            { size: 9, align: 'right' },
-          )
-          y -= 12
-          hasImmediate = true
-        }
-      }
-      if (!hasImmediate) {
-        drawText('Nenhum pagamento imediato.', margins.left, y, {
-          size: 9,
+      // PAGAMENTOS (Simplified for receipt)
+      if (payments && payments.length > 0) {
+        drawText('PAGAMENTOS', width / 2, y, {
+          size: 10,
           font: fontBold,
+          align: 'center',
         })
         y -= 15
+        payments.forEach((p: any) => {
+          if (p.paidValue > 0) {
+            drawText(`${p.method}`, margins.left, y, { size: 9 })
+            drawText(
+              `R$ ${formatCurrency(p.paidValue)}`,
+              width - margins.right,
+              y,
+              { size: 9, align: 'right' },
+            )
+            y -= 12
+          }
+        })
+        y -= 5
+        drawLine(y)
+        y -= 15
       }
-      y -= 5
-      drawLine(y)
-      y -= 15
-
-      // SCHEDULED / A PAGAR
-      drawText('A PAGAR', width / 2, y, {
-        size: 10,
-        font: fontBold,
-        align: 'center',
-      })
-      y -= 15
-      // ... (Scheduled payments logic omitted for brevity in thought, but implicitly included via logic below) ...
-      // Assuming logic exists or simplified:
-      if (debito > 0.01) {
-        drawText('Saldo Devedor Pendente.', margins.left, y, { size: 9 })
-        y -= 12
-      } else {
-        drawText('Nenhum pagamento agendado.', margins.left, y, { size: 9 })
-        y -= 12
-      }
-      y -= 5
-      drawLine(y)
-      y -= 15
 
       // SUMMARY
       drawText('RESUMO FINANCEIRO', margins.left, y, {
@@ -448,36 +528,6 @@ Deno.serve(async (req) => {
       y -= 15
       drawLine(y)
       y -= 15
-
-      // HISTORY
-      if (history && history.length > 0) {
-        drawText('RESUMO DE ACERTOS (HISTORICO)', width / 2, y, {
-          size: 10,
-          font: fontBold,
-          align: 'center',
-        })
-        y -= 15
-        for (const h of history) {
-          checkPageBreak(120)
-          const drawHistLine = (l: string, v: string | number) => {
-            drawText(l, margins.left, y, { size: 9, font: fontBold })
-            drawText(String(v), width - margins.right, y, {
-              size: 9,
-              font: fontBold,
-              align: 'right',
-            })
-            y -= 11
-          }
-          drawHistLine('Data:', safeFormatDate(h.data))
-          drawHistLine('Venda:', `R$ ${formatCurrency(h.valorVendaTotal)}`)
-          drawHistLine('A pagar:', `R$ ${formatCurrency(h.saldoAPagar)}`)
-          drawHistLine('Pago:', `R$ ${formatCurrency(h.valorPago)}`)
-          drawHistLine('Debito:', `R$ ${formatCurrency(h.debito)}`)
-          y -= 8
-        }
-        drawLine(y)
-        y -= 30
-      }
 
       // SIGNATURE LOGIC
       // If signature is provided, embed and draw it

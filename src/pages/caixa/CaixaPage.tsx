@@ -195,14 +195,16 @@ export default function CaixaPage() {
 
   // Ensure individual receipts are properly filtered by employee ID if selected
   const filteredReceipts = useMemo(() => {
-    if (!selectedEmployeeId) return []
+    // If no employee selected (or All), show ALL receipts
+    if (!selectedEmployeeId) return allReceipts
+    // Otherwise filter by selected employee
     return allReceipts.filter(
       (r) => r.funcionarioId?.toString() === selectedEmployeeId,
     )
   }, [allReceipts, selectedEmployeeId])
 
   const filteredExpenses = useMemo(() => {
-    if (!selectedEmployeeId) return []
+    if (!selectedEmployeeId) return allExpenses
     return allExpenses.filter(
       (e) => e.funcionarioId?.toString() === selectedEmployeeId,
     )
@@ -219,8 +221,8 @@ export default function CaixaPage() {
             ? emp.setor
             : [emp.setor]
           : []
-        const isMoto = sectors.some((s) => s.toLowerCase() === 'motoqueiro')
-        return !isMoto
+        // Optional: Filter out logic if needed, but requirements say Admins see all
+        return true
       })
     } else {
       data = data.filter(
@@ -267,7 +269,7 @@ export default function CaixaPage() {
       if (status === 'Aberto' || status === 'Fechado') {
         toast({
           title: 'Ação Bloqueada',
-          description: `O Caixa de ${targetEmpName} está fechado para esta Rota.`,
+          description: `O Caixa de ${targetEmpName} está fechado ou em processo de fechamento.`,
           variant: 'destructive',
         })
         return
@@ -540,9 +542,10 @@ export default function CaixaPage() {
                   disabled={!canSelectEmployee}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecione..." />
+                    <SelectValue placeholder="Resumo Geral" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="">Resumo Geral (Todos)</SelectItem>
                     {activeEmployees.map((emp) => (
                       <SelectItem key={emp.id} value={emp.id.toString()}>
                         {emp.nome_completo}
@@ -714,28 +717,26 @@ export default function CaixaPage() {
         <ExpenseGallery items={filteredExpenses} />
       </div>
 
-      {!isMotoqueiro && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Resumo por Funcionário</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {loading ? (
-              <div className="flex justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : (
-              <FinancialSummaryTable
-                data={filteredSummary}
-                onAddExpense={handleAddExpense}
-                onViewReceipts={handleViewReceipts}
-                onViewExpenses={handleViewExpenses}
-                onGeneratePdf={handleGeneratePdf}
-              />
-            )}
-          </CardContent>
-        </Card>
-      )}
+      <Card>
+        <CardHeader>
+          <CardTitle>Resumo por Funcionário</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <FinancialSummaryTable
+              data={filteredSummary}
+              onAddExpense={handleAddExpense}
+              onViewReceipts={handleViewReceipts}
+              onViewExpenses={handleViewExpenses}
+              onGeneratePdf={handleGeneratePdf}
+            />
+          )}
+        </CardContent>
+      </Card>
 
       <ExpenseFormDialog
         open={isExpenseDialogOpen}
