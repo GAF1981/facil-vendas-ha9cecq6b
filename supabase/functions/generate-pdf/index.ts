@@ -428,8 +428,6 @@ Deno.serve(async (req) => {
       for (const item of items) {
         checkPageBreak(100)
         // Product Name and Price line
-        // Format: NAME R$ PRICE R$ PRICE(Total?? No, format in image: "LIVRO... R$ 99,99")
-        // Just Name and Unit Price usually sufficient, or Name + Unit Price
         const priceStr = `R$ ${formatCurrency(item.precoUnitario)}`
         drawText(`${item.produtoNome} ${priceStr}`, margins.left, y, {
           size: 9,
@@ -513,12 +511,15 @@ Deno.serve(async (req) => {
       }
 
       allPaymentParts.forEach((p) => {
+        // Updated logic: Check if paidValue matches registered value (within tolerance)
+        const isFullyPaid = Math.abs((p.paidValue || 0) - (p.value || 0)) < 0.01
+
         if ((p.paidValue || 0) > 0) {
           immediatePayments.push(p)
         }
-        // If it has registered value (value > 0), it's part of the plan (A PAGAR)
-        // Usually "A PAGAR" lists the full schedule.
-        if ((p.value || 0) > 0) {
+
+        // Only add to future "A PAGAR" if NOT fully paid and has value
+        if (!isFullyPaid && (p.value || 0) > 0) {
           futureInstallments.push(p)
         }
       })

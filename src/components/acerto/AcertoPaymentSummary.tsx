@@ -62,7 +62,10 @@ export function AcertoPaymentSummary({
       // Acerto (Sales) Mode
       if (method === 'Boleto') return 0
 
-      // For Pix, Dinheiro, Cheque
+      // NEW LOGIC: Cheque is always treated as Paid Value regardless of date
+      if (method === 'Cheque') return value
+
+      // For Pix, Dinheiro
       // Check if Future Date
       const today = startOfDay(new Date())
       const due = parseISO(dueDateStr)
@@ -148,6 +151,12 @@ export function AcertoPaymentSummary({
             if (i === count - 1) value += remainder
           }
         }
+      }
+
+      // Special handling for Cheque distribution of remainder if not handled above
+      // For Cheque, we just distribute normally (equal parts + remainder on last)
+      if (method === 'Cheque' && !isReceiptMode) {
+        if (i === count - 1) value += remainder
       }
 
       // Calculate Paid Value dynamically
