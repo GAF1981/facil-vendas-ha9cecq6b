@@ -502,13 +502,18 @@ export function AcertoPaymentSummary({
             <div className="grid gap-4">
               {payments.map((entry) => {
                 const isOverpaid = entry.paidValue > entry.value + 0.01
-                const isPixOrDinheiro =
-                  entry.method === 'Pix' || entry.method === 'Dinheiro'
+                const isPix = entry.method === 'Pix'
+                const isDinheiro = entry.method === 'Dinheiro'
                 const isRestricted = isRestrictedMethod(entry.method)
 
+                // Update: Allow installments for Dinheiro by default (Requirement)
+                // Installments are disabled only if:
+                // 1. Global disabled is true
+                // 2. It is Pix AND not marked as zero down payment
+                // 3. It is a restricted method in receipt mode
                 const isInstallmentsDisabled =
                   disabled ||
-                  (isPixOrDinheiro && !entry.hasZeroDownPayment) ||
+                  (isPix && !entry.hasZeroDownPayment) ||
                   isRestricted
 
                 // Visual cue if payment is future dated (paidValue = 0 but value > 0)
@@ -530,7 +535,8 @@ export function AcertoPaymentSummary({
                           </div>
                         </div>
 
-                        {isPixOrDinheiro && !isRestricted && (
+                        {/* Show 'Sem ENTRADA' for Pix OR Dinheiro */}
+                        {(isPix || isDinheiro) && !isRestricted && (
                           <div className="flex items-center gap-2 pt-1">
                             <Checkbox
                               id={`no-entry-${entry.method}`}
@@ -690,7 +696,8 @@ export function AcertoPaymentSummary({
 
                           <div className="grid gap-3">
                             {entry.details.map((inst, idx) => {
-                              const isEntrada = idx === 0 && isPixOrDinheiro
+                              const isEntrada =
+                                idx === 0 && (isPix || isDinheiro)
                               const isZeroEntry =
                                 isEntrada && entry.hasZeroDownPayment
                               const isPaidDisabled = true // Paid value is calculated automatically now based on date
