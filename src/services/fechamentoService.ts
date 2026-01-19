@@ -47,8 +47,9 @@ export const fechamentoService = {
     // 2. Calculate Payment Totals (Cash, Pix, Cheque)
     const receipts = await caixaService.getEmployeeReceipts(funcionarioId, rota)
 
-    // Filter out 'Boleto'
+    // Filter out 'Boleto' for specific Cash/Pix/Cheque fields, BUT track Boleto separately
     const validReceipts = receipts.filter((r) => r.forma !== 'Boleto')
+    const boletoReceipts = receipts.filter((r) => r.forma === 'Boleto')
 
     const valorDinheiro = validReceipts
       .filter((r) => r.forma === 'Dinheiro')
@@ -62,6 +63,8 @@ export const fechamentoService = {
       .filter((r) => r.forma === 'Cheque')
       .reduce((acc, r) => acc + r.valor, 0)
 
+    const valorBoleto = boletoReceipts.reduce((acc, r) => acc + r.valor, 0)
+
     // 3. Calculate Expense Totals
     const expenses = await caixaService.getEmployeeExpenses(funcionarioId, rota)
     const valorDespesas = expenses.reduce((acc, e) => acc + e.valor, 0)
@@ -69,8 +72,8 @@ export const fechamentoService = {
     // 4. Calculate Saldo do Acerto
     // Saldo = (Dinheiro + Cheque) - Despesas. Pix is usually separate or considered already "in bank"
     // Based on CaixaPage logic: Saldo De Acerto = (Total Saldo - Total Pix)
-    // Where Total Saldo = (Din + Pix + Cheque) - Despesas
-    // So: (Din + Pix + Cheque - Despesas) - Pix = Din + Cheque - Despesas
+    // Where Total Saldo = (Din + Pix + Cheque + Boleto) - Despesas - Boleto (removed from balance)
+    // Effectively: Saldo De Acerto = Din + Cheque - Despesas
     const saldoAcerto = valorDinheiro + valorCheque - valorDespesas
 
     // 5. Insert Record
@@ -83,6 +86,7 @@ export const fechamentoService = {
       valor_dinheiro: valorDinheiro,
       valor_pix: valorPix,
       valor_cheque: valorCheque,
+      valor_boleto: valorBoleto,
       valor_despesas: valorDespesas,
       saldo_acerto: saldoAcerto,
       status: 'Aberto',
@@ -104,6 +108,7 @@ export const fechamentoService = {
       | 'dinheiro_aprovado'
       | 'pix_aprovado'
       | 'cheque_aprovado'
+      | 'boleto_aprovado'
       | 'despesas_aprovadas'
       | 'saldo_acerto_aprovado',
     value: boolean,

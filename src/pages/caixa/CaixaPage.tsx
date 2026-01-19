@@ -37,6 +37,7 @@ import {
   QrCode,
   Lock,
   Calculator,
+  FileText,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { Link } from 'react-router-dom'
@@ -222,8 +223,6 @@ export default function CaixaPage() {
     .filter((e) => e.saiuDoCaixa)
     .reduce((acc, e) => acc + e.valor, 0)
 
-  const totalSaldo = totalRecebido - totalDespesas
-
   const totalPix = filteredReceipts
     .filter((r) => r.forma === 'Pix')
     .reduce((acc, r) => acc + r.valor, 0)
@@ -233,7 +232,15 @@ export default function CaixaPage() {
   const totalCheque = filteredReceipts
     .filter((r) => r.forma === 'Cheque')
     .reduce((acc, r) => acc + r.valor, 0)
+  const totalBoleto = filteredReceipts
+    .filter((r) => r.forma === 'Boleto')
+    .reduce((acc, r) => acc + r.valor, 0)
 
+  // Saldo reflects CASH balance, so subtract Boletos from totalRecebido (or sum only liquid)
+  const totalSaldo = totalRecebido - totalDespesas - totalBoleto
+
+  // Saldo de Acerto is (Dinheiro + Cheque - Despesas). Pix is excluded from comparison target usually.
+  // Using formula: Saldo em Caixa (Liquid) - Pix
   const saldoDeAcerto = totalSaldo - totalPix
 
   const handleOpenGeneralExpense = async () => {
@@ -350,6 +357,9 @@ export default function CaixaPage() {
       const valorCheque = receiptsToPass
         .filter((r) => r.forma === 'Cheque')
         .reduce((acc, r) => acc + r.valor, 0)
+      const valorBoleto = receiptsToPass
+        .filter((r) => r.forma === 'Boleto')
+        .reduce((acc, r) => acc + r.valor, 0)
 
       const vendaTotal = settlements.reduce(
         (acc, s) => acc + s.totalSalesValue,
@@ -384,6 +394,7 @@ export default function CaixaPage() {
               valor_dinheiro: valorDinheiro,
               valor_pix: valorPix,
               valor_cheque: valorCheque,
+              valor_boleto: valorBoleto,
               valor_despesas: finalTotalDespesas,
               saldo_acerto: finalSaldoDeAcerto,
               venda_total: vendaTotal,
@@ -605,7 +616,7 @@ export default function CaixaPage() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
         <Card className="bg-white border-green-200 shadow-sm border-l-4 border-l-green-600">
           <CardHeader className="p-4 pb-2">
             <CardTitle className="text-xs font-medium text-green-700 flex items-center gap-1">
@@ -645,6 +656,19 @@ export default function CaixaPage() {
           </CardContent>
         </Card>
 
+        <Card className="bg-white border-green-200 shadow-sm border-l-4 border-l-green-600">
+          <CardHeader className="p-4 pb-2">
+            <CardTitle className="text-xs font-medium text-green-700 flex items-center gap-1">
+              <FileText className="h-3 w-3" /> Total Boleto
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            <div className="text-lg font-bold text-green-700">
+              R$ {formatCurrency(totalBoleto)}
+            </div>
+          </CardContent>
+        </Card>
+
         <Card className="bg-green-50/50 border-green-200">
           <CardHeader className="p-4 pb-2">
             <CardTitle className="text-xs font-medium text-green-700 flex items-center gap-1">
@@ -655,6 +679,9 @@ export default function CaixaPage() {
             <div className="text-lg font-bold text-green-700">
               R$ {formatCurrency(totalRecebido)}
             </div>
+            <p className="text-[10px] text-green-600/70">
+              Inclui Boletos (R$ {formatCurrency(totalBoleto)})
+            </p>
           </CardContent>
         </Card>
 
@@ -674,7 +701,7 @@ export default function CaixaPage() {
         <Card className="bg-blue-50/50 border-blue-200 lg:col-span-2">
           <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-xs font-medium text-blue-700 flex items-center gap-1">
-              <Wallet className="h-3 w-3" /> Saldo em Caixa
+              <Wallet className="h-3 w-3" /> Saldo em Caixa (Líquido)
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">

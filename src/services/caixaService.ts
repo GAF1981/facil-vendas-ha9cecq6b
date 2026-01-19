@@ -1,13 +1,14 @@
 import { supabase } from '@/lib/supabase/client'
 import { DespesaInsert } from '@/types/despesa'
 import { Rota } from '@/types/rota'
-import { parseISO, isAfter, isBefore, isEqual, format } from 'date-fns'
+import { parseISO, isAfter, isBefore, isEqual } from 'date-fns'
 import { getBrazilDateString } from '@/lib/dateUtils'
 
 export interface CaixaSummaryRow {
   funcionarioId: number
   funcionarioNome: string
   totalRecebido: number
+  totalBoleto: number // Added
   totalDespesas: number
   saldo: number
   statusCaixa: 'Aberto' | 'Fechado'
@@ -111,33 +112,30 @@ export const caixaService = {
         funcionarioId: emp.id,
         funcionarioNome: emp.nome_completo,
         totalRecebido: 0,
+        totalBoleto: 0,
         totalDespesas: 0,
         saldo: 0,
         statusCaixa,
       })
     })
 
-    // 3. Receipts - Strict Filtering on created_at
+    // 3. Receipts
     const { data: receipts, error: recError } = await supabase
       .from('RECEBIMENTOS')
       .select('funcionario_id, valor_pago, created_at, forma_pagamento')
-      .gte('created_at', rota.data_inicio) // Optimistic fetch lower bound
+      .gte('created_at', rota.data_inicio)
       .gt('valor_pago', 0)
 
     if (recError) throw recError
 
     receipts?.forEach((rec) => {
-      if (rec.forma_pagamento === 'Boleto') return
       if (!rec.created_at) return
 
       const recDate = parseISO(rec.created_at)
 
-      // Strict interval check
       const isAfterStart =
         isAfter(recDate, routeStart) || isEqual(recDate, routeStart)
 
-      // If route is open (data_fim null), we include everything up to now (effectively true)
-      // If route is closed, we check against routeEnd
       const isBeforeEnd = rota.data_fim
         ? isBefore(recDate, routeEnd) || isEqual(recDate, routeEnd)
         : true
@@ -147,14 +145,14 @@ export const caixaService = {
         if (summaryMap.has(empId)) {
           const entry = summaryMap.get(empId)!
           entry.totalRecebido += Number(rec.valor_pago)
+          if (rec.forma_pagamento === 'Boleto') {
+            entry.totalBoleto += Number(rec.valor_pago)
+          }
         }
       }
     })
 
-    // 4. Expenses - Date based matching
-    // Since expenses only have 'Data' (date part usually), we might keep relaxed checking
-    // or strictly check if the Expense Date is within Route Range (by day).
-    // Broaden fetch to ensure we catch all expenses relevant to the period
+    // 4. Expenses
     const fetchStartDate = rota.data_inicio.split('T')[0] // YYYY-MM-DD
 
     const { data: expenses, error: expError } = await supabase
@@ -167,15 +165,6 @@ export const caixaService = {
     expenses?.forEach((exp) => {
       if (!exp.Data) return
       if (exp.saiu_do_caixa === false) return
-
-      const expDate = parseISO(exp.Data)
-      // We normalize comparisons to Day for expenses as they usually lack time precision in input
-      // However, we ensure it's not before the route start DAY
-
-      // Ideally, if route started today at 14:00, and expense was 'today', it counts.
-      // So we use strict start comparison against the expense timestamp (which is T12:00:00).
-      // If route started 14:00, expense 12:00 -> excluded? That might be annoying.
-      // Let's stick to comparing Day Strings for Expenses to match user expectation of "Accounting Day".
 
       const expDayStr = exp.Data.split('T')[0]
       const routeStartDayStr = rota.data_inicio.split('T')[0]
@@ -198,7 +187,8 @@ export const caixaService = {
     const result = Array.from(summaryMap.values())
       .map((row) => ({
         ...row,
-        saldo: row.totalRecebido - row.totalDespesas,
+        // Saldo reflects CASH balance, so remove Boletos
+        saldo: row.totalRecebido - row.totalDespesas - row.totalBoleto,
       }))
       .filter(
         (row) =>
@@ -237,7 +227,6 @@ export const caixaService = {
     if (error) throw error
 
     const filtered = (data || []).filter((rec) => {
-      // STRICT FILTERING using created_at
       if (!rec.created_at) return false
       const recDate = parseISO(rec.created_at)
 
@@ -253,7 +242,6 @@ export const caixaService = {
 
     return filtered.map((rec: any) => ({
       id: rec.id,
-      // For Display, we prefer created_at to show exact system entry time
       data: rec.created_at,
       clienteNome: rec.CLIENTES?.['NOME CLIENTE'] || 'N/D',
       valor: rec.valor_pago,
@@ -353,7 +341,7 @@ export const caixaService = {
 
     return filtered.map((rec: any) => ({
       id: rec.id,
-      data: rec.created_at, // Use created_at for strict audit trail
+      data: rec.created_at,
       clienteNome: rec.CLIENTES?.['NOME CLIENTE'] || 'N/D',
       valor: rec.valor_pago,
       forma: rec.forma_pagamento,

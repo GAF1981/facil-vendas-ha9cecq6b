@@ -9,6 +9,7 @@ import {
   Banknote,
   Landmark,
   Layers,
+  FileText,
 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useMemo } from 'react'
@@ -38,11 +39,16 @@ export function RevenueGallery({ items }: RevenueGalleryProps) {
     () => items.filter((i) => i.forma === 'Cheque'),
     [items],
   )
+  const boletoItems = useMemo(
+    () => items.filter((i) => i.forma === 'Boleto'),
+    [items],
+  )
 
   const total = items.reduce((acc, item) => acc + item.valor, 0)
   const totalPix = pixItems.reduce((acc, item) => acc + item.valor, 0)
   const totalCash = cashItems.reduce((acc, item) => acc + item.valor, 0)
   const totalCheck = checkItems.reduce((acc, item) => acc + item.valor, 0)
+  const totalBoleto = boletoItems.reduce((acc, item) => acc + item.valor, 0)
 
   const renderTable = (
     listItems: ReceiptDetail[],
@@ -136,22 +142,26 @@ export function RevenueGallery({ items }: RevenueGalleryProps) {
       <CardContent className="p-0 flex-1">
         <Tabs defaultValue="todos" className="w-full h-full flex flex-col">
           <div className="px-4 pt-2">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="todos" className="text-xs">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="todos" className="text-xs px-1">
                 <Layers className="w-3 h-3 mr-1" />
                 Todos
               </TabsTrigger>
-              <TabsTrigger value="pix" className="text-xs">
+              <TabsTrigger value="pix" className="text-xs px-1">
                 <QrCode className="w-3 h-3 mr-1" />
                 Pix
               </TabsTrigger>
-              <TabsTrigger value="dinheiro" className="text-xs">
+              <TabsTrigger value="dinheiro" className="text-xs px-1">
                 <Banknote className="w-3 h-3 mr-1" />
                 Din
               </TabsTrigger>
-              <TabsTrigger value="cheque" className="text-xs">
+              <TabsTrigger value="cheque" className="text-xs px-1">
                 <Landmark className="w-3 h-3 mr-1" />
                 Cheq
+              </TabsTrigger>
+              <TabsTrigger value="boleto" className="text-xs px-1">
+                <FileText className="w-3 h-3 mr-1" />
+                Bol
               </TabsTrigger>
             </TabsList>
           </div>
@@ -167,6 +177,9 @@ export function RevenueGallery({ items }: RevenueGalleryProps) {
           </TabsContent>
           <TabsContent value="cheque" className="flex-1 m-0 p-0">
             {renderTable(checkItems, 'Nenhum Cheque registrado.', totalCheck)}
+          </TabsContent>
+          <TabsContent value="boleto" className="flex-1 m-0 p-0">
+            {renderTable(boletoItems, 'Nenhum Boleto registrado.', totalBoleto)}
           </TabsContent>
         </Tabs>
       </CardContent>

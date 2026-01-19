@@ -10,13 +10,15 @@ export interface FechamentoCaixa {
   valor_dinheiro: number
   valor_pix: number
   valor_cheque: number
+  valor_boleto: number // Added
   valor_despesas: number
-  saldo_acerto: number // New field
+  saldo_acerto: number
   dinheiro_aprovado: boolean
   pix_aprovado: boolean
   cheque_aprovado: boolean
+  boleto_aprovado: boolean // Added
   despesas_aprovadas: boolean
-  saldo_acerto_aprovado: boolean // New field
+  saldo_acerto_aprovado: boolean
   responsavel_id: number | null
   status: 'Aberto' | 'Fechado'
   created_at: string
@@ -39,7 +41,8 @@ export interface FechamentoInsert {
   valor_dinheiro: number
   valor_pix: number
   valor_cheque: number
+  valor_boleto: number // Added
   valor_despesas: number
-  saldo_acerto: number // New field
+  saldo_acerto: number
   status: 'Aberto'
 }

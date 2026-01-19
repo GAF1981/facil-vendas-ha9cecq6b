@@ -42,6 +42,7 @@ export function FinancialSummaryTable({
 }: FinancialSummaryTableProps) {
   const totalRecebido = data.reduce((acc, row) => acc + row.totalRecebido, 0)
   const totalDespesas = data.reduce((acc, row) => acc + row.totalDespesas, 0)
+  const totalBoleto = data.reduce((acc, row) => acc + row.totalBoleto, 0)
   const totalCaixa = data.reduce((acc, row) => acc + row.saldo, 0)
 
   return (
@@ -52,11 +53,14 @@ export function FinancialSummaryTable({
             <TableHead>Funcionário</TableHead>
             <TableHead className="text-center">Caixa</TableHead>
             <TableHead className="text-right text-green-700">
-              Valores Recebidos
+              Entradas Totais
+            </TableHead>
+            <TableHead className="text-right text-muted-foreground">
+              Boletos
             </TableHead>
             <TableHead className="text-right text-red-700">Despesas</TableHead>
             <TableHead className="text-right font-bold text-blue-700">
-              Valor de Caixa
+              Saldo Líquido
             </TableHead>
             <TableHead className="text-center">Ações</TableHead>
           </TableRow>
@@ -65,7 +69,7 @@ export function FinancialSummaryTable({
           {data.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={6}
+                colSpan={7}
                 className="h-24 text-center text-muted-foreground"
               >
                 Nenhuma movimentação financeira encontrada para esta rota.
@@ -115,11 +119,11 @@ export function FinancialSummaryTable({
                     >
                       {row.statusCaixa === 'Fechado' ? (
                         <span className="flex items-center gap-1">
-                          <CheckCircle2 className="h-3 w-3" /> Caixa Fechado
+                          <CheckCircle2 className="h-3 w-3" /> Fechado
                         </span>
                       ) : (
                         <span className="flex items-center gap-1">
-                          <AlertCircle className="h-3 w-3" /> Caixa Aberto
+                          <AlertCircle className="h-3 w-3" /> Aberto
                         </span>
                       )}
                     </Badge>
@@ -152,6 +156,11 @@ export function FinancialSummaryTable({
                         </Tooltip>
                       </TooltipProvider>
                     </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <span className="font-mono text-muted-foreground">
+                      R$ {formatCurrency(row.totalBoleto)}
+                    </span>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
@@ -201,7 +210,7 @@ export function FinancialSummaryTable({
                       disabled={row.statusCaixa === 'Fechado'}
                     >
                       <PlusCircle className="mr-1 h-3 w-3" />
-                      Cadastrar Despesa
+                      Lançar
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -211,6 +220,9 @@ export function FinancialSummaryTable({
                 <TableCell colSpan={2}>TOTAL GERAL</TableCell>
                 <TableCell className="text-right text-green-700">
                   R$ {formatCurrency(totalRecebido)}
+                </TableCell>
+                <TableCell className="text-right text-muted-foreground">
+                  R$ {formatCurrency(totalBoleto)}
                 </TableCell>
                 <TableCell className="text-right text-red-700">
                   R$ {formatCurrency(totalDespesas)}
