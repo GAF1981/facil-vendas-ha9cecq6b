@@ -229,6 +229,9 @@ export const acertoService = {
     const valorPago = payments.reduce((acc, p) => acc + p.paidValue, 0)
     const debito = Math.max(0, valorAcerto - valorPago)
 
+    // Ensure we are passing 10 history items max (service limits to 10 but slice again to be safe)
+    const finalHistory = recentHistory.slice(0, 10)
+
     const data = {
       client: {
         ...client,
@@ -253,7 +256,7 @@ export const acertoService = {
       isReceipt,
       issuerName,
       lastOrder: lastOrder ? { id: lastOrder.id, date: lastOrder.data } : null,
-      history: recentHistory,
+      history: finalHistory, // Pass history to PDF
       monthlyAverage,
     }
 

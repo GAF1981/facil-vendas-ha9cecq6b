@@ -106,6 +106,7 @@ export function RotaMotoqueiroCardItem({
 
   const handleGoToReceipts = () => {
     // Navigate to RecebimentoPage with pre-filled filters
+    // This ensures that clicking "Recebimento" takes the user to the correct tab with context
     navigate(
       `/recebimento?search=${encodeURIComponent(item.clientName)}&orderId=${item.orderId}`,
     )

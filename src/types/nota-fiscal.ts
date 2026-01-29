@@ -9,6 +9,7 @@ export interface NotaFiscalSettlement {
   solicitacaoNf: string
   notaFiscalEmitida: string
   numeroNotaFiscal?: string | null
+  rotaId?: number | null // Added Rota ID
 }
 
 export type NotaFiscalStatusFilter =

@@ -34,7 +34,6 @@ import {
   Printer,
 } from 'lucide-react'
 import { notaFiscalService } from '@/services/notaFiscalService'
-import { clientsService } from '@/services/clientsService'
 import { rotaService } from '@/services/rotaService'
 import { cobrancaService } from '@/services/cobrancaService'
 import { NotaFiscalSettlement } from '@/types/nota-fiscal'
@@ -242,7 +241,7 @@ export default function NotaFiscalPage() {
               <Input
                 placeholder="Buscar cliente, código ou pedido..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9"
               />
             </div>
@@ -286,6 +285,7 @@ export default function NotaFiscalPage() {
             <TableHeader className="bg-muted/50">
               <TableRow>
                 <TableHead>Pedido</TableHead>
+                <TableHead>Rota</TableHead> {/* New Column */}
                 <TableHead>Cliente</TableHead>
                 <TableHead>Data Acerto</TableHead>
                 <TableHead className="text-right">Valor Venda</TableHead>
@@ -299,14 +299,14 @@ export default function NotaFiscalPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="h-24 text-center">
+                  <TableCell colSpan={10} className="h-24 text-center">
                     <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
                   </TableCell>
                 </TableRow>
               ) : filteredData.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={9}
+                    colSpan={10}
                     className="h-24 text-center text-muted-foreground"
                   >
                     Nenhum registro encontrado.
@@ -316,6 +316,15 @@ export default function NotaFiscalPage() {
                 filteredData.map((item) => (
                   <TableRow key={item.orderId} className="hover:bg-muted/30">
                     <TableCell className="font-mono">{item.orderId}</TableCell>
+                    <TableCell>
+                      {item.rotaId ? (
+                        <Badge variant="outline" className="font-normal">
+                          Rota #{item.rotaId}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">-</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <div className="flex flex-col">
                         <span className="font-medium">{item.clientName}</span>

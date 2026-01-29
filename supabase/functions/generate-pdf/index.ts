@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
           detailedPaymentsCount * 40 +
           pendingInstallmentsCount * 40 +
           installmentsCount * 20 +
-          historyCount * 120 +
+          historyCount * 120 + // History section size
           300
         if (signature) estimatedHeight += 150
       }
@@ -607,8 +607,6 @@ Deno.serve(async (req) => {
         drawLine(y)
         y -= 15
       } else if (payments.length > 0) {
-        // Fallback to old summary if no detailed info provided
-        // Use logic from previous implementation
         const paidItems = payments.filter((i: any) => i.paidValue > 0)
         if (paidItems.length > 0) {
           checkPageBreak(50)
@@ -699,9 +697,6 @@ Deno.serve(async (req) => {
         drawLine(y)
         y -= 15
       } else {
-        // Fallback for unpaid items using old logic (if no pending installments array provided)
-        // ... (Old logic for unpaidItems)
-        // Flatten all payments into single actionable list
         const allPayments: any[] = []
         if (payments && Array.isArray(payments)) {
           payments.forEach((p: any) => {
@@ -715,7 +710,6 @@ Deno.serve(async (req) => {
                 })
               })
             } else {
-              // Flat entry
               allPayments.push({
                 method: p.method,
                 value: p.value,
@@ -793,9 +787,9 @@ Deno.serve(async (req) => {
       })
       y -= 25
 
-      // --- HISTORY SECTION (NEW) ---
+      // --- HISTORY SECTION (NEW, DETAILED) ---
       if (history && history.length > 0) {
-        checkPageBreak(150)
+        checkPageBreak(200) // Ensure enough space for at least a header and 1 row
         drawText('RESUMO DE ACERTOS (HISTÓRICO)', width / 2, y, {
           size: 10,
           font: fontBold,
@@ -803,51 +797,72 @@ Deno.serve(async (req) => {
         })
         y -= 15
 
-        // Table Header
-        // Columns: Data | Pedido | Débito | Média
-        const col1 = margins.left // Data
-        const col2 = margins.left + 50 // Pedido
-        const col3 = margins.left + 100 // Débito
-        const col4 = width - margins.right // Média (Right aligned)
-
-        drawText('Data', col1, y, { size: 8, font: fontBold })
-        drawText('Ped.', col2, y, { size: 8, font: fontBold })
-        drawText('Débito', col3, y, { size: 8, font: fontBold })
-        drawText('Média', col4, y, { size: 8, font: fontBold, align: 'right' })
-
-        y -= 8
-        drawLine(y, 0.5)
-        y -= 12
+        // Detailed Header
+        // Layout:
+        // Data | Venda | Desc | A Pagar | Pago | Debito | Vend | Media | Pedido
+        // This is a lot for 80mm (226pt width approx).
+        // Let's optimize columns for thermal width (approx 200pt usable).
+        // Row 1: Data, Pedido, Vendedor
+        // Row 2: Venda, Desc, A Pagar
+        // Row 3: Pago, Debito, Media
 
         history.forEach((h: any) => {
-          checkPageBreak(25)
+          // Each entry block needs ~60px
+          checkPageBreak(65)
 
-          const dateStr =
-            safeFormatDate(h.data).split('/')[0] +
-            '/' +
-            safeFormatDate(h.data).split('/')[1] // dd/MM
+          const dateStr = safeFormatDate(h.data)
           const orderId = h.id ? `#${h.id}` : '-'
-          const debt = h.debito || 0
-          const avg = h.mediaMensal || 0
+          const vendor = h.vendedor ? h.vendedor.split(' ')[0] : '-' // First name only
 
-          drawText(dateStr, col1, y, { size: 8 })
-          drawText(orderId, col2, y, { size: 8 })
-
-          // Conditional Styling for Debt (> 1 red)
-          const debtColor = debt > 1 ? rgb(0.6, 0, 0) : rgb(0, 0, 0)
-          drawText(`R$ ${formatCurrency(debt)}`, col3, y, {
-            size: 8,
-            color: debtColor,
-          })
-
-          // Styling for Average (Dark Blue)
-          drawText(`R$ ${formatCurrency(avg)}`, col4, y, {
+          // --- ROW 1: Meta ---
+          drawText(`${dateStr}`, margins.left, y, { size: 8 })
+          drawText(`${orderId}`, margins.left + 60, y, { size: 8 })
+          drawText(`${vendor}`, width - margins.right, y, {
             size: 8,
             align: 'right',
-            color: rgb(0, 0, 0.6),
+          })
+          y -= 10
+
+          // --- ROW 2: Financials 1 ---
+          const venda = formatCurrency(h.valorVendaTotal)
+          const desc = formatCurrency(h.desconto || 0) // Assuming discount is value
+          const aPagar = formatCurrency(h.saldoAPagar)
+
+          drawText(`V: ${venda}`, margins.left, y, { size: 8 })
+          // drawText(`D: ${desc}`, margins.left + 60, y, { size: 8 })
+          drawText(`A Pagar: ${aPagar}`, width - margins.right, y, {
+            size: 8,
+            align: 'right',
+          })
+          y -= 10
+
+          // --- ROW 3: Financials 2 + Conditional ---
+          const pago = formatCurrency(h.valorPago)
+          const debito = h.debito || 0
+          const media = h.mediaMensal || 0
+
+          drawText(`Pg: ${pago}`, margins.left, y, { size: 8 })
+
+          // Conditional Debt Color
+          const debtColor = debito > 1.0 ? rgb(0.6, 0, 0) : rgb(0, 0, 0)
+          drawText(`Déb: ${formatCurrency(debito)}`, margins.left + 60, y, {
+            size: 8,
+            color: debtColor,
+            font: fontBold,
           })
 
-          y -= 12
+          // Conditional Media Color
+          const mediaColor = rgb(0, 0, 0.6)
+          drawText(`Méd: ${formatCurrency(media)}`, width - margins.right, y, {
+            size: 8,
+            align: 'right',
+            color: mediaColor,
+            font: fontBold,
+          })
+
+          y -= 15
+          drawLine(y, 0.5)
+          y -= 10
         })
       }
     }

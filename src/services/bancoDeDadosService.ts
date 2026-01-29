@@ -355,7 +355,7 @@ export const bancoDeDadosService = {
       .eq('cliente_codigo', clienteId)
       .order('data_acerto', { ascending: false })
       .order('pedido_id', { ascending: false })
-      .limit(12) // Limit increased to 12 to allow client side filtering if current order included
+      .limit(10) // Limit to 10 most recent orders for PDF history as per requirements
 
     if (error) throw error
     return data.map((row) => ({
@@ -401,8 +401,6 @@ export const bancoDeDadosService = {
   }) {
     const quantity = payload.saldo_novo - payload.saldo_anterior
 
-    // Ensure we are sending a valid timestamp ISO string
-    // If payload.data_acerto is missing or empty, use current time
     const timestamp = payload.data_acerto || new Date().toISOString()
 
     const { error } = await supabase.from('AJUSTE_SALDO_INICIAL').insert({
@@ -423,18 +421,15 @@ export const bancoDeDadosService = {
     notaFiscalVenda: string,
     customOrderNumber?: number,
   ): Promise<number> {
-    // 1. Get Context (Order Number & Active Route)
     const nextPedido =
       customOrderNumber ?? (await this.reserveNextOrderNumber())
     const dataAcertoStr = format(date, 'yyyy-MM-dd')
     const horaAcerto = format(date, 'HH:mm:ss')
-    const dataEHora = date.toISOString() // This is the full ISO string
+    const dataEHora = date.toISOString()
 
-    // Fetch Active Route ID
     const activeRoute = await rotaService.getActiveRota()
     const activeRouteId = activeRoute?.id || null
 
-    // 2. Fetch current product prices
     const productIds = items.map((i) => i.produtoId)
     if (productIds.length === 0) return nextPedido
 
@@ -469,7 +464,6 @@ export const bancoDeDadosService = {
       statusNf = 'Pendente'
     }
 
-    // 3. Prepare rows
     const rowsToInsert = items.map((item) => {
       const currentPrice = priceMap.get(item.produtoId) || item.precoUnitario
       const valorVendidoVal = currentPrice * item.quantVendida
@@ -498,7 +492,7 @@ export const bancoDeDadosService = {
         'NÚMERO DO PEDIDO': nextPedido,
         'DATA DO ACERTO': dataAcertoStr,
         'HORA DO ACERTO': horaAcerto,
-        'DATA E HORA': dataEHora, // Sending full ISO string here
+        'DATA E HORA': dataEHora,
         'CÓDIGO DO CLIENTE': client.CODIGO,
         CLIENTE: client['NOME CLIENTE'],
         'CODIGO FUNCIONARIO': employee.id,
@@ -531,13 +525,11 @@ export const bancoDeDadosService = {
       }
     })
 
-    // 4. Insert into BANCO_DE_DADOS
     const { error } = await supabase
       .from('BANCO_DE_DADOS')
       .insert(rowsToInsert as any)
     if (error) throw error
 
-    // 5. Insert into RECEBIMENTOS
     const recebimentosToInsert: RecebimentoInsert[] = []
     payments.forEach((payment) => {
       const detailsToUse =
@@ -560,7 +552,7 @@ export const bancoDeDadosService = {
           valor_pago: detail.paidValue || 0,
           vencimento: new Date(`${detail.dueDate}T12:00:00`).toISOString(),
           ID_da_fêmea: nextPedido,
-          rota_id: activeRouteId, // Insert active route ID for isolation
+          rota_id: activeRouteId,
         })
       })
     })
@@ -575,7 +567,6 @@ export const bancoDeDadosService = {
       }
     }
 
-    // 6. Insert into NOTA_FISCAL if requested
     if (nfVenda === 'SIM') {
       const { error: nfError } = await supabase
         .from('NOTA_FISCAL')
@@ -583,7 +574,6 @@ export const bancoDeDadosService = {
       if (nfError) console.error('Error inserting nota fiscal record:', nfError)
     }
 
-    // Automated Tax Invoice Logic (User Story Feature 2)
     if (nfCadastro === 'NÃO' && nfVenda === 'SIM') {
       const { error: clientUpdateError } = await supabase
         .from('CLIENTES')
@@ -598,24 +588,18 @@ export const bancoDeDadosService = {
       }
     }
 
-    // 7. Check Rota and Decrement x_na_rota
     try {
       await rotaService.checkAndDecrementXNaRota(client.CODIGO, date)
     } catch (rotaError) {
       console.error('Error updating Rota counter on settlement:', rotaError)
     }
 
-    // 8. Auto-update debt history for this order (Requirement - Immediate Sync)
-    // Ensures immediate consistency in Debt Center
-    // This calls the stored procedure that we updated in the migration
     try {
       await reportsService.updateDebtHistoryForOrder(nextPedido)
     } catch (debtError) {
       console.error('Error auto-updating debt history:', debtError)
-      // We log but don't fail the transaction, as the primary record is safe
     }
 
-    // 9. Sync Stock Movements (Vehicle <-> Client)
     try {
       await estoqueCarroService.syncStockFromSettlement(
         employee.id,
