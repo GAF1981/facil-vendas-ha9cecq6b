@@ -253,22 +253,16 @@ export default function CaixaPage() {
     const targetEmpName =
       activeEmployees.find((e) => e.id === targetEmpId)?.nome_completo || ''
 
-    try {
-      const status = await fechamentoService.getClosureStatus(
-        parseInt(selectedRouteId),
-        targetEmpId,
-      )
-      // Blocking logic: 'Aberto' means started, 'Fechado' means finished
-      if (status === 'Aberto' || status === 'Fechado') {
-        toast({
-          title: 'Ação Bloqueada',
-          description: `O Caixa de ${targetEmpName} está fechado ou em processo de fechamento.`,
-          variant: 'destructive',
-        })
-        return
-      }
-    } catch (e) {
-      console.error(e)
+    // Check restriction using summaryData
+    const empSummary = summaryData.find((s) => s.funcionarioId === targetEmpId)
+
+    if (empSummary && empSummary.hasClosingRecord) {
+      toast({
+        title: 'Ação Bloqueada',
+        description: `O Caixa de ${targetEmpName} já iniciou o fechamento. Não é possível lançar novas despesas.`,
+        variant: 'destructive',
+      })
+      return
     }
 
     setPreselectedEmployee({ id: targetEmpId, name: targetEmpName })
@@ -276,6 +270,17 @@ export default function CaixaPage() {
   }
 
   const handleAddExpense = (empId: number, empName: string) => {
+    // Double check restriction here as well
+    const empSummary = summaryData.find((s) => s.funcionarioId === empId)
+    if (empSummary && empSummary.hasClosingRecord) {
+      toast({
+        title: 'Bloqueado',
+        description: 'Fechamento já iniciado.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     setPreselectedEmployee({ id: empId, name: empName })
     setIsExpenseDialogOpen(true)
   }
@@ -404,6 +409,7 @@ export default function CaixaPage() {
                 ? { nome_completo: employeeData.name }
                 : null,
             },
+            settlements: settlements, // Pass detailed settlements
           },
         },
       )

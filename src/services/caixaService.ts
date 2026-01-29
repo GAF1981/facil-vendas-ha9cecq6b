@@ -8,10 +8,12 @@ export interface CaixaSummaryRow {
   funcionarioId: number
   funcionarioNome: string
   totalRecebido: number
-  totalBoleto: number // Added
+  totalBoleto: number
   totalDespesas: number
   saldo: number
   statusCaixa: 'Aberto' | 'Fechado'
+  hasClosingRecord: boolean
+  dbStatus: 'Aberto' | 'Fechado' | null
 }
 
 export interface ReceiptDetail {
@@ -105,7 +107,8 @@ export const caixaService = {
 
     const summaryMap = new Map<number, CaixaSummaryRow>()
     employees?.forEach((emp) => {
-      const dbStatus = closureMap.get(emp.id)
+      const dbStatus = closureMap.get(emp.id) || null
+      const hasClosingRecord = closureMap.has(emp.id)
       const statusCaixa = dbStatus === 'Fechado' ? 'Fechado' : 'Aberto'
 
       summaryMap.set(emp.id, {
@@ -116,6 +119,8 @@ export const caixaService = {
         totalDespesas: 0,
         saldo: 0,
         statusCaixa,
+        hasClosingRecord,
+        dbStatus,
       })
     })
 
@@ -194,7 +199,7 @@ export const caixaService = {
         (row) =>
           Math.abs(row.totalRecebido) > 0.01 ||
           Math.abs(row.totalDespesas) > 0.01 ||
-          row.statusCaixa === 'Fechado',
+          row.hasClosingRecord,
       )
       .sort((a, b) => a.funcionarioNome.localeCompare(b.funcionarioNome))
 

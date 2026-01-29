@@ -17,6 +17,7 @@ import {
   FileText,
   CheckCircle2,
   AlertCircle,
+  Clock,
 } from 'lucide-react'
 import {
   Tooltip,
@@ -81,7 +82,7 @@ export function FinancialSummaryTable({
                 <TableRow key={row.funcionarioId} className="hover:bg-muted/30">
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
-                      {row.statusCaixa === 'Fechado' && (
+                      {row.hasClosingRecord && (
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -112,18 +113,24 @@ export function FinancialSummaryTable({
                     <Badge
                       variant="outline"
                       className={cn(
-                        row.statusCaixa === 'Fechado'
-                          ? 'bg-green-100 text-green-700 border-green-200'
-                          : 'bg-red-50 text-red-600 border-red-200',
+                        !row.hasClosingRecord
+                          ? 'bg-red-50 text-red-600 border-red-200'
+                          : row.dbStatus === 'Aberto'
+                            ? 'bg-orange-50 text-orange-600 border-orange-200'
+                            : 'bg-green-100 text-green-700 border-green-200',
                       )}
                     >
-                      {row.statusCaixa === 'Fechado' ? (
+                      {!row.hasClosingRecord ? (
                         <span className="flex items-center gap-1">
-                          <CheckCircle2 className="h-3 w-3" /> Fechado
+                          <AlertCircle className="h-3 w-3" /> Aberto
+                        </span>
+                      ) : row.dbStatus === 'Aberto' ? (
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" /> Em Análise
                         </span>
                       ) : (
                         <span className="flex items-center gap-1">
-                          <AlertCircle className="h-3 w-3" /> Aberto
+                          <CheckCircle2 className="h-3 w-3" /> Fechado
                         </span>
                       )}
                     </Badge>
@@ -203,11 +210,21 @@ export function FinancialSummaryTable({
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-8 text-xs border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                      className={cn(
+                        'h-8 text-xs',
+                        row.hasClosingRecord
+                          ? 'opacity-50 cursor-not-allowed'
+                          : 'border-blue-200 hover:bg-blue-50 hover:text-blue-700',
+                      )}
                       onClick={() =>
                         onAddExpense(row.funcionarioId, row.funcionarioNome)
                       }
-                      disabled={row.statusCaixa === 'Fechado'}
+                      disabled={row.hasClosingRecord}
+                      title={
+                        row.hasClosingRecord
+                          ? 'Bloqueado: Fechamento já iniciado/finalizado'
+                          : 'Lançar Despesa'
+                      }
                     >
                       <PlusCircle className="mr-1 h-3 w-3" />
                       Lançar

@@ -10,6 +10,7 @@ import {
   Download,
   Save,
   AlertTriangle,
+  Clock,
 } from 'lucide-react'
 import { usePermissions } from '@/hooks/use-permissions'
 import { useUserStore } from '@/stores/useUserStore'
@@ -18,6 +19,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { useEffect, useState } from 'react'
+import { caixaService, CaixaSummaryRow } from '@/services/caixaService'
 
 interface RotaHeaderProps {
   activeRota: Rota | null
@@ -27,7 +30,7 @@ interface RotaHeaderProps {
   onExport: () => void
   loading: boolean
   hasPendingUpdates?: boolean
-  pendingClosures?: string[]
+  pendingClosures?: string[] // Legacy prop, we will use internal logic
 }
 
 export function RotaHeader({
@@ -38,11 +41,26 @@ export function RotaHeader({
   onExport,
   loading,
   hasPendingUpdates = false,
-  pendingClosures = [],
+  pendingClosures: legacyPendingClosures = [],
 }: RotaHeaderProps) {
   const displayRota = activeRota || lastRota
   const { canAccess } = usePermissions()
   const { employee } = useUserStore()
+  const [summaryData, setSummaryData] = useState<CaixaSummaryRow[]>([])
+  const [alertsLoading, setAlertsLoading] = useState(false)
+
+  useEffect(() => {
+    if (activeRota) {
+      setAlertsLoading(true)
+      caixaService
+        .getFinancialSummary(activeRota)
+        .then(setSummaryData)
+        .catch(console.error)
+        .finally(() => setAlertsLoading(false))
+    } else {
+      setSummaryData([])
+    }
+  }, [activeRota])
 
   // Logic for visibility of "Finalizar Rota"
   const canFinalize = (() => {
@@ -59,7 +77,18 @@ export function RotaHeader({
     return false
   })()
 
-  const hasPendingClosures = pendingClosures.length > 0
+  // ALERT 1: Pendencia de Fechamento (Open/Active without record)
+  const pendingClosingEmployees = summaryData
+    .filter((row) => !row.hasClosingRecord) // Not closed
+    .map((row) => row.funcionarioNome)
+
+  // ALERT 2: Pendencia de Confirmação (Record exists, but status is 'Aberto')
+  const pendingConfirmationEmployees = summaryData
+    .filter((row) => row.hasClosingRecord && row.dbStatus === 'Aberto')
+    .map((row) => row.funcionarioNome)
+
+  const hasPendingClosing = pendingClosingEmployees.length > 0
+  const hasPendingConfirmation = pendingConfirmationEmployees.length > 0
 
   return (
     <Card className="w-full border-l-4 border-l-primary shadow-sm bg-muted/20">
@@ -132,7 +161,44 @@ export function RotaHeader({
           ) : (
             canFinalize && (
               <>
-                {hasPendingClosures && (
+                {/* Alert: Pendência de Fechamento */}
+                {hasPendingClosing && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2 h-9 border border-red-200 animate-pulse"
+                      >
+                        <AlertTriangle className="h-4 w-4" />
+                        {pendingClosingEmployees.length} Pendência(s) de
+                        Fechamento
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-80 bg-red-50 border-red-200"
+                      align="end"
+                    >
+                      <div className="space-y-2">
+                        <h4 className="font-semibold text-red-900 flex items-center gap-2">
+                          <AlertTriangle className="h-4 w-4" />
+                          Fechamentos Pendentes
+                        </h4>
+                        <p className="text-xs text-red-800">
+                          Os seguintes vendedores precisam fechar o caixa:
+                        </p>
+                        <ul className="list-disc pl-4 text-sm text-red-900">
+                          {pendingClosingEmployees.map((name, idx) => (
+                            <li key={idx}>{name}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                )}
+
+                {/* Alert: Pendência de Confirmação */}
+                {hasPendingConfirmation && (
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
@@ -140,8 +206,9 @@ export function RotaHeader({
                         size="sm"
                         className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 gap-2 h-9 border border-orange-200"
                       >
-                        <AlertTriangle className="h-4 w-4" />
-                        {pendingClosures.length} Pendência(s) de Fechamento
+                        <Clock className="h-4 w-4" />
+                        {pendingConfirmationEmployees.length} Pendência(s) de
+                        Confirmação
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent
@@ -150,15 +217,15 @@ export function RotaHeader({
                     >
                       <div className="space-y-2">
                         <h4 className="font-semibold text-orange-900 flex items-center gap-2">
-                          <AlertTriangle className="h-4 w-4" />
-                          Fechamentos Pendentes
+                          <Clock className="h-4 w-4" />
+                          Confirmações Pendentes
                         </h4>
                         <p className="text-xs text-orange-800">
-                          Os seguintes vendedores precisam fechar o caixa antes
-                          de finalizar a rota:
+                          Os seguintes vendedores aguardam confirmação do
+                          gerente:
                         </p>
                         <ul className="list-disc pl-4 text-sm text-orange-900">
-                          {pendingClosures.map((name, idx) => (
+                          {pendingConfirmationEmployees.map((name, idx) => (
                             <li key={idx}>{name}</li>
                           ))}
                         </ul>
@@ -171,7 +238,10 @@ export function RotaHeader({
                   <Button
                     onClick={onEnd}
                     disabled={
-                      loading || hasPendingUpdates || hasPendingClosures
+                      loading ||
+                      hasPendingUpdates ||
+                      hasPendingClosing ||
+                      hasPendingConfirmation
                     }
                     variant="destructive"
                     className="w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
@@ -183,9 +253,10 @@ export function RotaHeader({
                     )}
                     Finalizar Rota
                   </Button>
-                  {hasPendingClosures && (
+                  {(hasPendingClosing || hasPendingConfirmation) && (
                     <div className="absolute top-full right-0 mt-1 w-64 p-2 bg-black/80 text-white text-xs rounded hidden group-hover:block z-50 text-center">
-                      Não é possível finalizar. Existem caixas abertos.
+                      Não é possível finalizar. Existem caixas abertos ou
+                      pendentes de confirmação.
                     </div>
                   )}
                 </div>
