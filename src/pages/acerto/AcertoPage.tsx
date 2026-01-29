@@ -301,6 +301,57 @@ export default function AcertoPage() {
     try {
       const history = await bancoDeDadosService.getAcertoHistory(client.CODIGO)
 
+      // Construct detailed payments payload from state
+      const detailedPayments = payments
+        .filter((p) => p.paidValue > 0)
+        .flatMap((p) => {
+          // If we have detailed installments that were paid, use them
+          if (p.details && p.details.length > 0) {
+            return p.details
+              .filter((d) => d.paidValue > 0)
+              .map((d) => ({
+                method: p.method,
+                value: d.paidValue,
+                paidValue: d.paidValue,
+                employee: loggedInUser?.nome_completo || 'N/D',
+                date: new Date().toISOString(),
+              }))
+          }
+          // Otherwise use flat entry
+          return [
+            {
+              method: p.method,
+              value: p.paidValue,
+              paidValue: p.paidValue,
+              employee: loggedInUser?.nome_completo || 'N/D',
+              date: new Date().toISOString(),
+            },
+          ]
+        })
+
+      // Construct pending installments payload from state
+      // For a new Acerto, we use unpaid parts of payments (future installments)
+      const pendingInstallments = payments
+        .filter((p) => p.value > p.paidValue)
+        .flatMap((p) => {
+          if (p.details && p.details.length > 0) {
+            return p.details
+              .filter((d) => d.value > d.paidValue)
+              .map((d) => ({
+                method: p.method,
+                value: d.value,
+                dueDate: d.dueDate,
+              }))
+          }
+          return [
+            {
+              method: p.method,
+              value: p.value - p.paidValue,
+              dueDate: p.dueDate,
+            },
+          ]
+        })
+
       const pdfBlob = await acertoService.generatePdf(
         {
           client,
@@ -317,6 +368,8 @@ export default function AcertoPage() {
             amountToPay - payments.reduce((acc, p) => acc + p.paidValue, 0),
           ),
           payments,
+          detailedPayments, // New payload
+          pendingInstallments, // New payload
           monthlyAverage,
           orderNumber: nextOrderNumber,
           issuerName: loggedInUser?.nome_completo,
@@ -526,6 +579,53 @@ export default function AcertoPage() {
       // 4. Fetch History for PDF
       const history = await bancoDeDadosService.getAcertoHistory(client.CODIGO)
 
+      // Construct detailed payments for final PDF (consistent with preview logic)
+      const detailedPayments = payments
+        .filter((p) => p.paidValue > 0)
+        .flatMap((p) => {
+          if (p.details && p.details.length > 0) {
+            return p.details
+              .filter((d) => d.paidValue > 0)
+              .map((d) => ({
+                method: p.method,
+                value: d.paidValue,
+                paidValue: d.paidValue,
+                employee: loggedInUser?.nome_completo || 'N/D',
+                date: now.toISOString(),
+              }))
+          }
+          return [
+            {
+              method: p.method,
+              value: p.paidValue,
+              paidValue: p.paidValue,
+              employee: loggedInUser?.nome_completo || 'N/D',
+              date: now.toISOString(),
+            },
+          ]
+        })
+
+      const pendingInstallments = payments
+        .filter((p) => p.value > p.paidValue)
+        .flatMap((p) => {
+          if (p.details && p.details.length > 0) {
+            return p.details
+              .filter((d) => d.value > d.paidValue)
+              .map((d) => ({
+                method: p.method,
+                value: d.value,
+                dueDate: d.dueDate,
+              }))
+          }
+          return [
+            {
+              method: p.method,
+              value: p.value - p.paidValue,
+              dueDate: p.dueDate,
+            },
+          ]
+        })
+
       // 5. Generate Final PDF with Signature
       const pdfBlob = await acertoService.generatePdf(
         {
@@ -543,6 +643,8 @@ export default function AcertoPage() {
             amountToPay - payments.reduce((acc, p) => acc + p.paidValue, 0),
           ),
           payments,
+          detailedPayments, // New payload
+          pendingInstallments, // New payload
           monthlyAverage,
           orderNumber: finalOrderNumber,
           issuerName: loggedInUser?.nome_completo,

@@ -12,7 +12,6 @@ import { reportsService } from '@/services/reportsService'
 import { estoqueCarroService } from '@/services/estoqueCarroService'
 
 export const bancoDeDadosService = {
-  // ... (keep existing helper methods like hasOutstandingBalance, etc.)
   async hasOutstandingBalance(clienteId: number): Promise<boolean> {
     const { count, error } = await supabase
       .from('BANCO_DE_DADOS')
@@ -382,7 +381,7 @@ export const bancoDeDadosService = {
 
     const { data: paymentsData, error: paymentsError } = await supabase
       .from('RECEBIMENTOS')
-      .select('*')
+      .select('*, FUNCIONARIOS(nome_completo)')
       .eq('venda_id', orderId)
 
     if (paymentsError) throw paymentsError

@@ -3,7 +3,7 @@ import { Acerto } from '@/types/acerto'
 import { bancoDeDadosService } from './bancoDeDadosService'
 import { clientsService } from './clientsService'
 import { parseCurrency } from '@/lib/formatters'
-import { PaymentEntry } from '@/types/payment'
+import { cobrancaService } from './cobrancaService'
 
 export const acertoService = {
   async saveAcerto(acerto: Acerto) {
@@ -155,6 +155,11 @@ export const acertoService = {
     // Fetch Monthly Average for the PDF report
     const monthlyAverage = await bancoDeDadosService.getMonthlyAverage(clientId)
 
+    // Fetch Collection Actions (Installments)
+    const collectionActions = await cobrancaService.getCollectionActions(
+      orderId.toString(),
+    )
+
     const items = dbItems.map((item) => ({
       uid: item['ID VENDA ITENS']?.toString() || Math.random().toString(),
       produtoId: 0,
@@ -169,15 +174,50 @@ export const acertoService = {
       saldoFinal: item['SALDO FINAL'] || 0,
     }))
 
-    // Important: Reconstruct payments structure from DB records
-    // Group by method to re-create structure or pass flat
+    // Construct detailed payments list from DB records
+    const detailedPayments = dbPayments
+      .map((p) => ({
+        method: p.forma_pagamento as string,
+        value: p.valor_pago || 0,
+        paidValue: p.valor_pago || 0,
+        // Join with FUNCIONARIOS allows us to get name
+        employee: (p as any).FUNCIONARIOS?.nome_completo || 'N/D',
+        date: p.data_pagamento || p.created_at || '',
+      }))
+      .filter((p) => p.value > 0)
+
+    // Construct pending installments list
+    // Priority: collection actions -> standard DB payments (unpaid)
+    let pendingInstallments: any[] = []
+
+    if (collectionActions && collectionActions.length > 0) {
+      pendingInstallments = collectionActions.flatMap(
+        (action) =>
+          action.installments?.map((inst) => ({
+            method: inst.forma_pagamento || 'Outros',
+            value: inst.valor || 0,
+            dueDate: inst.vencimento || '',
+          })) || [],
+      )
+    } else {
+      // Fallback to standard unpaid payments from DB
+      pendingInstallments = dbPayments
+        .filter((p) => (p.valor_pago || 0) < (p.valor_registrado || 0))
+        .map((p) => ({
+          method: p.forma_pagamento as string,
+          value: p.valor_registrado || 0,
+          dueDate: p.vencimento ? p.vencimento.split('T')[0] : '',
+        }))
+    }
+
+    // Reconstruction of simple payments array for backward compatibility / logic
     const payments: any[] = dbPayments.map((p) => {
       return {
         method: p.forma_pagamento as any,
         value: p.valor_registrado || 0,
         paidValue: p.valor_pago || 0,
         dueDate: p.vencimento ? p.vencimento.split('T')[0] : '',
-        details: [], // Flat structure for reprinting usually fine for template
+        details: [],
       }
     })
 
@@ -204,7 +244,9 @@ export const acertoService = {
       valorAcerto,
       valorPago,
       debito,
-      payments,
+      payments, // kept for compatibility
+      detailedPayments, // New detailed structure
+      pendingInstallments, // New detailed structure
       orderNumber: orderId,
       preview: false,
       signature: null,

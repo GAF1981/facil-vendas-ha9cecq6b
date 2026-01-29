@@ -86,18 +86,32 @@ Deno.serve(async (req) => {
       } else {
         const itemsCount = body.items ? body.items.length : 0
         const historyCount = body.history ? body.history.length : 0
+        // Calculate detailed items height
+        const detailedPaymentsCount = body.detailedPayments
+          ? body.detailedPayments.length
+          : 0
+        const pendingInstallmentsCount = body.pendingInstallments
+          ? body.pendingInstallments.length
+          : 0
+
+        // Use standard if new arrays missing
         const payments = body.payments || []
         let installmentsCount = 0
-        payments.forEach((p: any) => {
-          if (p.details && Array.isArray(p.details)) {
-            installmentsCount += p.details.length
-          } else {
-            installmentsCount += 1
-          }
-        })
+        if (!detailedPaymentsCount && !pendingInstallmentsCount) {
+          payments.forEach((p: any) => {
+            if (p.details && Array.isArray(p.details)) {
+              installmentsCount += p.details.length
+            } else {
+              installmentsCount += 1
+            }
+          })
+        }
+
         estimatedHeight =
           500 +
           itemsCount * 80 +
+          detailedPaymentsCount * 40 +
+          pendingInstallmentsCount * 40 +
           installmentsCount * 20 +
           historyCount * 120 +
           300
@@ -259,11 +273,6 @@ Deno.serve(async (req) => {
         drawLine(y)
         y -= 20
 
-        // ... (The rest of existing closing-confirmation logic)
-        // Note: For brevity in this answer, we assume the existing block continues here unchanged as it was in the prompt,
-        // and only modify the 'else' block which handles 'acerto'.
-        // Since I must rewrite the full file, I will include the logic from the prompt for closing-confirmation.
-
         // --- TOTAL RECEBIDO (Detailed) ---
         drawText('TOTAL RECEBIDO (DETALHADO)', margins.left, y, {
           size: 12,
@@ -411,6 +420,8 @@ Deno.serve(async (req) => {
         valorDesconto = 0,
         valorAcerto = 0,
         payments = [],
+        detailedPayments = [],
+        pendingInstallments = [],
         signature,
         issuerName,
       } = body
@@ -531,93 +542,221 @@ Deno.serve(async (req) => {
       drawLine(y)
       y -= 15
 
-      // --- PAYMENT ANALYSIS ---
-      // Flatten all payments into single actionable list
-      const allPayments: any[] = []
-      if (payments && Array.isArray(payments)) {
-        payments.forEach((p: any) => {
-          if (p.details && Array.isArray(p.details) && p.details.length > 0) {
-            p.details.forEach((d: any) => {
-              allPayments.push({
-                method: p.method,
-                value: d.value,
-                paidValue: d.paidValue || 0,
-                dueDate: d.dueDate,
-              })
-            })
-          } else {
-            // Flat entry
-            allPayments.push({
-              method: p.method,
-              value: p.value,
-              paidValue: p.paidValue || 0,
-              dueDate: p.dueDate,
-            })
-          }
-        })
-      }
-
-      const paidItems = allPayments.filter((i) => i.paidValue > 0)
-      const unpaidItems = allPayments.filter(
-        (i) => i.value > i.paidValue + 0.01,
-      )
-
-      // --- VALORES PAGOS ---
-      if (paidItems.length > 0) {
+      // --- DETAILED PAYMENT SECTION (NEW) ---
+      if (detailedPayments.length > 0) {
         checkPageBreak(50)
-        drawText('VALORES PAGOS', width / 2, y, {
+        drawText('VALORES PAGOS (DETALHADO)', width / 2, y, {
           size: 10,
           font: fontBold,
           align: 'center',
         })
         y -= 15
 
-        paidItems.forEach((p) => {
-          checkPageBreak(20)
-          const desc = p.method
-          drawText(desc, margins.left, y, { size: 9 })
-          drawText(
-            `R$ ${formatCurrency(p.paidValue)}`,
-            width - margins.right,
-            y,
-            {
-              size: 9,
-              align: 'right',
-            },
-          )
-          y -= 12
+        // Headers
+        const col1 = margins.left
+        const col2 = margins.left + (isThermal ? 40 : 80)
+        const col3 = margins.left + (isThermal ? 100 : 200)
+        const col4 = width - margins.right
+
+        drawText('Forma', col1, y, { size: 8, font: fontBold })
+        drawText('Data/Func', col2, y, { size: 8, font: fontBold })
+        drawText('Valor', col4, y, {
+          size: 8,
+          font: fontBold,
+          align: 'right',
         })
         y -= 10
-        drawLine(y)
-        y -= 15
-      }
+        drawLine(y, 0.5)
+        y -= 12
 
-      // --- VALORES A PAGAR (PARCELAS) ---
-      if (unpaidItems.length > 0) {
-        checkPageBreak(50)
-        drawText('VALORES A PAGAR', width / 2, y, {
-          size: 10,
-          font: fontBold,
-          align: 'center',
-        })
-        y -= 15
+        let totalPagoDetailed = 0
 
-        unpaidItems.forEach((p) => {
+        detailedPayments.forEach((p: any) => {
           checkPageBreak(25)
-          const desc = `${p.method} - ${safeFormatDate(p.dueDate)}`
-          drawText(desc, margins.left, y, { size: 9, maxWidth: width - 80 })
-          // Show remaining amount to pay? Or full installment amount?
-          // User story says: "value of the installment"
-          // We assume 'value' is the installment value.
-          drawText(`R$ ${formatCurrency(p.value)}`, width - margins.right, y, {
-            size: 9,
+          const methodShort = p.method.substring(0, 10)
+          const dateStr = safeFormatDate(p.date)
+          const empStr = p.employee.split(' ')[0] // First name
+
+          drawText(methodShort, col1, y, { size: 8 })
+          drawText(`${dateStr} - ${empStr}`, col2, y, {
+            size: 8,
+            maxWidth: isThermal ? 100 : 200,
+          })
+          drawText(`R$ ${formatCurrency(p.paidValue)}`, col4, y, {
+            size: 8,
             align: 'right',
           })
           y -= 12
+          totalPagoDetailed += p.paidValue
         })
-        y -= 10
+        y -= 5
+        drawLine(y, 0.5)
+        y -= 12
+        drawText('Total Pago:', margins.left, y, { size: 9, font: fontBold })
+        drawText(
+          `R$ ${formatCurrency(totalPagoDetailed)}`,
+          width - margins.right,
+          y,
+          {
+            size: 9,
+            font: fontBold,
+            align: 'right',
+          },
+        )
+        y -= 15
         drawLine(y)
         y -= 15
+      } else if (payments.length > 0) {
+        // Fallback to old summary if no detailed info provided
+        // Use logic from previous implementation
+        const paidItems = payments.filter((i: any) => i.paidValue > 0)
+        if (paidItems.length > 0) {
+          checkPageBreak(50)
+          drawText('VALORES PAGOS', width / 2, y, {
+            size: 10,
+            font: fontBold,
+            align: 'center',
+          })
+          y -= 15
+          paidItems.forEach((p: any) => {
+            checkPageBreak(20)
+            const desc = p.method
+            drawText(desc, margins.left, y, { size: 9 })
+            drawText(
+              `R$ ${formatCurrency(p.paidValue)}`,
+              width - margins.right,
+              y,
+              {
+                size: 9,
+                align: 'right',
+              },
+            )
+            y -= 12
+          })
+          y -= 10
+          drawLine(y)
+          y -= 15
+        }
+      }
+
+      // --- PENDING INSTALLMENTS SECTION (NEW) ---
+      if (pendingInstallments.length > 0) {
+        checkPageBreak(50)
+        drawText('VALORES A PAGAR (PARCELAS)', width / 2, y, {
+          size: 10,
+          font: fontBold,
+          align: 'center',
+        })
+        y -= 15
+
+        // Headers
+        const col1 = margins.left
+        const col2 = margins.left + (isThermal ? 60 : 120)
+        const col3 = width - margins.right
+
+        drawText('Forma', col1, y, { size: 8, font: fontBold })
+        drawText('Vencimento', col2, y, { size: 8, font: fontBold })
+        drawText('Valor', col3, y, {
+          size: 8,
+          font: fontBold,
+          align: 'right',
+        })
+        y -= 10
+        drawLine(y, 0.5)
+        y -= 12
+
+        let totalAPagar = 0
+
+        pendingInstallments.forEach((p: any) => {
+          checkPageBreak(25)
+          const methodShort = p.method.substring(0, 15)
+          const dateStr = safeFormatDate(p.dueDate).split(' ')[0] // Just date
+
+          drawText(methodShort, col1, y, { size: 8 })
+          drawText(dateStr, col2, y, { size: 8 })
+          drawText(`R$ ${formatCurrency(p.value)}`, col3, y, {
+            size: 8,
+            align: 'right',
+          })
+          y -= 12
+          totalAPagar += p.value
+        })
+        y -= 5
+        drawLine(y, 0.5)
+        y -= 12
+        drawText('Total a Pagar:', margins.left, y, { size: 9, font: fontBold })
+        drawText(
+          `R$ ${formatCurrency(totalAPagar)}`,
+          width - margins.right,
+          y,
+          {
+            size: 9,
+            font: fontBold,
+            align: 'right',
+          },
+        )
+        y -= 15
+        drawLine(y)
+        y -= 15
+      } else {
+        // Fallback for unpaid items using old logic (if no pending installments array provided)
+        // ... (Old logic for unpaidItems)
+        // Flatten all payments into single actionable list
+        const allPayments: any[] = []
+        if (payments && Array.isArray(payments)) {
+          payments.forEach((p: any) => {
+            if (p.details && Array.isArray(p.details) && p.details.length > 0) {
+              p.details.forEach((d: any) => {
+                allPayments.push({
+                  method: p.method,
+                  value: d.value,
+                  paidValue: d.paidValue || 0,
+                  dueDate: d.dueDate,
+                })
+              })
+            } else {
+              // Flat entry
+              allPayments.push({
+                method: p.method,
+                value: p.value,
+                paidValue: p.paidValue || 0,
+                dueDate: p.dueDate,
+              })
+            }
+          })
+        }
+        const unpaidItems = allPayments.filter(
+          (i: any) => i.value > i.paidValue + 0.01,
+        )
+
+        if (unpaidItems.length > 0) {
+          checkPageBreak(50)
+          drawText('VALORES A PAGAR', width / 2, y, {
+            size: 10,
+            font: fontBold,
+            align: 'center',
+          })
+          y -= 15
+
+          unpaidItems.forEach((p: any) => {
+            checkPageBreak(25)
+            const desc = `${p.method} - ${safeFormatDate(p.dueDate)}`
+            drawText(desc, margins.left, y, { size: 9, maxWidth: width - 80 })
+            drawText(
+              `R$ ${formatCurrency(p.value)}`,
+              width - margins.right,
+              y,
+              {
+                size: 9,
+                align: 'right',
+              },
+            )
+            y -= 12
+          })
+          y -= 10
+          drawLine(y)
+          y -= 15
+        }
       }
 
       // --- SIGNATURE ---
