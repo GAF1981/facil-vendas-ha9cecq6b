@@ -198,70 +198,83 @@ Deno.serve(async (req) => {
         valorAcerto = 0,
       } = body
 
-      // Header
+      // 1. Header Title
       drawText('RELATORIO DETALHADO DE PEDIDO', width / 2, y, {
-        size: 16,
+        size: 18,
         font: fontBold,
         align: 'center',
       })
+      y -= 25
+      drawLine(y, 1.5)
       y -= 20
-      drawLine(y)
-      y -= 15
 
-      const startY = y
-      const col2X = width / 2 + 20
+      // 2. Info Columns
+      const startInfoY = y
+      const colLeftX = margins.left
+      const colRightX = width / 2 + 20
+      const lineHeight = 14
 
       // Left Column
-      drawText(`Numero do Pedido: ${orderNumber}`, margins.left, y, {
+      drawText(`Numero do Pedido: ${orderNumber}`, colLeftX, y, {
         font: fontBold,
+        size: 10,
       })
-      y -= 15
+      y -= lineHeight
       drawText(
         `Cliente: ${client?.CODIGO || ''} - ${client?.['NOME CLIENTE'] || ''}`,
-        margins.left,
+        colLeftX,
         y,
-        { font: fontBold },
+        { font: fontBold, size: 10 },
       )
-      y -= 15
-      drawText(`Endereco: ${client?.ENDEREÇO || ''}`, margins.left, y)
-      y -= 15
+      y -= lineHeight
+      drawText(`Endereco: ${client?.ENDEREÇO || ''}`, colLeftX, y, { size: 10 })
+      y -= lineHeight
       drawText(
         `Municipio: ${client?.MUNICÍPIO || ''} - ${client?.['ESTADO'] || ''}`,
-        margins.left,
+        colLeftX,
         y,
+        { size: 10 },
       )
-      y -= 15
-      drawText(`Contato: ${client?.['CONTATO 1'] || ''}`, margins.left, y)
-      y -= 15
-      drawText(`Funcionario: ${employee?.nome_completo || ''}`, margins.left, y)
+      y -= lineHeight
+      drawText(`Contato: ${client?.['CONTATO 1'] || ''}`, colLeftX, y, {
+        size: 10,
+      })
+      y -= lineHeight
+      drawText(`Funcionario: ${employee?.nome_completo || ''}`, colLeftX, y, {
+        size: 10,
+      })
 
       // Right Column
-      y = startY
-      drawText(`Data do Acerto: ${safeFormatDate(date)}`, col2X, y)
-      y -= 15
-      drawText(`CNPJ/CPF: ${client?.CNPJ || ''}`, col2X, y)
-      y -= 15
-      drawText(`CEP: ${client?.['CEP OFICIO'] || ''}`, col2X, y)
-      y -= 15
-      drawText(`Telefone: ${client?.['FONE 1'] || ''}`, col2X, y)
+      y = startInfoY
+      drawText(`Data do Acerto: ${safeFormatDate(date)}`, colRightX, y, {
+        size: 10,
+      })
+      y -= lineHeight
+      drawText(`CNPJ/CPF: ${client?.CNPJ || ''}`, colRightX, y, { size: 10 })
+      y -= lineHeight
+      drawText(`CEP: ${client?.['CEP OFICIO'] || ''}`, colRightX, y, {
+        size: 10,
+      })
+      y -= lineHeight
+      drawText(`Telefone: ${client?.['FONE 1'] || ''}`, colRightX, y, {
+        size: 10,
+      })
 
-      y = startY - 100 // Move below header
-      drawLine(y)
-      y -= 20
+      // Move down for table
+      // Ensure we are below the lowest text (Left column usually)
+      y = startInfoY - lineHeight * 6 - 20
 
-      // Table Header
-      // 10 Columns
-      // CODIGO (50), MERCADORIA (200), TIPO (50), SALDO INI (60), CONTAGEM (60),
-      // QTD VEND (60), VALOR VEND (70), SALDO FIN (60), NOVAS CONS (70), RECOLHIDO (60)
+      // 3. Table Headers
+      // We need to reserve space for the vertical headers that will be drawn UPWARDS from the baseline.
+      // Vertical text height approx 100-120.
+      const headerHeightSpace = 120
+      y -= headerHeightSpace // Move baseline down
+
+      const headerBaseline = y
       const cols = [
-        { label: 'CODIGO', x: margins.left, w: 50, vertical: true },
-        {
-          label: 'MERCADORIA',
-          x: margins.left + 50,
-          w: 250,
-          vertical: false,
-        },
-        { label: 'TIPO', x: margins.left + 300, w: 40, vertical: true },
+        { label: 'CODIGO', x: margins.left, w: 60, vertical: true },
+        { label: 'MERCADORIA', x: margins.left + 60, w: 230, vertical: false }, // Horizontal
+        { label: 'TIPO', x: margins.left + 290, w: 50, vertical: true },
         {
           label: 'SALDO INICIAL',
           x: margins.left + 340,
@@ -269,26 +282,16 @@ Deno.serve(async (req) => {
           vertical: true,
         },
         { label: 'CONTAGEM', x: margins.left + 400, w: 60, vertical: true },
-        {
-          label: 'QUANTIDADE VENDIDA',
-          x: margins.left + 460,
-          w: 60,
-          vertical: true,
-        },
+        { label: 'QTD VENDIDA', x: margins.left + 460, w: 60, vertical: true },
         {
           label: 'VALOR VENDIDO',
           x: margins.left + 520,
           w: 70,
           vertical: true,
         },
+        { label: 'SALDO FINAL', x: margins.left + 590, w: 60, vertical: true },
         {
-          label: 'SALDO FINAL',
-          x: margins.left + 590,
-          w: 60,
-          vertical: true,
-        },
-        {
-          label: 'NOVAS CONSIGNACOES',
+          label: 'NOVAS CONSIG.',
           x: margins.left + 650,
           w: 70,
           vertical: true,
@@ -297,24 +300,30 @@ Deno.serve(async (req) => {
       ]
 
       // Draw Headers
-      const headerY = y
       cols.forEach((col) => {
         if (col.vertical) {
-          drawText(col.label, col.x + col.w / 2 - 3, headerY, {
-            size: 8,
+          // Center vertically relative to column width (horizontally in page coords)
+          const xOffset = col.x + col.w / 2 - 3
+          drawText(col.label, xOffset, headerBaseline, {
+            size: 9,
             font: fontBold,
             rotate: degrees(90),
           })
         } else {
-          drawText(col.label, col.x, headerY, { size: 8, font: fontBold })
+          // Horizontal text (Mercadoria)
+          // Draw slightly above baseline to align with the "start" of vertical text visually
+          drawText(col.label, col.x + 5, headerBaseline + 5, {
+            size: 9,
+            font: fontBold,
+          })
         }
       })
 
-      y -= 110 // Space for vertical text
+      y -= 10
       drawLine(y)
       y -= 15
 
-      // Rows
+      // 4. Rows
       items.forEach((item: any, index: number) => {
         checkPageBreak(20)
         const rowY = y
@@ -368,48 +377,53 @@ Deno.serve(async (req) => {
         })
 
         y -= 15
-        if (index % 5 === 0 && index !== 0) drawLine(y + 12, 0.5) // Light guide lines
+        if (index % 5 === 0 && index !== 0) drawLine(y + 12, 0.5)
       })
 
       y -= 10
       drawLine(y)
-      y -= 20
+      y -= 30
 
-      // Footer
+      // 5. Financial Summary
+      // Ensure space for footer
+      if (y < margins.bottom + 120) {
+        page = pdfDoc.addPage([842, 595])
+        y = height - margins.top
+      }
+
       drawText('RESUMO FINANCEIRO', width - margins.right, y, {
+        size: 14,
+        font: fontBold,
+        align: 'right',
+      })
+      y -= 25
+
+      const summaryLabelX = width - margins.right - 180
+      const summaryValueX = width - margins.right
+
+      // Total Vendido
+      drawText('Total Vendido:', summaryLabelX, y, { size: 12, font: fontBold })
+      drawText(`R$ ${formatCurrency(totalVendido)}`, summaryValueX, y, {
         size: 12,
         font: fontBold,
         align: 'right',
       })
       y -= 20
 
-      const drawFooterRow = (label: string, value: string, color?: any) => {
-        drawText(label, width - margins.right - 150, y, {
-          size: 10,
-          font: fontBold,
-        })
-        drawText(value, width - margins.right, y, {
-          size: 10,
-          font: fontBold,
-          align: 'right',
-          color,
-        })
-        y -= 15
-      }
-
-      drawFooterRow('Total Vendido:', `R$ ${formatCurrency(totalVendido)}`)
-      drawFooterRow(
-        'Desconto:',
-        `R$ ${formatCurrency(valorDesconto)}`,
-        rgb(1, 0, 0),
-      )
-      y -= 5
-      drawText('TOTAL A PAGAR:', width - margins.right - 150, y, {
-        size: 14,
+      // Desconto
+      drawText('Desconto:', summaryLabelX, y, { size: 12, font: fontBold })
+      drawText(`R$ ${formatCurrency(valorDesconto)}`, summaryValueX, y, {
+        size: 12,
         font: fontBold,
+        align: 'right',
+        color: rgb(0.8, 0, 0),
       })
-      drawText(`R$ ${formatCurrency(valorAcerto)}`, width - margins.right, y, {
-        size: 14,
+      y -= 25
+
+      // Total a Pagar
+      drawText('TOTAL A PAGAR:', summaryLabelX, y, { size: 16, font: fontBold })
+      drawText(`R$ ${formatCurrency(valorAcerto)}`, summaryValueX, y, {
+        size: 16,
         font: fontBold,
         align: 'right',
       })
@@ -690,12 +704,6 @@ Deno.serve(async (req) => {
         })
       }
     } else {
-      // KEEPING LEGACY CODE FOR CLOSING-CONFIRMATION ETC. IF NEEDED OR FALLBACK
-      // Assuming previous logic is covered by the thermal path or handled by other calls?
-      // The previous file had specific logic for 'closing-confirmation' etc.
-      // I should include it to avoid breaking other features.
-      // Copying the legacy handling from reference file for safety.
-
       if (
         reportType === 'closing-confirmation' ||
         reportType === 'employee-cash-summary'
