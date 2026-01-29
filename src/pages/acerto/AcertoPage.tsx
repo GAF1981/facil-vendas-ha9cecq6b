@@ -88,12 +88,21 @@ export default function AcertoPage() {
       .catch((err) => console.error('Failed to fetch employees', err))
   }, [])
 
-  // Auto-select logged in employee
+  // Auto-select logged in employee and handle role-based permission
+  const canEditEmployee =
+    loggedInUser &&
+    (Array.isArray(loggedInUser.setor)
+      ? loggedInUser.setor.some((s) => ['Administrador', 'Gerente'].includes(s))
+      : ['Administrador', 'Gerente'].includes(loggedInUser.setor || ''))
+
   useEffect(() => {
-    if (loggedInUser && !selectedEmployeeId) {
-      setSelectedEmployeeId(loggedInUser.id.toString())
+    if (loggedInUser) {
+      // Always auto-select current user initially if not set
+      if (!selectedEmployeeId) {
+        setSelectedEmployeeId(loggedInUser.id.toString())
+      }
     }
-  }, [loggedInUser])
+  }, [loggedInUser, selectedEmployeeId])
 
   // Client Selection Effect
   useEffect(() => {
@@ -596,6 +605,7 @@ export default function AcertoPage() {
           <Select
             value={selectedEmployeeId}
             onValueChange={setSelectedEmployeeId}
+            disabled={!canEditEmployee}
           >
             <SelectTrigger>
               <SelectValue placeholder="Selecione..." />

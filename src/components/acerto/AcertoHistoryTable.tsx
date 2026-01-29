@@ -304,9 +304,6 @@ export function AcertoHistoryTable({
                     </TableRow>
                   ) : (
                     history.map((row) => {
-                      // Per Acceptance Criteria:
-                      // "The value for 'Saldo a Pagar' must strictly be: Valor da Venda - valor do desconto."
-                      // This value is pre-calculated in the service as 'row.saldoAPagar'
                       const saldoAPagarDisplay = row.saldoAPagar
 
                       return (
@@ -432,7 +429,7 @@ export function AcertoHistoryTable({
                 <TableHeader>
                   <TableRow className="bg-muted/50">
                     <TableHead>Método</TableHead>
-                    <TableHead>Referência</TableHead>
+                    <TableHead>Vencimento</TableHead>
                     <TableHead>Recebido por</TableHead>
                     <TableHead>Data/Hora</TableHead>
                     <TableHead className="text-right">V. Registrado</TableHead>

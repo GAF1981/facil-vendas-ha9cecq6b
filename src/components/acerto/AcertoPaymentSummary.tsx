@@ -70,12 +70,18 @@ export function AcertoPaymentSummary({
       // If due date is strictly after today, it is NOT paid immediately
       if (isAfter(due, today)) return 0
 
+      // New Rule: If "Parcelar" (hasZeroDownPayment) is checked, the default is 0 paid
+      // But user can edit it manually. This function calculates the DEFAULT.
+      // If we are using manual input, this calculation might be bypassed or used as baseline.
+      // We will assume this calculation sets the initial state, and manual edits override.
+
       // If Today or Past
       if (
         isEntry &&
         hasZeroDownPayment &&
         (method === 'Pix' || method === 'Dinheiro')
       ) {
+        // If Parcelar is checked, default Paid Value is 0
         return 0
       }
 
@@ -93,16 +99,6 @@ export function AcertoPaymentSummary({
   ): PaymentInstallment[] => {
     let effectiveCount = count
 
-    // Logic for Sales (Acerto) - NOT Receipt Mode
-    // For Cash/Pix, reduce effective count if zero down payment
-    if (
-      !isReceiptMode &&
-      hasZeroDownPayment &&
-      (method === 'Pix' || method === 'Dinheiro')
-    ) {
-      effectiveCount = count - 1
-    }
-
     if (effectiveCount < 1) effectiveCount = 1
 
     const installmentValue =
@@ -110,9 +106,6 @@ export function AcertoPaymentSummary({
 
     const totalDistributed = installmentValue * effectiveCount
     const remainder = Number((totalValue - totalDistributed).toFixed(2))
-
-    // For Cheque: We assume installments divide the total value equally regardless of "Paid" status
-    // Since Cheque is "Paid Immediately", the installments just represent the checks themselves.
 
     // Determine initial date logic
     const start = new Date(baseDate + 'T12:00:00')
@@ -124,26 +117,8 @@ export function AcertoPaymentSummary({
 
       const isEntry = i === 0
 
-      if (isReceiptMode) {
-        if (isRestrictedMethod(method)) {
-          if (i === 0) value += remainder
-        } else {
-          if (i === count - 1) value += remainder
-        }
-      } else {
-        // Sales (Acerto) Mode Logic
-        if (method === 'Cheque') {
-          // Cheque installments: Just regular division, add remainder to last
-          if (i === count - 1) value += remainder
-        } else if (isEntry && (method === 'Pix' || method === 'Dinheiro')) {
-          if (hasZeroDownPayment) {
-            value = 0
-          }
-        } else {
-          // Add remainder to last
-          if (i === count - 1) value += remainder
-        }
-      }
+      // Add remainder to last
+      if (i === count - 1) value += remainder
 
       // Calculate Paid Value dynamically
       const paidValue = calculatePaidValue(
@@ -219,7 +194,11 @@ export function AcertoPaymentSummary({
     onPaymentsChange(
       payments.map((p) => {
         if (p.method !== method) return p
-        if (field === 'paidValue') return p
+
+        // Manual override for paidValue
+        if (field === 'paidValue') {
+          return { ...p, paidValue: value }
+        }
 
         if (
           field === 'installments' &&
@@ -244,7 +223,7 @@ export function AcertoPaymentSummary({
           field === 'hasZeroDownPayment'
         ) {
           const val = field === 'value' ? (updatedValue as number) : p.value
-          const count =
+          let count =
             field === 'installments' ? (updatedValue as number) : p.installments
           const zeroDown =
             field === 'hasZeroDownPayment'
@@ -253,7 +232,19 @@ export function AcertoPaymentSummary({
           let baseDate =
             field === 'dueDate' ? (updatedValue as string) : p.dueDate
 
-          if (field === 'hasZeroDownPayment' && zeroDown) {
+          // Logic for Parcelar (hasZeroDownPayment) checkbox change
+          if (field === 'hasZeroDownPayment') {
+            if (zeroDown) {
+              // Checked "Parcelar"
+              // Default installments to 2 if currently 1
+              if (count === 1) count = 2
+              updated.installments = count
+            } else {
+              // Unchecked "Parcelar"
+              // Reset installments to 1
+              count = 1
+              updated.installments = 1
+            }
             baseDate = format(new Date(), 'yyyy-MM-dd')
             updated.dueDate = baseDate
           }
@@ -271,9 +262,15 @@ export function AcertoPaymentSummary({
             baseDate,
           )
           updated.details = newDetails
-          updated.paidValue = Number(
-            newDetails.reduce((acc, d) => acc + d.paidValue, 0).toFixed(2),
-          )
+
+          // Update paidValue based on generated details OR manual logic
+          // If Unchecked (zeroDown=false): Paid = Value (Matches Registered)
+          // If Checked (zeroDown=true): Paid = 0 (Default)
+          if (!zeroDown) {
+            updated.paidValue = val
+          } else {
+            updated.paidValue = 0
+          }
 
           if ((count === 1 || zeroDown) && newDetails.length > 0) {
             updated.dueDate = newDetails[0].dueDate
@@ -308,9 +305,9 @@ export function AcertoPaymentSummary({
               method === 'Cheque' ||
               isRestrictedMethod(method)) &&
             p.installments === 1
-          const isSemEntrada = p.hasZeroDownPayment
+          const isParcelar = p.hasZeroDownPayment
 
-          if (shouldSyncMain || isSemEntrada) {
+          if (shouldSyncMain || isParcelar) {
             const updated = { ...p, dueDate: updatedValue as string }
             const newDetails = generateInstallments(
               p.value,
@@ -320,9 +317,12 @@ export function AcertoPaymentSummary({
               updatedValue as string,
             )
             updated.details = newDetails
-            updated.paidValue = Number(
-              newDetails.reduce((acc, d) => acc + d.paidValue, 0).toFixed(2),
-            )
+            // Only sync paidValue if NOT Parcelar mode, or if we want to recalc
+            if (!isParcelar) {
+              updated.paidValue = Number(
+                newDetails.reduce((acc, d) => acc + d.paidValue, 0).toFixed(2),
+              )
+            }
             return updated
           }
         }
@@ -361,9 +361,13 @@ export function AcertoPaymentSummary({
           )
         }
 
-        newPaidValue = Number(
-          newDetails.reduce((acc, curr) => acc + curr.paidValue, 0).toFixed(2),
-        )
+        if (!p.hasZeroDownPayment) {
+          newPaidValue = Number(
+            newDetails
+              .reduce((acc, curr) => acc + curr.paidValue, 0)
+              .toFixed(2),
+          )
+        }
 
         return {
           ...p,
@@ -481,13 +485,12 @@ export function AcertoPaymentSummary({
                 const isRestricted = isRestrictedMethod(entry.method)
 
                 // Requirement: Enable installments for Cash (Dinheiro)
-                // Installments only disabled for Pix unless zero down payment, or global restricted
+                // Installments only disabled if restricted or not allowed method (but here allowed)
                 const isInstallmentsDisabled =
-                  disabled ||
-                  (isPix && !entry.hasZeroDownPayment) ||
-                  isRestricted
+                  disabled || isRestricted || !entry.hasZeroDownPayment // Enabled only if Parcelar is checked
 
                 const isFuture = entry.value > 0 && entry.paidValue === 0
+                const isParcelar = !!entry.hasZeroDownPayment
 
                 return (
                   <div
@@ -508,8 +511,8 @@ export function AcertoPaymentSummary({
                         {(isPix || isDinheiro) && !isRestricted && (
                           <div className="flex items-center gap-2 pt-1">
                             <Checkbox
-                              id={`no-entry-${entry.method}`}
-                              checked={!!entry.hasZeroDownPayment}
+                              id={`parcelar-${entry.method}`}
+                              checked={isParcelar}
                               disabled={disabled}
                               onCheckedChange={(c) =>
                                 handleUpdateEntry(
@@ -521,10 +524,10 @@ export function AcertoPaymentSummary({
                               className="h-3.5 w-3.5"
                             />
                             <Label
-                              htmlFor={`no-entry-${entry.method}`}
-                              className="text-[10px] cursor-pointer whitespace-nowrap"
+                              htmlFor={`parcelar-${entry.method}`}
+                              className="text-xs cursor-pointer whitespace-nowrap font-medium"
                             >
-                              Sem ENTRADA
+                              Parcelar
                             </Label>
                           </div>
                         )}
@@ -581,11 +584,21 @@ export function AcertoPaymentSummary({
                             step="0.01"
                             min="0"
                             className={cn(
-                              'pl-9 font-bold text-lg h-10 border-gray-200 bg-gray-100 text-gray-500 opacity-75',
+                              'pl-9 font-bold text-lg h-10',
+                              isParcelar
+                                ? 'bg-white'
+                                : 'border-gray-200 bg-gray-100 text-gray-500 opacity-75',
                             )}
                             value={entry.paidValue}
-                            disabled={true}
-                            readOnly
+                            disabled={disabled || (!isParcelar && true)}
+                            readOnly={!isParcelar}
+                            onChange={(e) =>
+                              handleUpdateEntry(
+                                entry.method,
+                                'paidValue',
+                                parseFloat(e.target.value) || 0,
+                              )
+                            }
                           />
                         </div>
                       </div>
@@ -617,11 +630,15 @@ export function AcertoPaymentSummary({
                             </SelectTrigger>
                             <SelectContent>
                               {Array.from({ length: 12 }, (_, i) => i + 1).map(
-                                (n) => (
-                                  <SelectItem key={n} value={n.toString()}>
-                                    {n}x
-                                  </SelectItem>
-                                ),
+                                (n) => {
+                                  // Requirement: If Parcelar (checked), must be 2x or more
+                                  if (isParcelar && n === 1) return null
+                                  return (
+                                    <SelectItem key={n} value={n.toString()}>
+                                      {n}x
+                                    </SelectItem>
+                                  )
+                                },
                               )}
                             </SelectContent>
                           </Select>
@@ -667,8 +684,6 @@ export function AcertoPaymentSummary({
                             {entry.details.map((inst, idx) => {
                               const isEntrada =
                                 idx === 0 && (isPix || isDinheiro)
-                              const isZeroEntry =
-                                isEntrada && entry.hasZeroDownPayment
                               const isPaidDisabled = true
 
                               return (
@@ -702,7 +717,7 @@ export function AcertoPaymentSummary({
                                       step="0.01"
                                       className="h-8 pl-7 text-sm"
                                       value={inst.value}
-                                      disabled={disabled || isZeroEntry}
+                                      disabled={disabled || isParcelar}
                                       onChange={(e) =>
                                         handleUpdateInstallment(
                                           entry.method,
