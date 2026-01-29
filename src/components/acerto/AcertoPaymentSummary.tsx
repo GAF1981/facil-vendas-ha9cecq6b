@@ -25,7 +25,7 @@ interface AcertoPaymentSummaryProps {
   payments: PaymentEntry[]
   onPaymentsChange: (payments: PaymentEntry[]) => void
   disabled?: boolean
-  isReceiptMode?: boolean // New prop to enable stricter receipt validation
+  isReceiptMode?: boolean
 }
 
 export function AcertoPaymentSummary({
@@ -39,14 +39,12 @@ export function AcertoPaymentSummary({
   const remaining = saldoAPagar - totalRegistered
   const isComplete = Math.abs(remaining) < 0.01
 
-  // Helper to check if method is restricted in receipt mode
   const isRestrictedMethod = (method: string) => {
     return (
       isReceiptMode && ['Pix', 'Dinheiro', 'Boleto', 'Cheque'].includes(method)
     )
   }
 
-  // Helper to calculate paid value based on rules
   const calculatePaidValue = (
     method: string,
     value: number,
@@ -58,84 +56,113 @@ export function AcertoPaymentSummary({
       if (isRestrictedMethod(method)) return value
       return value
     } else {
-      // Acerto (Sales) Mode
       if (method === 'Boleto') return 0
-
-      // Cheque Rule: Consider full amount as Paid Value immediately
       if (method === 'Cheque') return value
 
-      // For Pix, Dinheiro: Check if Future Date
       const today = startOfDay(new Date())
       const due = parseISO(dueDateStr)
-      // If due date is strictly after today, it is NOT paid immediately
+
       if (isAfter(due, today)) return 0
-
-      // New Rule: If "Parcelar" (hasZeroDownPayment) is checked, the default is 0 paid
-      // But user can edit it manually. This function calculates the DEFAULT.
-      // If we are using manual input, this calculation might be bypassed or used as baseline.
-      // We will assume this calculation sets the initial state, and manual edits override.
-
-      // If Today or Past
-      if (
-        isEntry &&
-        hasZeroDownPayment &&
-        (method === 'Pix' || method === 'Dinheiro')
-      ) {
-        // If Parcelar is checked, default Paid Value is 0
-        return 0
-      }
 
       return value
     }
   }
 
-  // Helper to generate installments based on business rules
   const generateInstallments = (
     totalValue: number,
     count: number,
     method: PaymentMethodType,
     hasZeroDownPayment: boolean = false,
     baseDate: string = format(new Date(), 'yyyy-MM-dd'),
+    customFirstValue?: number,
   ): PaymentInstallment[] => {
     let effectiveCount = count
-
     if (effectiveCount < 1) effectiveCount = 1
 
-    const installmentValue =
-      effectiveCount > 0 ? Number((totalValue / effectiveCount).toFixed(2)) : 0
-
-    const totalDistributed = installmentValue * effectiveCount
-    const remainder = Number((totalValue - totalDistributed).toFixed(2))
-
-    // Determine initial date logic
     const start = new Date(baseDate + 'T12:00:00')
+    const installments: PaymentInstallment[] = []
 
-    return Array.from({ length: count }, (_, i) => {
-      let dueDateObj = i === 0 ? start : addDays(start, i * 30)
-      let dueDate = format(dueDateObj, 'yyyy-MM-dd')
-      let value = installmentValue
+    if (hasZeroDownPayment && (method === 'Pix' || method === 'Dinheiro')) {
+      // Dynamic Logic:
+      // If customFirstValue provided, use it.
+      // If NOT provided, default to TOTAL value for first installment (Entrada), so others are 0.
+      const firstValue =
+        customFirstValue !== undefined ? customFirstValue : totalValue // Default to Full Payment in Entrada
 
-      const isEntry = i === 0
+      const remainingValue = Math.max(0, totalValue - firstValue)
+      const remainingCount = effectiveCount - 1
 
-      // Add remainder to last
-      if (i === count - 1) value += remainder
+      // Distribute remaining value among remaining installments
+      const subsequentValue =
+        remainingCount > 0
+          ? Number((remainingValue / remainingCount).toFixed(2))
+          : 0
 
-      // Calculate Paid Value dynamically
-      const paidValue = calculatePaidValue(
-        method,
-        Number(value.toFixed(2)),
-        dueDate,
-        isEntry,
-        hasZeroDownPayment,
-      )
+      for (let i = 0; i < effectiveCount; i++) {
+        let value = i === 0 ? firstValue : subsequentValue
+        let dueDateObj = i === 0 ? start : addDays(start, i * 30)
+        let dueDate = format(dueDateObj, 'yyyy-MM-dd')
 
-      return {
-        number: i + 1,
-        value: Number(value.toFixed(2)),
-        paidValue: Number(paidValue.toFixed(2)),
-        dueDate: dueDate,
+        // Adjust last installment for rounding errors if distributing
+        if (i === effectiveCount - 1 && i > 0 && remainingCount > 0) {
+          // Sum of previous (excluding first)
+          const previousSubsequents = subsequentValue * (remainingCount - 1)
+          const exactRemainder = remainingValue - previousSubsequents
+          value = Number(exactRemainder.toFixed(2))
+        }
+
+        const isEntry = i === 0
+        const paidValue = calculatePaidValue(
+          method,
+          value,
+          dueDate,
+          isEntry,
+          hasZeroDownPayment,
+        )
+
+        installments.push({
+          number: i + 1,
+          value: value,
+          paidValue: paidValue,
+          dueDate: dueDate,
+        })
       }
-    })
+    } else {
+      // Standard Equal Distribution
+      const installmentValue =
+        effectiveCount > 0
+          ? Number((totalValue / effectiveCount).toFixed(2))
+          : 0
+      const totalDistributed = installmentValue * effectiveCount
+      const remainder = Number((totalValue - totalDistributed).toFixed(2))
+
+      for (let i = 0; i < effectiveCount; i++) {
+        let dueDateObj = i === 0 ? start : addDays(start, i * 30)
+        let dueDate = format(dueDateObj, 'yyyy-MM-dd')
+        let value = installmentValue
+
+        const isEntry = i === 0
+
+        if (i === count - 1) value += remainder
+
+        const paidValue = calculatePaidValue(
+          method,
+          Number(value.toFixed(2)),
+          dueDate,
+          isEntry,
+          hasZeroDownPayment,
+        )
+
+        installments.push({
+          number: i + 1,
+          value: Number(value.toFixed(2)),
+          paidValue: Number(paidValue.toFixed(2)),
+          dueDate: dueDate,
+        })
+      }
+    }
+
+    return installments
   }
 
   const handleToggleMethod = (method: PaymentMethodType, checked: boolean) => {
@@ -195,7 +222,6 @@ export function AcertoPaymentSummary({
       payments.map((p) => {
         if (p.method !== method) return p
 
-        // Manual override for paidValue
         if (field === 'paidValue') {
           return { ...p, paidValue: value }
         }
@@ -232,16 +258,11 @@ export function AcertoPaymentSummary({
           let baseDate =
             field === 'dueDate' ? (updatedValue as string) : p.dueDate
 
-          // Logic for Parcelar (hasZeroDownPayment) checkbox change
           if (field === 'hasZeroDownPayment') {
             if (zeroDown) {
-              // Checked "Parcelar"
-              // Default installments to 2 if currently 1
               if (count === 1) count = 2
               updated.installments = count
             } else {
-              // Unchecked "Parcelar"
-              // Reset installments to 1
               count = 1
               updated.installments = 1
             }
@@ -254,6 +275,8 @@ export function AcertoPaymentSummary({
             updated.dueDate = baseDate
           }
 
+          // If toggling Parcelar ON, calculate default distribution (Entrada = Total)
+          // `generateInstallments` handles `hasZeroDownPayment` true by defaulting firstValue to Total if not provided
           const newDetails = generateInstallments(
             val,
             count,
@@ -263,14 +286,10 @@ export function AcertoPaymentSummary({
           )
           updated.details = newDetails
 
-          // Update paidValue based on generated details OR manual logic
-          // If Unchecked (zeroDown=false): Paid = Value (Matches Registered)
-          // If Checked (zeroDown=true): Paid = 0 (Default)
-          if (!zeroDown) {
-            updated.paidValue = val
-          } else {
-            updated.paidValue = 0
-          }
+          updated.paidValue = newDetails.reduce(
+            (acc, d) => acc + d.paidValue,
+            0,
+          )
 
           if ((count === 1 || zeroDown) && newDetails.length > 0) {
             updated.dueDate = newDetails[0].dueDate
@@ -295,36 +314,40 @@ export function AcertoPaymentSummary({
         if (p.method !== method || !p.details) return p
 
         let updatedValue = value
-        if (field === 'dueDate' && isRestrictedMethod(method)) {
-          updatedValue = validateDate(value as string, method)
+        const isParcelar = p.hasZeroDownPayment
+
+        // Special Logic: If changing value of First Installment (Entrada) in Parcelar mode
+        if (
+          isParcelar &&
+          index === 0 &&
+          field === 'value' &&
+          (method === 'Pix' || method === 'Dinheiro')
+        ) {
+          const newFirstValue = updatedValue as number
+          // Re-generate installments with new first value distribution
+          const newDetails = generateInstallments(
+            p.value,
+            p.installments,
+            method,
+            isParcelar,
+            p.dueDate,
+            newFirstValue,
+          )
+
+          const newPaidValue = newDetails.reduce(
+            (acc, d) => acc + d.paidValue,
+            0,
+          )
+
+          return {
+            ...p,
+            details: newDetails,
+            paidValue: newPaidValue,
+          }
         }
 
-        if (field === 'dueDate' && index === 0) {
-          const shouldSyncMain =
-            (method === 'Boleto' ||
-              method === 'Cheque' ||
-              isRestrictedMethod(method)) &&
-            p.installments === 1
-          const isParcelar = p.hasZeroDownPayment
-
-          if (shouldSyncMain || isParcelar) {
-            const updated = { ...p, dueDate: updatedValue as string }
-            const newDetails = generateInstallments(
-              p.value,
-              p.installments,
-              method,
-              p.hasZeroDownPayment,
-              updatedValue as string,
-            )
-            updated.details = newDetails
-            // Only sync paidValue if NOT Parcelar mode, or if we want to recalc
-            if (!isParcelar) {
-              updated.paidValue = Number(
-                newDetails.reduce((acc, d) => acc + d.paidValue, 0).toFixed(2),
-              )
-            }
-            return updated
-          }
+        if (field === 'dueDate' && isRestrictedMethod(method)) {
+          updatedValue = validateDate(value as string, method)
         }
 
         const newDetails = [...p.details]
@@ -340,13 +363,6 @@ export function AcertoPaymentSummary({
           )
         }
 
-        // When value changes, recalculate Paid Value based on dates logic
-        // But also, if manual editing is enabled (which it is for Parcelar), we might want to respect user input?
-        // Current logic: calculatePaidValue is strict based on Due Date > Today = 0.
-        // If we want manual override, we might need another field/flag.
-        // For now, let's assume the strict date logic applies unless we specifically change paidValue too.
-        // BUT: User story says "Flexible Installment Editing... edit the 'valor registrado'".
-        // This refers to `value`.
         if (field === 'value') {
           currentDetail.paidValue = calculatePaidValue(
             method,
@@ -362,12 +378,12 @@ export function AcertoPaymentSummary({
         let newValue = p.value
         let newPaidValue = p.paidValue
 
-        // Recalculate main values based on details sum
-        newValue = Number(
-          newDetails.reduce((acc, curr) => acc + curr.value, 0).toFixed(2),
-        )
+        if (!isParcelar || field !== 'value') {
+          newValue = Number(
+            newDetails.reduce((acc, curr) => acc + curr.value, 0).toFixed(2),
+          )
+        }
 
-        // For paidValue, sum up all details paid values
         newPaidValue = Number(
           newDetails.reduce((acc, curr) => acc + curr.paidValue, 0).toFixed(2),
         )
@@ -485,12 +501,14 @@ export function AcertoPaymentSummary({
                 const isOverpaid = entry.paidValue > entry.value + 0.01
                 const isPix = entry.method === 'Pix'
                 const isDinheiro = entry.method === 'Dinheiro'
+                const isBoleto = entry.method === 'Boleto'
+                const isCheque = entry.method === 'Cheque'
                 const isRestricted = isRestrictedMethod(entry.method)
 
-                // Requirement: Enable installments for Cash (Dinheiro)
-                // Installments only disabled if restricted or not allowed method (but here allowed)
                 const isInstallmentsDisabled =
-                  disabled || isRestricted || !entry.hasZeroDownPayment // Enabled only if Parcelar is checked
+                  disabled ||
+                  isRestricted ||
+                  (!entry.hasZeroDownPayment && !isBoleto && !isCheque)
 
                 const isFuture = entry.value > 0 && entry.paidValue === 0
                 const isParcelar = !!entry.hasZeroDownPayment
@@ -611,40 +629,57 @@ export function AcertoPaymentSummary({
                           <Label className="text-xs font-medium mb-1.5 block">
                             Parcelas
                           </Label>
-                          <Select
-                            value={entry.installments.toString()}
-                            disabled={isInstallmentsDisabled}
-                            onValueChange={(val) =>
-                              handleUpdateEntry(
-                                entry.method,
-                                'installments',
-                                parseInt(val),
-                              )
-                            }
-                          >
-                            <SelectTrigger
-                              className={cn(
-                                'h-10 px-2',
-                                isInstallmentsDisabled &&
-                                  'opacity-50 cursor-not-allowed bg-muted',
-                              )}
+                          {isBoleto || isCheque ? (
+                            <Input
+                              type="number"
+                              min="1"
+                              className="h-10 px-2 text-center"
+                              value={entry.installments}
+                              disabled={disabled}
+                              onChange={(e) =>
+                                handleUpdateEntry(
+                                  entry.method,
+                                  'installments',
+                                  Math.max(1, parseInt(e.target.value) || 1),
+                                )
+                              }
+                            />
+                          ) : (
+                            <Select
+                              value={entry.installments.toString()}
+                              disabled={isInstallmentsDisabled}
+                              onValueChange={(val) =>
+                                handleUpdateEntry(
+                                  entry.method,
+                                  'installments',
+                                  parseInt(val),
+                                )
+                              }
                             >
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {Array.from({ length: 12 }, (_, i) => i + 1).map(
-                                (n) => {
-                                  // Requirement: If Parcelar (checked), must be 2x or more
+                              <SelectTrigger
+                                className={cn(
+                                  'h-10 px-2',
+                                  isInstallmentsDisabled &&
+                                    'opacity-50 cursor-not-allowed bg-muted',
+                                )}
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Array.from(
+                                  { length: 12 },
+                                  (_, i) => i + 1,
+                                ).map((n) => {
                                   if (isParcelar && n === 1) return null
                                   return (
                                     <SelectItem key={n} value={n.toString()}>
                                       {n}x
                                     </SelectItem>
                                   )
-                                },
-                              )}
-                            </SelectContent>
-                          </Select>
+                                })}
+                              </SelectContent>
+                            </Select>
+                          )}
                         </div>
                       )}
 
@@ -686,8 +721,8 @@ export function AcertoPaymentSummary({
                           <div className="grid gap-3">
                             {entry.details.map((inst, idx) => {
                               const isEntrada =
-                                idx === 0 && (isPix || isDinheiro)
-                              const isPaidDisabled = true
+                                idx === 0 && (isPix || isDinheiro) && isParcelar
+                              const canEditValue = !disabled // All values editable in Dynamic Mode
 
                               return (
                                 <div
@@ -720,8 +755,7 @@ export function AcertoPaymentSummary({
                                       step="0.01"
                                       className="h-8 pl-7 text-sm"
                                       value={inst.value}
-                                      // Enable editing if isParcelar is true (Flexible Installment Editing)
-                                      disabled={disabled}
+                                      disabled={!canEditValue}
                                       onChange={(e) =>
                                         handleUpdateInstallment(
                                           entry.method,
@@ -742,13 +776,11 @@ export function AcertoPaymentSummary({
                                       step="0.01"
                                       className={cn(
                                         'h-8 pl-16 text-sm',
-                                        isPaidDisabled
-                                          ? 'bg-gray-100 text-gray-400'
-                                          : 'bg-white font-medium',
+                                        'bg-gray-100 text-gray-400',
                                       )}
                                       value={inst.paidValue}
-                                      disabled={isPaidDisabled}
-                                      readOnly={isPaidDisabled}
+                                      disabled={true}
+                                      readOnly={true}
                                     />
                                   </div>
 

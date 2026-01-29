@@ -424,12 +424,16 @@ export const bancoDeDadosService = {
     notaFiscalVenda: string,
     customOrderNumber?: number,
   ): Promise<number> {
-    // 1. Get Context (Order Number)
+    // 1. Get Context (Order Number & Active Route)
     const nextPedido =
       customOrderNumber ?? (await this.reserveNextOrderNumber())
     const dataAcertoStr = format(date, 'yyyy-MM-dd')
     const horaAcerto = format(date, 'HH:mm:ss')
     const dataEHora = date.toISOString() // This is the full ISO string
+
+    // Fetch Active Route ID
+    const activeRoute = await rotaService.getActiveRota()
+    const activeRouteId = activeRoute?.id || null
 
     // 2. Fetch current product prices
     const productIds = items.map((i) => i.produtoId)
@@ -557,6 +561,7 @@ export const bancoDeDadosService = {
           valor_pago: detail.paidValue || 0,
           vencimento: new Date(`${detail.dueDate}T12:00:00`).toISOString(),
           ID_da_fêmea: nextPedido,
+          rota_id: activeRouteId, // Insert active route ID for isolation
         })
       })
     })

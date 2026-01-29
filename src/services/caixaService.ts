@@ -83,9 +83,6 @@ export const caixaService = {
   },
 
   async getFinancialSummary(rota: Rota): Promise<CaixaSummaryRow[]> {
-    const routeStart = parseISO(rota.data_inicio)
-    const routeEnd = rota.data_fim ? parseISO(rota.data_fim) : new Date()
-
     // 1. Fetch Employees
     const { data: employees, error: empError } = await supabase
       .from('FUNCIONARIOS')
@@ -125,68 +122,41 @@ export const caixaService = {
       })
     })
 
-    // 3. Receipts
+    // 3. Receipts - Filter by Rota ID
     const { data: receipts, error: recError } = await supabase
       .from('RECEBIMENTOS')
-      .select('funcionario_id, valor_pago, created_at, forma_pagamento')
-      .gte('created_at', rota.data_inicio)
+      .select('funcionario_id, valor_pago, forma_pagamento, rota_id')
+      .eq('rota_id', rota.id)
       .gt('valor_pago', 0)
 
     if (recError) throw recError
 
     receipts?.forEach((rec) => {
-      if (!rec.created_at) return
-
-      const recDate = parseISO(rec.created_at)
-
-      const isAfterStart =
-        isAfter(recDate, routeStart) || isEqual(recDate, routeStart)
-
-      const isBeforeEnd = rota.data_fim
-        ? isBefore(recDate, routeEnd) || isEqual(recDate, routeEnd)
-        : true
-
-      if (isAfterStart && isBeforeEnd) {
-        const empId = rec.funcionario_id
-        if (summaryMap.has(empId)) {
-          const entry = summaryMap.get(empId)!
-          entry.totalRecebido += Number(rec.valor_pago)
-          if (rec.forma_pagamento === 'Boleto') {
-            entry.totalBoleto += Number(rec.valor_pago)
-          }
+      const empId = rec.funcionario_id
+      if (summaryMap.has(empId)) {
+        const entry = summaryMap.get(empId)!
+        entry.totalRecebido += Number(rec.valor_pago)
+        if (rec.forma_pagamento === 'Boleto') {
+          entry.totalBoleto += Number(rec.valor_pago)
         }
       }
     })
 
-    // 4. Expenses
-    const fetchStartDate = rota.data_inicio.split('T')[0] // YYYY-MM-DD
-
+    // 4. Expenses - Filter by Rota ID
     const { data: expenses, error: expError } = await supabase
       .from('DESPESAS')
-      .select('funcionario_id, Valor, Data, saiu_do_caixa')
-      .gte('Data', fetchStartDate)
+      .select('funcionario_id, Valor, saiu_do_caixa, rota_id')
+      .eq('rota_id', rota.id)
 
     if (expError) throw expError
 
     expenses?.forEach((exp) => {
-      if (!exp.Data) return
       if (exp.saiu_do_caixa === false) return
 
-      const expDayStr = exp.Data.split('T')[0]
-      const routeStartDayStr = rota.data_inicio.split('T')[0]
-      const routeEndDayStr = rota.data_fim ? rota.data_fim.split('T')[0] : null
-
-      const isAfterOrSameStart = expDayStr >= routeStartDayStr
-      const isBeforeOrSameEnd = routeEndDayStr
-        ? expDayStr <= routeEndDayStr
-        : true
-
-      if (isAfterOrSameStart && isBeforeOrSameEnd) {
-        const empId = exp.funcionario_id
-        if (summaryMap.has(empId)) {
-          const entry = summaryMap.get(empId)!
-          entry.totalDespesas += Number(exp.Valor)
-        }
+      const empId = exp.funcionario_id
+      if (summaryMap.has(empId)) {
+        const entry = summaryMap.get(empId)!
+        entry.totalDespesas += Number(exp.Valor)
       }
     })
 
@@ -208,9 +178,6 @@ export const caixaService = {
   },
 
   async getAllReceipts(rota: Rota): Promise<ReceiptDetail[]> {
-    const routeStart = parseISO(rota.data_inicio)
-    const routeEnd = rota.data_fim ? parseISO(rota.data_fim) : new Date()
-
     const { data, error } = await supabase
       .from('RECEBIMENTOS')
       .select(
@@ -222,31 +189,18 @@ export const caixaService = {
         funcionario_id,
         venda_id,
         data_pagamento,
+        rota_id,
         CLIENTES ( "NOME CLIENTE" ),
         FUNCIONARIOS ( nome_completo )
       `,
       )
-      .gte('created_at', rota.data_inicio)
+      .eq('rota_id', rota.id)
       .gt('valor_pago', 0)
       .order('created_at', { ascending: false })
 
     if (error) throw error
 
-    const filtered = (data || []).filter((rec) => {
-      if (!rec.created_at) return false
-      const recDate = parseISO(rec.created_at)
-
-      const isAfterStart =
-        isAfter(recDate, routeStart) || isEqual(recDate, routeStart)
-
-      const isBeforeEnd = rota.data_fim
-        ? isBefore(recDate, routeEnd) || isEqual(recDate, routeEnd)
-        : true
-
-      return isAfterStart && isBeforeEnd
-    })
-
-    return filtered.map((rec: any) => ({
+    return (data || []).map((rec: any) => ({
       id: rec.id,
       data: rec.created_at,
       clienteNome: rec.CLIENTES?.['NOME CLIENTE'] || 'N/D',
@@ -259,8 +213,6 @@ export const caixaService = {
   },
 
   async getAllExpenses(rota: Rota): Promise<ExpenseDetail[]> {
-    const fetchStartDate = rota.data_inicio.split('T')[0]
-
     const { data, error } = await supabase
       .from('DESPESAS')
       .select(
@@ -269,27 +221,12 @@ export const caixaService = {
         FUNCIONARIOS ( nome_completo )
       `,
       )
-      .gte('Data', fetchStartDate)
+      .eq('rota_id', rota.id)
       .order('Data', { ascending: false })
 
     if (error) throw error
 
-    const filtered = (data || []).filter((exp) => {
-      if (!exp.Data) return false
-
-      const expDayStr = exp.Data.split('T')[0]
-      const routeStartDayStr = rota.data_inicio.split('T')[0]
-      const routeEndDayStr = rota.data_fim ? rota.data_fim.split('T')[0] : null
-
-      const isAfterOrSameStart = expDayStr >= routeStartDayStr
-      const isBeforeOrSameEnd = routeEndDayStr
-        ? expDayStr <= routeEndDayStr
-        : true
-
-      return isAfterOrSameStart && isBeforeOrSameEnd
-    })
-
-    return filtered.map((exp: any) => ({
+    return (data || []).map((exp: any) => ({
       id: exp.id,
       data: exp.Data || '',
       grupo: exp['Grupo de Despesas'],
@@ -306,9 +243,6 @@ export const caixaService = {
     employeeId: number,
     rota: Rota,
   ): Promise<ReceiptDetail[]> {
-    const routeStart = parseISO(rota.data_inicio)
-    const routeEnd = rota.data_fim ? parseISO(rota.data_fim) : new Date()
-
     const { data, error } = await supabase
       .from('RECEBIMENTOS')
       .select(
@@ -319,33 +253,20 @@ export const caixaService = {
         valor_pago,
         forma_pagamento,
         venda_id,
+        rota_id,
         CLIENTES (
           "NOME CLIENTE"
         )
       `,
       )
       .eq('funcionario_id', employeeId)
-      .gte('created_at', rota.data_inicio)
+      .eq('rota_id', rota.id)
       .gt('valor_pago', 0)
       .order('created_at', { ascending: false })
 
     if (error) throw error
 
-    const filtered = (data || []).filter((rec) => {
-      if (!rec.created_at) return false
-      const recDate = parseISO(rec.created_at)
-
-      const isAfterStart =
-        isAfter(recDate, routeStart) || isEqual(recDate, routeStart)
-
-      const isBeforeEnd = rota.data_fim
-        ? isBefore(recDate, routeEnd) || isEqual(recDate, routeEnd)
-        : true
-
-      return isAfterStart && isBeforeEnd
-    })
-
-    return filtered.map((rec: any) => ({
+    return (data || []).map((rec: any) => ({
       id: rec.id,
       data: rec.created_at,
       clienteNome: rec.CLIENTES?.['NOME CLIENTE'] || 'N/D',
@@ -359,33 +280,16 @@ export const caixaService = {
     employeeId: number,
     rota: Rota,
   ): Promise<ExpenseDetail[]> {
-    const fetchStartDate = rota.data_inicio.split('T')[0]
-
     const { data, error } = await supabase
       .from('DESPESAS')
       .select('*')
       .eq('funcionario_id', employeeId)
-      .gte('Data', fetchStartDate)
+      .eq('rota_id', rota.id)
       .order('Data', { ascending: false })
 
     if (error) throw error
 
-    const filtered = (data || []).filter((exp) => {
-      if (!exp.Data) return false
-
-      const expDayStr = exp.Data.split('T')[0]
-      const routeStartDayStr = rota.data_inicio.split('T')[0]
-      const routeEndDayStr = rota.data_fim ? rota.data_fim.split('T')[0] : null
-
-      const isAfterOrSameStart = expDayStr >= routeStartDayStr
-      const isBeforeOrSameEnd = routeEndDayStr
-        ? expDayStr <= routeEndDayStr
-        : true
-
-      return isAfterOrSameStart && isBeforeOrSameEnd
-    })
-
-    return filtered.map((exp) => ({
+    return (data || []).map((exp) => ({
       id: exp.id,
       data: exp.Data || '',
       grupo: exp['Grupo de Despesas'],

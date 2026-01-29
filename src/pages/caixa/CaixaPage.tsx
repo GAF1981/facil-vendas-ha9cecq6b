@@ -60,6 +60,7 @@ import {
 } from '@/components/ui/tooltip'
 import { employeesService } from '@/services/employeesService'
 import { Employee } from '@/types/employee'
+import { fechamentoService } from '@/services/fechamentoService'
 
 export default function CaixaPage() {
   const [loading, setLoading] = useState(true)
@@ -245,11 +246,6 @@ export default function CaixaPage() {
   const handleOpenGeneralExpense = async () => {
     if (!loggedInUser) return
 
-    // If no route selected, block? Or allow?
-    // Requirement says block "if a cash drawer (caixa) status is anything other than 'Aberto'".
-    // If no route selected, no context to block. Allow?
-    // If route selected, verify user status.
-
     const targetEmpId =
       selectedEmployeeId && selectedEmployeeId !== 'all'
         ? parseInt(selectedEmployeeId)
@@ -258,16 +254,17 @@ export default function CaixaPage() {
       activeEmployees.find((e) => e.id === targetEmpId)?.nome_completo || ''
 
     if (selectedRouteId) {
-      // Check restriction using summaryData
-      const empSummary = summaryData.find(
-        (s) => s.funcionarioId === targetEmpId,
+      // Strict Control: Fetch closure status directly from DB
+      const closureStatus = await fechamentoService.getClosureStatus(
+        parseInt(selectedRouteId),
+        targetEmpId,
       )
 
-      // Strict Control: Only block if status is explicitly 'Fechado'
-      if (empSummary && empSummary.dbStatus === 'Fechado') {
+      if (closureStatus === 'Fechado' || closureStatus === 'Aberto') {
+        // 'Aberto' here means "Closing process initiated" in fechamento_caixa table
         toast({
           title: 'Ação Bloqueada',
-          description: `O Caixa de ${targetEmpName} está FECHADO. Não é possível lançar novas despesas para esta rota.`,
+          description: `O Caixa de ${targetEmpName} já está em processo de fechamento ou fechado. Não é possível lançar novas despesas.`,
           variant: 'destructive',
         })
         return
@@ -278,17 +275,20 @@ export default function CaixaPage() {
     setIsExpenseDialogOpen(true)
   }
 
-  const handleAddExpense = (empId: number, empName: string) => {
-    // Check restriction
-    const empSummary = summaryData.find((s) => s.funcionarioId === empId)
-    // Only block if status is 'Fechado'
-    if (empSummary && empSummary.dbStatus === 'Fechado') {
-      toast({
-        title: 'Bloqueado',
-        description: 'Caixa fechado.',
-        variant: 'destructive',
-      })
-      return
+  const handleAddExpense = async (empId: number, empName: string) => {
+    if (selectedRouteId) {
+      const closureStatus = await fechamentoService.getClosureStatus(
+        parseInt(selectedRouteId),
+        empId,
+      )
+      if (closureStatus === 'Fechado' || closureStatus === 'Aberto') {
+        toast({
+          title: 'Bloqueado',
+          description: 'Caixa em fechamento ou fechado.',
+          variant: 'destructive',
+        })
+        return
+      }
     }
 
     setPreselectedEmployee({ id: empId, name: empName })

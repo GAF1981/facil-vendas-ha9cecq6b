@@ -10,6 +10,7 @@ import {
 } from '@/types/recebimento'
 import { reportsService } from '@/services/reportsService'
 import { startOfDay, endOfDay, isBefore, isAfter, parseISO } from 'date-fns'
+import { rotaService } from '@/services/rotaService'
 
 export const recebimentoService = {
   async saveRecebimento(
@@ -23,6 +24,9 @@ export const recebimentoService = {
         'É necessário selecionar um pedido para vincular o pagamento.',
       )
     }
+
+    const activeRoute = await rotaService.getActiveRota()
+    const activeRouteId = activeRoute?.id || null
 
     for (const payment of payments) {
       const inserts: RecebimentoInsert[] = []
@@ -41,6 +45,7 @@ export const recebimentoService = {
             valor_pago: 0,
             vencimento: new Date(`${detail.dueDate}T12:00:00`).toISOString(),
             ID_da_fêmea: linkedOrderId, // Initial link to order
+            rota_id: activeRouteId,
           })
         })
       } else {
@@ -56,6 +61,7 @@ export const recebimentoService = {
             : new Date().toISOString(),
           ID_da_fêmea: linkedOrderId,
           data_pagamento: new Date().toISOString(),
+          rota_id: activeRouteId,
         })
       }
 
@@ -386,6 +392,9 @@ export const recebimentoService = {
     employeeId?: number,
     installmentId?: number, // New parameter for direct linking
   ): Promise<{ success: boolean; syncWarning?: boolean }> {
+    const activeRoute = await rotaService.getActiveRota()
+    const activeRouteId = activeRoute?.id || null
+
     // 1. Insert New Payment Record
     const insertPayload: any = {
       venda_id: orderId,
@@ -399,6 +408,7 @@ export const recebimentoService = {
       // Link to installment if provided, otherwise link to order (Legacy behavior)
       ID_da_fêmea: installmentId || orderId,
       motivo: 'Pagamento de Pedido',
+      rota_id: activeRouteId,
     }
 
     const { data: insertedData, error: insertError } = await supabase

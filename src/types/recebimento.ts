@@ -13,6 +13,7 @@ export interface RecebimentoInsert {
   ID_da_fêmea?: number | null
   data_pagamento?: string | null
   motivo?: string | null
+  rota_id?: number | null
 }
 
 export interface RecebimentoRow {
@@ -29,6 +30,7 @@ export interface RecebimentoRow {
   ID_da_fêmea: number | null
   created_at: string | null
   data_pagamento: string | null
+  rota_id?: number | null
 }
 
 export interface RecebimentoInstallment extends RecebimentoRow {

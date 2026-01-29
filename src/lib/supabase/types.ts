@@ -553,6 +553,7 @@ export type Database = {
           hodometro: number | null
           id: number
           prestador_servico: string | null
+          rota_id: number | null
           saiu_do_caixa: boolean | null
           tipo_combustivel: string | null
           tipo_servico: string | null
@@ -567,6 +568,7 @@ export type Database = {
           hodometro?: number | null
           id?: number
           prestador_servico?: string | null
+          rota_id?: number | null
           saiu_do_caixa?: boolean | null
           tipo_combustivel?: string | null
           tipo_servico?: string | null
@@ -581,6 +583,7 @@ export type Database = {
           hodometro?: number | null
           id?: number
           prestador_servico?: string | null
+          rota_id?: number | null
           saiu_do_caixa?: boolean | null
           tipo_combustivel?: string | null
           tipo_servico?: string | null
@@ -593,6 +596,13 @@ export type Database = {
             columns: ['funcionario_id']
             isOneToOne: false
             referencedRelation: 'FUNCIONARIOS'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'DESPESAS_rota_id_fkey'
+            columns: ['rota_id']
+            isOneToOne: false
+            referencedRelation: 'ROTA'
             referencedColumns: ['id']
           },
           {
