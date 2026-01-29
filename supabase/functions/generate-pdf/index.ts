@@ -154,8 +154,7 @@ Deno.serve(async (req) => {
       } = options
 
       const finalFont = isThermal ? fontBold : font
-      const finalColor =
-        isThermal && color === rgb(0, 0, 0) ? rgb(0, 0, 0) : color
+      const finalColor = color
       const cleanText = removeAccents(text || '')
       let textToDraw = cleanText
 
@@ -424,6 +423,7 @@ Deno.serve(async (req) => {
         pendingInstallments = [],
         signature,
         issuerName,
+        history,
       } = body
 
       const sellerName = issuerName || employee?.nome_completo || 'N/D'
@@ -791,6 +791,65 @@ Deno.serve(async (req) => {
         font: fontBold,
         align: 'center',
       })
+      y -= 25
+
+      // --- HISTORY SECTION (NEW) ---
+      if (history && history.length > 0) {
+        checkPageBreak(150)
+        drawText('RESUMO DE ACERTOS (HISTÓRICO)', width / 2, y, {
+          size: 10,
+          font: fontBold,
+          align: 'center',
+        })
+        y -= 15
+
+        // Table Header
+        // Columns: Data | Pedido | Débito | Média
+        const col1 = margins.left // Data
+        const col2 = margins.left + 50 // Pedido
+        const col3 = margins.left + 100 // Débito
+        const col4 = width - margins.right // Média (Right aligned)
+
+        drawText('Data', col1, y, { size: 8, font: fontBold })
+        drawText('Ped.', col2, y, { size: 8, font: fontBold })
+        drawText('Débito', col3, y, { size: 8, font: fontBold })
+        drawText('Média', col4, y, { size: 8, font: fontBold, align: 'right' })
+
+        y -= 8
+        drawLine(y, 0.5)
+        y -= 12
+
+        history.forEach((h: any) => {
+          checkPageBreak(25)
+
+          const dateStr =
+            safeFormatDate(h.data).split('/')[0] +
+            '/' +
+            safeFormatDate(h.data).split('/')[1] // dd/MM
+          const orderId = h.id ? `#${h.id}` : '-'
+          const debt = h.debito || 0
+          const avg = h.mediaMensal || 0
+
+          drawText(dateStr, col1, y, { size: 8 })
+          drawText(orderId, col2, y, { size: 8 })
+
+          // Conditional Styling for Debt (> 1 red)
+          const debtColor = debt > 1 ? rgb(0.6, 0, 0) : rgb(0, 0, 0)
+          drawText(`R$ ${formatCurrency(debt)}`, col3, y, {
+            size: 8,
+            color: debtColor,
+          })
+
+          // Styling for Average (Dark Blue)
+          drawText(`R$ ${formatCurrency(avg)}`, col4, y, {
+            size: 8,
+            align: 'right',
+            color: rgb(0, 0, 0.6),
+          })
+
+          y -= 12
+        })
+      }
     }
 
     const pdfBytes = await pdfDoc.save()

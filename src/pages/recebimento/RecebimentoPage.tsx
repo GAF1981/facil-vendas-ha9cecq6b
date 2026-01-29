@@ -41,8 +41,13 @@ export default function RecebimentoPage() {
 
   useEffect(() => {
     const search = searchParams.get('search')
+    const orderId = searchParams.get('orderId')
+
     if (search) {
       setSearchTerm(search)
+    }
+    if (orderId) {
+      setOrderFilter(orderId)
     }
   }, [searchParams])
 
