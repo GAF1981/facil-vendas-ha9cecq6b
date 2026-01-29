@@ -825,7 +825,7 @@ Deno.serve(async (req) => {
 
           // --- ROW 2: Financials 1 ---
           const venda = formatCurrency(h.valorVendaTotal)
-          const desc = formatCurrency(h.desconto || 0) // Assuming discount is value
+          // const desc = formatCurrency(h.desconto || 0) // Assuming discount is value
           const aPagar = formatCurrency(h.saldoAPagar)
 
           drawText(`V: ${venda}`, margins.left, y, { size: 8 })
@@ -843,7 +843,7 @@ Deno.serve(async (req) => {
 
           drawText(`Pg: ${pago}`, margins.left, y, { size: 8 })
 
-          // Conditional Debt Color
+          // Conditional Debt Color - Dark Red for > 1.00
           const debtColor = debito > 1.0 ? rgb(0.6, 0, 0) : rgb(0, 0, 0)
           drawText(`Déb: ${formatCurrency(debito)}`, margins.left + 60, y, {
             size: 8,
@@ -851,7 +851,7 @@ Deno.serve(async (req) => {
             font: fontBold,
           })
 
-          // Conditional Media Color
+          // Conditional Media Color - Dark Blue
           const mediaColor = rgb(0, 0, 0.6)
           drawText(`Méd: ${formatCurrency(media)}`, width - margins.right, y, {
             size: 8,

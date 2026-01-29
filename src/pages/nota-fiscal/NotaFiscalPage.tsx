@@ -188,10 +188,13 @@ export default function NotaFiscalPage() {
     }
   }
 
-  const handleGeneratePdf = async (orderId: number) => {
+  const handleGeneratePdf = async (
+    orderId: number,
+    type: 'standard' | 'settlement',
+  ) => {
     setGeneratingPdf(true)
     try {
-      const blob = await cobrancaService.generateOrderReceipt(orderId)
+      const blob = await cobrancaService.generateOrderReceipt(orderId, type)
       const url = window.URL.createObjectURL(blob)
       window.open(url, '_blank')
       setTimeout(() => window.URL.revokeObjectURL(url), 1000)
@@ -241,7 +244,7 @@ export default function NotaFiscalPage() {
               <Input
                 placeholder="Buscar cliente, código ou pedido..."
                 value={search}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => setSearch(e.target.value)}
                 className="pl-9"
               />
             </div>
@@ -381,16 +384,28 @@ export default function NotaFiscalPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-center">
-                      {item.notaFiscalEmitida === 'Emitida' && (
+                      <div className="flex items-center justify-center gap-2">
                         <Button
                           size="icon"
                           variant="ghost"
-                          onClick={() => handleGeneratePdf(item.orderId)}
-                          title="Imprimir PDF"
+                          onClick={() =>
+                            handleGeneratePdf(item.orderId, 'standard')
+                          }
+                          title="Imprimir PDF Padrão"
                         >
-                          <Printer className="h-4 w-4 text-blue-600" />
+                          <Printer className="h-4 w-4 text-green-600" />
                         </Button>
-                      )}
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() =>
+                            handleGeneratePdf(item.orderId, 'settlement')
+                          }
+                          title="Imprimir PDF Acerto (Histórico)"
+                        >
+                          <Printer className="h-4 w-4 text-red-600" />
+                        </Button>
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       {item.notaFiscalEmitida === 'Pendente' && (

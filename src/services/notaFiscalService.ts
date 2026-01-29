@@ -9,6 +9,7 @@ export const notaFiscalService = {
     let orderIds: number[] | null = null
 
     // 1. If rotaId provided, find relevant order IDs from RECEBIMENTOS
+    // This logic ensures we only get orders associated with the selected route
     if (rotaId) {
       const { data: recData, error: recError } = await supabase
         .from('RECEBIMENTOS')

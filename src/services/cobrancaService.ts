@@ -11,6 +11,7 @@ import {
 import { isBefore, parseISO, startOfDay, isValid } from 'date-fns'
 import { reportsService } from '@/services/reportsService'
 import { getBrazilDateString } from '@/lib/dateUtils'
+import { bancoDeDadosService } from '@/services/bancoDeDadosService'
 
 export const cobrancaService = {
   async getDebts(): Promise<ClientDebt[]> {
@@ -726,12 +727,6 @@ export const cobrancaService = {
             0,
           ) || 0
 
-        // If it's the receivable itself, its payment is included in linkedPayments usually if we count self?
-        // Logic in getDebts counts selfPayment + linkedPayments.
-        // ID_da_fêmea usually points to the parent installment. If the row IS the parent, we need to check if payments cover it.
-        // Actually, simpler: check `view` or recalculate.
-        // Let's assume standard logic: sum of payments >= registered.
-
         const registered = recData?.valor_registrado || 0
         if (totalPaid >= registered - 0.05) {
           // Fully Paid -> Clear fields
@@ -762,7 +757,10 @@ export const cobrancaService = {
     return data?.debito_total || 0
   },
 
-  async generateOrderReceipt(orderId: number): Promise<Blob> {
+  async generateOrderReceipt(
+    orderId: number,
+    type: 'standard' | 'settlement' = 'standard',
+  ): Promise<Blob> {
     const { data: orderData, error: orderError } = await supabase
       .from('BANCO_DE_DADOS')
       .select('*')
@@ -812,6 +810,21 @@ export const cobrancaService = {
       0,
     )
 
+    // NEW: Fetch history if settlement report
+    let history: any[] = []
+    let monthlyAverage = 0
+
+    if (type === 'settlement' && clientId) {
+      try {
+        const allHistory = await bancoDeDadosService.getHistoryForPdf(clientId)
+        // Limit to 10 most recent excluding current if needed, or just 10 most recent
+        history = allHistory.filter((h) => h.id !== orderId).slice(0, 10)
+        monthlyAverage = await bancoDeDadosService.getMonthlyAverage(clientId)
+      } catch (histError) {
+        console.error('Failed to fetch history for PDF', histError)
+      }
+    }
+
     const payload = {
       reportType: 'acerto',
       format: '80mm',
@@ -830,6 +843,8 @@ export const cobrancaService = {
         paidValue: Number(p.valor_pago),
         dueDate: p.vencimento,
       })),
+      history,
+      monthlyAverage,
     }
 
     const { data: pdfBlob, error: pdfError } = await supabase.functions.invoke(
