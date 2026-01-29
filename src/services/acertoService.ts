@@ -250,6 +250,7 @@ export const acertoService = {
       payments, // kept for compatibility
       detailedPayments, // New detailed structure
       pendingInstallments, // New detailed structure
+      installments: pendingInstallments, // Mapped for thermal print consistency
       orderNumber: orderId,
       preview: false,
       signature: null,

@@ -399,6 +399,7 @@ export default function AcertoPage() {
           payments,
           detailedPayments,
           pendingInstallments,
+          installments: pendingInstallments, // Pass mapped installments
           monthlyAverage,
           orderNumber: nextOrderNumber,
           issuerName: loggedInUser?.nome_completo,
@@ -665,6 +666,7 @@ export default function AcertoPage() {
           payments,
           detailedPayments,
           pendingInstallments,
+          installments: pendingInstallments, // Pass mapped installments
           monthlyAverage,
           orderNumber: finalOrderNumber,
           issuerName: loggedInUser?.nome_completo,

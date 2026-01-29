@@ -468,8 +468,8 @@ Deno.serve(async (req) => {
           y -= 15
         })
       }
-    } else if (reportType === 'thermal-history') {
-      // --- THERMAL SETTLEMENT SUMMARY (RED) ---
+    } else if (reportType === 'thermal-history' || reportType === 'acerto') {
+      // --- THERMAL SETTLEMENT SUMMARY (RED/ACERTO) ---
       const {
         client,
         employee,
@@ -487,6 +487,7 @@ Deno.serve(async (req) => {
       const clientName = client?.['NOME CLIENTE'] || 'Consumidor'
       const clientCode = client?.CODIGO || '0'
       const clientAddress = `${client?.ENDEREÇO || ''}, ${client?.BAIRRO || ''}`
+      const clientCity = client?.MUNICÍPIO || ''
 
       // Header
       drawText('FACIL VENDAS', width / 2, y, {
@@ -517,15 +518,23 @@ Deno.serve(async (req) => {
         maxWidth: width - 20,
       })
       y -= 12
-      drawText(`${client?.MUNICÍPIO || ''}`, margins.left, y, {
+      drawText(`${clientCity}`, margins.left, y, {
         size: infoSize,
+        font: fontBold,
       })
       y -= 12
-      drawText(`Data: ${safeFormatDate(date)}`, margins.left, y, {
+
+      const formattedDate = safeFormatDate(date)
+      const formattedTime = safeFormatTime(date)
+      drawText(`Data: ${formattedDate} ${formattedTime}`, margins.left, y, {
         size: infoSize,
+        font: fontBold,
       })
       y -= 12
-      drawText(`Vendedor: ${sellerName}`, margins.left, y, { size: infoSize })
+      drawText(`Vendedor: ${sellerName}`, margins.left, y, {
+        size: infoSize,
+        font: fontBold,
+      })
       y -= 10
       drawLine(y)
       y -= 15
@@ -582,12 +591,12 @@ Deno.serve(async (req) => {
           font: f,
           align: 'right',
         })
-        y -= 12
+        y -= 15 // Improved spacing
       }
 
       drawTotal('Total Vendido:', totalVendido)
       drawTotal('Desconto:', valorDesconto)
-      y -= 2
+      y -= 5 // Extra spacing
       drawTotal('TOTAL A PAGAR:', valorAcerto, true)
       y -= 15
       drawLine(y)
@@ -648,11 +657,17 @@ Deno.serve(async (req) => {
             align: 'right',
           },
         )
+        y -= 25
+      } else {
         y -= 15
       }
 
+      // Signature Line
+      // Ensure space for signature
+      checkPageBreak(60)
+
+      // Draw signature line with proper spacing
       y -= 30
-      // Signature Line (BEFORE HISTORY as requested)
       const sigLineY = y
       page.drawLine({
         start: { x: margins.left + 20, y: sigLineY },
