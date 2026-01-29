@@ -204,27 +204,17 @@ export const cobrancaService = {
         dbInstallments: [],
       }
 
-      // Collect all pure payments (that are not installments themselves) for allocation
-      // But we will primarily look for strict linking first
       const allPayments = paymentInfo.allReceipts.filter(
         (r) => (Number(r.valor_pago) || 0) > 0,
       )
 
-      // Identify unallocated payments (not linked to any specific installment ID)
-      // Linked means: ID_da_fêmea points to an installment ID
-      // If ID_da_fêmea is same as Order ID or null, it is considered generic/unallocated (unless it IS the installment row itself)
-      // We will identify these later after defining installments.
-
       if (actionRows && actionRows.length > 0) {
-        // SCENARIO 1: Has Collection Actions (Negotiated Debt)
-        // Installments are defined by `actionRows`
         installments = actionRows.map((row) => {
           const instId = row.installment_id || 0
           const vDate = row.installment_vencimento
           const parsedDate = vDate ? parseISO(vDate) : null
           const valReg = Number(row.installment_valor) || 0
 
-          // Find specific payments linked to this installment
           const specificPayments = allPayments.filter(
             (p) => p.ID_da_fêmea === instId,
           )
@@ -267,15 +257,10 @@ export const cobrancaService = {
           }
         })
       } else if (paymentInfo.dbInstallments.length > 0) {
-        // SCENARIO 2: Has DB Installments (Recebimentos with valor_registrado > 0)
-        // Installments are defined by `paymentInfo.dbInstallments`
         installments = paymentInfo.dbInstallments.map((r) => {
           const instId = r.id
           const valReg = Number(r.valor_registrado) || 0
 
-          // Specific payments include:
-          // 1. The row itself if it has payment
-          // 2. Other rows linking to this row via ID_da_fêmea
           const selfPayment = Number(r.valor_pago) || 0
           const linkedPayments = allPayments.filter(
             (p) => p.ID_da_fêmea === instId && p.id !== instId,
@@ -333,11 +318,8 @@ export const cobrancaService = {
           }
         })
       } else {
-        // SCENARIO 3: Original Debt (No breakdown in DB)
-        // Single installment representing the whole debt
-        // All payments for the order are applied to this single installment
         const valReg = rawTotal
-        const totalPaid = paymentInfo.totalPaid // Sum of all payments for order
+        const totalPaid = paymentInfo.totalPaid
 
         const history: PaymentHistoryDetail[] = allPayments.map((p) => ({
           date: p.data_pagamento || p.vencimento || p.created_at || '',
@@ -346,7 +328,6 @@ export const cobrancaService = {
           employee: p.FUNCIONARIOS?.nome_completo || 'Sistema',
         }))
 
-        // Sort history by date descending
         history.sort(
           (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
         )
@@ -356,7 +337,7 @@ export const cobrancaService = {
           totalPaid < valReg - 0.05 && isBefore(parsedDate, today)
 
         installments.push({
-          id: -pid, // Negative ID to avoid collision with real IDs
+          id: -pid,
           vencimento: dateAcerto,
           valorRegistrado: valReg,
           valorPago: totalPaid,
@@ -375,15 +356,7 @@ export const cobrancaService = {
         })
       }
 
-      // Handle Unallocated Payments (FIFO Allocation)
-      // Identify payments that were NOT used in specific allocation above
-      // Payments used:
-      // Scenario 1: p.ID_da_fêmea === instId
-      // Scenario 2: p.ID_da_fêmea === instId OR p.id === instId
-      // Scenario 3: ALL payments used
       if (actionRows && actionRows.length > 0) {
-        // For Scenario 1, we only used payments with matching ID_da_fêmea
-        // So payments with ID_da_fêmea == null or ID_da_fêmea == pid (Order ID) are unallocated
         const unallocated = allPayments.filter(
           (p) =>
             !p.ID_da_fêmea ||
@@ -392,8 +365,6 @@ export const cobrancaService = {
         )
 
         if (unallocated.length > 0) {
-          // FIFO Allocation
-          // Sort installments by due date
           const sortedInstallments = [...installments].sort((a, b) => {
             const da = a.vencimento ? new Date(a.vencimento).getTime() : 0
             const db = b.vencimento ? new Date(b.vencimento).getTime() : 0
@@ -405,11 +376,6 @@ export const cobrancaService = {
             0,
           )
 
-          // We also need to add unallocated payments to history of where they are applied
-          // This is tricky because one payment might be split.
-          // For simplicity in display, we append these payments to the history of the installment receiving the credit,
-          // possibly marking them as "Alocado do Geral".
-
           for (const inst of sortedInstallments) {
             if (pool <= 0.01) break
             const debt = inst.valorRegistrado - inst.valorPago
@@ -418,13 +384,10 @@ export const cobrancaService = {
               inst.valorPago += take
               pool -= take
 
-              // Update status
               if (inst.valorPago >= inst.valorRegistrado - 0.01) {
                 inst.status = 'PAGO'
               }
 
-              // Add a "virtual" history entry or distribute the unallocated payments to history
-              // Let's add a generic entry representing the allocation for simplicity/performance
               inst.paymentHistory = inst.paymentHistory || []
               inst.paymentHistory.push({
                 date: new Date().toISOString(),
@@ -436,13 +399,12 @@ export const cobrancaService = {
           }
         }
       } else if (paymentInfo.dbInstallments.length > 0) {
-        // Similar logic for Scenario 2
         const unallocated = allPayments.filter(
           (p) =>
             (!p.ID_da_fêmea ||
               p.ID_da_fêmea === pid ||
               !installments.some((i) => i.id === p.ID_da_fêmea)) &&
-            !installments.some((i) => i.id === p.id), // Exclude self-payments
+            !installments.some((i) => i.id === p.id),
         )
 
         if (unallocated.length > 0) {
@@ -479,7 +441,6 @@ export const cobrancaService = {
         }
       }
 
-      // Final Status Check
       let status: 'VENCIDO' | 'A VENCER' | 'SEM DÉBITO' = 'SEM DÉBITO'
       let oldestOverdue: string | null = null
 
@@ -665,7 +626,6 @@ export const cobrancaService = {
   async addCollectionAction(action: CollectionActionInsert): Promise<void> {
     const payload = {
       acao: action.acao,
-      // Use Brazil Date String for Data Acao to ensure timezone correctness
       data_acao: action.dataAcao || getBrazilDateString(),
       nova_data_combinada: action.novaDataCombinada || null,
       funcionario_nome: action.funcionarioNome,
@@ -721,18 +681,18 @@ export const cobrancaService = {
     value: number
     method: string
     date: string
+    receivableId?: number // Optional specific installment ID
   }): Promise<void> {
     const insertPayload = {
       venda_id: payload.orderId,
       cliente_id: payload.clientId,
       funcionario_id: payload.employeeId,
       forma_pagamento: payload.method,
-      // IMPORTANT: valor_registrado must be 0 for payment entries to avoid doubling the debt calculation
       valor_registrado: 0,
       valor_pago: payload.value,
       vencimento: new Date(payload.date).toISOString(),
       data_pagamento: new Date().toISOString(),
-      ID_da_fêmea: payload.orderId,
+      ID_da_fêmea: payload.receivableId || payload.orderId,
     }
 
     const { error } = await supabase.from('RECEBIMENTOS').insert(insertPayload)
@@ -741,9 +701,49 @@ export const cobrancaService = {
 
     try {
       await reportsService.updateDebtHistoryForOrder(payload.orderId)
+
+      // Post-payment Logic: Check if specific receivable or whole order is paid
+      // If paid, clear `forma_cobranca` to remove from Rota Motoqueiro
+
+      // 1. Fetch current status of this installment/receivable if provided
+      if (payload.receivableId && payload.receivableId > 0) {
+        // Fetch specific receivable
+        const { data: recData } = await supabase
+          .from('RECEBIMENTOS')
+          .select('valor_registrado, valor_pago')
+          .eq('id', payload.receivableId)
+          .single()
+
+        // Also need to sum all payments linked to this receivable (ID_da_fêmea)
+        const { data: linkedPayments } = await supabase
+          .from('RECEBIMENTOS')
+          .select('valor_pago')
+          .eq('ID_da_fêmea', payload.receivableId)
+
+        const totalPaid =
+          linkedPayments?.reduce(
+            (acc, curr) => acc + (curr.valor_pago || 0),
+            0,
+          ) || 0
+
+        // If it's the receivable itself, its payment is included in linkedPayments usually if we count self?
+        // Logic in getDebts counts selfPayment + linkedPayments.
+        // ID_da_fêmea usually points to the parent installment. If the row IS the parent, we need to check if payments cover it.
+        // Actually, simpler: check `view` or recalculate.
+        // Let's assume standard logic: sum of payments >= registered.
+
+        const registered = recData?.valor_registrado || 0
+        if (totalPaid >= registered - 0.05) {
+          // Fully Paid -> Clear fields
+          await supabase
+            .from('RECEBIMENTOS')
+            .update({ forma_cobranca: null, rota_id: null } as any)
+            .eq('id', payload.receivableId)
+        }
+      }
     } catch (syncError) {
       console.error(
-        'Failed to sync debt history for order:',
+        'Failed to sync debt history or cleanup for order:',
         payload.orderId,
         syncError,
       )

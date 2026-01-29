@@ -32,6 +32,7 @@ interface MotoqueiroItem {
   email_cobranca?: string | null
   clientStatus?: string | null
   motivo?: string | null
+  receivableId: number
   paymentHistory?: PaymentHistoryDetail[]
 }
 
@@ -64,11 +65,13 @@ export default function RotaMotoqueiroPage() {
     orderId: string
     clientId: number
     clientName: string
+    receivableId: number
   }>({
     open: false,
     orderId: '',
     clientId: 0,
     clientName: '',
+    receivableId: 0,
   })
 
   const fetchData = async () => {
@@ -102,6 +105,7 @@ export default function RotaMotoqueiroPage() {
                 email_cobranca: client.email_cobranca,
                 clientStatus: client.situacao,
                 motivo: inst.motivo || null,
+                receivableId: inst.id,
                 paymentHistory: inst.paymentHistory || [],
               })
             }
@@ -161,6 +165,7 @@ export default function RotaMotoqueiroPage() {
       orderId: item.orderId.toString(),
       clientId: item.clientId,
       clientName: item.clientName,
+      receivableId: item.receivableId,
     })
   }
 
@@ -186,6 +191,7 @@ export default function RotaMotoqueiroPage() {
         value: amount,
         method,
         date,
+        receivableId: receiptDialog.receivableId,
       })
 
       toast({

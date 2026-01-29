@@ -105,7 +105,8 @@ export function RotaMotoqueiroCardItem({
   }
 
   const handleGoToReceipts = () => {
-    navigate(`/recebimento?search=${item.clientId}`)
+    // Smart redirect to AcertoPage with pre-filled filters
+    navigate(`/acerto?clientId=${item.clientId}&orderId=${item.orderId}`)
   }
 
   return (

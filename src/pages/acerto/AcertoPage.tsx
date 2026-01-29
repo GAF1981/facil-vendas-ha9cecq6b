@@ -22,6 +22,7 @@ import { acertoService } from '@/services/acertoService'
 import { employeesService } from '@/services/employeesService'
 import { inativarClientesService } from '@/services/inativarClientesService'
 import { cobrancaService } from '@/services/cobrancaService'
+import { clientsService } from '@/services/clientsService'
 import { useToast } from '@/hooks/use-toast'
 import { useUserStore } from '@/stores/useUserStore'
 import {
@@ -37,12 +38,13 @@ import { Save, Printer, Loader2, Copy } from 'lucide-react'
 import { parseCurrency } from '@/lib/formatters'
 import { fechamentoService } from '@/services/fechamentoService'
 import { rotaService } from '@/services/rotaService'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 
 export default function AcertoPage() {
   const { employee: loggedInUser } = useUserStore()
   const { toast } = useToast()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   // State
   const [client, setClient] = useState<ClientRow | null>(null)
@@ -103,6 +105,38 @@ export default function AcertoPage() {
       }
     }
   }, [loggedInUser, selectedEmployeeId])
+
+  // Smart Redirect Logic: Handle URL Params for Auto-Selection
+  useEffect(() => {
+    const cid = searchParams.get('clientId')
+
+    if (cid && !client) {
+      const clientIdNum = Number(cid)
+      if (!isNaN(clientIdNum) && clientIdNum > 0) {
+        setLoadingAcerto(true)
+        clientsService
+          .getById(clientIdNum)
+          .then((data) => {
+            if (data) {
+              setClient(data)
+              toast({
+                title: 'Cliente Selecionado',
+                description: `Carregando dados para ${data['NOME CLIENTE']}.`,
+              })
+            }
+          })
+          .catch((err) => {
+            console.error('Failed to load client from URL', err)
+            toast({
+              title: 'Erro',
+              description: 'Não foi possível carregar o cliente indicado.',
+              variant: 'destructive',
+            })
+          })
+          .finally(() => setLoadingAcerto(false))
+      }
+    }
+  }, [searchParams])
 
   // Client Selection Effect
   useEffect(() => {
@@ -301,11 +335,9 @@ export default function AcertoPage() {
     try {
       const history = await bancoDeDadosService.getAcertoHistory(client.CODIGO)
 
-      // Construct detailed payments payload from state
       const detailedPayments = payments
         .filter((p) => p.paidValue > 0)
         .flatMap((p) => {
-          // If we have detailed installments that were paid, use them
           if (p.details && p.details.length > 0) {
             return p.details
               .filter((d) => d.paidValue > 0)
@@ -317,7 +349,6 @@ export default function AcertoPage() {
                 date: new Date().toISOString(),
               }))
           }
-          // Otherwise use flat entry
           return [
             {
               method: p.method,
@@ -329,8 +360,6 @@ export default function AcertoPage() {
           ]
         })
 
-      // Construct pending installments payload from state
-      // For a new Acerto, we use unpaid parts of payments (future installments)
       const pendingInstallments = payments
         .filter((p) => p.value > p.paidValue)
         .flatMap((p) => {
@@ -368,8 +397,8 @@ export default function AcertoPage() {
             amountToPay - payments.reduce((acc, p) => acc + p.paidValue, 0),
           ),
           payments,
-          detailedPayments, // New payload
-          pendingInstallments, // New payload
+          detailedPayments,
+          pendingInstallments,
           monthlyAverage,
           orderNumber: nextOrderNumber,
           issuerName: loggedInUser?.nome_completo,
@@ -395,7 +424,6 @@ export default function AcertoPage() {
   const handlePreSaveValidation = async () => {
     if (!client) return
 
-    // Inactivity Check
     if (client['TIPO DE CLIENTE'] !== 'ATIVO') {
       toast({
         title: 'Ação Bloqueada',
@@ -416,7 +444,6 @@ export default function AcertoPage() {
       return
     }
 
-    // Cashier Status Validation
     try {
       const activeRota = await rotaService.getActiveRota()
       if (activeRota) {
@@ -424,7 +451,6 @@ export default function AcertoPage() {
           activeRota.id,
           emp.id,
         )
-        // Check strict status: 'Aberto' (Processing) or 'Fechado' (Closed)
         if (closureStatus === 'Aberto' || closureStatus === 'Fechado') {
           toast({
             title: 'Ação Bloqueada',
@@ -527,7 +553,6 @@ export default function AcertoPage() {
     setSaving(true)
     try {
       const now = new Date()
-      // 1. Save Transaction and get final Order Number
       const finalOrderNumber = await bancoDeDadosService.saveTransaction(
         client,
         emp,
@@ -538,7 +563,6 @@ export default function AcertoPage() {
         notaFiscal,
       )
 
-      // 2. Process Pending Stock Adjustments
       if (pendingAdjustments.length > 0) {
         for (const adj of pendingAdjustments) {
           try {
@@ -553,7 +577,6 @@ export default function AcertoPage() {
         }
       }
 
-      // 3. Handle Inactivation Flagging (New Requirement)
       if (flagInactivation) {
         const valorPagoTotal = payments.reduce((acc, p) => acc + p.paidValue, 0)
         let totalDebt = 0
@@ -576,10 +599,8 @@ export default function AcertoPage() {
         })
       }
 
-      // 4. Fetch History for PDF
       const history = await bancoDeDadosService.getAcertoHistory(client.CODIGO)
 
-      // Construct detailed payments for final PDF (consistent with preview logic)
       const detailedPayments = payments
         .filter((p) => p.paidValue > 0)
         .flatMap((p) => {
@@ -626,7 +647,6 @@ export default function AcertoPage() {
           ]
         })
 
-      // 5. Generate Final PDF with Signature
       const pdfBlob = await acertoService.generatePdf(
         {
           client,
@@ -643,8 +663,8 @@ export default function AcertoPage() {
             amountToPay - payments.reduce((acc, p) => acc + p.paidValue, 0),
           ),
           payments,
-          detailedPayments, // New payload
-          pendingInstallments, // New payload
+          detailedPayments,
+          pendingInstallments,
           monthlyAverage,
           orderNumber: finalOrderNumber,
           issuerName: loggedInUser?.nome_completo,
@@ -672,7 +692,6 @@ export default function AcertoPage() {
         className: 'bg-green-600 text-white',
       })
 
-      // Reset or Redirect
       setClient(null)
       setPendingAdjustments([])
 

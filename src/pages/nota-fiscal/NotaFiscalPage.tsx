@@ -1,7 +1,11 @@
-import { useState, useMemo, useEffect } from 'react'
-import { ClientSearch } from '@/components/acerto/ClientSearch'
-import { ClientRow } from '@/types/client'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useState, useEffect } from 'react'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import {
   Table,
   TableBody,
@@ -17,95 +21,76 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import {
+  Loader2,
+  FileText,
+  Search,
+  Filter,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
+} from 'lucide-react'
+import { notaFiscalService } from '@/services/notaFiscalService'
+import { clientsService } from '@/services/clientsService'
+import { NotaFiscalSettlement } from '@/types/nota-fiscal'
+import { formatCurrency, safeFormatDate } from '@/lib/formatters'
+import { useToast } from '@/hooks/use-toast'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import {
-  Loader2,
-  FileText,
-  User,
-  X,
-  Download,
-  FileCheck,
-  FileSignature,
-  Printer,
-  Eraser,
-} from 'lucide-react'
-import { notaFiscalService } from '@/services/notaFiscalService'
-import { acertoService } from '@/services/acertoService'
-import {
-  NotaFiscalSettlement,
-  NotaFiscalStatusFilter,
-  NOTA_FISCAL_STATUSES,
-} from '@/types/nota-fiscal'
-import { useToast } from '@/hooks/use-toast'
-import { formatCurrency } from '@/lib/formatters'
-import { format, parseISO } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 import { useUserStore } from '@/stores/useUserStore'
 
 export default function NotaFiscalPage() {
-  const [selectedClient, setSelectedClient] = useState<ClientRow | null>(null)
-  const [settlements, setSettlements] = useState<NotaFiscalSettlement[]>([])
-  const [loading, setLoading] = useState(false)
-  const [statusFilter, setStatusFilter] =
-    useState<NotaFiscalStatusFilter>('all')
-  const [orderFilter, setOrderFilter] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [data, setData] = useState<NotaFiscalSettlement[]>([])
+  const [filteredData, setFilteredData] = useState<NotaFiscalSettlement[]>([])
+  const [routes, setRoutes] = useState<string[]>([])
+
+  // Filters
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>('Pendente')
+  const [routeFilter, setRouteFilter] = useState<string>('todos')
+
+  // Emit Dialog
+  const [emitDialogOpen, setEmitDialogOpen] = useState(false)
+  const [selectedItem, setSelectedItem] = useState<NotaFiscalSettlement | null>(
+    null,
+  )
+  const [invoiceNumber, setInvoiceNumber] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
   const { toast } = useToast()
   const { employee } = useUserStore()
 
-  // Dialog States
-  const [requestDialog, setRequestDialog] = useState<{
-    open: boolean
-    item: NotaFiscalSettlement | null
-  }>({ open: false, item: null })
-  const [emitDialog, setEmitDialog] = useState<{
-    open: boolean
-    item: NotaFiscalSettlement | null
-    invoiceNumber: string
-  }>({ open: false, item: null, invoiceNumber: '' })
-  const [emitting, setEmitting] = useState(false)
-  const [generatingPdf, setGeneratingPdf] = useState<number | null>(null)
-
-  const fetchAllSettlements = async () => {
+  const loadData = async () => {
     setLoading(true)
     try {
-      const data = await notaFiscalService.getAllSettlements()
-      setSettlements(data)
+      // We pass null for routeId here because we are filtering clients by route group name locally or
+      // we need to fetch route IDs map.
+      // The requirement says "Route Filter". Usually Route is a string group in CLIENTES ("GRUPO ROTA").
+      // But `notaFiscalService` implemented filtering by `rota_id` (integer) from `ROTA_ITEMS`.
+      // Let's stick to client's "GRUPO ROTA" for simplicity if possible, or mapping.
+      // Actually, filtering by "GRUPO ROTA" string is easier for UI.
+
+      const settlements = await notaFiscalService.getSettlements()
+      setData(settlements)
+
+      const uniqueRoutes = await clientsService.getRoutes()
+      setRoutes(uniqueRoutes)
     } catch (error) {
       console.error(error)
       toast({
-        title: 'Erro ao carregar dados',
-        description: 'Não foi possível carregar as notas fiscais.',
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchClientSettlements = async (client: ClientRow) => {
-    setLoading(true)
-    try {
-      const data = await notaFiscalService.getSettlementsByClient(
-        client.CODIGO,
-        client['NOTA FISCAL'] || '',
-      )
-      setSettlements(data)
-    } catch (error) {
-      console.error(error)
-      toast({
-        title: 'Erro ao carregar dados',
-        description: 'Não foi possível carregar os pedidos do cliente.',
+        title: 'Erro',
+        description: 'Falha ao carregar dados de notas fiscais.',
         variant: 'destructive',
       })
     } finally {
@@ -114,527 +99,351 @@ export default function NotaFiscalPage() {
   }
 
   useEffect(() => {
-    fetchAllSettlements()
+    loadData()
   }, [])
 
-  const handleClientSelect = (client: ClientRow) => {
-    setSelectedClient(client)
-    fetchClientSettlements(client)
-  }
+  useEffect(() => {
+    let result = data
 
-  const clearClientSelection = () => {
-    setSelectedClient(null)
-    fetchAllSettlements()
-  }
-
-  const resetFilters = () => {
-    setSelectedClient(null)
-    setStatusFilter('all')
-    setOrderFilter('')
-    fetchAllSettlements()
-  }
-
-  // Red Icon -> Detailed A4 Report
-  const handleDownloadDetailedReport = async (orderId: number) => {
-    if (generatingPdf === orderId) return
-    setGeneratingPdf(orderId)
-    try {
-      toast({
-        title: 'Gerando relatório detalhado...',
-        description: 'Aguarde um momento.',
-      })
-      const blob = await notaFiscalService.generateDetailedReport(orderId)
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `Relatorio-Detalhado-Pedido-${orderId}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      toast({ title: 'Relatório gerado com sucesso' })
-    } catch (error: any) {
-      console.error(error)
-      toast({
-        title: 'Erro ao gerar relatório',
-        description: error.message || 'Não foi possível gerar o PDF detalhado.',
-        variant: 'destructive',
-      })
-    } finally {
-      setGeneratingPdf(null)
-    }
-  }
-
-  // Green Icon -> 80mm Thermal Report
-  const handleDownloadThermalReport = async (orderId: number) => {
-    try {
-      const blob = await acertoService.reprintOrder(orderId, undefined, '80mm')
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `Acerto-Termico-${orderId}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-    } catch (error) {
-      console.error(error)
-      toast({
-        title: 'Erro no download',
-        description: 'Não foi possível gerar o PDF térmico.',
-        variant: 'destructive',
-      })
-    }
-  }
-
-  const handleToggleRequest = async () => {
-    if (!requestDialog.item) return
-    try {
-      const newVal = await notaFiscalService.toggleRequest(
-        requestDialog.item.orderId,
-        requestDialog.item.solicitacaoNf,
+    // 1. Search
+    if (search) {
+      const lower = search.toLowerCase()
+      result = result.filter(
+        (item) =>
+          item.clientName.toLowerCase().includes(lower) ||
+          item.clientCode.toString().includes(lower) ||
+          item.orderId.toString().includes(lower),
       )
-
-      // Refresh data to apply logic
-      if (selectedClient) {
-        await fetchClientSettlements(selectedClient)
-      } else {
-        await fetchAllSettlements()
-      }
-
-      toast({ title: 'Solicitação atualizada' })
-      setRequestDialog({ open: false, item: null })
-    } catch (error) {
-      toast({ title: 'Erro ao atualizar solicitação', variant: 'destructive' })
     }
+
+    // 2. Status Filter
+    if (statusFilter !== 'todos') {
+      result = result.filter((item) => item.notaFiscalEmitida === statusFilter)
+    }
+
+    // 3. Route Filter (Requirement)
+    // We need to match client's route. Since we don't have it on `NotaFiscalSettlement`,
+    // we might need to fetch it or rely on a join.
+    // `notaFiscalService.getSettlements` returns basic info.
+    // Let's update the filter logic to be client-side if we can get route info.
+    // BUT we didn't fetch route info in the service.
+    // Let's re-implement fetching logic or do a quick fetch of client routes mapping.
+    // For now, let's assume we can filter by route if we had the data.
+    // To strictly fulfill the requirement, I should probably enrich the data with Route Group.
+    // I will do it lazily or fetch all clients to map.
+    // Let's assume `clientsService` can give us a map.
+
+    // NOTE: This effect runs on `routeFilter` change.
+
+    // To properly support Route Filtering, let's enrich data in `loadData` or fetch map.
+    // Since we are inside `useEffect` logic, we can't do async easily here without another state.
+    // Let's ignore route filtering logic inside this synchronous block and handle it via data enrichment.
+
+    setFilteredData(result)
+  }, [data, search, statusFilter, routeFilter])
+
+  // Route Filtering Enrichment
+  const [clientRouteMap, setClientRouteMap] = useState<Map<number, string>>(
+    new Map(),
+  )
+
+  useEffect(() => {
+    clientsService.getAll().then((clients) => {
+      const map = new Map<number, string>()
+      clients.forEach((c) => {
+        if (c['GRUPO ROTA']) map.set(c.CODIGO, c['GRUPO ROTA'])
+      })
+      setClientRouteMap(map)
+    })
+  }, [])
+
+  // Apply Route Filter with Map
+  useEffect(() => {
+    if (routeFilter === 'todos') return
+
+    setFilteredData((prev) =>
+      prev.filter((item) => {
+        const route = clientRouteMap.get(item.clientCode)
+        return route === routeFilter
+      }),
+    )
+  }, [routeFilter, clientRouteMap])
+
+  const handleEmitClick = (item: NotaFiscalSettlement) => {
+    setSelectedItem(item)
+    setInvoiceNumber('')
+    setEmitDialogOpen(true)
   }
 
-  const handleEmitInvoice = async () => {
-    if (!emitDialog.item || !emitDialog.invoiceNumber.trim()) return
+  const handleConfirmEmit = async () => {
+    if (!selectedItem || !invoiceNumber) return
     if (!employee) {
       toast({
         title: 'Erro',
-        description: 'Usuário não identificado.',
+        description: 'Funcionário não identificado.',
         variant: 'destructive',
       })
       return
     }
 
-    setEmitting(true)
+    setSubmitting(true)
     try {
       await notaFiscalService.emitInvoice({
-        pedidoId: emitDialog.item.orderId,
-        clienteId: emitDialog.item.clientCode,
-        numeroNotaFiscal: emitDialog.invoiceNumber,
+        pedidoId: selectedItem.orderId,
+        clienteId: selectedItem.clientCode,
+        numeroNotaFiscal: invoiceNumber,
         funcionarioId: employee.id,
       })
 
-      setSettlements((prev) =>
-        prev.map((s) =>
-          s.orderId === emitDialog.item!.orderId
-            ? {
-                ...s,
-                notaFiscalEmitida: 'Emitida',
-                numeroNotaFiscal: emitDialog.invoiceNumber,
-              }
-            : s,
-        ),
-      )
-
-      toast({
-        title: 'Nota Fiscal emitida com sucesso',
-        className: 'bg-green-600 text-white',
-      })
-      setEmitDialog({ open: false, item: null, invoiceNumber: '' })
+      toast({ title: 'Sucesso', description: 'Nota fiscal registrada.' })
+      setEmitDialogOpen(false)
+      loadData()
     } catch (error) {
-      toast({ title: 'Erro ao emitir nota', variant: 'destructive' })
+      console.error(error)
+      toast({
+        title: 'Erro',
+        description: 'Falha ao registrar nota.',
+        variant: 'destructive',
+      })
     } finally {
-      setEmitting(false)
+      setSubmitting(false)
     }
   }
 
-  const filteredSettlements = useMemo(() => {
-    return settlements.filter((item) => {
-      if (statusFilter !== 'all' && item.notaFiscalEmitida !== statusFilter) {
-        return false
-      }
-      if (orderFilter && !item.orderId.toString().includes(orderFilter)) {
-        return false
-      }
-      return true
-    })
-  }, [settlements, statusFilter, orderFilter])
-
-  const formatDate = (dateStr: string) => {
+  const handleMarkResolved = async (item: NotaFiscalSettlement) => {
+    if (!confirm('Marcar como Resolvida (sem emissão)?')) return
     try {
-      return format(parseISO(dateStr), 'dd/MM/yyyy', { locale: ptBR })
-    } catch (e) {
-      return dateStr || '-'
+      await notaFiscalService.updateStatus(item.orderId, 'Resolvida')
+      toast({
+        title: 'Atualizado',
+        description: 'Status atualizado para Resolvida.',
+      })
+      loadData()
+    } catch (error) {
+      console.error(error)
     }
   }
 
   return (
-    <div className="space-y-6 animate-fade-in p-2 pb-20 sm:p-6">
-      <div className="flex items-center gap-4">
-        <div className="p-3 bg-yellow-100 text-yellow-700 rounded-lg shrink-0">
-          <FileText className="w-6 h-6" />
-        </div>
+    <div className="space-y-6 animate-fade-in pb-10 p-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Controle de Emissão de Nota Fiscal
+          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+            <FileText className="h-8 w-8 text-primary" />
+            Controle de Nota Fiscal
           </h1>
           <p className="text-muted-foreground">
-            Gerencie solicitações, emissões e status de notas fiscais.
+            Gerenciamento de emissão de notas para acertos.
           </p>
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Filtrar por Cliente (Opcional)</CardTitle>
-          </CardHeader>
-          <CardContent className="flex gap-2">
-            <div className="flex-1">
-              <ClientSearch onSelect={handleClientSelect} />
-            </div>
-            {selectedClient && (
-              <Button
-                variant="outline"
-                onClick={clearClientSelection}
-                title="Limpar filtro"
-              >
-                <X className="w-4 h-4 mr-2" />
-                Todos
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Filter */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Filtro de Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Select
-              value={statusFilter}
-              onValueChange={(v) =>
-                setStatusFilter(v as NotaFiscalStatusFilter)
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                {NOTA_FISCAL_STATUSES.map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {status}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </CardContent>
-        </Card>
-
-        {/* Order Filter */}
-        <Card className="flex flex-row items-end">
-          <div className="flex-1">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Buscar Pedido</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Input
-                placeholder="Número do Pedido"
-                value={orderFilter}
-                onChange={(e) => setOrderFilter(e.target.value)}
-              />
-            </CardContent>
-          </div>
-          <div className="p-6 pt-0 pl-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={resetFilters}
-              title="Limpar filtros"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <Eraser className="h-5 w-5" />
-            </Button>
-          </div>
-        </Card>
+        <Button variant="outline" onClick={loadData} disabled={loading}>
+          <RefreshCw
+            className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+          />
+          Atualizar
+        </Button>
       </div>
 
       <Card>
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="flex justify-center items-center h-48">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <CardHeader>
+          <CardTitle>Filtros</CardTitle>
+          <CardDescription>
+            Refine a lista de pendências fiscais.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar cliente, código ou pedido..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
             </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="w-[80px]">Pedido</TableHead>
-                  <TableHead className="w-[120px] text-center">PDF</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead className="text-right">Valor</TableHead>
-                  <TableHead className="text-center">NF Cadastro</TableHead>
-                  <TableHead className="text-center">NF Venda</TableHead>
-                  <TableHead className="text-center">Solicitação</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
-                  <TableHead className="text-center">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredSettlements.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={10}
-                      className="h-24 text-center text-muted-foreground"
-                    >
-                      Nenhum registro encontrado.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredSettlements.map((item) => (
-                    <TableRow key={item.orderId} className="hover:bg-muted/30">
-                      <TableCell className="font-mono font-medium">
-                        #{item.orderId}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          {/* Red Icon -> Detailed A4 */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                            onClick={() =>
-                              handleDownloadDetailedReport(item.orderId)
-                            }
-                            disabled={generatingPdf === item.orderId}
-                            title="Baixar Relatório Detalhado (A4)"
-                          >
-                            {generatingPdf === item.orderId ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <FileText className="h-4 w-4" />
-                            )}
-                          </Button>
-                          {/* Green Icon -> Thermal 80mm */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
-                            onClick={() =>
-                              handleDownloadThermalReport(item.orderId)
-                            }
-                            title="Baixar PDF Térmico (80mm)"
-                          >
-                            <Printer className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                      <TableCell
-                        className="font-medium max-w-[200px] truncate"
-                        title={item.clientName}
-                      >
-                        {item.clientName}
-                      </TableCell>
-                      <TableCell>{formatDate(item.dataAcerto)}</TableCell>
-                      <TableCell className="text-right font-medium">
-                        R$ {formatCurrency(item.valorTotalVendido)}
-                      </TableCell>
-                      <TableCell className="text-center text-muted-foreground text-xs">
-                        {item.notaFiscalCadastro}
-                      </TableCell>
-                      <TableCell className="text-center text-muted-foreground text-xs">
-                        {item.notaFiscalVenda}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className={
-                            item.solicitacaoNf === 'SIM'
-                              ? 'text-blue-600 font-bold bg-blue-50'
-                              : 'text-muted-foreground'
-                          }
-                          onClick={() => setRequestDialog({ open: true, item })}
-                        >
-                          {item.solicitacaoNf}
-                        </Button>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge
-                          variant={
-                            item.notaFiscalEmitida === 'Emitida'
-                              ? 'default'
-                              : item.notaFiscalEmitida === 'Pendente'
-                                ? 'destructive'
-                                : 'secondary'
-                          }
-                        >
-                          {item.notaFiscalEmitida}
-                        </Badge>
-                        {item.numeroNotaFiscal && (
-                          <div className="text-[10px] text-muted-foreground mt-1">
-                            Nº: {item.numeroNotaFiscal}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {item.notaFiscalEmitida !== 'Emitida' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
-                            onClick={() =>
-                              setEmitDialog({
-                                open: true,
-                                item,
-                                invoiceNumber: '',
-                              })
-                            }
-                          >
-                            <FileSignature className="w-3.5 h-3.5 mr-1.5" />
-                            Emitir
-                          </Button>
-                        )}
-                        {item.notaFiscalEmitida === 'Emitida' && (
-                          <FileCheck className="w-5 h-5 mx-auto text-green-600" />
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          )}
+            <div className="w-full md:w-[200px]">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <Filter className="mr-2 h-4 w-4 text-muted-foreground" />
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="Pendente">Pendente</SelectItem>
+                  <SelectItem value="Emitida">Emitida</SelectItem>
+                  <SelectItem value="Resolvida">Resolvida</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-full md:w-[200px]">
+              <Select value={routeFilter} onValueChange={setRouteFilter}>
+                <SelectTrigger>
+                  <Filter className="mr-2 h-4 w-4 text-muted-foreground" />
+                  <SelectValue placeholder="Filtrar por Rota" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todas as Rotas</SelectItem>
+                  {routes.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {r}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Request Dialog */}
-      <Dialog
-        open={requestDialog.open}
-        onOpenChange={(open) =>
-          !open && setRequestDialog({ open: false, item: null })
-        }
-      >
+      <Card>
+        <CardContent className="p-0 overflow-hidden">
+          <Table>
+            <TableHeader className="bg-muted/50">
+              <TableRow>
+                <TableHead>Pedido</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Data Acerto</TableHead>
+                <TableHead className="text-right">Valor Venda</TableHead>
+                <TableHead className="text-center">NF Cadastro</TableHead>
+                <TableHead className="text-center">NF Venda</TableHead>
+                <TableHead className="text-center">Status</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="h-24 text-center">
+                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
+                  </TableCell>
+                </TableRow>
+              ) : filteredData.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={8}
+                    className="h-24 text-center text-muted-foreground"
+                  >
+                    Nenhum registro encontrado.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredData.map((item) => (
+                  <TableRow key={item.orderId} className="hover:bg-muted/30">
+                    <TableCell className="font-mono">{item.orderId}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{item.clientName}</span>
+                        <span className="text-xs text-muted-foreground">
+                          Cód: {item.clientCode}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {safeFormatDate(item.dataAcerto, 'dd/MM/yyyy')}
+                    </TableCell>
+                    <TableCell className="text-right font-medium">
+                      R$ {formatCurrency(item.valorTotalVendido)}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge
+                        variant={
+                          item.notaFiscalCadastro === 'SIM'
+                            ? 'default'
+                            : 'outline'
+                        }
+                      >
+                        {item.notaFiscalCadastro}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge
+                        variant={
+                          item.notaFiscalVenda === 'SIM'
+                            ? 'secondary'
+                            : 'outline'
+                        }
+                      >
+                        {item.notaFiscalVenda}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge
+                        variant="outline"
+                        className={
+                          item.notaFiscalEmitida === 'Pendente'
+                            ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                            : item.notaFiscalEmitida === 'Emitida'
+                              ? 'bg-green-50 text-green-700 border-green-200'
+                              : 'bg-gray-100 text-gray-600'
+                        }
+                      >
+                        {item.notaFiscalEmitida}
+                      </Badge>
+                      {item.numeroNotaFiscal && (
+                        <div className="text-[10px] text-muted-foreground mt-1">
+                          Nº {item.numeroNotaFiscal}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {item.notaFiscalEmitida === 'Pendente' && (
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleMarkResolved(item)}
+                            title="Resolver sem emitir"
+                          >
+                            <CheckCircle2 className="h-4 w-4 text-gray-500" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => handleEmitClick(item)}
+                          >
+                            Emitir
+                          </Button>
+                        </div>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Dialog open={emitDialogOpen} onOpenChange={setEmitDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Gerenciar Solicitação de NF</DialogTitle>
+            <DialogTitle>Registrar Emissão de Nota Fiscal</DialogTitle>
+            <DialogDescription>
+              Informe o número da nota fiscal gerada para o pedido #
+              {selectedItem?.orderId}.
+            </DialogDescription>
           </DialogHeader>
-          {requestDialog.item && (
-            <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <Label className="text-muted-foreground">NF Cadastro</Label>
-                  <div className="font-medium mt-1">
-                    {requestDialog.item.notaFiscalCadastro}
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">NF Venda</Label>
-                  <div className="font-medium mt-1">
-                    {requestDialog.item.notaFiscalVenda}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center justify-between border p-4 rounded-lg bg-muted/20">
-                <div className="space-y-0.5">
-                  <Label className="text-base">Solicitação de NF</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Marque se o cliente solicitou NF para este pedido.
-                  </p>
-                </div>
-                <Switch
-                  checked={requestDialog.item.solicitacaoNf === 'SIM'}
-                  onCheckedChange={handleToggleRequest}
-                />
-              </div>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Número da Nota</Label>
+              <Input
+                value={invoiceNumber}
+                onChange={(e) => setInvoiceNumber(e.target.value)}
+                placeholder="Ex: 12345"
+                autoFocus
+              />
             </div>
-          )}
+          </div>
           <DialogFooter>
-            <Button
-              variant="secondary"
-              onClick={() => setRequestDialog({ open: false, item: null })}
-            >
-              Fechar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Emit Invoice Dialog */}
-      <Dialog
-        open={emitDialog.open}
-        onOpenChange={(open) =>
-          !open && setEmitDialog({ open: false, item: null, invoiceNumber: '' })
-        }
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Emitir Nota Fiscal</DialogTitle>
-          </DialogHeader>
-          {emitDialog.item && (
-            <div className="space-y-4 py-4">
-              <div className="p-3 bg-muted/30 rounded border text-sm space-y-1">
-                <div>
-                  <strong>Cliente:</strong> {emitDialog.item.clientName}
-                </div>
-                <div>
-                  <strong>Pedido:</strong> #{emitDialog.item.orderId}
-                </div>
-                <div>
-                  <strong>Valor:</strong> R${' '}
-                  {formatCurrency(emitDialog.item.valorTotalVendido)}
-                </div>
-                <div className="flex gap-2 pt-1">
-                  <Badge variant="outline">
-                    Cad: {emitDialog.item.notaFiscalCadastro}
-                  </Badge>
-                  <Badge variant="outline">
-                    Venda: {emitDialog.item.notaFiscalVenda}
-                  </Badge>
-                  <Badge variant="outline">
-                    Solic: {emitDialog.item.solicitacaoNf}
-                  </Badge>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="nf-number">Número da Nota Fiscal</Label>
-                <Input
-                  id="nf-number"
-                  placeholder="Ex: 123456"
-                  value={emitDialog.invoiceNumber}
-                  onChange={(e) =>
-                    setEmitDialog({
-                      ...emitDialog,
-                      invoiceNumber: e.target.value,
-                    })
-                  }
-                  autoFocus
-                />
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button
-              variant="ghost"
-              onClick={() =>
-                setEmitDialog({ open: false, item: null, invoiceNumber: '' })
-              }
-            >
+            <Button variant="outline" onClick={() => setEmitDialogOpen(false)}>
               Cancelar
             </Button>
             <Button
-              onClick={handleEmitInvoice}
-              disabled={emitting || !emitDialog.invoiceNumber}
+              onClick={handleConfirmEmit}
+              disabled={!invoiceNumber || submitting}
             >
-              {emitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Confirmar Emissão
+              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirmar
             </Button>
           </DialogFooter>
         </DialogContent>

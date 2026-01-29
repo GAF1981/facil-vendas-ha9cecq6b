@@ -135,7 +135,7 @@ export function DebtTable({
     if (tableContainer) {
       setScrollWidth(tableContainer.scrollWidth)
     }
-  }, [data, isSimplified, isCobrancaMode]) // Recalculate when data or layout changes
+  }, [data, isSimplified, isCobrancaMode])
 
   const handleScrollTable = () => {
     if (isScrolling.current) return
@@ -215,7 +215,7 @@ export function DebtTable({
             address: client.address,
             neighborhood: client.neighborhood,
             city: client.city,
-            cep: client.cep, // Map CEP
+            cep: client.cep,
             clientOrderCount: client.orderCount,
             clientTotalActions: client.totalActionCount,
             orderId: order.orderId,
@@ -245,7 +245,6 @@ export function DebtTable({
       }),
     )
 
-    // Apply Deep Filters Here
     let filtered = rows
 
     if (orderFilter) {
@@ -258,8 +257,6 @@ export function DebtTable({
       filtered = filtered.filter((r) => statusFilter.includes(r.status))
     }
 
-    // Removed dataCombinadaFilter logic as per requirements
-
     if (!showOnlySelected && motoqueiroFilter !== 'todos') {
       if (motoqueiroFilter === 'com_rota') {
         filtered = filtered.filter((r) => r.formaCobranca === 'MOTOQUEIRO')
@@ -268,7 +265,6 @@ export function DebtTable({
       }
     }
 
-    // Selection Filter (The core requirement)
     if (showOnlySelected) {
       filtered = filtered.filter((r) => selectedItems.has(r.uniqueId))
     }
@@ -329,6 +325,13 @@ export function DebtTable({
       },
     }))
 
+    // Sync Logic: If setting to MOTOQUEIRO, ensure it's selected in Rota
+    if (field === 'forma_cobranca' && value === 'MOTOQUEIRO') {
+      if (!selectedItems.has(row.uniqueId)) {
+        onToggleItem(row.uniqueId)
+      }
+    }
+
     try {
       await cobrancaService.updateReceivableField(
         row.receivableId,
@@ -358,6 +361,14 @@ export function DebtTable({
     }
   }
 
+  const handleCheckboxChange = (row: FlatRow, checked: boolean) => {
+    onToggleItem(row.uniqueId)
+    // Sync Logic: If checked, automatically set to MOTOQUEIRO
+    if (checked) {
+      handleUpdateField(row, 'forma_cobranca', 'MOTOQUEIRO')
+    }
+  }
+
   const getSortIcon = (columnKey: string) => {
     if (sortConfig?.key !== columnKey)
       return <ArrowUpDown className="h-3 w-3 ml-1 text-muted-foreground/50" />
@@ -369,7 +380,6 @@ export function DebtTable({
   return (
     <>
       <div className="flex flex-col border rounded-md bg-card">
-        {/* Top Horizontal Scrollbar */}
         <div
           ref={topScrollRef}
           onScroll={handleScrollTop}
@@ -379,7 +389,6 @@ export function DebtTable({
           <div style={{ width: scrollWidth, height: '1px' }} />
         </div>
 
-        {/* Table Container */}
         <Table containerRef={tableContainerRef} onScroll={handleScrollTable}>
           <TableHeader className="bg-background sticky top-0 z-10 shadow-sm">
             <TableRow>
@@ -450,7 +459,6 @@ export function DebtTable({
               <TableHead className="min-w-[150px] bg-background">
                 Motivo
               </TableHead>
-              {/* New Columns */}
               <TableHead className="min-w-[150px] bg-background">
                 Telefone Cobrança
               </TableHead>
@@ -861,7 +869,9 @@ export function DebtTable({
                     <TableCell className="text-center">
                       <Checkbox
                         checked={isSelected}
-                        onCheckedChange={() => onToggleItem(row.uniqueId)}
+                        onCheckedChange={(c) =>
+                          handleCheckboxChange(row, c as boolean)
+                        }
                         aria-label={`Selecionar item para rota`}
                       />
                     </TableCell>
