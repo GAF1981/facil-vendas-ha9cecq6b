@@ -14,12 +14,22 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     )
 
+    // 0. Fetch configured email recipient
+    const { data: configData, error: configError } = await supabaseClient
+      .from('configuracoes_sistema')
+      .select('valor')
+      .eq('chave', 'email_destinatario_relatorio')
+      .single()
+
+    if (configError && configError.code !== 'PGRST116') {
+      console.error('Error fetching config:', configError)
+      // Fallback or continue? We'll assume admin if missing, but logging is important.
+    }
+
+    const recipientEmail = configData?.valor || 'admin@example.com'
+
     // Fetch data for the report
     // We join ROTA_ITEMS with CLIENTES, FUNCIONARIOS and ROTA to get readable names
-    // Filter for active/recent routes if needed, or get all items from the latest route?
-    // User story says "Controle de Rota CSV report". Usually implies current active data.
-    // We'll fetch all items that are part of the latest or active route.
-
     // 1. Get latest route ID
     const { data: routeData } = await supabaseClient
       .from('ROTA')
@@ -93,9 +103,8 @@ Deno.serve(async (req) => {
 
     const csvContent = [csvHeader, ...csvRows].join('\n')
 
-    // 4. Send Email using Resend (Mock implementation if no key, but structured for it)
+    // 4. Send Email using Resend
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
-    const ADMIN_EMAIL = 'admin@example.com' // Replace with dynamic if available or env var
 
     if (RESEND_API_KEY) {
       const res = await fetch('https://api.resend.com/emails', {
@@ -106,9 +115,9 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({
           from: 'Facil Vendas <noreply@resend.dev>',
-          to: [ADMIN_EMAIL],
+          to: [recipientEmail],
           subject: `Relatório Controle de Rota #${routeId}`,
-          html: `<p>Segue em anexo o relatório de controle de rota para a rota #${routeId}.</p>`,
+          html: `<p>Segue em anexo o relatório de controle de rota para a rota #${routeId}.</p><p>Relatório enviado para: <strong>${recipientEmail}</strong></p>`,
           attachments: [
             {
               filename: `controle_rota_${routeId}.csv`,
@@ -121,18 +130,23 @@ Deno.serve(async (req) => {
       if (!res.ok) {
         const errorData = await res.json()
         console.error('Resend Error:', errorData)
-        // Don't throw to avoid crashing the client if email fails, but log it
-        // Or throw if strict
+      } else {
+        console.log(`Email successfully sent to ${recipientEmail}`)
       }
     } else {
       console.log(
         'RESEND_API_KEY not found. Skipping email send. CSV generated size:',
         csvContent.length,
       )
+      console.log('Would have sent to:', recipientEmail)
     }
 
     return new Response(
-      JSON.stringify({ success: true, count: items.length }),
+      JSON.stringify({
+        success: true,
+        count: items.length,
+        sentTo: recipientEmail,
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,

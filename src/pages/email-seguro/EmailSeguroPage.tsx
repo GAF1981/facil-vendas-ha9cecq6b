@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Card,
   CardContent,
@@ -7,13 +7,87 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Mail, CalendarClock, ShieldCheck, Loader2, Send } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Mail,
+  CalendarClock,
+  ShieldCheck,
+  Loader2,
+  Send,
+  Settings,
+  Save,
+} from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { emailSeguroService } from '@/services/emailSeguroService'
 
 export default function EmailSeguroPage() {
   const [loading, setLoading] = useState(false)
+  const [savingConfig, setSavingConfig] = useState(false)
+  const [recipientEmail, setRecipientEmail] = useState('')
+  const [originalEmail, setOriginalEmail] = useState('')
+  const [emailError, setEmailError] = useState('')
   const { toast } = useToast()
+
+  useEffect(() => {
+    loadConfig()
+  }, [])
+
+  const loadConfig = async () => {
+    try {
+      const email = await emailSeguroService.getRecipientEmail()
+      if (email) {
+        setRecipientEmail(email)
+        setOriginalEmail(email)
+      }
+    } catch (error) {
+      console.error('Failed to load email config', error)
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível carregar a configuração de e-mail.',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const validateEmail = (email: string) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return re.test(email)
+  }
+
+  const handleSaveConfig = async () => {
+    setEmailError('')
+
+    if (!recipientEmail) {
+      setEmailError('O e-mail é obrigatório.')
+      return
+    }
+
+    if (!validateEmail(recipientEmail)) {
+      setEmailError('Por favor, insira um e-mail válido.')
+      return
+    }
+
+    setSavingConfig(true)
+    try {
+      await emailSeguroService.updateRecipientEmail(recipientEmail)
+      setOriginalEmail(recipientEmail)
+      toast({
+        title: 'Sucesso',
+        description: 'E-mail atualizado com sucesso!',
+        className: 'bg-green-600 text-white',
+      })
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: 'Erro',
+        description: 'Falha ao atualizar o e-mail. Tente novamente.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingConfig(false)
+    }
+  }
 
   const handleSendReport = async () => {
     setLoading(true)
@@ -51,6 +125,54 @@ export default function EmailSeguroPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
+        {/* Email Configuration Card */}
+        <Card className="md:col-span-2 border-indigo-200 bg-indigo-50/20">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-indigo-800">
+              <Settings className="w-5 h-5" />
+              Configuração de Destinatário
+            </CardTitle>
+            <CardDescription>
+              Defina o e-mail que receberá os relatórios automáticos e manuais.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
+              <div className="grid w-full gap-2">
+                <Label htmlFor="email">E-mail do Destinatário</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="exemplo@empresa.com"
+                  value={recipientEmail}
+                  onChange={(e) => setRecipientEmail(e.target.value)}
+                  className={emailError ? 'border-red-500' : ''}
+                />
+                {emailError && (
+                  <p className="text-xs text-red-500 font-medium">
+                    {emailError}
+                  </p>
+                )}
+              </div>
+              <Button
+                onClick={handleSaveConfig}
+                disabled={
+                  savingConfig ||
+                  (recipientEmail === originalEmail && !emailError)
+                }
+                className="w-full sm:w-auto min-w-[120px]"
+              >
+                {savingConfig ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                Salvar
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card className="md:col-span-1">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -71,7 +193,8 @@ export default function EmailSeguroPage() {
                 </p>
               </div>
               <div className="text-xs text-muted-foreground">
-                Destinatário: Administrador do sistema.
+                Destinatário atual:{' '}
+                <strong>{originalEmail || 'Carregando...'}</strong>
               </div>
             </div>
           </CardContent>
@@ -107,7 +230,8 @@ export default function EmailSeguroPage() {
               )}
             </Button>
             <p className="text-xs text-muted-foreground mt-4 text-center">
-              O arquivo CSV será enviado para o seu e-mail cadastrado.
+              O arquivo CSV será enviado para:{' '}
+              <strong>{originalEmail || '...'}</strong>
             </p>
           </CardContent>
         </Card>
