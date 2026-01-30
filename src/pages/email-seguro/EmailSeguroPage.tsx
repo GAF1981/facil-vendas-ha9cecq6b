@@ -14,7 +14,6 @@ import {
   CalendarClock,
   ShieldCheck,
   Loader2,
-  Send,
   Settings,
   Save,
   AlertTriangle,
@@ -123,7 +122,7 @@ export default function EmailSeguroPage() {
       // Success Confirmation as per Acceptance Criteria
       toast({
         title: 'Sucesso',
-        description: `Relatório completo enviado com sucesso para ${originalEmail}`,
+        description: `Relatório de clientes ativos enviado com sucesso para ${originalEmail}`,
         className: 'bg-green-600 text-white',
       })
     } catch (error: any) {
@@ -151,7 +150,7 @@ export default function EmailSeguroPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">E-mail Seguro</h1>
           <p className="text-muted-foreground">
-            Automação e envio seguro do histórico completo de rotas.
+            Automação e envio seguro do relatório consolidado de clientes.
           </p>
         </div>
       </div>
@@ -220,8 +219,8 @@ export default function EmailSeguroPage() {
                   Status: <span className="text-green-600">Ativo</span>
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  O relatório contendo <strong>todo o histórico</strong> de
-                  rotas é gerado e enviado automaticamente todos os dias às{' '}
+                  O relatório contendo apenas <strong>clientes ativos</strong> é
+                  gerado e enviado automaticamente todos os dias às{' '}
                   <strong>07:00 AM</strong>.
                 </p>
               </div>
@@ -240,7 +239,7 @@ export default function EmailSeguroPage() {
               Envio Manual
             </CardTitle>
             <CardDescription>
-              Gere e envie o relatório completo imediatamente.
+              Gere e envie o relatório consolidado imediatamente.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -260,7 +259,7 @@ export default function EmailSeguroPage() {
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Gerando CSV Completo...
+                  Gerando CSV...
                 </>
               ) : (
                 <>
@@ -272,7 +271,7 @@ export default function EmailSeguroPage() {
             <p className="text-xs text-muted-foreground mt-4 text-center">
               {originalEmail ? (
                 <>
-                  O arquivo CSV com o <strong>histórico completo</strong> será
+                  O arquivo CSV com os <strong>clientes ativos</strong> será
                   enviado para: <strong>{originalEmail}</strong>
                 </>
               ) : (
