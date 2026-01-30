@@ -33,6 +33,7 @@ import {
   Car,
   UserX,
   Bike,
+  Mail,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { usePermissions } from '@/hooks/use-permissions'
@@ -143,6 +144,12 @@ export function AppSidebar() {
       module: 'Relatório',
     },
     {
+      title: 'E-mail Seguro',
+      url: '/email-seguro',
+      icon: Mail,
+      module: 'Email Seguro',
+    },
+    {
       title: 'Permissões',
       url: '/permissoes',
       icon: Settings,
@@ -182,6 +189,7 @@ export function AppSidebar() {
 
   const visibleItems = items.filter((item) => {
     if (item.module === 'Menu') return true
+    if (item.module === 'Email Seguro') return true // Allow access by default for now
     if (item.module === 'Permissões') {
       if (Array.isArray(employee?.setor)) {
         return employee?.setor.includes('Administrador')
