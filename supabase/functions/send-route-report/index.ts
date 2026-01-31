@@ -1,7 +1,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 
-console.log('Send Route Report function up and running')
+console.log('Send Route Report function up and running (Multi-Report Update)')
 
 // Helper for formatting currency (BRL)
 const formatCurrency = (value: number) => {
@@ -11,11 +11,25 @@ const formatCurrency = (value: number) => {
   })
 }
 
-// Helper for formatting date (DD/MM/YYYY)
+// Helper for formatting date (YYYY-MM-DD -> DD/MM/YYYY) safely
 const formatDate = (dateStr: string | null) => {
   if (!dateStr) return ''
   try {
+    // Handle ISO string with time
+    let cleanDate = dateStr
+    if (dateStr.includes('T')) {
+      cleanDate = dateStr.split('T')[0]
+    }
+
+    // Parse YYYY-MM-DD
+    const parts = cleanDate.split('-')
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`
+    }
+
+    // Fallback using Date object if format is different
     const date = new Date(dateStr)
+    if (isNaN(date.getTime())) return dateStr
     return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' })
   } catch {
     return dateStr
@@ -25,11 +39,41 @@ const formatDate = (dateStr: string | null) => {
 // Helper for CSV escaping
 const escapeCsv = (val: any) => {
   if (val === null || val === undefined) return ''
-  const str = String(val)
+  let str = String(val)
+  // Handle objects or arrays if they appear in generic dumps
+  if (typeof val === 'object') {
+    try {
+      str = JSON.stringify(val)
+    } catch {
+      str = ''
+    }
+  }
   if (str.includes(',') || str.includes('"') || str.includes('\n')) {
     return `"${str.replace(/"/g, '""')}"`
   }
   return str
+}
+
+// Helper to convert array of objects to CSV string
+const jsonToCsv = (items: any[]) => {
+  if (!items || items.length === 0) return ''
+
+  // Get all unique keys to handle sparse data
+  const allKeys = new Set<string>()
+  items.forEach((item) => {
+    if (item && typeof item === 'object') {
+      Object.keys(item).forEach((k) => allKeys.add(k))
+    }
+  })
+
+  const header = Array.from(allKeys)
+  const headerRow = header.map(escapeCsv).join(',')
+
+  const rows = items.map((item) => {
+    return header.map((key) => escapeCsv(item[key])).join(',')
+  })
+
+  return [headerRow, ...rows].join('\n')
 }
 
 Deno.serve(async (req) => {
@@ -98,58 +142,84 @@ Deno.serve(async (req) => {
     }
     const recipientEmail = configData.valor
 
-    // 2. Fetch Data in Parallel
-    // Requirement: Only Active Clients
+    // --- Timezone & Date Setup (Brazil UTC-3) ---
+    const brazilFormatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+
+    // Current date in Brazil (YYYY-MM-DD)
+    const now = new Date()
+    const todayBrazil = brazilFormatter.format(now)
+
+    // 180 Days ago in Brazil
+    const date180 = new Date(now)
+    date180.setDate(date180.getDate() - 180)
+    const cutoffDateBrazil = brazilFormatter.format(date180)
+
+    // --- Parallel Data Fetching ---
+
+    // REPORT 1: Active Clients (Route Control)
     const fetchActiveClients = supabaseClient
       .from('CLIENTES')
       .select('*')
       .ilike('situacao', '%Ativo%')
       .order('NOME CLIENTE')
-      .limit(10000)
+      .limit(20000)
 
-    // Debts Summary
     const fetchDebts = supabaseClient
       .from('debitos_com_total_view')
       .select('cliente_codigo, debito_total')
-      .limit(10000)
+      .limit(20000)
 
-    // Projections
     const fetchProjections = supabaseClient.rpc('get_client_projections')
 
-    // Consigned Values
     const fetchConsigned = supabaseClient
       .from('view_client_latest_consigned_value')
       .select('client_id, total_consigned_value')
-      .limit(10000)
+      .limit(20000)
 
-    // Last Order Stats (for Order ID, Date)
     const fetchStats = supabaseClient
       .from('client_stats_view')
       .select('client_id, max_pedido, max_data_acerto')
-      .limit(10000)
+      .limit(20000)
 
-    // Next Due Date (Vencimento) - Oldest unpaid receivable
     const fetchReceivables = supabaseClient
       .from('RECEBIMENTOS')
-      .select('cliente_id, vencimento')
-      .lt('valor_pago', 'valor_registrado') // Basic check, better handled with numeric comparison logic but limitations apply in simple filters
+      .select('cliente_id, vencimento, valor_pago, valor_registrado')
       .order('vencimento', { ascending: true })
       .limit(50000)
 
-    // Vendors (Assigned in Route Items)
     const fetchVendors = supabaseClient
       .from('ROTA_ITEMS')
       .select('cliente_id, vendedor_id, FUNCIONARIOS(nome_completo)')
-      .limit(10000)
+      .limit(20000)
+
+    // REPORT 2: All Clients (Full Dump)
+    const fetchAllClients = supabaseClient
+      .from('CLIENTES')
+      .select('*')
+      .limit(50000)
+
+    // REPORT 3: Database History (Last 180 Days)
+    const fetchDBHistory = supabaseClient
+      .from('BANCO_DE_DADOS')
+      .select('*')
+      .gte('DATA DO ACERTO', cutoffDateBrazil)
+      .limit(50000)
 
     const [
-      { data: clients, error: clientsError },
+      { data: activeClients, error: activeError },
       { data: debts, error: debtsError },
       { data: projections, error: projError },
       { data: consigned, error: consError },
       { data: stats, error: statsError },
       { data: receivables, error: recError },
       { data: vendors, error: vendError },
+      { data: allClients, error: allClientsError },
+      { data: dbHistory, error: dbHistoryError },
     ] = await Promise.all([
       fetchActiveClients,
       fetchDebts,
@@ -158,12 +228,22 @@ Deno.serve(async (req) => {
       fetchStats,
       fetchReceivables,
       fetchVendors,
+      fetchAllClients,
+      fetchDBHistory,
     ])
 
-    if (clientsError)
-      throw new Error(`Erro ao buscar clientes: ${clientsError.message}`)
+    if (activeError)
+      throw new Error(`Erro ao buscar clientes ativos: ${activeError.message}`)
+    if (allClientsError)
+      throw new Error(
+        `Erro ao buscar clientes geral: ${allClientsError.message}`,
+      )
+    if (dbHistoryError)
+      throw new Error(
+        `Erro ao buscar histórico do banco: ${dbHistoryError.message}`,
+      )
 
-    // 3. Process Maps for quick lookup
+    // --- Processing Report 1: Route Control ---
     const debtMap = new Map()
     debts?.forEach((d: any) => debtMap.set(d.cliente_codigo, d.debito_total))
 
@@ -184,10 +264,14 @@ Deno.serve(async (req) => {
     )
 
     const nextDueMap = new Map()
-    // Since ordered by vencimento ASC, the first one encountered for a client is the oldest
     receivables?.forEach((r: any) => {
-      if (!nextDueMap.has(r.cliente_id) && r.vencimento) {
-        nextDueMap.set(r.cliente_id, r.vencimento)
+      // Safe check for unpaid items: paid < registered
+      const paid = Number(r.valor_pago) || 0
+      const registered = Number(r.valor_registrado) || 0
+      if (paid < registered) {
+        if (!nextDueMap.has(r.cliente_id) && r.vencimento) {
+          nextDueMap.set(r.cliente_id, r.vencimento)
+        }
       }
     })
 
@@ -198,8 +282,7 @@ Deno.serve(async (req) => {
       }
     })
 
-    // 4. Build CSV Data
-    const csvHeader = [
+    const csvHeader1 = [
       'Código',
       'Cliente',
       'Débito',
@@ -219,9 +302,7 @@ Deno.serve(async (req) => {
       'Status',
     ].join(',')
 
-    const today = new Date().toISOString().split('T')[0]
-
-    const csvRows = (clients || []).map((client: any) => {
+    const routeReportRows = (activeClients || []).map((client: any) => {
       const cid = client.CODIGO
       const debt = debtMap.get(cid) || 0
       const proj = projMap.get(cid) || 0
@@ -233,7 +314,7 @@ Deno.serve(async (req) => {
       // Status Logic
       let status = 'SEM DÉBITO'
       if (debt > 0.05) {
-        if (nextDue && nextDue < today) {
+        if (nextDue && nextDue < todayBrazil) {
           status = 'VENCIDO'
         } else {
           status = 'A VENCER'
@@ -261,9 +342,15 @@ Deno.serve(async (req) => {
       ].join(',')
     })
 
-    const csvContent = [csvHeader, ...csvRows].join('\n')
+    const csvContent1 = [csvHeader1, ...routeReportRows].join('\n')
 
-    // 5. Send Email
+    // --- Processing Report 2: All Clients ---
+    const csvContent2 = jsonToCsv(allClients || [])
+
+    // --- Processing Report 3: DB History (180 days) ---
+    const csvContent3 = jsonToCsv(dbHistory || [])
+
+    // --- Send Email with 3 Attachments ---
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -273,27 +360,34 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         from: 'Facil Vendas <onboarding@resend.dev>',
         to: [recipientEmail],
-        subject: `Relatório Consolidado de Clientes Ativos`,
+        subject: `Relatórios Consolidados - ${todayBrazil}`,
         html: `
             <div style="font-family: sans-serif; color: #333;">
-              <h2>Relatório Consolidado de Clientes Ativos</h2>
+              <h2>Relatórios Consolidados</h2>
               <p>Olá,</p>
-              <p>O relatório consolidado contendo apenas clientes ativos foi gerado com sucesso.</p>
-              <p><strong>Resumo:</strong></p>
+              <p>Seguem em anexo os relatórios solicitados:</p>
               <ul>
-                <li><strong>Total de Clientes Ativos:</strong> ${csvRows.length}</li>
-                <li><strong>Destinatário:</strong> ${recipientEmail}</li>
-                <li><strong>Data de Geração:</strong> ${new Date().toLocaleString('pt-BR')}</li>
+                <li><strong>Relatório de Rotas (Ativos):</strong> ${routeReportRows.length} registros</li>
+                <li><strong>Relatório Geral de Clientes:</strong> ${allClients?.length || 0} registros</li>
+                <li><strong>Histórico Banco de Dados (Últimos 180 dias):</strong> ${dbHistory?.length || 0} registros</li>
               </ul>
-              <p>O arquivo CSV está anexado.</p>
+              <p><strong>Filtro de Data (DB):</strong> A partir de ${formatDate(cutoffDateBrazil)} (Timezone: America/Sao_Paulo)</p>
               <br/>
               <p>Atenciosamente,<br/>Equipe Facil Vendas</p>
             </div>
           `,
         attachments: [
           {
-            filename: `clientes_ativos_consolidado_${today}.csv`,
-            content: btoa(unescape(encodeURIComponent(csvContent))),
+            filename: `relatorio_rotas_${todayBrazil}.csv`,
+            content: btoa(unescape(encodeURIComponent(csvContent1))),
+          },
+          {
+            filename: `clientes_completo_${todayBrazil}.csv`,
+            content: btoa(unescape(encodeURIComponent(csvContent2))),
+          },
+          {
+            filename: `banco_dados_180dias_${todayBrazil}.csv`,
+            content: btoa(unescape(encodeURIComponent(csvContent3))),
           },
         ],
       }),
@@ -309,20 +403,22 @@ Deno.serve(async (req) => {
     await supabaseClient.from('system_logs').insert({
       user_id: userId,
       type: 'email_report',
-      description: `Relatório de Clientes ATIVOS enviado para ${recipientEmail}`,
+      description: `Relatórios (3 arquivos) enviados para ${recipientEmail}`,
       meta: {
         recipientEmail,
-        clientCount: csvRows.length,
+        routeCount: routeReportRows.length,
+        clientsCount: allClients?.length,
+        dbHistoryCount: dbHistory?.length,
         status: 'success',
-        type: 'active_clients_consolidated',
+        type: 'multi_report_consolidated',
       },
     })
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Relatório enviado com sucesso para ${recipientEmail}`,
-        count: csvRows.length,
+        message: `Relatórios enviados com sucesso para ${recipientEmail}`,
+        count: routeReportRows.length,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -119,15 +119,15 @@ export default function EmailSeguroPage() {
     try {
       await emailSeguroService.sendReport(currentUserEmail)
 
-      // Success Confirmation as per Acceptance Criteria
+      // Success Confirmation with Multi-Report Info
       toast({
         title: 'Sucesso',
-        description: `Relatório de clientes ativos enviado com sucesso para ${originalEmail}`,
+        description: `Os 3 relatórios (Rotas, Clientes e Banco de Dados) foram enviados para ${originalEmail}`,
         className: 'bg-green-600 text-white',
       })
     } catch (error: any) {
       console.error(error)
-      // Dynamic Error Messages as per Acceptance Criteria
+      // Dynamic Error Messages
       const errorMessage =
         error instanceof Error ? error.message : 'Falha desconhecida'
 
@@ -150,7 +150,8 @@ export default function EmailSeguroPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">E-mail Seguro</h1>
           <p className="text-muted-foreground">
-            Automação e envio seguro do relatório consolidado de clientes.
+            Automação e envio seguro de relatórios consolidados de clientes e
+            dados.
           </p>
         </div>
       </div>
@@ -219,9 +220,10 @@ export default function EmailSeguroPage() {
                   Status: <span className="text-green-600">Ativo</span>
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  O relatório contendo apenas <strong>clientes ativos</strong> é
-                  gerado e enviado automaticamente todos os dias às{' '}
-                  <strong>07:00 AM</strong>.
+                  Os relatórios de <strong>Rotas (Ativos)</strong>,{' '}
+                  <strong>Clientes Completo</strong> e{' '}
+                  <strong>Histórico (180 dias)</strong> são gerados e enviados
+                  automaticamente todos os dias às <strong>07:00 AM</strong>.
                 </p>
               </div>
               <div className="text-xs text-muted-foreground">
@@ -253,26 +255,25 @@ export default function EmailSeguroPage() {
               className="w-full bg-blue-600 hover:bg-blue-700 text-white"
               size="lg"
               onClick={handleSendReport}
-              // Loading State as per Acceptance Criteria (disabled + spinner)
               disabled={loading || !originalEmail}
             >
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Gerando CSV...
+                  Gerando CSVs...
                 </>
               ) : (
                 <>
                   <FileSpreadsheet className="mr-2 h-5 w-5" />
-                  Enviar Relatório Agora
+                  Enviar Relatórios Agora
                 </>
               )}
             </Button>
             <p className="text-xs text-muted-foreground mt-4 text-center">
               {originalEmail ? (
                 <>
-                  O arquivo CSV com os <strong>clientes ativos</strong> será
-                  enviado para: <strong>{originalEmail}</strong>
+                  Os arquivos CSV serão enviados para:{' '}
+                  <strong>{originalEmail}</strong>
                 </>
               ) : (
                 <>Aguardando configuração de e-mail...</>
