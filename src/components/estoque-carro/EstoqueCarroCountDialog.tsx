@@ -8,13 +8,12 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { productsService } from '@/services/productsService'
 import { estoqueCarroService } from '@/services/estoqueCarroService'
 import { ProductRow } from '@/types/product'
-import { Loader2, Search, Camera } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { ProductSelectorTable } from '@/components/acerto/ProductSelectorTable'
 import { useUserStore } from '@/stores/useUserStore'
+import { ProductCombobox } from '@/components/products/ProductCombobox'
 
 interface Props {
   open: boolean
@@ -36,8 +35,6 @@ export function EstoqueCarroCountDialog({
   preselectedProduct,
 }: Props) {
   const [step, setStep] = useState(1)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [products, setProducts] = useState<ProductRow[]>([])
   const [selectedProduct, setSelectedProduct] = useState<ProductRow | null>(
     null,
   )
@@ -50,7 +47,6 @@ export function EstoqueCarroCountDialog({
     if (open) {
       if (preselectedProduct) {
         // Adapt preselected simple object to ProductRow structure for local state
-        // We only need ID, CODIGO, PRODUTO for display/logic mostly
         setSelectedProduct({
           ID: preselectedProduct.id,
           CODIGO: preselectedProduct.codigo,
@@ -60,28 +56,17 @@ export function EstoqueCarroCountDialog({
         setQuantity('')
       } else {
         setStep(1)
-        setSearchTerm('')
-        setProducts([])
         setSelectedProduct(null)
         setQuantity('')
       }
     }
   }, [open, preselectedProduct])
 
-  const handleSearch = async (term: string) => {
-    if (!term) return
-    setLoading(true)
-    try {
-      const { data } = await productsService.getProducts(1, 20, term)
-      setProducts(data)
-    } finally {
-      setLoading(false)
+  const handleProductSelect = (p: ProductRow | null) => {
+    if (p) {
+      setSelectedProduct(p)
+      setStep(2)
     }
-  }
-
-  const handleSelect = (p: ProductRow) => {
-    setSelectedProduct(p)
-    setStep(2)
   }
 
   const handleSave = async () => {
@@ -108,8 +93,6 @@ export function EstoqueCarroCountDialog({
         setStep(1)
         setQuantity('')
         setSelectedProduct(null)
-        setProducts([])
-        setSearchTerm('')
       }
     } catch (e: any) {
       console.error(e)
@@ -125,46 +108,23 @@ export function EstoqueCarroCountDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md overflow-visible">
         <DialogHeader>
           <DialogTitle>Contagem Carro</DialogTitle>
         </DialogHeader>
 
         {step === 1 && (
-          <div className="space-y-4">
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar produto..."
-                  className="pl-8"
-                  value={searchTerm}
-                  onChange={(e) => {
-                    setSearchTerm(e.target.value)
-                    if (e.target.value.length > 2) handleSearch(e.target.value)
-                  }}
-                  autoFocus
-                />
-              </div>
-              <Button
-                variant="outline"
-                size="icon"
-                title="Scan Barcode (Placeholder)"
-              >
-                <Camera className="h-4 w-4" />
-              </Button>
-            </div>
-
-            <div className="max-h-[300px] overflow-y-auto border rounded-md">
-              <ProductSelectorTable
-                products={products}
-                loading={loading}
-                searchTerm={searchTerm}
-                selectedIds={new Set()}
-                onSelect={handleSelect}
-                onToggleSelect={() => {}}
-                onToggleSelectAll={() => {}}
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Selecione o Produto</label>
+              <ProductCombobox
+                selectedProduct={selectedProduct}
+                onSelect={handleProductSelect}
+                className="w-full"
               />
+              <p className="text-xs text-muted-foreground">
+                Busque por nome ou escaneie o código de barras.
+              </p>
             </div>
           </div>
         )}
@@ -173,7 +133,12 @@ export function EstoqueCarroCountDialog({
           <div className="space-y-4">
             <div className="bg-muted p-3 rounded">
               <p className="font-bold">{selectedProduct.PRODUTO}</p>
-              <p className="text-sm">Cod: {selectedProduct.CODIGO}</p>
+              <div className="flex gap-4 text-sm text-muted-foreground">
+                <span>Cod: {selectedProduct.CODIGO}</span>
+                {selectedProduct['CÓDIGO BARRAS'] && (
+                  <span>Bar: {selectedProduct['CÓDIGO BARRAS']}</span>
+                )}
+              </div>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Quantidade Contada</label>
@@ -182,6 +147,7 @@ export function EstoqueCarroCountDialog({
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
                 autoFocus
+                placeholder="0"
               />
             </div>
             <DialogFooter>
@@ -192,6 +158,7 @@ export function EstoqueCarroCountDialog({
                     onOpenChange(false)
                   } else {
                     setStep(1)
+                    setSelectedProduct(null)
                   }
                 }}
               >

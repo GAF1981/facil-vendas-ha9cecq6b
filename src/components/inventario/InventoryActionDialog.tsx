@@ -27,6 +27,7 @@ import { Employee } from '@/types/employee'
 import { InventoryMovementType } from '@/types/inventory_general'
 import { useToast } from '@/hooks/use-toast'
 import { Textarea } from '@/components/ui/textarea'
+import { ProductCombobox } from '@/components/products/ProductCombobox'
 
 interface InventoryActionDialogProps {
   open: boolean
@@ -42,6 +43,7 @@ interface InventoryActionDialogProps {
     ID: number
     CODIGO: number | null
     PRODUTO: string | null
+    PREÇO?: string | null
   }
 }
 
@@ -62,12 +64,13 @@ export function InventoryActionDialog({
   const { toast } = useToast()
 
   // Data Sources
-  const [products, setProducts] = useState<ProductRow[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
 
   // Form State
-  const [selectedProduct, setSelectedProduct] = useState<string>('')
+  const [selectedProduct, setSelectedProduct] = useState<ProductRow | null>(
+    null,
+  )
   const [selectedSupplier, setSelectedSupplier] = useState<string>('')
   const [selectedEmployee, setSelectedEmployee] = useState<string>('')
   const [quantity, setQuantity] = useState<string>('')
@@ -97,16 +100,18 @@ export function InventoryActionDialog({
       setLoading(true)
       const promises = []
 
-      // 1. Load Products (if not preselected to save bandwidth)
+      // 1. Handle Preselected Product
       if (preselectedProduct) {
-        setProducts([preselectedProduct as ProductRow])
-        setSelectedProduct(preselectedProduct.ID.toString())
+        // Construct a partial ProductRow for initial display
+        const prod = {
+          ID: preselectedProduct.ID,
+          CODIGO: preselectedProduct.CODIGO,
+          PRODUTO: preselectedProduct.PRODUTO,
+          PREÇO: preselectedProduct.PREÇO,
+        } as ProductRow
+        setSelectedProduct(prod)
       } else {
-        promises.push(
-          productsService.getProducts(1, 10000).then(({ data }) => {
-            setProducts(data || [])
-          }),
-        )
+        setSelectedProduct(null)
       }
 
       // 2. Load Suppliers (Only for Purchase)
@@ -118,7 +123,7 @@ export function InventoryActionDialog({
       if (type === 'CARRO_PARA_ESTOQUE' || type === 'ESTOQUE_PARA_CARRO') {
         promises.push(
           employeesService.getEmployees(1, 1000).then(({ data }) => {
-            // Filter by Role/Sector as per User Story
+            // Filter by Role/Sector
             const allowedSectors = ['gerente', 'estoque', 'administrador']
             const filtered = data.filter((e) =>
               e.setor?.some((s) => allowedSectors.includes(s.toLowerCase())),
@@ -131,7 +136,6 @@ export function InventoryActionDialog({
       Promise.all(promises).finally(() => setLoading(false))
 
       // Reset Form (Preserving persisted values)
-      if (!preselectedProduct) setSelectedProduct('')
       setQuantity('')
       setCostValue('')
       setReason('')
@@ -149,17 +153,14 @@ export function InventoryActionDialog({
     }
   }, [open, type, preselectedProduct, persistedSupplierId, persistedEmployeeId])
 
-  const handleProductChange = (prodId: string) => {
-    setSelectedProduct(prodId)
+  const handleProductSelect = (prod: ProductRow | null) => {
+    setSelectedProduct(prod)
 
     // Auto-calculate cost for purchases: 30% of Sale Price
-    if (type === 'COMPRA' && prodId) {
-      const prod = products.find((p) => p.ID.toString() === prodId)
-      if (prod && prod.PREÇO) {
-        const salePrice = parseCurrency(prod.PREÇO)
-        const calculatedCost = salePrice * 0.3
-        setCostValue(formatCurrency(calculatedCost))
-      }
+    if (type === 'COMPRA' && prod && prod.PREÇO) {
+      const salePrice = parseCurrency(prod.PREÇO)
+      const calculatedCost = salePrice * 0.3
+      setCostValue(formatCurrency(calculatedCost))
     }
   }
 
@@ -250,7 +251,7 @@ export function InventoryActionDialog({
     try {
       await inventoryGeneralService.registerMovement(sessionId, type!, [
         {
-          productId: parseInt(selectedProduct),
+          productId: selectedProduct.ID,
           quantity: qty,
           extra,
         },
@@ -273,7 +274,7 @@ export function InventoryActionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg overflow-visible">
         <DialogHeader>
           <DialogTitle>{getTitle()}</DialogTitle>
         </DialogHeader>
@@ -284,26 +285,11 @@ export function InventoryActionDialog({
             <Label>
               Produto <span className="text-red-500">*</span>
             </Label>
-            <Select
-              value={selectedProduct}
-              onValueChange={handleProductChange}
+            <ProductCombobox
+              selectedProduct={selectedProduct}
+              onSelect={handleProductSelect}
               disabled={loading || submitting || !!preselectedProduct}
-            >
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={
-                    loading ? 'Carregando...' : 'Selecione o produto'
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {products.map((p) => (
-                  <SelectItem key={p.ID} value={p.ID.toString()}>
-                    {p.PRODUTO} {p.CODIGO ? `(Cod: ${p.CODIGO})` : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            />
           </div>
 
           {/* Type Specific Fields - BEFORE Quantity */}
