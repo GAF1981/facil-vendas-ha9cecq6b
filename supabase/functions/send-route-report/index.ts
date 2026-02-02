@@ -1,6 +1,6 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-import JSZip from 'jszip'
+import JSZip from 'npm:jszip@3.10.1'
 import { corsHeaders } from '../_shared/cors.ts'
 
 console.log(
