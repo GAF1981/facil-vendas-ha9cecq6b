@@ -10,6 +10,7 @@ export interface EstoqueCarroSession {
 export interface EstoqueCarroItem {
   produto_id: number
   codigo: number | null
+  barcode: number | null // Added barcode field
   produto: string
   tipo: string | null
   preco: number

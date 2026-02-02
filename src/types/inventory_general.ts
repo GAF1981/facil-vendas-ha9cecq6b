@@ -14,6 +14,7 @@ export interface MovementDetail {
 export interface InventoryGeneralItem {
   produto_id: number
   codigo: number | null
+  barcode: number | null // Added barcode field
   produto: string
   tipo: string | null
   preco: number

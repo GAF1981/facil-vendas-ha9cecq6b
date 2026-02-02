@@ -98,6 +98,7 @@ export const inventoryGeneralService = {
       agg.set(p.ID, {
         produto_id: p.ID,
         codigo: p.CODIGO,
+        barcode: p['CÓDIGO BARRAS'],
         produto: p.PRODUTO || 'Desconhecido',
         tipo: p.TIPO,
         preco: parseCurrency(p.PREÇO),

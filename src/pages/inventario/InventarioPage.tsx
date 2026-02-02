@@ -19,6 +19,10 @@ import { Label } from '@/components/ui/label'
 import { safeFormatDate } from '@/lib/formatters'
 import { InventoryHeader } from '@/components/inventario/InventoryHeader'
 import { InventoryControlBar } from '@/components/inventario/InventoryControlBar'
+import { useUserStore } from '@/stores/useUserStore'
+import { Button } from '@/components/ui/button'
+import { ArrowLeft, Lock } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 export default function InventarioPage() {
   const [sessions, setSessions] = useState<InventoryGeneralSession[]>([])
@@ -32,6 +36,18 @@ export default function InventarioPage() {
   const [persistedEmployeeId, setPersistedEmployeeId] = useState<string>('')
   const [persistedSupplierId, setPersistedSupplierId] = useState<string>('')
   const { toast } = useToast()
+  const { employee } = useUserStore()
+
+  // Access Control
+  const allowAccess = useMemo(() => {
+    if (!employee || !employee.setor) return false
+    const sectors = Array.isArray(employee.setor)
+      ? employee.setor
+      : [employee.setor]
+    return sectors.some((s) =>
+      ['administrador', 'gerente', 'estoque'].includes(s.toLowerCase()),
+    )
+  }, [employee])
 
   const selectedSession = useMemo(
     () => sessions.find((s) => s.id.toString() === selectedSessionId) || null,
@@ -86,15 +102,41 @@ export default function InventarioPage() {
   )
 
   useEffect(() => {
-    loadSessions().then((data) => {
-      if (data.length > 0) setSelectedSessionId(data[0].id.toString())
-    })
-  }, [loadSessions])
+    if (allowAccess) {
+      loadSessions().then((data) => {
+        if (data.length > 0) setSelectedSessionId(data[0].id.toString())
+      })
+    }
+  }, [allowAccess, loadSessions])
 
   useEffect(() => {
-    if (selectedSessionId) loadItems(Number(selectedSessionId))
+    if (selectedSessionId && allowAccess) loadItems(Number(selectedSessionId))
     else setItems([])
-  }, [selectedSessionId, loadItems])
+  }, [selectedSessionId, loadItems, allowAccess])
+
+  if (!allowAccess) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6 animate-fade-in p-4">
+        <div className="bg-red-100 p-6 rounded-full text-red-600">
+          <Lock className="w-12 h-12" />
+        </div>
+        <div className="space-y-2 max-w-md">
+          <h1 className="text-3xl font-bold tracking-tight text-red-800">
+            Acesso Negado
+          </h1>
+          <p className="text-muted-foreground text-lg">
+            Você não tem permissão para acessar o módulo de Inventário Geral.
+          </p>
+        </div>
+        <Button asChild variant="outline">
+          <Link to="/">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Voltar ao Início
+          </Link>
+        </Button>
+      </div>
+    )
+  }
 
   const filteredItems = useMemo(() => {
     if (saldoFinalFilter === 'zero')

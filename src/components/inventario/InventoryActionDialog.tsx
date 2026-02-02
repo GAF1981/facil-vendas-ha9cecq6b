@@ -18,7 +18,6 @@ import {
 } from '@/components/ui/select'
 import { Loader2 } from 'lucide-react'
 import { formatCurrency, parseCurrency } from '@/lib/formatters'
-import { productsService } from '@/services/productsService'
 import { suppliersService, Supplier } from '@/services/suppliersService'
 import { employeesService } from '@/services/employeesService'
 import { inventoryGeneralService } from '@/services/inventoryGeneralService'
@@ -124,7 +123,7 @@ export function InventoryActionDialog({
         promises.push(
           employeesService.getEmployees(1, 1000).then(({ data }) => {
             // Filter by Role/Sector
-            const allowedSectors = ['gerente', 'estoque', 'administrador']
+            const allowedSectors = ['vendedor', 'administrador', 'gerente']
             const filtered = data.filter((e) =>
               e.setor?.some((s) => allowedSectors.includes(s.toLowerCase())),
             )
@@ -340,7 +339,7 @@ export function InventoryActionDialog({
                 </SelectContent>
               </Select>
               <p className="text-[10px] text-muted-foreground">
-                Exibindo apenas Gerentes, Estoque e Administradores.
+                Exibindo apenas Vendedores, Administradores e Gerentes.
               </p>
             </div>
           )}

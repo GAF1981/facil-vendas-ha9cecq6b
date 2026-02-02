@@ -227,6 +227,7 @@ export const estoqueCarroService = {
         id_estoque_carro: sessionId, // Added for context
         produto_id: p.ID,
         codigo: p.CODIGO,
+        barcode: p['CÓDIGO BARRAS'],
         produto: p.PRODUTO || 'Desconhecido',
         tipo: p.TIPO,
         preco: parseCurrency(p.PREÇO),
