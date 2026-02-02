@@ -225,6 +225,10 @@ export default function EmailSeguroPage() {
                   <strong>Histórico (180 dias)</strong> são gerados e enviados
                   automaticamente todos os dias às <strong>07:00 AM</strong>.
                 </p>
+                <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
+                  Capacidade expandida: até 10.000 registros por relatório.
+                </p>
               </div>
               <div className="text-xs text-muted-foreground">
                 Destinatário atual:{' '}

@@ -80,6 +80,46 @@ const jsonToCsv = (items: any[]) => {
   return [headerRow, ...rows].join('\n')
 }
 
+// Helper for batched fetching to bypass 1000 row limit
+const fetchBatched = async (
+  supabase: any,
+  table: string,
+  select: string,
+  modifiers: (q: any) => any,
+  limit: number = 10000,
+  batchSize: number = 1000,
+) => {
+  let allRows: any[] = []
+
+  // Calculate max batches needed
+  const batches = Math.ceil(limit / batchSize)
+
+  for (let i = 0; i < batches; i++) {
+    const from = i * batchSize
+    const to = from + batchSize - 1
+
+    let query = supabase.from(table).select(select)
+
+    // Apply modifiers (filters, orders)
+    query = modifiers(query)
+
+    // Apply range for pagination
+    query = query.range(from, to)
+
+    const { data, error } = await query
+
+    if (error) return { data: null, error }
+    if (!data || data.length === 0) break
+
+    allRows = allRows.concat(data)
+
+    if (data.length < batchSize) break
+    if (allRows.length >= limit) break
+  }
+
+  return { data: allRows.slice(0, limit), error: null }
+}
+
 Deno.serve(async (req) => {
   // Handle CORS
   if (req.method === 'OPTIONS') {
@@ -163,56 +203,68 @@ Deno.serve(async (req) => {
     date180.setDate(date180.getDate() - 180)
     const cutoffDateBrazil = brazilFormatter.format(date180)
 
-    // --- Parallel Data Fetching (Limit 10000) ---
+    // --- Parallel Data Fetching (Limit 10000 with Pagination) ---
 
     // REPORT 1: Active Clients (Route Control)
-    const fetchActiveClients = supabaseClient
-      .from('CLIENTES')
-      .select('*')
-      .ilike('situacao', '%Ativo%')
-      .order('NOME CLIENTE')
-      .limit(10000)
+    const fetchActiveClients = fetchBatched(
+      supabaseClient,
+      'CLIENTES',
+      '*',
+      (q) => q.ilike('situacao', '%Ativo%').order('NOME CLIENTE'),
+    )
 
-    const fetchDebts = supabaseClient
-      .from('debitos_com_total_view')
-      .select('cliente_codigo, debito_total')
-      .limit(10000)
+    const fetchDebts = fetchBatched(
+      supabaseClient,
+      'debitos_com_total_view',
+      'cliente_codigo, debito_total',
+      (q) => q.order('cliente_codigo'),
+    )
 
     const fetchProjections = supabaseClient.rpc('get_client_projections')
 
-    const fetchConsigned = supabaseClient
-      .from('view_client_latest_consigned_value')
-      .select('client_id, total_consigned_value')
-      .limit(10000)
+    const fetchConsigned = fetchBatched(
+      supabaseClient,
+      'view_client_latest_consigned_value',
+      'client_id, total_consigned_value',
+      (q) => q.order('client_id'),
+    )
 
-    const fetchStats = supabaseClient
-      .from('client_stats_view')
-      .select('client_id, max_pedido, max_data_acerto')
-      .limit(10000)
+    const fetchStats = fetchBatched(
+      supabaseClient,
+      'client_stats_view',
+      'client_id, max_pedido, max_data_acerto',
+      (q) => q.order('client_id'),
+    )
 
-    const fetchReceivables = supabaseClient
-      .from('RECEBIMENTOS')
-      .select('cliente_id, vencimento, valor_pago, valor_registrado')
-      .order('vencimento', { ascending: true })
-      .limit(10000)
+    const fetchReceivables = fetchBatched(
+      supabaseClient,
+      'RECEBIMENTOS',
+      'cliente_id, vencimento, valor_pago, valor_registrado',
+      (q) => q.order('vencimento', { ascending: true }),
+    )
 
-    const fetchVendors = supabaseClient
-      .from('ROTA_ITEMS')
-      .select('cliente_id, vendedor_id, FUNCIONARIOS(nome_completo)')
-      .limit(10000)
+    const fetchVendors = fetchBatched(
+      supabaseClient,
+      'ROTA_ITEMS',
+      'cliente_id, vendedor_id, FUNCIONARIOS(nome_completo)',
+      (q) => q.order('id'),
+    )
 
     // REPORT 2: All Clients (Full Dump)
-    const fetchAllClients = supabaseClient
-      .from('CLIENTES')
-      .select('*')
-      .limit(10000)
+    const fetchAllClients = fetchBatched(supabaseClient, 'CLIENTES', '*', (q) =>
+      q.order('CODIGO'),
+    )
 
     // REPORT 3: Database History (Last 180 Days)
-    const fetchDBHistory = supabaseClient
-      .from('BANCO_DE_DADOS')
-      .select('*')
-      .gte('DATA DO ACERTO', cutoffDateBrazil)
-      .limit(10000)
+    const fetchDBHistory = fetchBatched(
+      supabaseClient,
+      'BANCO_DE_DADOS',
+      '*',
+      (q) =>
+        q
+          .gte('DATA DO ACERTO', cutoffDateBrazil)
+          .order('DATA DO ACERTO', { ascending: false }),
+    )
 
     const [
       { data: activeClients, error: activeError },
