@@ -1,5 +1,6 @@
 {
   "imports": {
-    "jszip": "npm:jszip@3.10.1"
+    "jszip": "npm:jszip@3.10.1",
+    "jsr:@supabase/functions-js/edge-runtime.d.ts": "jsr:@supabase/functions-js/edge-runtime.d.ts"
   }
 }

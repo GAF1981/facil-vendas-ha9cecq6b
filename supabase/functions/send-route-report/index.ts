@@ -1,3 +1,4 @@
+import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import JSZip from 'jszip'
 import { corsHeaders } from '../_shared/cors.ts'
@@ -399,9 +400,25 @@ Deno.serve(async (req) => {
     })
 
     if (!res.ok) {
-      const errorData = await res.json()
+      const contentType = res.headers.get('content-type') || ''
+      let errorData
+      try {
+        if (contentType.includes('application/json')) {
+          errorData = await res.json()
+        } else {
+          errorData = { message: await res.text() }
+        }
+      } catch (e) {
+        errorData = {
+          message:
+            'Erro desconhecido ao ler resposta do Resend (Falha no parse JSON)',
+        }
+      }
+
       console.error('Resend Error:', errorData)
-      throw new Error(`Erro Resend: ${errorData.message || errorData.name}`)
+      throw new Error(
+        `Erro Resend: ${errorData.message || errorData.name || JSON.stringify(errorData)}`,
+      )
     }
 
     // 6. Log Success
