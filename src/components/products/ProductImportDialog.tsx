@@ -92,7 +92,6 @@ export function ProductImportDialog({ onSuccess }: ProductImportDialogProps) {
           description: `${result.success} produtos atualizados com sucesso.`,
         })
         if (onSuccess) onSuccess()
-        // Wait a bit before closing if successful, or let user close
         setTimeout(() => {
           setOpen(false)
           setFile(null)
@@ -128,7 +127,6 @@ export function ProductImportDialog({ onSuccess }: ProductImportDialogProps) {
   const resetState = (isOpen: boolean) => {
     setOpen(isOpen)
     if (!isOpen) {
-      // Small delay to clear state after animation
       setTimeout(() => {
         setFile(null)
         setParsedData([])
@@ -150,8 +148,8 @@ export function ProductImportDialog({ onSuccess }: ProductImportDialogProps) {
           <DialogTitle>Importar Atualização de Produtos</DialogTitle>
           <DialogDescription>
             Selecione um arquivo CSV para atualizar códigos internos e códigos
-            de barras. O arquivo deve conter as colunas: <code>produto</code>,{' '}
-            <code>codigo_interno</code>, <code>codigo_barras</code>.
+            de barras. Os campos são tratados como texto para preservar zeros à
+            esquerda.
           </DialogDescription>
         </DialogHeader>
 
@@ -165,6 +163,10 @@ export function ProductImportDialog({ onSuccess }: ProductImportDialogProps) {
               onChange={handleFileChange}
               disabled={loading}
             />
+            <p className="text-xs text-muted-foreground mt-1">
+              Colunas esperadas: <code>produto</code>,{' '}
+              <code>codigo_interno</code>, <code>codigo_barras</code>
+            </p>
           </div>
 
           {parsedData.length > 0 && !stats && (

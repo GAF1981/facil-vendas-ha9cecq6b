@@ -4,7 +4,6 @@ import {
   ChevronsUpDown,
   Loader2,
   Barcode,
-  Search,
   Box,
   Hash,
 } from 'lucide-react'
@@ -45,11 +44,7 @@ export function ProductCombobox({
   const [products, setProducts] = React.useState<ProductRow[]>([])
   const [loading, setLoading] = React.useState(false)
 
-  // Initialize with selected product if available in the list or if we need to show it
-  // But we mostly rely on the display text from the prop
-
   React.useEffect(() => {
-    // Debounce search
     const timer = setTimeout(() => {
       fetchProducts(searchTerm)
     }, 400)
@@ -60,7 +55,6 @@ export function ProductCombobox({
   const fetchProducts = async (term: string) => {
     setLoading(true)
     try {
-      // If term is empty, fetch top 20 or similar (or just don't fetch if you want to keep it clean)
       // The service defaults to page 1, size 20 if search is empty
       const { data } = await productsService.getProducts(
         1,
@@ -79,7 +73,6 @@ export function ProductCombobox({
     }
   }
 
-  // Reload products when opening to ensure list is fresh or reset
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen)
     if (newOpen && products.length === 0 && !searchTerm) {

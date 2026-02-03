@@ -2,25 +2,47 @@ import { Database } from '@/lib/supabase/types'
 import { z } from 'zod'
 
 // Manually extending types since we can't regenerate supabase types in this environment
-// Adding the new FREQUENTES column as defined in the migration
-// Adding the new codigo_interno column as defined in the migration
-interface AdditionalProductFields {
+// Changing codigo_interno and CÓDIGO BARRAS to string to support alphanumeric and leading zeros
+
+export type ProductRow = Omit<
+  Database['public']['Tables']['PRODUTOS']['Row'],
+  'codigo_interno' | 'CÓDIGO BARRAS'
+> & {
+  codigo_interno?: string | null
+  'CÓDIGO BARRAS'?: string | null
   FREQUENTES?: string | null
-  codigo_interno?: number | null
 }
 
-export type ProductRow = Database['public']['Tables']['PRODUTOS']['Row'] &
-  AdditionalProductFields
-export type ProductInsert = Database['public']['Tables']['PRODUTOS']['Insert'] &
-  AdditionalProductFields
-export type ProductUpdate = Database['public']['Tables']['PRODUTOS']['Update'] &
-  AdditionalProductFields
+export type ProductInsert = Omit<
+  Database['public']['Tables']['PRODUTOS']['Insert'],
+  'codigo_interno' | 'CÓDIGO BARRAS'
+> & {
+  codigo_interno?: string | null
+  'CÓDIGO BARRAS'?: string | null
+  FREQUENTES?: string | null
+}
 
-// Helper to handle empty strings as null for numbers
+export type ProductUpdate = Omit<
+  Database['public']['Tables']['PRODUTOS']['Update'],
+  'codigo_interno' | 'CÓDIGO BARRAS'
+> & {
+  codigo_interno?: string | null
+  'CÓDIGO BARRAS'?: string | null
+  FREQUENTES?: string | null
+}
+
+// Helper to handle empty strings as null for numbers (Legacy CODIGO)
 const numberOrNull = z.preprocess(
   (val) =>
     val === '' || val === null || val === undefined ? null : Number(val),
   z.number().nullable().optional(),
+)
+
+// Helper to handle empty strings as null for text fields
+const stringOrNull = z.preprocess(
+  (val) =>
+    val === '' || val === null || val === undefined ? null : String(val),
+  z.string().nullable().optional(),
 )
 
 export const productSchema = z.object({
@@ -33,8 +55,8 @@ export const productSchema = z.object({
     .min(2, 'Nome do produto deve ter no mínimo 2 caracteres')
     .nullable(),
   CODIGO: numberOrNull,
-  codigo_interno: numberOrNull,
-  'CÓDIGO BARRAS': numberOrNull,
+  codigo_interno: stringOrNull,
+  'CÓDIGO BARRAS': stringOrNull,
   'DESCRIÇÃO RESUMIDA': z.string().optional().nullable(),
   GRUPO: z.string().optional().nullable(),
   PREÇO: z.string().optional().nullable(),

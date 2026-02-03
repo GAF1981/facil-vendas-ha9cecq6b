@@ -29,16 +29,15 @@ export const productsService = {
       const searchTerm = search.trim()
       const isNumber = !isNaN(Number(searchTerm)) && searchTerm !== ''
 
+      // Always search text fields with ilike
+      let orQuery = `PRODUTO.ilike.%${searchTerm}%,codigo_interno.ilike.%${searchTerm}%,"CÓDIGO BARRAS".ilike.%${searchTerm}%`
+
+      // If it looks like a number, also search numeric IDs
       if (isNumber) {
-        // Search by ID, Legacy Code (CODIGO), Internal Code (codigo_interno), Barcode (CÓDIGO BARRAS) OR Name (PRODUTO)
-        // Using quotes for columns with spaces
-        query = query.or(
-          `ID.eq.${searchTerm},CODIGO.eq.${searchTerm},codigo_interno.eq.${searchTerm},"CÓDIGO BARRAS".eq.${searchTerm},PRODUTO.ilike.%${searchTerm}%`,
-        )
-      } else {
-        // Search specifically by name (PRODUTO) for text queries
-        query = query.ilike('PRODUTO', `%${searchTerm}%`)
+        orQuery += `,ID.eq.${searchTerm},CODIGO.eq.${searchTerm}`
       }
+
+      query = query.or(orQuery)
     }
 
     if (group && group !== 'todos') {
@@ -62,7 +61,7 @@ export const productsService = {
     }
 
     return {
-      data: (data as ProductRow[]) || [],
+      data: (data as unknown as ProductRow[]) || [],
       count: count || 0,
     }
   },
@@ -86,7 +85,7 @@ export const productsService = {
       .single()
 
     if (error) throw error
-    return data as ProductRow
+    return data as unknown as ProductRow
   },
 
   async getNextId() {
@@ -104,7 +103,6 @@ export const productsService = {
     }
 
     const maxId = data?.ID || 0
-    // Smart suggestion: If maxId < 105, start at 105. Otherwise, increment.
     return maxId < 105 ? 105 : maxId + 1
   },
 
@@ -125,24 +123,24 @@ export const productsService = {
   async create(product: ProductInsert) {
     const { data, error } = await supabase
       .from('PRODUTOS')
-      .insert(product)
+      .insert(product as any)
       .select()
       .single()
 
     if (error) throw error
-    return data as ProductRow
+    return data as unknown as ProductRow
   },
 
   async update(id: number, product: ProductUpdate) {
     const { data, error } = await supabase
       .from('PRODUTOS')
-      .update(product)
+      .update(product as any)
       .eq('ID', id)
       .select()
       .single()
 
     if (error) throw error
-    return data as ProductRow
+    return data as unknown as ProductRow
   },
 
   async delete(id: number) {
@@ -167,7 +165,6 @@ export const productsService = {
           return
         }
 
-        // Detect delimiter (comma or semicolon)
         const firstLine = lines[0]
         const delimiter = firstLine.includes(';') ? ';' : ','
 
@@ -186,7 +183,6 @@ export const productsService = {
           if (values.length === headers.length) {
             const row: any = {}
             headers.forEach((header, index) => {
-              // Map headers to expected keys if slightly different, or strict mapping
               if (header === 'produto') row.produto = values[index]
               if (
                 header === 'codigo_interno' ||
@@ -201,7 +197,6 @@ export const productsService = {
               )
                 row.codigo_barras = values[index]
             })
-            // Only add if product name exists
             if (row.produto) {
               result.push(row as CsvProductRow)
             }
@@ -227,8 +222,6 @@ export const productsService = {
     }
 
     try {
-      // 1. Fetch all products to create a map of Name -> ID
-      // We need to fetch all to match names.
       const { data: products, error } = await supabase
         .from('PRODUTOS')
         .select('ID, PRODUTO')
@@ -242,11 +235,10 @@ export const productsService = {
         }
       })
 
-      // 2. Prepare updates
       const updates: {
         ID: number
-        codigo_interno?: number | null
-        'CÓDIGO BARRAS'?: number | null
+        codigo_interno?: string | null
+        'CÓDIGO BARRAS'?: string | null
       }[] = []
 
       for (const row of data) {
@@ -259,50 +251,36 @@ export const productsService = {
         const productId = productMap.get(normalizedName)
 
         if (productId) {
+          // Use strings directly, preserve leading zeros
           const codigoInterno = row.codigo_interno
-            ? parseInt(row.codigo_interno.replace(/\D/g, ''))
+            ? row.codigo_interno.trim()
             : null
           const codigoBarras = row.codigo_barras
-            ? parseInt(row.codigo_barras.replace(/\D/g, ''))
+            ? row.codigo_barras.trim()
             : null
-
-          // Handle NaN from parseInt if string was not a valid number
-          const safeCodigoInterno = isNaN(codigoInterno as number)
-            ? null
-            : codigoInterno
-          const safeCodigoBarras = isNaN(codigoBarras as number)
-            ? null
-            : codigoBarras
 
           updates.push({
             ID: productId,
-            codigo_interno: safeCodigoInterno,
-            'CÓDIGO BARRAS': safeCodigoBarras,
+            codigo_interno: codigoInterno,
+            'CÓDIGO BARRAS': codigoBarras,
           })
           result.success++
         } else {
           result.failed++
-          // Optional: Add error detail for missing product
-          // result.errors.push(`Produto não encontrado: ${row.produto}`)
         }
       }
 
-      // 3. Perform updates
-      // Supabase upsert is efficient for bulk updates if we have the primary key (ID)
       if (updates.length > 0) {
-        // Process in chunks to avoid request size limits if too many rows
         const chunkSize = 100
         for (let i = 0; i < updates.length; i += chunkSize) {
           const chunk = updates.slice(i, i + chunkSize)
           const { error: updateError } = await supabase
             .from('PRODUTOS')
-            .upsert(chunk)
+            .upsert(chunk as any)
 
           if (updateError) {
             console.error('Error updating batch:', updateError)
             result.errors.push(`Erro ao atualizar lote ${i / chunkSize + 1}`)
-            // Since we optimistically counted success, we might need to adjust,
-            // but for simplicity we keep the logic of "matched items found"
           }
         }
       }

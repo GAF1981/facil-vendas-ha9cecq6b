@@ -54,7 +54,7 @@ export function ProductForm({
           FREQUENTES: initialData.FREQUENTES ?? 'NÃO',
         }
       : {
-          ID: undefined, // Will be set by useEffect
+          ID: undefined,
           PRODUTO: '',
           CODIGO: null,
           codigo_interno: null,
@@ -67,14 +67,11 @@ export function ProductForm({
         },
   })
 
-  // Auto-generate ID for new products
   useEffect(() => {
-    // Only fetch next ID if we are creating a new product (no initialData)
     if (!initialData) {
       const loadNextId = async () => {
         try {
           const nextId = await productsService.getNextId()
-          // Only set ID if the field hasn't been modified by the user
           const { isDirty } = form.getFieldState('ID')
           if (!isDirty) {
             form.setValue('ID', nextId)
@@ -95,12 +92,10 @@ export function ProductForm({
   const onSubmit = async (data: ProductFormData) => {
     setLoading(true)
     try {
-      // Validate that ID is present (schema handles this, but safe check)
       if (!data.ID) {
         throw new Error('ID do produto não definido')
       }
 
-      // Check for duplicate ID if creating a new product
       if (!initialData) {
         const exists = await productsService.checkIdExists(data.ID)
         if (exists) {
@@ -113,7 +108,6 @@ export function ProductForm({
         }
       }
 
-      // Explicitly construct payload
       const payload = {
         ...data,
         ID: data.ID,
@@ -172,11 +166,8 @@ export function ProductForm({
                         type="number"
                         placeholder="105"
                         {...field}
-                        // Use string value to allow empty state while typing
                         value={field.value || ''}
-                        // Allow typing string, Zod will coerce to number
                         onChange={(e) => field.onChange(e.target.value)}
-                        // Read-only in edit mode to prevent primary key issues
                         disabled={!!initialData}
                         className={
                           initialData ? 'bg-muted font-mono' : 'font-mono'
@@ -210,7 +201,7 @@ export function ProductForm({
               />
             </div>
 
-            {/* Barcode */}
+            {/* Barcode - Now Text */}
             <div className="md:col-span-4">
               <FormField
                 control={form.control}
@@ -220,7 +211,7 @@ export function ProductForm({
                     <FormLabel>Código de Barras</FormLabel>
                     <FormControl>
                       <Input
-                        type="number"
+                        type="text"
                         placeholder="EAN / GTIN"
                         {...field}
                         value={field.value || ''}
@@ -232,7 +223,7 @@ export function ProductForm({
               />
             </div>
 
-            {/* New Internal Code */}
+            {/* Internal Code - Now Text */}
             <div className="md:col-span-4">
               <FormField
                 control={form.control}
@@ -244,7 +235,7 @@ export function ProductForm({
                     </FormLabel>
                     <FormControl>
                       <Input
-                        type="number"
+                        type="text"
                         placeholder="Novo Código"
                         {...field}
                         value={field.value || ''}
@@ -256,7 +247,7 @@ export function ProductForm({
               />
             </div>
 
-            {/* Legacy Internal Code */}
+            {/* Legacy Internal Code - Still Number */}
             <div className="md:col-span-4">
               <FormField
                 control={form.control}
