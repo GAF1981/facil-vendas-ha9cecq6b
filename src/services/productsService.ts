@@ -38,11 +38,17 @@ export const productsService = {
       const searchTerm = search.trim()
       const isNumber = !isNaN(Number(searchTerm)) && searchTerm !== ''
 
+      // Sanitize search term to prevent PostgREST syntax errors
+      // We replace commas and parentheses with the SQL wildcard '_'
+      // This allows searching for "49,99" without breaking the OR filter syntax
+      const sanitizedSearch = searchTerm.replace(/[,()]/g, '_')
+
       // Always search text fields with ilike
       // Removed CODIGO reference to avoid errors with non-existent column
-      let orQuery = `PRODUTO.ilike.%${searchTerm}%,codigo_interno.ilike.%${searchTerm}%,"CÓDIGO BARRAS".ilike.%${searchTerm}%`
+      let orQuery = `PRODUTO.ilike.%${sanitizedSearch}%,codigo_interno.ilike.%${sanitizedSearch}%,"CÓDIGO BARRAS".ilike.%${sanitizedSearch}%`
 
       // If it looks like a number, also search numeric IDs
+      // We use original searchTerm for ID because it must be a valid number
       if (isNumber) {
         orQuery += `,ID.eq.${searchTerm}`
       }
