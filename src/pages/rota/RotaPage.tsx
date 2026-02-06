@@ -222,9 +222,29 @@ export default function RotaPage() {
 
     setLoading(true)
     try {
+      // 1. Capture current "Next Seller" assignments from the existing active route
+      // We do this by iterating over the current rows in state
+      const nextSellersMap = new Map<number, number>()
+      rows.forEach((r) => {
+        if (r.proximo_vendedor_id) {
+          nextSellersMap.set(r.client.CODIGO, r.proximo_vendedor_id)
+        }
+      })
+
+      // 2. Close current and start new route (DB procedure moves items)
       const newRota = await rotaService.finishAndStartNewRoute(activeRota.id)
       setLastRota({ ...activeRota, data_fim: new Date().toISOString() })
       setActiveRota(newRota)
+
+      // 3. Apply the "Next Seller" assignments to the newly created route items
+      if (nextSellersMap.size > 0) {
+        await rotaService.applyNextSellers(newRota.id, nextSellersMap)
+        toast({
+          title: 'Vendedores Atualizados',
+          description: `${nextSellersMap.size} vendedores foram pré-agendados para a nova rota.`,
+        })
+      }
+
       const data = await rotaService.getFullRotaData(newRota)
       setRows(Array.isArray(data) ? data : [])
       setPendingClosures([])
@@ -257,6 +277,49 @@ export default function RotaPage() {
         description: 'Inicie uma rota para editar.',
         variant: 'warning',
       })
+      return
+    }
+
+    // Special handling for "proximo_vendedor_id" (Next Seller)
+    if (field === 'proximo_vendedor_id') {
+      const currentRow = rows.find((r) => r.client.CODIGO === clientId)
+      if (!currentRow) return
+
+      // Optimistic Update
+      setRows((prev) =>
+        prev.map((r) =>
+          r.client.CODIGO === clientId
+            ? { ...r, proximo_vendedor_id: value }
+            : r,
+        ),
+      )
+      setPendingUpdates((prev) => prev + 1)
+
+      try {
+        await rotaService.updateNextSeller(
+          activeRota.id,
+          clientId,
+          value,
+          currentRow.tarefas || null,
+        )
+      } catch (error) {
+        console.error(error)
+        toast({
+          title: 'Erro',
+          description: 'Falha ao salvar próximo vendedor.',
+          variant: 'destructive',
+        })
+        // Revert on error
+        setRows((prev) =>
+          prev.map((r) =>
+            r.client.CODIGO === clientId
+              ? { ...r, proximo_vendedor_id: currentRow.proximo_vendedor_id }
+              : r,
+          ),
+        )
+      } finally {
+        setPendingUpdates((prev) => Math.max(0, prev - 1))
+      }
       return
     }
 

@@ -26,6 +26,7 @@ export interface RotaRow {
   boleto: boolean
   agregado: boolean
   vendedor_id: number | null
+  proximo_vendedor_id: number | null // New field for next route pre-selection
   tarefas: string | null
   // Financial & Stats
   debito: number
@@ -37,9 +38,9 @@ export interface RotaRow {
   valor_consignado: number | null
   // Pendencies
   has_pendency: boolean
-  pendency_details: string[] // Added for alerts
+  pendency_details: string[]
   // Meta
-  is_completed: boolean // Green status
+  is_completed: boolean
   // Status Logic
   earliest_unpaid_date: string | null
   vencimento_status: 'VENCIDO' | 'A VENCER' | 'PAGO' | 'SEM DÉBITO'

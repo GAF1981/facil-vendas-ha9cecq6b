@@ -14,24 +14,71 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { RotateCcw, Loader2 } from 'lucide-react'
+import { RotateCcw, Loader2, Filter } from 'lucide-react'
 import { reportsService, AdjustmentReportRow } from '@/services/reportsService'
+import { employeesService } from '@/services/employeesService'
 import { format, parseISO } from 'date-fns'
+import { formatCurrency } from '@/lib/formatters'
+import { DateRangePicker } from '@/components/common/DateRangePicker'
+import { DateRange } from 'react-day-picker'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Employee } from '@/types/employee'
+import { Button } from '@/components/ui/button'
 
 export default function AdjustmentReportsPage() {
   const [data, setData] = useState<AdjustmentReportRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [sellers, setSellers] = useState<Employee[]>([])
+
+  // Filters
+  const [dateRange, setDateRange] = useState<DateRange | undefined>()
+  const [selectedSeller, setSelectedSeller] = useState<string>('all')
 
   useEffect(() => {
+    // Fetch sellers for filter
+    employeesService.getEmployees(1, 1000).then(({ data }) => {
+      setSellers(
+        data.filter(
+          (e) =>
+            e.situacao === 'ATIVO' &&
+            Array.isArray(e.setor) &&
+            e.setor.includes('Vendedor'),
+        ),
+      )
+    })
+  }, [])
+
+  const fetchData = () => {
+    setLoading(true)
     reportsService
-      .getInitialBalanceAdjustments()
+      .getInitialBalanceAdjustments({
+        sellerId: selectedSeller,
+        startDate: dateRange?.from,
+        endDate: dateRange?.to,
+      })
       .then(setData)
       .catch(console.error)
       .finally(() => setLoading(false))
+  }
+
+  // Initial fetch
+  useEffect(() => {
+    fetchData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const handleFilter = () => {
+    fetchData()
+  }
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in pb-20 md:pb-0">
       <div>
         <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
           <RotateCcw className="h-8 w-8 text-primary" />
@@ -42,11 +89,40 @@ export default function AdjustmentReportsPage() {
         </p>
       </div>
 
+      <div className="flex flex-col sm:flex-row items-end sm:items-center gap-4 bg-muted/20 p-4 rounded-lg border">
+        <div className="flex flex-col gap-2 w-full sm:w-auto">
+          <span className="text-sm font-medium">Período</span>
+          <DateRangePicker date={dateRange} setDate={setDateRange} />
+        </div>
+
+        <div className="flex flex-col gap-2 w-full sm:w-[200px]">
+          <span className="text-sm font-medium">Vendedor</span>
+          <Select value={selectedSeller} onValueChange={setSelectedSeller}>
+            <SelectTrigger>
+              <SelectValue placeholder="Todos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              {sellers.map((s) => (
+                <SelectItem key={s.id} value={s.id.toString()}>
+                  {s.nome_completo}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Button onClick={handleFilter} className="w-full sm:w-auto">
+          <Filter className="mr-2 h-4 w-4" />
+          Filtrar
+        </Button>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>Histórico de Ajustes</CardTitle>
           <CardDescription>
-            Exibindo os últimos 1000 ajustes realizados.
+            Exibindo os últimos 5000 ajustes realizados (filtrados).
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -61,21 +137,24 @@ export default function AdjustmentReportsPage() {
                   <TableRow>
                     <TableHead>Data</TableHead>
                     <TableHead>Cliente</TableHead>
+                    <TableHead>Item (Produto)</TableHead>
                     <TableHead>Vendedor</TableHead>
-                    {/* Column removed as per user story */}
                     <TableHead className="text-right">Saldo Anterior</TableHead>
                     <TableHead className="text-right">Saldo Novo</TableHead>
                     <TableHead className="text-right">Diferença</TableHead>
+                    <TableHead className="text-right">
+                      Valor Ajuste (R$)
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {data.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={6}
+                        colSpan={8}
                         className="text-center h-24 text-muted-foreground"
                       >
-                        Nenhum ajuste encontrado.
+                        Nenhum ajuste encontrado com os filtros selecionados.
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -89,7 +168,7 @@ export default function AdjustmentReportsPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col">
-                            <span className="font-medium">
+                            <span className="font-medium truncate max-w-[200px]">
                               {row.cliente_nome}
                             </span>
                             <span className="text-xs text-muted-foreground">
@@ -97,8 +176,14 @@ export default function AdjustmentReportsPage() {
                             </span>
                           </div>
                         </TableCell>
+                        <TableCell
+                          className="max-w-[200px] truncate"
+                          title={row.produto_nome}
+                        >
+                          {row.produto_nome || '-'}
+                        </TableCell>
                         <TableCell>{row.vendedor_nome}</TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right font-mono text-muted-foreground">
                           {row.saldo_anterior}
                         </TableCell>
                         <TableCell className="text-right font-mono font-medium">
@@ -113,6 +198,11 @@ export default function AdjustmentReportsPage() {
                         >
                           {row.quantidade_alterada > 0 ? '+' : ''}
                           {row.quantidade_alterada}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-xs">
+                          {row.valor_ajuste
+                            ? `R$ ${formatCurrency(row.valor_ajuste)}`
+                            : '-'}
                         </TableCell>
                       </TableRow>
                     ))

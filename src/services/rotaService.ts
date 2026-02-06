@@ -4,6 +4,24 @@ import { pendenciasService } from './pendenciasService'
 import { reportsService } from './reportsService'
 import { parseISO, isBefore, startOfDay } from 'date-fns'
 
+// Helper to handle "Next Seller" storage in 'tarefas' field
+const NEXT_SELLER_TAG_REGEX = /\[PROX:(\d+)\]/
+
+const extractNextSeller = (tarefas: string | null): number | null => {
+  if (!tarefas) return null
+  const match = tarefas.match(NEXT_SELLER_TAG_REGEX)
+  return match ? parseInt(match[1]) : null
+}
+
+const setNextSellerTag = (
+  tarefas: string | null,
+  sellerId: number | null,
+): string | null => {
+  let clean = (tarefas || '').replace(NEXT_SELLER_TAG_REGEX, '').trim()
+  if (!sellerId) return clean || null
+  return `${clean} [PROX:${sellerId}]`.trim()
+}
+
 export const rotaService = {
   async getActiveRota() {
     const { data, error } = await supabase
@@ -152,9 +170,54 @@ export const rotaService = {
     }
   },
 
-  // Robust implementation to prevent full page crash
+  // Helper to update the next seller tag in tarefas
+  async updateNextSeller(
+    rotaId: number,
+    clientId: number,
+    nextSellerId: number | null,
+    currentTarefas: string | null,
+  ) {
+    const newTarefas = setNextSellerTag(currentTarefas, nextSellerId)
+    return this.upsertRotaItem({
+      rota_id: rotaId,
+      cliente_id: clientId,
+      tarefas: newTarefas,
+    })
+  },
+
+  // Apply next seller selections to a new route
+  async applyNextSellers(
+    newRotaId: number,
+    nextSellersMap: Map<number, number>,
+  ) {
+    if (nextSellersMap.size === 0) return
+
+    // Fetch new items to get their IDs and current tarefas
+    const newItems = await this.getRotaItems(newRotaId)
+    const updates = []
+
+    for (const item of newItems) {
+      const nextSellerId = nextSellersMap.get(item.cliente_id)
+      if (nextSellerId) {
+        // Clean the tag from the new item if it was copied over
+        const cleanTarefas = setNextSellerTag(item.tarefas || null, null)
+
+        updates.push(
+          this.upsertRotaItem({
+            rota_id: newRotaId,
+            cliente_id: item.cliente_id,
+            vendedor_id: nextSellerId,
+            tarefas: cleanTarefas,
+          }),
+        )
+      }
+    }
+
+    await Promise.all(updates)
+  },
+
   async getFullRotaData(rota: Rota | null) {
-    // 1. Fetch all Clients (Critical - must fail if this fails)
+    // 1. Fetch all Clients
     const { data: clients, error: clientsError } = await supabase
       .from('CLIENTES')
       .select('*')
@@ -179,7 +242,6 @@ export const rotaService = {
       }
     }
 
-    // Parallel fetch for non-dependent data
     const [
       debtData,
       allPendencies,
@@ -332,7 +394,6 @@ export const rotaService = {
         const chunk = ordersWithDebtArray.slice(i, i + chunkSize)
 
         await Promise.all([
-          // A. Negotiated Actions
           safeFetch(
             supabase
               .from('acoes_cobranca')
@@ -360,7 +421,6 @@ export const rotaService = {
             null,
             'collection actions',
           ),
-          // B. Receivables
           safeFetch(
             supabase
               .from('RECEBIMENTOS')
@@ -410,7 +470,6 @@ export const rotaService = {
       }
     })
 
-    // Completed Status Logic
     const completedSet = new Set<number>()
     if (rota) {
       const startDate = rota.data_inicio
@@ -464,7 +523,6 @@ export const rotaService = {
         if (p !== undefined) projection = p
       }
 
-      // Estoque Removed
       let stockValue: number | null = null
 
       let vencimentoStatus: 'VENCIDO' | 'A VENCER' | 'PAGO' | 'SEM DÉBITO' =
@@ -493,6 +551,7 @@ export const rotaService = {
       }
 
       const isCompleted = completedSet.has(cid)
+      const nextSellerId = extractNextSeller(rotaItem?.tarefas || null)
 
       return {
         rowNumber: index + 1,
@@ -501,6 +560,7 @@ export const rotaService = {
         boleto: rotaItem?.boleto || false,
         agregado: rotaItem?.agregado || false,
         vendedor_id: rotaItem?.vendedor_id || null,
+        proximo_vendedor_id: nextSellerId,
         tarefas: rotaItem?.tarefas || null,
         debito: effectiveDebt,
         quant_debito: debtEntry?.orderCount || 0,

@@ -174,7 +174,6 @@ export function RotaTable({
                     className="min-w-[120px]"
                   />
 
-                  {/* REORDERED: Debito, Vencimento, Projecao moved here */}
                   <SortableHeader
                     column="debito"
                     label="Débito"
@@ -212,6 +211,11 @@ export function RotaTable({
                     Vendedor
                   </TableHead>
 
+                  {/* NEW COLUMN: Próxima */}
+                  <TableHead className="min-w-[140px] font-bold text-xs bg-muted/30">
+                    Próxima
+                  </TableHead>
+
                   <SortableHeader
                     column="grupo_rota"
                     label="Rota/Grupo"
@@ -232,7 +236,6 @@ export function RotaTable({
                     </TableHead>
                   )}
 
-                  {/* HIDDEN IN SIMPLIFIED */}
                   {!isSelectionMode && (
                     <TableHead className="min-w-[120px] font-bold text-xs">
                       Tipo
@@ -303,7 +306,7 @@ export function RotaTable({
                 {rows.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={isSelectionMode ? 15 : 21}
+                      colSpan={isSelectionMode ? 16 : 22}
                       className="h-32 text-center text-muted-foreground"
                     >
                       <div className="flex flex-col items-center justify-center gap-2">
@@ -316,7 +319,6 @@ export function RotaTable({
                   </TableRow>
                 ) : (
                   rows.map((row) => {
-                    // Determine Row Color Hierarchy
                     let rowClass =
                       'hover:bg-muted/30 transition-colors border-b text-xs'
                     let textClass = ''
@@ -566,6 +568,50 @@ export function RotaTable({
                                 className="text-muted-foreground"
                               >
                                 Nenhum
+                              </SelectItem>
+                              {sellers.map((s) => (
+                                <SelectItem key={s.id} value={s.id.toString()}>
+                                  {s.nome_completo}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+
+                        {/* NEW COLUMN: Próxima Implementation */}
+                        <TableCell className="bg-muted/10">
+                          <Select
+                            disabled={disabled}
+                            value={
+                              row.proximo_vendedor_id?.toString() || 'none'
+                            }
+                            onValueChange={(val) =>
+                              onUpdateRow(
+                                row.client.CODIGO,
+                                'proximo_vendedor_id',
+                                val === 'none' ? null : parseInt(val),
+                              )
+                            }
+                          >
+                            <SelectTrigger
+                              className={cn(
+                                'h-7 w-full text-xs truncate border-dashed',
+                                row.proximo_vendedor_id
+                                  ? 'font-medium text-purple-600 bg-purple-50 border-purple-200'
+                                  : 'text-muted-foreground/70',
+                                row.is_completed || row.x_na_rota > 3
+                                  ? 'bg-white/10 border-white/30 text-white/90 placeholder:text-white/50'
+                                  : '',
+                              )}
+                            >
+                              <SelectValue placeholder="Próximo..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem
+                                value="none"
+                                className="text-muted-foreground"
+                              >
+                                Manter Atual
                               </SelectItem>
                               {sellers.map((s) => (
                                 <SelectItem key={s.id} value={s.id.toString()}>

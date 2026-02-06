@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase/client'
 import { parseCurrency } from '@/lib/formatters'
-import { differenceInDays, parseISO, startOfDay } from 'date-fns'
+import { differenceInDays, parseISO, startOfDay, format } from 'date-fns'
 
 export interface ProjectionReportRow {
   orderId: number
@@ -34,6 +34,9 @@ export interface AdjustmentReportRow {
   saldo_novo: number
   quantidade_alterada: number
   produto_id: number
+  // Enhanced fields
+  produto_nome?: string
+  valor_ajuste?: number
 }
 
 export interface DebitoReportRow {
@@ -55,7 +58,7 @@ export interface DebitoReportRow {
 }
 
 export const reportsService = {
-  // ... (keep existing methods like getProjectionsReport, getInitialBalanceAdjustments)
+  // ... (keep existing methods like getProjectionsReport)
   async getProjectionsReport(): Promise<ProjectionReportRow[]> {
     const { data, error } = await supabase
       .from('BANCO_DE_DADOS')
@@ -178,9 +181,6 @@ export const reportsService = {
     startDate: string,
     endDate: string,
   ): Promise<TopSellingItem[]> {
-    // Implementing client-side aggregation to ensure robust string-to-number casting
-    // as per acceptance criteria, instead of relying on a potentially outdated RPC.
-
     const { data, error } = await supabase
       .from('BANCO_DE_DADOS')
       .select(
@@ -201,7 +201,6 @@ export const reportsService = {
       const qtdStr = String(row['QUANTIDADE VENDIDA'] || '0')
       const valStr = String(row['VALOR VENDIDO'] || '0')
 
-      // Robust casting logic
       const qtd = parseFloat(qtdStr.replace(',', '.') || '0') || 0
       const val = parseCurrency(valStr)
 
@@ -219,21 +218,85 @@ export const reportsService = {
       item.valor_total += val
     })
 
-    // Convert map to array and sort by Total Value descending
     return Array.from(aggregationMap.values()).sort(
       (a, b) => b.valor_total - a.valor_total,
     )
   },
 
-  async getInitialBalanceAdjustments(): Promise<AdjustmentReportRow[]> {
-    const { data, error } = await supabase
+  async getInitialBalanceAdjustments(filters?: {
+    sellerId?: string | null
+    startDate?: Date
+    endDate?: Date
+  }): Promise<AdjustmentReportRow[]> {
+    let query = supabase
       .from('AJUSTE_SALDO_INICIAL')
       .select('*')
       .order('data_acerto', { ascending: false })
-      .limit(1000)
+
+    if (filters?.sellerId && filters.sellerId !== 'all') {
+      query = query.eq('vendedor_id', parseInt(filters.sellerId))
+    }
+
+    if (filters?.startDate) {
+      query = query.gte('data_acerto', format(filters.startDate, 'yyyy-MM-dd'))
+    }
+
+    if (filters?.endDate) {
+      query = query.lte('data_acerto', format(filters.endDate, 'yyyy-MM-dd'))
+    }
+
+    // Limit if no filters to prevent massive load, otherwise allow more
+    if (!filters?.startDate && !filters?.sellerId) {
+      query = query.limit(1000)
+    } else {
+      query = query.limit(5000)
+    }
+
+    const { data, error } = await query
 
     if (error) throw error
-    return data as AdjustmentReportRow[]
+
+    // Fetch Product Details to enrich the report
+    const productIds = new Set<number>()
+    data.forEach((row) => {
+      if (row.produto_id) productIds.add(row.produto_id)
+    })
+
+    const productsMap = new Map<number, { name: string; price: number }>()
+
+    if (productIds.size > 0) {
+      const ids = Array.from(productIds)
+      const chunkSize = 500
+      for (let i = 0; i < ids.length; i += chunkSize) {
+        const chunk = ids.slice(i, i + chunkSize)
+        const { data: products } = await supabase
+          .from('PRODUTOS')
+          .select('ID, PRODUTO, PREÇO')
+          .in('ID', chunk)
+
+        products?.forEach((p) => {
+          if (p.ID) {
+            productsMap.set(p.ID, {
+              name: p.PRODUTO || 'Desconhecido',
+              price: parseCurrency(p.PREÇO),
+            })
+          }
+        })
+      }
+    }
+
+    return data.map((row) => {
+      const product = productsMap.get(row.produto_id)
+      const price = product?.price || 0
+      // Calculate Value based on Quantity * Price
+      const adjustmentValue = (row.quantidade_alterada || 0) * price
+
+      return {
+        ...row,
+        produto_nome: product?.name || `Produto ${row.produto_id}`,
+        valor_ajuste: adjustmentValue,
+      } as AdjustmentReportRow
+    })
   },
 
   async refreshDebtsReport() {
