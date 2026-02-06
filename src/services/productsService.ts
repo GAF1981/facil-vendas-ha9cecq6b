@@ -39,11 +39,12 @@ export const productsService = {
       const isNumber = !isNaN(Number(searchTerm)) && searchTerm !== ''
 
       // Always search text fields with ilike
+      // Removed CODIGO reference to avoid errors with non-existent column
       let orQuery = `PRODUTO.ilike.%${searchTerm}%,codigo_interno.ilike.%${searchTerm}%,"CÓDIGO BARRAS".ilike.%${searchTerm}%`
 
       // If it looks like a number, also search numeric IDs
       if (isNumber) {
-        orQuery += `,ID.eq.${searchTerm},CODIGO.eq.${searchTerm}`
+        orQuery += `,ID.eq.${searchTerm}`
       }
 
       query = query.or(orQuery)

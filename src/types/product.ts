@@ -3,10 +3,11 @@ import { z } from 'zod'
 
 // Manually extending types since we can't regenerate supabase types in this environment
 // Changing codigo_interno and CÓDIGO BARRAS to string to support alphanumeric and leading zeros
+// Removed CODIGO as it is a legacy column not to be used
 
 export type ProductRow = Omit<
   Database['public']['Tables']['PRODUTOS']['Row'],
-  'codigo_interno' | 'CÓDIGO BARRAS'
+  'codigo_interno' | 'CÓDIGO BARRAS' | 'CODIGO'
 > & {
   codigo_interno?: string | null
   'CÓDIGO BARRAS'?: string | null
@@ -15,7 +16,7 @@ export type ProductRow = Omit<
 
 export type ProductInsert = Omit<
   Database['public']['Tables']['PRODUTOS']['Insert'],
-  'codigo_interno' | 'CÓDIGO BARRAS'
+  'codigo_interno' | 'CÓDIGO BARRAS' | 'CODIGO'
 > & {
   codigo_interno?: string | null
   'CÓDIGO BARRAS'?: string | null
@@ -24,19 +25,12 @@ export type ProductInsert = Omit<
 
 export type ProductUpdate = Omit<
   Database['public']['Tables']['PRODUTOS']['Update'],
-  'codigo_interno' | 'CÓDIGO BARRAS'
+  'codigo_interno' | 'CÓDIGO BARRAS' | 'CODIGO'
 > & {
   codigo_interno?: string | null
   'CÓDIGO BARRAS'?: string | null
   FREQUENTES?: string | null
 }
-
-// Helper to handle empty strings as null for numbers (Legacy CODIGO)
-const numberOrNull = z.preprocess(
-  (val) =>
-    val === '' || val === null || val === undefined ? null : Number(val),
-  z.number().nullable().optional(),
-)
 
 // Helper to handle empty strings as null for text fields
 const stringOrNull = z.preprocess(
@@ -54,7 +48,6 @@ export const productSchema = z.object({
     .string()
     .min(2, 'Nome do produto deve ter no mínimo 2 caracteres')
     .nullable(),
-  CODIGO: numberOrNull,
   codigo_interno: stringOrNull,
   'CÓDIGO BARRAS': stringOrNull,
   'DESCRIÇÃO RESUMIDA': z.string().optional().nullable(),

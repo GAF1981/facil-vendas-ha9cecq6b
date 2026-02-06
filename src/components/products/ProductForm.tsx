@@ -44,7 +44,6 @@ export function ProductForm({
       ? {
           ID: initialData.ID,
           PRODUTO: initialData.PRODUTO,
-          CODIGO: initialData.CODIGO,
           codigo_interno: initialData.codigo_interno,
           'CÓDIGO BARRAS': initialData['CÓDIGO BARRAS'],
           'DESCRIÇÃO RESUMIDA': initialData['DESCRIÇÃO RESUMIDA'],
@@ -56,7 +55,6 @@ export function ProductForm({
       : {
           ID: undefined,
           PRODUTO: '',
-          CODIGO: null,
           codigo_interno: null,
           'CÓDIGO BARRAS': null,
           'DESCRIÇÃO RESUMIDA': '',
@@ -247,30 +245,8 @@ export function ProductForm({
               />
             </div>
 
-            {/* Legacy Internal Code - Still Number */}
-            <div className="md:col-span-4">
-              <FormField
-                control={form.control}
-                name="CODIGO"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Código (Sistema Antigo)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        placeholder="Código Legado"
-                        {...field}
-                        value={field.value || ''}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
             {/* Price */}
-            <div className="md:col-span-3">
+            <div className="md:col-span-4">
               <FormField
                 control={form.control}
                 name="PREÇO"
@@ -312,7 +288,7 @@ export function ProductForm({
             </div>
 
             {/* Group */}
-            <div className="md:col-span-4">
+            <div className="md:col-span-5">
               <FormField
                 control={form.control}
                 name="GRUPO"
@@ -333,7 +309,7 @@ export function ProductForm({
             </div>
 
             {/* Frequentes */}
-            <div className="md:col-span-2">
+            <div className="md:col-span-4">
               <FormField
                 control={form.control}
                 name="FREQUENTES"
