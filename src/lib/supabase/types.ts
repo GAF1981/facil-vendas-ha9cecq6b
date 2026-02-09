@@ -2122,6 +2122,7 @@ export type Database = {
           rota_id: number | null
           tarefas: string | null
           vendedor_id: number | null
+          vendedor_proximo_id: number | null
           x_na_rota: number | null
         }
         Insert: {
@@ -2132,6 +2133,7 @@ export type Database = {
           rota_id?: number | null
           tarefas?: string | null
           vendedor_id?: number | null
+          vendedor_proximo_id?: number | null
           x_na_rota?: number | null
         }
         Update: {
@@ -2142,6 +2144,7 @@ export type Database = {
           rota_id?: number | null
           tarefas?: string | null
           vendedor_id?: number | null
+          vendedor_proximo_id?: number | null
           x_na_rota?: number | null
         }
         Relationships: [
@@ -2162,6 +2165,13 @@ export type Database = {
           {
             foreignKeyName: 'ROTA_ITEMS_vendedor_id_fkey'
             columns: ['vendedor_id']
+            isOneToOne: false
+            referencedRelation: 'FUNCIONARIOS'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'ROTA_ITEMS_vendedor_proximo_id_fkey'
+            columns: ['vendedor_proximo_id']
             isOneToOne: false
             referencedRelation: 'FUNCIONARIOS'
             referencedColumns: ['id']

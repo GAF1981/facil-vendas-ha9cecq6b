@@ -263,8 +263,9 @@ export default function EstoqueCarroPage() {
         />
 
         <div className="flex flex-col gap-4 sm:flex-row w-full sm:w-auto">
-          <div className="w-full sm:w-[250px] bg-card p-3 rounded-lg border shadow-sm">
-            <Label className="text-xs mb-1.5 block text-muted-foreground font-semibold uppercase">
+          {/* Added border-red-500 border-2 for visual highlight */}
+          <div className="w-full sm:w-[250px] bg-card p-3 rounded-lg border border-red-500 border-2 shadow-sm">
+            <Label className="text-xs mb-1.5 block text-red-600 font-bold uppercase">
               Visualizar Estoque de:
             </Label>
             <Select

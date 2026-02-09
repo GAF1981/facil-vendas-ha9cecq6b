@@ -48,6 +48,7 @@ export function RotaHeader({
   pendingClosures: legacyPendingClosures = [],
 }: RotaHeaderProps) {
   const displayRota = activeRota || lastRota
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { canAccess } = usePermissions()
   const { employee } = useUserStore()
   const [summaryData, setSummaryData] = useState<CaixaSummaryRow[]>([])
@@ -77,21 +78,28 @@ export function RotaHeader({
     }
   }, [activeRota])
 
-  // Logic for visibility of "Finalizar Rota" (Permissions)
-  const isAdminOrManager = (() => {
-    if (canAccess('Relatório')) return true
+  // Logic for visibility of "Finalizar Rota" (Strict Permissions for Force)
+  const isHighLevelAdmin = (() => {
     if (employee?.setor) {
       const sectors = Array.isArray(employee.setor)
         ? employee.setor
         : [employee.setor]
-      if (sectors.includes('Administrador') || sectors.includes('Gerente')) {
+      // Case insensitive check for Admin/Manager
+      if (
+        sectors.some(
+          (s) =>
+            s.toLowerCase() === 'administrador' ||
+            s.toLowerCase() === 'gerente',
+        )
+      ) {
         return true
       }
     }
     return false
   })()
 
-  const canFinalize = isAdminOrManager // For basic visibility
+  // Standard permission to see the button at all (could be broader, but keeping it safe)
+  const canViewFinalize = isHighLevelAdmin || canAccess('Relatório')
 
   // ALERT 1: Pendencia de Fechamento (Open/Active without record)
   const pendingClosingEmployees = summaryData
@@ -104,7 +112,6 @@ export function RotaHeader({
     .map((row) => row.funcionarioNome)
 
   // ALERT 3: Pendencia de Rota (Sellers in RotaItems who don't have a record)
-  // Logic updated: Allow ignore if zero movement.
   const pendingRouteEmployees: string[] = []
   const ignoredRouteEmployees: string[] = []
 
@@ -119,10 +126,6 @@ export function RotaHeader({
       if (!closedSellerIds.has(sellerId)) {
         // Seller has not closed. Check if they have movement.
         const empSummary = summaryData.find((s) => s.funcionarioId === sellerId)
-        // If employee has summary data (means they are in list of employees)
-        // Check totals. If no summary data, they might be new or not in employees table? Unlikely.
-        // Assuming if not in summaryData, they have 0 movement because summaryData usually builds from employees + receipts.
-        // Actually summaryData fetches ALL employees.
 
         let hasMovement = false
         let name = `Vendedor #${sellerId}`
@@ -142,7 +145,6 @@ export function RotaHeader({
         if (hasMovement) {
           pendingRouteEmployees.push(name)
         } else {
-          // Track ignored for tooltip info (optional)
           ignoredRouteEmployees.push(name)
         }
       }
@@ -153,14 +155,12 @@ export function RotaHeader({
   const hasPendingConfirmation = pendingConfirmationEmployees.length > 0
   const hasPendingRoute = pendingRouteEmployees.length > 0
 
-  // Admin Override Logic:
-  // If user is admin, allow finalize even if pending confirmation or pending route,
-  // BUT we still show the button as "Destructive" or with warning.
-  // The 'disabled' prop will block non-admins.
+  // Block logic
+  // If there are pending issues, ONLY High Level Admins can force.
+  // Others are blocked completely if there are issues.
+  const hasIssues = hasPendingRoute || hasPendingConfirmation
   const isBlocked =
-    loading ||
-    hasPendingUpdates ||
-    (!isAdminOrManager && (hasPendingRoute || hasPendingConfirmation))
+    loading || hasPendingUpdates || (!isHighLevelAdmin && hasIssues)
 
   return (
     <Card className="w-full border-l-4 border-l-primary shadow-sm bg-muted/20">
@@ -231,10 +231,10 @@ export function RotaHeader({
               Iniciar Nova Rota
             </Button>
           ) : (
-            canFinalize && (
+            canViewFinalize && (
               <>
                 {/* Ignored Sellers Info (Optional but good for clarity) */}
-                {ignoredRouteEmployees.length > 0 && isAdminOrManager && (
+                {ignoredRouteEmployees.length > 0 && isHighLevelAdmin && (
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
@@ -289,7 +289,7 @@ export function RotaHeader({
                         <p className="text-xs text-yellow-800">
                           Todos os vendedores com movimento devem fechar o
                           caixa.
-                          {isAdminOrManager && (
+                          {isHighLevelAdmin && (
                             <span className="block mt-1 font-bold">
                               Admin pode forçar.
                             </span>
@@ -305,7 +305,7 @@ export function RotaHeader({
                   </Popover>
                 )}
 
-                {/* Alert: Pendência de Fechamento (Red) - Kept for visibility of active cashiers */}
+                {/* Alert: Pendência de Fechamento (Red) */}
                 {!hasPendingRoute && hasPendingClosing && (
                   <Popover>
                     <PopoverTrigger asChild>
@@ -390,15 +390,15 @@ export function RotaHeader({
                     ) : (
                       <Square className="mr-2 h-4 w-4" />
                     )}
-                    {isAdminOrManager &&
-                    (hasPendingRoute || hasPendingConfirmation)
+                    {isHighLevelAdmin && hasIssues
                       ? 'Forçar Finalização'
                       : 'Finalizar Rota'}
                   </Button>
                   {isBlocked && !loading && !hasPendingUpdates && (
                     <div className="absolute top-full right-0 mt-1 w-64 p-2 bg-black/80 text-white text-xs rounded hidden group-hover:block z-50 text-center">
                       Não é possível finalizar. Existem caixas não fechados ou
-                      pendentes de confirmação. (Admin pode ignorar)
+                      pendentes de confirmação.
+                      {!isHighLevelAdmin && ' (Restrito a Admin)'}
                     </div>
                   )}
                 </div>
