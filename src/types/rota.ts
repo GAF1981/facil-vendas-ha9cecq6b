@@ -14,6 +14,7 @@ export interface RotaItem {
   boleto: boolean
   agregado: boolean
   vendedor_id: number | null
+  vendedor_proximo_id?: number | null
   tarefas?: string | null
 }
 

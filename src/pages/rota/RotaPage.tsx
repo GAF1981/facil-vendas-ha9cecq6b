@@ -8,9 +8,11 @@ import { Rota, RotaFilterState, RotaRow, SortConfig } from '@/types/rota'
 import { Employee } from '@/types/employee'
 import { useToast } from '@/hooks/use-toast'
 import { useRotaFilterStore } from '@/stores/useRotaFilterStore'
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { parseISO, isBefore, isAfter, isValid } from 'date-fns'
 import { usePermissions } from '@/hooks/use-permissions'
 import { useUserStore } from '@/stores/useUserStore'
+import { BulkFillNextSellerDialog } from '@/components/rota/BulkFillNextSellerDialog'
 
 export default function RotaPage() {
   const [activeRota, setActiveRota] = useState<Rota | null>(null)
@@ -21,6 +23,9 @@ export default function RotaPage() {
 
   // Selection Mode State (Simplified view)
   const [isSelectionMode, setIsSelectionMode] = useState(false)
+
+  // Bulk Fill State
+  const [isBulkFillOpen, setIsBulkFillOpen] = useState(false)
 
   // Filters
   const { selectedEmployeeIds, setSelectedEmployeeIds } = useRotaFilterStore()
@@ -53,7 +58,9 @@ export default function RotaPage() {
   })
 
   const { toast } = useToast()
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { canAccess } = usePermissions()
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { employee: loggedInUser } = useUserStore()
 
   // Load Initial Data
@@ -236,12 +243,11 @@ export default function RotaPage() {
             vendedor_id: value,
           })
         } else if (field === 'proximo_vendedor_id') {
-          const row = rows.find((r) => r.client.CODIGO === clientId)
           await rotaService.updateNextSeller(
             activeRota.id,
             clientId,
             value,
-            row?.tarefas || null,
+            null,
           )
         } else if (field === 'x_na_rota') {
           await rotaService.upsertRotaItem({
@@ -279,7 +285,7 @@ export default function RotaPage() {
         loadData()
       }
     },
-    [activeRota, rows, toast],
+    [activeRota, toast],
   )
 
   const handleStartRota = async () => {
@@ -428,6 +434,69 @@ export default function RotaPage() {
     }
   }
 
+  // --- Bulk Fill Logic ---
+  const handleBulkFillConfirm = async (
+    sellerId: number | null,
+    sellerName: string,
+  ) => {
+    if (!activeRota) return
+
+    const clientsToUpdate = sortedRows.map((r) => r.client.CODIGO)
+    const count = clientsToUpdate.length
+
+    if (count === 0) {
+      toast({
+        title: 'Nenhum cliente',
+        description: 'Não há clientes para atualizar com os filtros atuais.',
+      })
+      return
+    }
+
+    // Confirmation Logic
+    if (count < 50) {
+      if (
+        !confirm(
+          `Deseja atribuir o vendedor ${sellerName} para a coluna 'Próxima' de todos os ${count} clientes exibidos?`,
+        )
+      ) {
+        return
+      }
+    } else {
+      if (
+        !confirm(
+          `ATENÇÃO: Você está prestes a atualizar ${count} registros. Deseja realmente atribuir o vendedor ${sellerName} para todos eles?`,
+        )
+      ) {
+        return
+      }
+    }
+
+    setLoading(true)
+    try {
+      await rotaService.bulkUpdateNextSellers(
+        activeRota.id,
+        clientsToUpdate,
+        sellerId,
+      )
+
+      toast({
+        title: 'Atualização em Lote',
+        description: `${count} clientes atualizados com sucesso.`,
+        className: 'bg-green-600 text-white',
+      })
+      loadData()
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: 'Erro',
+        description: 'Falha ao atualizar clientes em lote.',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] gap-2 p-2 sm:p-4">
       <RotaHeader
@@ -461,7 +530,16 @@ export default function RotaPage() {
         isSelectionMode={isSelectionMode}
         onBulkTransfer={activeRota ? handleBulkTransfer : undefined}
         onBulkClear={activeRota ? handleBulkClear : undefined}
+        onBulkFill={activeRota ? () => setIsBulkFillOpen(true) : undefined}
         onTransferRow={handleTransferRow}
+      />
+
+      <BulkFillNextSellerDialog
+        open={isBulkFillOpen}
+        onOpenChange={setIsBulkFillOpen}
+        onConfirm={handleBulkFillConfirm}
+        sellers={sellers}
+        rowCount={sortedRows.length}
       />
     </div>
   )

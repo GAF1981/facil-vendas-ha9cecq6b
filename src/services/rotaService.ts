@@ -4,24 +4,6 @@ import { pendenciasService } from './pendenciasService'
 import { reportsService } from './reportsService'
 import { parseISO, isBefore, startOfDay } from 'date-fns'
 
-// Helper to handle "Next Seller" storage in 'tarefas' field
-const NEXT_SELLER_TAG_REGEX = /\[PROX:(\d+)\]/
-
-const extractNextSeller = (tarefas: string | null): number | null => {
-  if (!tarefas) return null
-  const match = tarefas.match(NEXT_SELLER_TAG_REGEX)
-  return match ? parseInt(match[1]) : null
-}
-
-const setNextSellerTag = (
-  tarefas: string | null,
-  sellerId: number | null,
-): string | null => {
-  let clean = (tarefas || '').replace(NEXT_SELLER_TAG_REGEX, '').trim()
-  if (!sellerId) return clean || null
-  return `${clean} [PROX:${sellerId}]`.trim()
-}
-
 export const rotaService = {
   async getActiveRota() {
     const { data, error } = await supabase
@@ -115,6 +97,7 @@ export const rotaService = {
     // 3. Prepare new items based on "Conditional Seller Persistence" logic
     // - Green (is_completed): Clear seller (null)
     // - Red (!is_completed): Persist seller
+    // - Proximo Vendedor override: If set, use it.
     const newItemsPayload = fullData
       .filter((row) => {
         // Only carry over rows that had relevant data or are active/in route
@@ -129,6 +112,11 @@ export const rotaService = {
           nextSellerId = null
         }
 
+        // Apply "Proximo" override if exists
+        if (row.proximo_vendedor_id) {
+          nextSellerId = row.proximo_vendedor_id
+        }
+
         return {
           rota_id: nextId,
           cliente_id: row.client.CODIGO,
@@ -137,6 +125,7 @@ export const rotaService = {
           boleto: row.boleto,
           agregado: row.agregado,
           tarefas: row.tarefas,
+          // vendedor_proximo_id is not carried over, it resets
         }
       })
 
@@ -208,69 +197,91 @@ export const rotaService = {
     }
   },
 
-  // Helper to update the next seller tag in tarefas
   async updateNextSeller(
     rotaId: number,
     clientId: number,
     nextSellerId: number | null,
-    currentTarefas: string | null,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    currentTarefas: string | null, // Deprecated param kept for signature compatibility if needed
   ) {
-    const newTarefas = setNextSellerTag(currentTarefas, nextSellerId)
+    // New logic: Update dedicated column
     return this.upsertRotaItem({
       rota_id: rotaId,
       cliente_id: clientId,
-      tarefas: newTarefas,
+      vendedor_proximo_id: nextSellerId,
     })
   },
 
-  // Apply next seller selections to a new route
-  async applyNextSellers(
-    newRotaId: number,
-    nextSellersMap: Map<number, number>,
+  async bulkUpdateNextSellers(
+    rotaId: number,
+    clientIds: number[],
+    nextSellerId: number | null,
   ) {
-    if (nextSellersMap.size === 0) return
+    if (clientIds.length === 0) return
 
-    // Fetch new items to get their IDs and current tarefas
-    const newItems = await this.getRotaItems(newRotaId)
-    const updates = []
+    // 1. Get existing items for these clients in this route
+    const { data: existingItems, error: fetchError } = await supabase
+      .from('ROTA_ITEMS')
+      .select('id, cliente_id')
+      .eq('rota_id', rotaId)
+      .in('cliente_id', clientIds)
 
-    for (const item of newItems) {
-      const nextSellerId = nextSellersMap.get(item.cliente_id)
-      if (nextSellerId) {
-        // Clean the tag from the new item if it was copied over
-        const cleanTarefas = setNextSellerTag(item.tarefas || null, null)
+    if (fetchError) throw fetchError
 
-        updates.push(
-          this.upsertRotaItem({
-            rota_id: newRotaId,
-            cliente_id: item.cliente_id,
-            vendedor_id: nextSellerId,
-            tarefas: cleanTarefas,
-          }),
+    const existingClientIds = new Set(
+      existingItems?.map((i) => i.cliente_id) || [],
+    )
+
+    const updates: number[] = []
+    const inserts: any[] = []
+
+    for (const clientId of clientIds) {
+      if (existingClientIds.has(clientId)) {
+        updates.push(clientId)
+      } else {
+        inserts.push({
+          rota_id: rotaId,
+          cliente_id: clientId,
+          vendedor_proximo_id: nextSellerId,
+        })
+      }
+    }
+
+    const promises = []
+
+    // Bulk Update existing
+    if (updates.length > 0) {
+      promises.push(
+        supabase
+          .from('ROTA_ITEMS')
+          .update({ vendedor_proximo_id: nextSellerId })
+          .eq('rota_id', rotaId)
+          .in('cliente_id', updates),
+      )
+    }
+
+    // Bulk Insert new
+    if (inserts.length > 0) {
+      // Chunking if necessary, but Supabase handles reasonably large batches
+      const chunkSize = 1000
+      for (let i = 0; i < inserts.length; i += chunkSize) {
+        promises.push(
+          supabase.from('ROTA_ITEMS').insert(inserts.slice(i, i + chunkSize)),
         )
       }
     }
 
-    await Promise.all(updates)
+    await Promise.all(promises)
   },
 
   async bulkClearNextSellers(rotaId: number) {
-    const items = await this.getRotaItems(rotaId)
-    const updates = []
+    // New logic: Clear column
+    const { error } = await supabase
+      .from('ROTA_ITEMS')
+      .update({ vendedor_proximo_id: null })
+      .eq('rota_id', rotaId)
 
-    for (const item of items) {
-      if (item.tarefas && extractNextSeller(item.tarefas)) {
-        const cleanTarefas = setNextSellerTag(item.tarefas, null)
-        updates.push(
-          this.upsertRotaItem({
-            rota_id: rotaId,
-            cliente_id: item.cliente_id,
-            tarefas: cleanTarefas,
-          }),
-        )
-      }
-    }
-    await Promise.all(updates)
+    if (error) throw error
   },
 
   async bulkTransferNextSellers(rotaId: number) {
@@ -278,16 +289,15 @@ export const rotaService = {
     const updates = []
 
     for (const item of items) {
-      const nextSellerId = extractNextSeller(item.tarefas || null)
+      const nextSellerId = item.vendedor_proximo_id
       // Condition: No current seller assigned AND has a "Next Seller" set
       if (!item.vendedor_id && nextSellerId) {
-        const cleanTarefas = setNextSellerTag(item.tarefas || null, null)
         updates.push(
           this.upsertRotaItem({
             rota_id: rotaId,
             cliente_id: item.cliente_id,
             vendedor_id: nextSellerId,
-            tarefas: cleanTarefas, // Clear the tag after transfer
+            vendedor_proximo_id: null, // Clear after transfer
           }),
         )
       }
@@ -295,19 +305,18 @@ export const rotaService = {
     await Promise.all(updates)
   },
 
-  // Transfers a specific row's "Next Seller" to "Current Seller" and clears the tag
   async transferSingleNextSeller(
     rotaId: number,
     clientId: number,
     nextSellerId: number,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     currentTarefas: string | null,
   ) {
-    const cleanTarefas = setNextSellerTag(currentTarefas, null)
     return this.upsertRotaItem({
       rota_id: rotaId,
       cliente_id: clientId,
       vendedor_id: nextSellerId,
-      tarefas: cleanTarefas,
+      vendedor_proximo_id: null,
     })
   },
 
@@ -646,7 +655,9 @@ export const rotaService = {
       }
 
       const isCompleted = completedSet.has(cid)
-      const nextSellerId = extractNextSeller(rotaItem?.tarefas || null)
+
+      // Use column directly
+      const nextSellerId = rotaItem?.vendedor_proximo_id || null
 
       return {
         rowNumber: index + 1,

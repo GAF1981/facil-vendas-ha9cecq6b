@@ -32,7 +32,7 @@ import {
   ArrowLeft,
   X,
   ArrowRightLeft,
-  Trash2,
+  Users,
 } from 'lucide-react'
 import {
   Tooltip,
@@ -62,6 +62,7 @@ interface RotaTableProps {
   isSelectionMode: boolean
   onBulkTransfer?: () => void
   onBulkClear?: () => void
+  onBulkFill?: () => void
   onTransferRow?: (row: RotaRow) => void
 }
 
@@ -76,6 +77,7 @@ export function RotaTable({
   isSelectionMode,
   onBulkTransfer,
   onBulkClear,
+  onBulkFill,
   onTransferRow,
 }: RotaTableProps) {
   const [alertDialogOpen, setAlertDialogOpen] = useState(false)
@@ -222,10 +224,21 @@ export function RotaTable({
                   </TableHead>
 
                   {/* NEW COLUMN: Próxima */}
-                  <TableHead className="min-w-[180px] font-bold text-xs bg-muted/30">
+                  <TableHead className="min-w-[200px] font-bold text-xs bg-muted/30">
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate">Próxima</span>
                       <div className="flex items-center gap-1">
+                        {onBulkFill && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 text-blue-600 hover:bg-blue-100 hover:text-blue-800"
+                            onClick={onBulkFill}
+                            title="Preencher Todos"
+                          >
+                            <Users className="h-3 w-3" />
+                          </Button>
+                        )}
                         {onBulkTransfer && (
                           <Button
                             variant="ghost"
@@ -373,7 +386,7 @@ export function RotaTable({
                       textClass = 'text-purple-100'
                     }
 
-                    // Logic Update: Ignore "Próxima" tags for alerts
+                    // Logic Update: Ignore "Próxima" tags for alerts (deprecated but kept for safety)
                     const cleanTarefas = row.tarefas
                       ? row.tarefas.replace(/\[PROX:\d+\]/g, '').trim()
                       : ''
