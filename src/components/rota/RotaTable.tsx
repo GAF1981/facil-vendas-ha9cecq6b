@@ -29,6 +29,8 @@ import {
   MessageCircle,
   Bell,
   History,
+  ArrowLeft,
+  X,
 } from 'lucide-react'
 import {
   Tooltip,
@@ -212,8 +214,8 @@ export function RotaTable({
                   </TableHead>
 
                   {/* NEW COLUMN: Próxima */}
-                  <TableHead className="min-w-[140px] font-bold text-xs bg-muted/30">
-                    Próxima
+                  <TableHead className="min-w-[180px] font-bold text-xs bg-muted/30">
+                    Próxima (Ações)
                   </TableHead>
 
                   <SortableHeader
@@ -584,47 +586,96 @@ export function RotaTable({
                         </TableCell>
 
                         {/* NEW COLUMN: Próxima Implementation */}
-                        <TableCell className="bg-muted/10">
-                          <Select
-                            disabled={disabled}
-                            value={
-                              row.proximo_vendedor_id?.toString() || 'none'
-                            }
-                            onValueChange={(val) =>
-                              onUpdateRow(
-                                row.client.CODIGO,
-                                'proximo_vendedor_id',
-                                val === 'none' ? null : parseInt(val),
-                              )
-                            }
-                          >
-                            <SelectTrigger
-                              className={cn(
-                                'h-7 w-full text-xs truncate border-dashed',
-                                row.proximo_vendedor_id
-                                  ? 'font-medium text-purple-600 bg-purple-50 border-purple-200'
-                                  : 'text-muted-foreground/70',
-                                row.is_completed || row.x_na_rota > 3
-                                  ? 'bg-white/10 border-white/30 text-white/90 placeholder:text-white/50'
-                                  : '',
-                              )}
+                        <TableCell className="bg-muted/10 p-1">
+                          <div className="flex items-center gap-1">
+                            <Select
+                              disabled={disabled}
+                              value={
+                                row.proximo_vendedor_id?.toString() || 'none'
+                              }
+                              onValueChange={(val) =>
+                                onUpdateRow(
+                                  row.client.CODIGO,
+                                  'proximo_vendedor_id',
+                                  val === 'none' ? null : parseInt(val),
+                                )
+                              }
                             >
-                              <SelectValue placeholder="Próximo..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem
-                                value="none"
-                                className="text-muted-foreground"
+                              <SelectTrigger
+                                className={cn(
+                                  'h-7 w-full text-xs truncate border-dashed flex-1',
+                                  row.proximo_vendedor_id
+                                    ? 'font-medium text-purple-600 bg-purple-50 border-purple-200'
+                                    : 'text-muted-foreground/70',
+                                  row.is_completed || row.x_na_rota > 3
+                                    ? 'bg-white/10 border-white/30 text-white/90 placeholder:text-white/50'
+                                    : '',
+                                )}
                               >
-                                Manter Atual
-                              </SelectItem>
-                              {sellers.map((s) => (
-                                <SelectItem key={s.id} value={s.id.toString()}>
-                                  {s.nome_completo}
+                                <SelectValue placeholder="Próximo..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem
+                                  value="none"
+                                  className="text-muted-foreground"
+                                >
+                                  Manter Atual
                                 </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                                {sellers.map((s) => (
+                                  <SelectItem
+                                    key={s.id}
+                                    value={s.id.toString()}
+                                  >
+                                    {s.nome_completo}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {row.proximo_vendedor_id && (
+                              <div className="flex items-center gap-0.5">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className={cn(
+                                    'h-6 w-6',
+                                    row.is_completed || row.x_na_rota > 3
+                                      ? 'text-white/70 hover:bg-white/20 hover:text-white'
+                                      : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50',
+                                  )}
+                                  onClick={() =>
+                                    onUpdateRow(
+                                      row.client.CODIGO,
+                                      'vendedor_id',
+                                      row.proximo_vendedor_id,
+                                    )
+                                  }
+                                  title="Transferir para Vendedor Atual"
+                                >
+                                  <ArrowLeft className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className={cn(
+                                    'h-6 w-6',
+                                    row.is_completed || row.x_na_rota > 3
+                                      ? 'text-white/70 hover:bg-white/20 hover:text-white'
+                                      : 'text-red-400 hover:text-red-600 hover:bg-red-50',
+                                  )}
+                                  onClick={() =>
+                                    onUpdateRow(
+                                      row.client.CODIGO,
+                                      'proximo_vendedor_id',
+                                      null,
+                                    )
+                                  }
+                                  title="Limpar (Manter Atual)"
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
                         </TableCell>
 
                         <TableCell

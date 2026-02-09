@@ -83,6 +83,15 @@ export const rotaService = {
   },
 
   async finishAndStartNewRoute(currentRotaId: number) {
+    // 1. Fetch current active route details to determine completion status (Green/Red)
+    const currentRota = await this.getActiveRota()
+    if (!currentRota || currentRota.id !== currentRotaId) {
+      throw new Error('Rota mismatch or no active route found.')
+    }
+
+    const fullData = await this.getFullRotaData(currentRota)
+
+    // 2. Create new Route
     const { data: maxIdData } = await supabase
       .from('ROTA')
       .select('id')
@@ -103,18 +112,56 @@ export const rotaService = {
 
     if (startError) throw startError
 
-    const { error: transferError } = await supabase.rpc(
-      'transfer_unattended_items_v3',
-      {
-        p_old_rota_id: currentRotaId,
-        p_new_rota_id: nextId,
-      },
-    )
+    // 3. Prepare new items based on "Conditional Seller Persistence" logic
+    // - Green (is_completed): Clear seller (null)
+    // - Red (!is_completed): Persist seller
+    const newItemsPayload = fullData
+      .filter((row) => {
+        // Only carry over rows that had relevant data or are active/in route
+        // getFullRotaData returns all active clients. We should create items for all of them usually,
+        // or at least those that were in the previous route configuration.
+        // Assuming we want to maintain the route list structure.
+        return true
+      })
+      .map((row) => {
+        // Logic:
+        // If Green (Completed): Seller -> null
+        // If Red (Not Completed): Seller -> Persist
+        let nextSellerId = row.vendedor_id
+        if (row.is_completed) {
+          nextSellerId = null
+        }
 
-    if (transferError) {
-      console.error('Error transferring unattended items:', transferError)
+        // Also, we can optionally clear "tarefas" or specifically the [PROX] tag?
+        // Let's preserve generic tasks but maybe clear next seller tag if it was used?
+        // User story doesn't specify clearing tasks, so we keep them as per standard.
+        // However, if [PROX] tag was used, it implies a one-time instruction.
+        // Let's keep it simple: Persist existing tarefas.
+
+        return {
+          rota_id: nextId,
+          cliente_id: row.client.CODIGO,
+          vendedor_id: nextSellerId,
+          x_na_rota: row.x_na_rota,
+          boleto: row.boleto,
+          agregado: row.agregado,
+          tarefas: row.tarefas,
+        }
+      })
+
+    // 4. Batch Insert
+    if (newItemsPayload.length > 0) {
+      const { error: insertError } = await supabase
+        .from('ROTA_ITEMS')
+        .insert(newItemsPayload)
+
+      if (insertError) {
+        console.error('Error inserting new route items:', insertError)
+        throw insertError
+      }
     }
 
+    // 5. Close old route
     const { error: endError } = await supabase
       .from('ROTA')
       .update({

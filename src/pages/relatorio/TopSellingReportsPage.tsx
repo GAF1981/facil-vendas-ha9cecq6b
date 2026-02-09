@@ -20,8 +20,16 @@ import {
 import { reportsService, TopSellingItem } from '@/services/reportsService'
 import { formatCurrency } from '@/lib/formatters'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
-import { Search, Loader2, ArrowLeft } from 'lucide-react'
+import {
+  Search,
+  Loader2,
+  ArrowLeft,
+  DollarSign,
+  Package,
+  ShoppingCart,
+} from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { MetricCard } from '@/components/dashboard/MetricCard'
 
 export default function TopSellingReportsPage() {
   const [loading, setLoading] = useState(false)
@@ -61,6 +69,14 @@ export default function TopSellingReportsPage() {
   useEffect(() => {
     fetchData()
   }, []) // Initial load
+
+  // Calculate totals
+  const totalValue = data.reduce((acc, item) => acc + item.valor_total, 0)
+  const totalQuantity = data.reduce(
+    (acc, item) => acc + item.quantidade_total,
+    0,
+  )
+  const totalItems = data.length
 
   return (
     <div className="space-y-6 animate-fade-in p-4 sm:p-6 pb-20">
@@ -133,6 +149,28 @@ export default function TopSellingReportsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Summary Cards */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <MetricCard
+          title="Venda Total do Período"
+          value={`R$ ${formatCurrency(totalValue)}`}
+          icon={DollarSign}
+          description="Soma do valor total vendido"
+        />
+        <MetricCard
+          title="Quantidade de Itens"
+          value={totalQuantity.toLocaleString('pt-BR')}
+          icon={Package}
+          description="Soma da quantidade de produtos"
+        />
+        <MetricCard
+          title="Produtos Diferentes"
+          value={totalItems}
+          icon={ShoppingCart}
+          description="Contagem de SKUs vendidos"
+        />
+      </div>
 
       <Card>
         <CardHeader>

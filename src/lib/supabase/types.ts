@@ -2378,6 +2378,7 @@ export type Database = {
     }
     Functions: {
       auto_finalize_overdue_routes: { Args: never; Returns: Json }
+      bulk_update_product_codes: { Args: { payload: Json }; Returns: undefined }
       get_client_projections: {
         Args: never
         Returns: {
@@ -2455,6 +2456,19 @@ export type Database = {
       get_next_order_number: { Args: never; Returns: number }
       get_top_selling_items: {
         Args: { end_date: string; start_date: string }
+        Returns: {
+          produto_codigo: number
+          produto_nome: string
+          quantidade_total: number
+          valor_total: number
+        }[]
+      }
+      get_top_selling_items_v2: {
+        Args: {
+          end_date: string
+          p_funcionario_id?: number
+          start_date: string
+        }
         Returns: {
           produto_codigo: number
           produto_nome: string
