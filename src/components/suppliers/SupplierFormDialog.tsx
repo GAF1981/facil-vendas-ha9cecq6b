@@ -91,6 +91,7 @@ export function SupplierFormDialog({
       onSuccess()
       onOpenChange(false)
     } catch (error) {
+      console.error(error)
       toast({
         title: 'Erro',
         description: 'Erro ao salvar fornecedor.',
@@ -137,6 +138,7 @@ export function SupplierFormDialog({
                     <FormControl>
                       <Input
                         {...field}
+                        value={field.value || ''}
                         onChange={(e) =>
                           field.onChange(maskCNPJ(e.target.value))
                         }
@@ -155,6 +157,7 @@ export function SupplierFormDialog({
                     <FormControl>
                       <Input
                         {...field}
+                        value={field.value || ''}
                         onChange={(e) =>
                           field.onChange(maskPhone(e.target.value))
                         }
@@ -171,7 +174,7 @@ export function SupplierFormDialog({
                   <FormItem>
                     <FormLabel>Endereço</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input {...field} value={field.value || ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

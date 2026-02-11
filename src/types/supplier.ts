@@ -11,7 +11,7 @@ export interface Supplier {
   cnpj: string | null
   endereco: string | null
   telefone: string | null
-  contatos: SupplierContact[] | null // New field
+  contatos: SupplierContact[] | null
   created_at?: string
 }
 
@@ -25,7 +25,7 @@ export const supplierSchema = z.object({
   cnpj: z.string().optional().nullable(),
   endereco: z.string().optional().nullable(),
   telefone: z.string().optional().nullable(),
-  contatos: z.array(supplierContactSchema).optional(),
+  contatos: z.array(supplierContactSchema).default([]),
 })
 
 export type SupplierFormData = z.infer<typeof supplierSchema>
