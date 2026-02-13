@@ -12,6 +12,7 @@ import { SignatureModal } from '@/components/acerto/SignatureModal'
 import { AcertoHistoryTable } from '@/components/acerto/AcertoHistoryTable'
 import { ProductSelector } from '@/components/acerto/ProductSelector'
 import { ZeroStockAlert } from '@/components/acerto/ZeroStockAlert'
+import { KitSelectorDialog } from '@/components/acerto/KitSelectorDialog'
 import { ClientRow } from '@/types/client'
 import { Employee } from '@/types/employee'
 import { AcertoItem, PendingStockAdjustment } from '@/types/acerto'
@@ -304,6 +305,10 @@ export default function AcertoPage() {
       title: 'Produtos Adicionados',
       description: `${newProducts.length} produto(s) incluído(s) na lista.`,
     })
+  }
+
+  const handleAddKit = (kitItems: AcertoItem[]) => {
+    setItems((prev) => [...prev, ...kitItems])
   }
 
   const handleRepeatCount = () => {
@@ -763,7 +768,7 @@ export default function AcertoPage() {
             loading={loadingAcerto}
           />
 
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 flex-wrap">
             <Button
               variant="outline"
               onClick={handleRepeatCount}
@@ -772,6 +777,7 @@ export default function AcertoPage() {
               <Copy className="mr-2 h-4 w-4" />
               Repetir Contagem
             </Button>
+            <KitSelectorDialog onSelect={handleAddKit} />
             <ProductSelector onSelect={handleAddProducts} />
           </div>
 

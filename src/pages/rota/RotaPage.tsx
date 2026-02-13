@@ -235,44 +235,61 @@ export default function RotaPage() {
       )
 
       try {
+        let result = null
         if (field === 'vendedor_id') {
           // Check previous value for tasks update logic if needed
-          await rotaService.upsertRotaItem({
+          result = await rotaService.upsertRotaItem({
             rota_id: activeRota.id,
             cliente_id: clientId,
             vendedor_id: value,
           })
         } else if (field === 'proximo_vendedor_id') {
-          await rotaService.updateNextSeller(
+          result = await rotaService.updateNextSeller(
             activeRota.id,
             clientId,
             value,
             null,
           )
         } else if (field === 'x_na_rota') {
-          await rotaService.upsertRotaItem({
+          result = await rotaService.upsertRotaItem({
             rota_id: activeRota.id,
             cliente_id: clientId,
             x_na_rota: value,
           })
         } else if (field === 'boleto') {
-          await rotaService.upsertRotaItem({
+          result = await rotaService.upsertRotaItem({
             rota_id: activeRota.id,
             cliente_id: clientId,
             boleto: value,
           })
         } else if (field === 'agregado') {
-          await rotaService.upsertRotaItem({
+          result = await rotaService.upsertRotaItem({
             rota_id: activeRota.id,
             cliente_id: clientId,
             agregado: value,
           })
         } else if (field === 'tarefas') {
-          await rotaService.upsertRotaItem({
+          result = await rotaService.upsertRotaItem({
             rota_id: activeRota.id,
             cliente_id: clientId,
             tarefas: value,
           })
+        }
+
+        // If result exists (from upsert), update the row state with actual DB data
+        // This is crucial for reflecting DB triggers side-effects (like auto x_na_rota increment)
+        if (result && result.x_na_rota !== undefined) {
+          setRows((prev) =>
+            prev.map((r) => {
+              if (r.client.CODIGO === clientId) {
+                return {
+                  ...r,
+                  x_na_rota: result.x_na_rota!,
+                }
+              }
+              return r
+            }),
+          )
         }
       } catch (error) {
         console.error('Update failed', error)
@@ -413,12 +430,28 @@ export default function RotaPage() {
     )
 
     try {
-      await rotaService.transferSingleNextSeller(
+      const result = await rotaService.transferSingleNextSeller(
         activeRota.id,
         row.client.CODIGO,
         row.proximo_vendedor_id,
         row.tarefas,
       )
+
+      // Update state with result to reflect trigger changes (x_na_rota)
+      if (result && result.x_na_rota !== undefined) {
+        setRows((prev) =>
+          prev.map((r) => {
+            if (r.client.CODIGO === row.client.CODIGO) {
+              return {
+                ...r,
+                x_na_rota: result.x_na_rota!,
+              }
+            }
+            return r
+          }),
+        )
+      }
+
       toast({
         title: 'Transferido',
         description: 'Vendedor atualizado com sucesso.',

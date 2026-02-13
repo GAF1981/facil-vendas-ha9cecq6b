@@ -17,6 +17,8 @@ import { ProductRow } from '@/types/product'
 import { useToast } from '@/hooks/use-toast'
 import { ProductImportDialog } from '@/components/products/ProductImportDialog'
 import { useUserStore } from '@/stores/useUserStore'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { KitList } from '@/components/products/KitList'
 
 const ProductsPage = () => {
   const [products, setProducts] = useState<ProductRow[]>([])
@@ -93,82 +95,103 @@ const ProductsPage = () => {
               </Link>
             </Button>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">Produtos</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Catálogo</h1>
           <p className="text-muted-foreground mt-1">
-            Gerencie seu catálogo de produtos ({totalCount} itens encontrados).
+            Gerencie seus produtos e kits.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {canImport && <ProductImportDialog onSuccess={fetchProducts} />}
-          <Button asChild>
-            <Link to="/produtos/novo">
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Produto
-            </Link>
-          </Button>
-        </div>
       </div>
 
-      <div className="flex items-center bg-card p-4 rounded-lg border shadow-sm">
-        <div className="relative w-full max-w-md">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por nome, ID ou código de barras..."
-            className="pl-8"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-      </div>
+      <Tabs defaultValue="products" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 mb-4">
+          <TabsTrigger value="products">Produtos</TabsTrigger>
+          <TabsTrigger value="kits">Kits de Produtos</TabsTrigger>
+        </TabsList>
 
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : products.length > 0 ? (
-        <div className="space-y-4">
-          <ProductTable products={products} onUpdate={fetchProducts} />
-
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              Página {page} de {totalPages || 1}
+        <TabsContent value="products" className="space-y-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <p className="text-muted-foreground">
+              {totalCount} itens encontrados.
             </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-              >
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Anterior
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-              >
-                Próximo
-                <ChevronRight className="h-4 w-4 ml-1" />
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+              {canImport && <ProductImportDialog onSuccess={fetchProducts} />}
+              <Button asChild>
+                <Link to="/produtos/novo">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Novo Produto
+                </Link>
               </Button>
             </div>
           </div>
-        </div>
-      ) : (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="bg-muted p-4 rounded-full mb-4">
-              <Search className="h-8 w-8 text-muted-foreground" />
+
+          <div className="flex items-center bg-card p-4 rounded-lg border shadow-sm">
+            <div className="relative w-full max-w-md">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome, ID ou código de barras..."
+                className="pl-8"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
-            <h3 className="text-lg font-semibold">Nenhum produto encontrado</h3>
-            <p className="text-muted-foreground max-w-sm mt-2">
-              Não encontramos resultados para sua busca. Tente ajustar os
-              filtros ou cadastre um novo produto.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : products.length > 0 ? (
+            <div className="space-y-4">
+              <ProductTable products={products} onUpdate={fetchProducts} />
+
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Página {page} de {totalPages || 1}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Anterior
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page >= totalPages}
+                  >
+                    Próximo
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="bg-muted p-4 rounded-full mb-4">
+                  <Search className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-semibold">
+                  Nenhum produto encontrado
+                </h3>
+                <p className="text-muted-foreground max-w-sm mt-2">
+                  Não encontramos resultados para sua busca. Tente ajustar os
+                  filtros ou cadastre um novo produto.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="kits">
+          <KitList />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

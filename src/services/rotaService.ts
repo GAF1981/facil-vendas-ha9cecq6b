@@ -95,33 +95,52 @@ export const rotaService = {
     if (startError) throw startError
 
     // 3. Prepare new items based on "Conditional Seller Persistence" logic
-    // - Green (is_completed): Clear seller (null)
-    // - Red (!is_completed): Persist seller
-    // - Proximo Vendedor override: If set, use it.
     const newItemsPayload = fullData
       .filter((row) => {
         // Only carry over rows that had relevant data or are active/in route
         return true
       })
       .map((row) => {
-        // Logic:
-        // If Green (Completed): Seller -> null
+        // Default Logic:
+        // If Green (Completed): Seller -> null, x_na_rota -> 0
         // If Red (Not Completed): Seller -> Persist
         let nextSellerId = row.vendedor_id
+        let nextXNaRota = row.x_na_rota // Default: preserve current value
+
         if (row.is_completed) {
           nextSellerId = null
+          nextXNaRota = 0 // Reset counter if settled
+        } else {
+          // New Requirement: If NOT completed AND has seller, increment x_na_rota
+          if (nextSellerId) {
+            nextXNaRota = (row.x_na_rota || 0) + 1
+          }
         }
 
         // Apply "Proximo" override if exists
+        // Note: Logic implies nextSellerId should be the one effective in new route.
+        // If override exists, it becomes the new seller.
         if (row.proximo_vendedor_id) {
           nextSellerId = row.proximo_vendedor_id
+          // Does assigning Proximo increment X?
+          // If we follow Logic 4 (Trigger), Assigning Seller increments.
+          // Since we are inserting here, and triggers work on UPDATE usually for our Logic 4 implementation,
+          // we should handle increment here if appropriate.
+          // However, User Story 5 says "identify all ROTA_ITEMS ... No Acerto ... vendedor_id is pre-filled ... must be incremented".
+          // It refers to carrying over existing pending status.
+          // New assignments via "Proximo" might logically reset or start at 1?
+          // Let's assume standard carry over logic applies first, then override.
+          // If override happens, it's a new assignment. New assignment usually implies 1st visit (x=1) or continuation?
+          // If I assign a NEW seller, x should probably start counting for that seller? Or total visits?
+          // Given ambiguity, stick strictly to Requirement 5 for "pending clients with assigned vendor".
+          // If proximo is used, it overrides.
         }
 
         return {
           rota_id: nextId,
           cliente_id: row.client.CODIGO,
           vendedor_id: nextSellerId,
-          x_na_rota: row.x_na_rota,
+          x_na_rota: nextXNaRota,
           boleto: row.boleto,
           agregado: row.agregado,
           tarefas: row.tarefas,
@@ -185,7 +204,7 @@ export const rotaService = {
         .select()
         .single()
       if (error) throw error
-      return data
+      return data as RotaItem
     } else {
       const { data, error } = await supabase
         .from('ROTA_ITEMS')
@@ -193,7 +212,7 @@ export const rotaService = {
         .select()
         .single()
       if (error) throw error
-      return data
+      return data as RotaItem
     }
   },
 
