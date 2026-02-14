@@ -126,7 +126,7 @@ export function ClientForm({
           'CONTATO 2': '',
           'FORMA DE PAGAMENTO': 'BOLETO',
           'NOTA FISCAL': 'NÃO',
-          EXPOSITOR: 'OUTROS',
+          EXPOSITOR: 'expositor de 46 cm', // Updated Default Value
           Desconto: '30',
           'DESCONTO ACESSORIO CELULAR': '',
           'DESCONTO BRINQUEDO': '',
@@ -839,7 +839,7 @@ export function ClientForm({
                       <FormLabel>Expositor</FormLabel>
                       <Select
                         onValueChange={field.onChange}
-                        value={field.value || 'OUTROS'}
+                        value={field.value || 'expositor de 46 cm'} // Updated Default
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -847,6 +847,9 @@ export function ClientForm({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
+                          <SelectItem value="expositor de 46 cm">
+                            expositor de 46 cm
+                          </SelectItem>
                           <SelectItem value="MADEIRA 46 CM">
                             MADEIRA 46 CM
                           </SelectItem>

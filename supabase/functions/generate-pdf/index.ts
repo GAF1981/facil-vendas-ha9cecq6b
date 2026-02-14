@@ -81,7 +81,9 @@ Deno.serve(async (req) => {
       const installmentsCount = body.installments ? body.installments.length : 0
       const detailedPaymentsCount = body.detailedPayments
         ? body.detailedPayments.length
-        : 0
+        : body.payments
+          ? body.payments.length
+          : 0
 
       // Calculate variable height dynamically
       let estimatedHeight = 500 // Base height
@@ -553,6 +555,8 @@ Deno.serve(async (req) => {
         valorAcerto = 0,
         installments = [],
         history = [],
+        detailedPayments = [],
+        payments = [],
       } = body
 
       const sellerName = employee?.nome_completo || 'N/D'
@@ -688,6 +692,62 @@ Deno.serve(async (req) => {
       y -= 15
       drawLine(y)
       y -= 15
+
+      // NEW: VALOR PAGO Section
+      const paymentsList =
+        detailedPayments && detailedPayments.length > 0
+          ? detailedPayments
+          : payments
+
+      if (paymentsList && paymentsList.length > 0) {
+        checkPageBreak(60)
+        drawText('VALOR PAGO', width / 2, y, {
+          size: 10,
+          font: fontBold,
+          align: 'center',
+        })
+        y -= 15
+
+        // Header Row
+        drawText('Forma de Pagamento', margins.left, y, {
+          size: 8,
+          font: fontBold,
+        })
+        drawText('Valor', width - margins.right, y, {
+          size: 8,
+          font: fontBold,
+          align: 'right',
+        })
+        y -= 5
+        drawLine(y, 0.5)
+        y -= 10
+
+        for (const pay of paymentsList) {
+          checkPageBreak(20)
+          // Use paidValue as it represents "Valor Pago".
+          const pVal =
+            pay.paidValue !== undefined
+              ? Number(pay.paidValue)
+              : Number(pay.value || 0)
+          const pMethod = (
+            pay.method ||
+            pay.forma_pagamento ||
+            'N/D'
+          ).substring(0, 25)
+
+          if (pVal > 0) {
+            drawText(pMethod, margins.left, y, { size: 8 })
+            drawText(`R$ ${formatCurrency(pVal)}`, width - margins.right, y, {
+              size: 8,
+              align: 'right',
+            })
+            y -= 12
+          }
+        }
+
+        drawLine(y, 0.5)
+        y -= 15
+      }
 
       // 4. Installments Section ("VALORES A PAGAR (PARCELAS)")
       if (installments && installments.length > 0) {

@@ -60,7 +60,7 @@ export default function NotaFiscalPage() {
 
   // Filters
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('Pendente')
+  const [statusFilter, setStatusFilter] = useState<string>('todos') // Default to 'todos'
   const [routeFilter, setRouteFilter] = useState<string>('todos')
 
   // Emit Dialog
@@ -274,7 +274,7 @@ export default function NotaFiscalPage() {
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="todos">Todas</SelectItem>
                   <SelectItem value="Pendente">Pendente</SelectItem>
                   <SelectItem value="Emitida">Emitida</SelectItem>
                   <SelectItem value="Resolvida">Resolvida</SelectItem>
