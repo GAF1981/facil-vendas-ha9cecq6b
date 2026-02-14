@@ -38,73 +38,75 @@ export function ExpenseGallery({ items }: ExpenseGalleryProps) {
         </div>
       </CardHeader>
       <CardContent className="p-0 flex-1 overflow-hidden">
-        <ScrollArea className="h-[400px]">
-          <Table>
-            <TableHeader className="bg-muted/50 sticky top-0 z-10">
-              <TableRow>
-                <TableHead className="w-[100px]">Data</TableHead>
-                <TableHead>Detalhamento</TableHead>
-                <TableHead>Funcionário</TableHead>
-                <TableHead className="text-center">Saiu do Caixa?</TableHead>
-                <TableHead className="text-right">Valor</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.length === 0 ? (
+        <div className="h-[400px] overflow-auto">
+          <div className="min-w-[500px]">
+            <Table>
+              <TableHeader className="bg-muted/50 sticky top-0 z-10">
                 <TableRow>
-                  <TableCell
-                    colSpan={5}
-                    className="text-center h-24 text-muted-foreground"
-                  >
-                    Nenhuma despesa registrada.
-                  </TableCell>
+                  <TableHead className="w-[100px]">Data</TableHead>
+                  <TableHead>Detalhamento</TableHead>
+                  <TableHead>Funcionário</TableHead>
+                  <TableHead className="text-center">Saiu do Caixa?</TableHead>
+                  <TableHead className="text-right">Valor</TableHead>
                 </TableRow>
-              ) : (
-                items.map((item) => (
-                  <TableRow key={item.id} className="hover:bg-muted/30">
-                    <TableCell className="text-xs whitespace-nowrap font-mono text-muted-foreground">
-                      {formatDateTimeBR(item.data)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-medium text-sm">
-                          {item.detalhamento}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground bg-muted px-1 rounded w-fit border">
-                          {item.grupo}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      {item.funcionarioNome
-                        ? item.funcionarioNome.split(' ')[0]
-                        : 'N/D'}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex justify-center">
-                        {item.saiuDoCaixa ? (
-                          <CheckCircle2 className="h-4 w-4 text-green-600" />
-                        ) : (
-                          <XCircle className="h-4 w-4 text-red-300" />
-                        )}
-                      </div>
-                    </TableCell>
+              </TableHeader>
+              <TableBody>
+                {items.length === 0 ? (
+                  <TableRow>
                     <TableCell
-                      className={cn(
-                        'text-right font-bold',
-                        item.saiuDoCaixa
-                          ? 'text-red-700'
-                          : 'text-muted-foreground line-through decoration-red-700/30',
-                      )}
+                      colSpan={5}
+                      className="text-center h-24 text-muted-foreground"
                     >
-                      R$ {formatCurrency(item.valor)}
+                      Nenhuma despesa registrada.
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </ScrollArea>
+                ) : (
+                  items.map((item) => (
+                    <TableRow key={item.id} className="hover:bg-muted/30">
+                      <TableCell className="text-xs whitespace-nowrap font-mono text-muted-foreground">
+                        {formatDateTimeBR(item.data)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-medium text-sm">
+                            {item.detalhamento}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground bg-muted px-1 rounded w-fit border">
+                            {item.grupo}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {item.funcionarioNome
+                          ? item.funcionarioNome.split(' ')[0]
+                          : 'N/D'}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex justify-center">
+                          {item.saiuDoCaixa ? (
+                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <XCircle className="h-4 w-4 text-red-300" />
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell
+                        className={cn(
+                          'text-right font-bold',
+                          item.saiuDoCaixa
+                            ? 'text-red-700'
+                            : 'text-muted-foreground line-through decoration-red-700/30',
+                        )}
+                      >
+                        R$ {formatCurrency(item.valor)}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
       </CardContent>
       <div className="p-4 bg-muted/20 border-t mt-auto">
         <div className="flex justify-between items-center">

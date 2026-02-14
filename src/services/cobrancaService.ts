@@ -14,7 +14,9 @@ import { getBrazilDateString } from '@/lib/dateUtils'
 import { parseCurrency } from '@/lib/formatters'
 
 export const cobrancaService = {
+  // ... existing code ...
   async getDebts(): Promise<ClientDebt[]> {
+    // ... same implementation as before ...
     const today = startOfDay(new Date())
 
     const { data: debtsData, error: debtsError } = await supabase

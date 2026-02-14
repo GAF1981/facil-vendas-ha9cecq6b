@@ -25,6 +25,7 @@ export const notaFiscalService = {
     }
 
     // 2. Build Query for BANCO_DE_DADOS
+    // Fetch all items to consolidate later
     let query = supabase
       .from('BANCO_DE_DADOS')
       .select(
@@ -36,7 +37,7 @@ export const notaFiscalService = {
     if (orderIds) {
       query = query.in('"NÚMERO DO PEDIDO"', orderIds)
     } else {
-      query = query.limit(2000)
+      query = query.limit(5000) // Increase limit to fetch enough rows for grouping
     }
 
     const { data, error } = await query
@@ -44,8 +45,59 @@ export const notaFiscalService = {
     if (error) throw error
     if (!data || data.length === 0) return []
 
-    // 3. Fetch Emitted Notes Info
-    const fetchedOrderIds = data.map((d) => d['NÚMERO DO PEDIDO'] || 0)
+    // 3. Consolidate Items by Order ID
+    const aggregatedOrders = new Map<number, NotaFiscalSettlement>()
+    const fetchedOrderIdsSet = new Set<number>()
+
+    data.forEach((row) => {
+      const orderId = row['NÚMERO DO PEDIDO']
+      if (!orderId) return
+
+      fetchedOrderIdsSet.add(orderId)
+      const val = parseCurrency(row['VALOR VENDIDO'])
+
+      if (!aggregatedOrders.has(orderId)) {
+        const nfCadastro = row.nota_fiscal_cadastro
+        const nfVenda = row.nota_fiscal_venda
+        const solicitacao = row.solicitacao_nf || 'NÃO'
+        const dbStatus = row.nota_fiscal_emitida
+
+        // Automated Status Logic
+        let calculatedStatus = 'Resolvida'
+        if (
+          nfCadastro === 'SIM' ||
+          nfVenda === 'SIM' ||
+          solicitacao === 'SIM'
+        ) {
+          calculatedStatus = 'Pendente'
+        }
+
+        if (dbStatus === 'Emitida') {
+          calculatedStatus = 'Emitida'
+        }
+
+        aggregatedOrders.set(orderId, {
+          orderId: orderId,
+          clientCode: row['CÓDIGO DO CLIENTE'] || 0,
+          clientName: row['CLIENTE'] || 'N/D',
+          dataAcerto: row['DATA DO ACERTO'] || '',
+          valorTotalVendido: 0, // Initialize
+          notaFiscalCadastro: nfCadastro || 'NÃO',
+          notaFiscalVenda: nfVenda || 'NÃO',
+          solicitacaoNf: solicitacao,
+          notaFiscalEmitida: calculatedStatus,
+          numeroNotaFiscal: undefined,
+          rotaId: null,
+        })
+      }
+
+      const order = aggregatedOrders.get(orderId)!
+      order.valorTotalVendido += val
+    })
+
+    const fetchedOrderIds = Array.from(fetchedOrderIdsSet)
+
+    // 4. Fetch Emitted Notes Info
     const { data: emittedData } = await supabase
       .from('notas_fiscais_emitidas')
       .select('pedido_id, numero_nota_fiscal')
@@ -56,7 +108,7 @@ export const notaFiscalService = {
       emittedMap.set(e.pedido_id, e.numero_nota_fiscal)
     })
 
-    // 4. Fetch Route Info
+    // 5. Fetch Route Info
     const { data: routesData } = await supabase
       .from('RECEBIMENTOS')
       .select('venda_id, rota_id')
@@ -70,39 +122,23 @@ export const notaFiscalService = {
       }
     })
 
-    return data.map((row) => {
-      const nfCadastro = row.nota_fiscal_cadastro
-      const nfVenda = row.nota_fiscal_venda
-      const solicitacao = row.solicitacao_nf || 'NÃO'
-      const dbStatus = row.nota_fiscal_emitida
-
-      // Automated Status Logic
-      // Resolvido: If (0, 0, 0) -> All NO/0
-      // Pendente: If ANY is SIM
-      let calculatedStatus = 'Resolvida'
-      if (nfCadastro === 'SIM' || nfVenda === 'SIM' || solicitacao === 'SIM') {
-        calculatedStatus = 'Pendente'
-      }
-
-      // Preserve 'Emitida' if strictly emitted
-      if (dbStatus === 'Emitida') {
-        calculatedStatus = 'Emitida'
-      }
-
+    // Apply enriched data to aggregated orders
+    const result = Array.from(aggregatedOrders.values()).map((order) => {
       return {
-        orderId: row['NÚMERO DO PEDIDO'] || 0,
-        clientCode: row['CÓDIGO DO CLIENTE'] || 0,
-        clientName: row['CLIENTE'] || 'N/D',
-        dataAcerto: row['DATA DO ACERTO'] || '',
-        valorTotalVendido: parseCurrency(row['VALOR VENDIDO']),
-        notaFiscalCadastro: nfCadastro || 'NÃO',
-        notaFiscalVenda: nfVenda || 'NÃO',
-        solicitacaoNf: solicitacao,
-        notaFiscalEmitida: calculatedStatus, // Using the calculated status
-        numeroNotaFiscal:
-          emittedMap.get(row['NÚMERO DO PEDIDO'] || 0) || undefined,
-        rotaId: routeMap.get(row['NÚMERO DO PEDIDO'] || 0) || null,
+        ...order,
+        numeroNotaFiscal: emittedMap.get(order.orderId) || undefined,
+        rotaId: routeMap.get(order.orderId) || null,
       }
+    })
+
+    return result.sort((a, b) => {
+      // Sort by Date Descending
+      if (a.dataAcerto !== b.dataAcerto) {
+        return (
+          new Date(b.dataAcerto).getTime() - new Date(a.dataAcerto).getTime()
+        )
+      }
+      return b.orderId - a.orderId
     })
   },
 

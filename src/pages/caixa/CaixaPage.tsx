@@ -97,7 +97,7 @@ export default function CaixaPage() {
   }>({ open: false, empId: null, empName: '' })
 
   const [generatingPdf, setGeneratingPdf] = useState(false)
-  const [printFormat, setPrintFormat] = useState<'A4' | '80mm'>('A4')
+  const [printFormat, setPrintFormat] = useState<'A4' | '80mm'>('80mm')
 
   const canSelectEmployee = useMemo(() => {
     if (!loggedInUser) return false

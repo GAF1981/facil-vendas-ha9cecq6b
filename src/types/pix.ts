@@ -37,6 +37,7 @@ export const pixConferenceSchema = z.object({
   nome_no_pix: z.string().min(3, 'Nome deve ter no mínimo 3 caracteres'),
   banco_pix: z.string().min(1, 'Selecione o banco'),
   data_pix_realizado: z.string().min(1, 'Data é obrigatória'),
+  valor: z.string().min(1, 'Valor é obrigatório'),
 })
 
 export type PixConferenceFormData = z.infer<typeof pixConferenceSchema>
