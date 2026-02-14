@@ -93,10 +93,14 @@ Deno.serve(async (req) => {
         // Fixed height for summary layout as requested
         estimatedHeight = 600
       } else {
-        estimatedHeight += itemsCount * 80
-        estimatedHeight += installmentsCount * 20
-        estimatedHeight += detailedPaymentsCount * 20
-        estimatedHeight += historyCount * 40
+        // Detailed Acerto items are verbose (6 lines each approx 80px)
+        estimatedHeight += itemsCount * 100
+        estimatedHeight += installmentsCount * 25
+        estimatedHeight += detailedPaymentsCount * 25
+        // History items are verbose (3 lines each approx 50px)
+        estimatedHeight += historyCount * 60
+        // Header + Footer + Signatures buffer
+        estimatedHeight += 400
       }
 
       page = pdfDoc.addPage([226, Math.max(400, estimatedHeight)])
@@ -263,9 +267,12 @@ Deno.serve(async (req) => {
       drawText(`Funcionario: ${empName}`, leftColX, y, { size: 10 })
       y -= 20
       drawLine(y)
-      y -= 10
 
-      // Table Header - Vertical Headers as per image
+      // Fix Overlapping Headers: Move Y down significantly before drawing headers
+      // Vertical headers rotate UP from the drawing point, so we need space above
+      y -= 100
+
+      // Table Header - Vertical Headers
       const tableX = {
         cod: margins.left,
         merc: margins.left + 45,
@@ -283,6 +290,7 @@ Deno.serve(async (req) => {
       const headerFontSize = 8
 
       const drawVerticalHeader = (text: string, x: number) => {
+        // Draw rotated text. It will extend UPWARDS from y.
         drawText(text, x + 5, headerY, {
           size: headerFontSize,
           font: fontBold,
@@ -301,7 +309,7 @@ Deno.serve(async (req) => {
       drawVerticalHeader('NOVAS CONSIGNACOES', tableX.nc)
       drawVerticalHeader('RECOLHIDO', tableX.rec)
 
-      y -= 80
+      y -= 10 // small gap after headers base
       drawLine(y)
       y -= 12
 
@@ -358,7 +366,8 @@ Deno.serve(async (req) => {
       // Footer - RESUMO FINANCEIRO
       checkPageBreak(80)
       const footerRightX = width - margins.right
-      const footerLabelX = width - 200
+      // Increased spacing significantly (approx 5cm / 140 pts more space)
+      const footerLabelX = width - 350
 
       drawText('RESUMO FINANCEIRO', footerRightX, y, {
         size: 10,
@@ -526,7 +535,7 @@ Deno.serve(async (req) => {
       drawLine(y)
     }
 
-    // --- OTHER THERMAL LAYOUTS (receipts, history, etc) ---
+    // --- ACERTO DETAILED THERMAL (Based on User Story / OCR Image) ---
     else if (
       isThermal &&
       (reportType === 'thermal-history' ||
@@ -543,16 +552,16 @@ Deno.serve(async (req) => {
         valorDesconto = 0,
         valorAcerto = 0,
         installments = [],
-        detailedPayments = [],
+        history = [],
       } = body
 
       const sellerName = employee?.nome_completo || 'N/D'
       const clientName = client?.['NOME CLIENTE'] || 'Consumidor'
       const clientCode = client?.CODIGO || '0'
-      const clientAddress = `${client?.ENDEREÇO || ''}, ${client?.BAIRRO || ''}`
-      const clientCity = `${client?.MUNICÍPIO || ''}`
+      const clientAddress = `${client?.ENDEREÇO || ''}`.substring(0, 45) // Trim
+      const clientCity = `${client?.MUNICÍPIO || ''} - ${client?.ESTADO || ''}`
 
-      // Header
+      // 1. Header
       drawText('FACIL VENDAS', width / 2, y, {
         size: 16,
         font: fontBold,
@@ -565,8 +574,8 @@ Deno.serve(async (req) => {
         align: 'center',
       })
       y -= 15
-      drawLine(y)
-      y -= 15
+      drawLine(y, 1.5)
+      y -= 12
 
       // Client Info
       const infoSize = 9
@@ -576,13 +585,11 @@ Deno.serve(async (req) => {
         maxWidth: width - 20,
       })
       y -= 12
-      if (clientAddress.length > 5) {
-        drawText(clientAddress.substring(0, 35), margins.left, y, {
-          size: infoSize,
-          maxWidth: width - 20,
-        })
-        y -= 12
-      }
+      drawText(`End: ${clientAddress}...`, margins.left, y, {
+        size: infoSize,
+        maxWidth: width - 20,
+      })
+      y -= 12
       drawText(clientCity, margins.left, y, { size: infoSize, font: fontBold })
       y -= 12
 
@@ -601,60 +608,77 @@ Deno.serve(async (req) => {
       drawLine(y)
       y -= 15
 
-      // Items Section
-      if (items.length > 0) {
-        drawText('ITENS DO PEDIDO', width / 2, y, {
-          size: 10,
-          font: fontBold,
-          align: 'center',
-        })
-        y -= 15
+      // 2. Items Section ("ITENS DO PEDIDO")
+      drawText('ITENS DO PEDIDO', width / 2, y, {
+        size: 10,
+        font: fontBold,
+        align: 'center',
+      })
+      y -= 15
 
+      if (items.length > 0) {
         for (const item of items) {
-          checkPageBreak(60)
-          drawText(`${item.produtoNome || item.produto}`, margins.left, y, {
+          checkPageBreak(80)
+
+          // Product Name and Unit Price
+          const prodName = `${item.produtoNome || item.produto} R$ ${formatCurrency(item.precoUnitario || item.preco)}`
+          drawText(prodName, margins.left, y, {
             size: 9,
             font: fontBold,
-            maxWidth: width - 70,
+            maxWidth: width - 20,
           })
-          drawText(
-            `R$ ${formatCurrency(item.precoUnitario || item.preco)}`,
-            width - margins.right,
-            y,
-            { size: 9, align: 'right' },
-          )
           y -= 12
 
-          drawText(`Qtd: ${item.quantVendida}`, margins.left, y, { size: 9 })
-          drawText(
-            `Total: R$ ${formatCurrency(item.valorVendido)}`,
-            width - margins.right,
-            y,
-            { size: 9, font: fontBold, align: 'right' },
-          )
-          y -= 15
+          // Stats (Right Aligned Values)
+          const stats = [
+            { label: 'Saldo Inicial:', val: String(item.saldoInicial || 0) },
+            { label: 'Contagem:', val: String(item.contagem || 0) },
+            { label: 'Qtd. Vendida:', val: String(item.quantVendida || 0) },
+            { label: 'Saldo Final:', val: String(item.saldoFinal || 0) },
+            {
+              label: 'Total:',
+              val: `R$ ${formatCurrency(item.valorVendido)}`,
+              bold: true,
+            },
+          ]
+
+          stats.forEach((stat) => {
+            drawText(stat.label, margins.left, y, { size: 9 })
+            drawText(stat.val, width - margins.right, y, {
+              size: 9,
+              align: 'right',
+              font: stat.bold ? fontBold : fontRegular,
+            })
+            y -= 12
+          })
+
+          y -= 2 // Spacer
+          drawLine(y, 0.5)
+          y -= 12
         }
-        drawLine(y)
-        y -= 15
       }
 
-      // Totals
-      drawText('Total Vendido:', margins.left, y, { size: 9 })
+      // 3. Totals Section
+      y -= 5
+      drawText('Total Vendido:', margins.left, y, { size: 9, font: fontBold })
       drawText(`R$ ${formatCurrency(totalVendido)}`, width - margins.right, y, {
         size: 9,
+        font: fontBold,
         align: 'right',
       })
       y -= 12
-      if (valorDesconto > 0) {
-        drawText('Desconto:', margins.left, y, { size: 9 })
-        drawText(
-          `R$ ${formatCurrency(valorDesconto)}`,
-          width - margins.right,
-          y,
-          { size: 9, align: 'right' },
-        )
-        y -= 12
-      }
+      drawText('Desconto:', margins.left, y, { size: 9, font: fontBold })
+      drawText(
+        `R$ ${formatCurrency(valorDesconto)}`,
+        width - margins.right,
+        y,
+        {
+          size: 9,
+          font: fontBold,
+          align: 'right',
+        },
+      )
+      y -= 12
       drawText('TOTAL A PAGAR:', margins.left, y, { size: 10, font: fontBold })
       drawText(`R$ ${formatCurrency(valorAcerto)}`, width - margins.right, y, {
         size: 10,
@@ -665,54 +689,7 @@ Deno.serve(async (req) => {
       drawLine(y)
       y -= 15
 
-      // --- SECTION: VALORES PAGOS (PAYMENTS MADE) ---
-      if (detailedPayments && detailedPayments.length > 0) {
-        checkPageBreak(50)
-        drawText('VALORES PAGOS', width / 2, y, {
-          size: 10,
-          font: fontBold,
-          align: 'center',
-        })
-        y -= 15
-
-        let totalPaid = 0
-        detailedPayments.forEach((p: any) => {
-          checkPageBreak(20)
-          const method = p.method || 'Pagamento'
-          const val = Number(p.value || p.paidValue || 0)
-          if (val > 0) {
-            drawText(method, margins.left, y, { size: 9 })
-            drawText(`R$ ${formatCurrency(val)}`, width - margins.right, y, {
-              size: 9,
-              align: 'right',
-            })
-            y -= 12
-            totalPaid += val
-          }
-        })
-
-        // Show remaining debt if applicable
-        const remaining = Math.max(0, valorAcerto - totalPaid)
-        if (remaining > 0.05) {
-          y -= 5
-          drawText('Restante (Débito):', margins.left, y, {
-            size: 9,
-            font: fontBold,
-          })
-          drawText(
-            `R$ ${formatCurrency(remaining)}`,
-            width - margins.right,
-            y,
-            { size: 9, font: fontBold, align: 'right', color: rgb(0.8, 0, 0) },
-          )
-          y -= 12
-        }
-
-        drawLine(y, 0.5)
-        y -= 15
-      }
-
-      // --- SECTION: VALORES A PAGAR (INSTALLMENTS) ---
+      // 4. Installments Section ("VALORES A PAGAR (PARCELAS)")
       if (installments && installments.length > 0) {
         checkPageBreak(60)
         drawText('VALORES A PAGAR (PARCELAS)', width / 2, y, {
@@ -723,29 +700,35 @@ Deno.serve(async (req) => {
         y -= 15
 
         // Header Row
-        drawText('Vencimento', margins.left, y, { size: 8, font: fontBold })
-        drawText('Forma', margins.left + 60, y, { size: 8, font: fontBold })
+        drawText('Forma', margins.left, y, { size: 8, font: fontBold })
+        drawText('Vencimento', width / 2, y, {
+          size: 8,
+          font: fontBold,
+          align: 'center',
+        })
         drawText('Valor', width - margins.right, y, {
           size: 8,
           font: fontBold,
           align: 'right',
         })
+        y -= 5
+        drawLine(y, 0.5)
         y -= 10
 
+        let totalInstallments = 0
         installments.forEach((inst: any) => {
           checkPageBreak(20)
-          const dateStr = safeFormatDate(inst.dueDate || inst.vencimento).split(
-            ' ',
-          )[0] // Just date
+          const dateStr = safeFormatDate(inst.dueDate || inst.vencimento)
           const method = (
             inst.method ||
             inst.formaPagamento ||
             'Outros'
-          ).substring(0, 10)
+          ).substring(0, 15)
           const val = Number(inst.value || inst.valor || 0)
+          totalInstallments += val
 
-          drawText(dateStr, margins.left, y, { size: 8 })
-          drawText(method, margins.left + 60, y, { size: 8 })
+          drawText(method, margins.left, y, { size: 8 })
+          drawText(dateStr, width / 2, y, { size: 8, align: 'center' })
           drawText(`R$ ${formatCurrency(val)}`, width - margins.right, y, {
             size: 8,
             align: 'right',
@@ -754,20 +737,107 @@ Deno.serve(async (req) => {
         })
 
         drawLine(y, 0.5)
+        y -= 10
+        drawText('Total a Pagar:', margins.left, y, { size: 9, font: fontBold })
+        drawText(
+          `R$ ${formatCurrency(totalInstallments)}`,
+          width - margins.right,
+          y,
+          {
+            size: 9,
+            font: fontBold,
+            align: 'right',
+          },
+        )
+        y -= 15
+        drawLine(y, 1.5)
         y -= 15
       }
 
-      // Signature
+      // 5. Signature
       checkPageBreak(60)
       y -= 30
       drawLine(y)
-      y -= 15
+      y -= 10
       drawText('Assinatura do Cliente', width / 2, y, {
         size: 9,
         font: fontBold,
         align: 'center',
       })
-      y -= 25
+      y -= 20
+
+      // 6. History Section ("RESUMO DE ACERTOS (HISTORICO)")
+      if (history && history.length > 0) {
+        checkPageBreak(80)
+        drawText('RESUMO DE ACERTOS (HISTORICO)', width / 2, y, {
+          size: 10,
+          font: fontBold,
+          align: 'center',
+        })
+        y -= 15
+
+        for (const h of history) {
+          checkPageBreak(45)
+
+          const hDate = safeFormatDate(h.data || h.data_acerto)
+          const hId = h.id || h.pedido_id
+          const hSeller = h.vendedor || h.vendedor_nome || 'N/D'
+
+          const valTotal = Number(h.valorVendaTotal || h.valor_venda || 0)
+          const valAPagar = Number(h.saldoAPagar || h.saldo_a_pagar || valTotal)
+          const valPago = Number(h.valorPago || h.valor_pago || 0)
+          const valDeb = Number(h.debito || 0)
+          const valMed = Number(h.mediaMensal || h.media_mensal || 0)
+
+          // Line 1: Date #ID Seller
+          drawText(`${hDate}   #${hId}`, margins.left, y, {
+            size: 8,
+            font: fontBold,
+          })
+          drawText(hSeller, width - margins.right, y, {
+            size: 8,
+            align: 'right',
+            font: fontBold,
+          })
+          y -= 10
+
+          // Line 2: V: ... A Pagar: ...
+          drawText(`V: ${formatCurrency(valTotal)}`, margins.left, y, {
+            size: 8,
+          })
+          drawText(
+            `A Pagar: ${formatCurrency(valAPagar)}`,
+            width - margins.right,
+            y,
+            { size: 8, align: 'right' },
+          )
+          y -= 10
+
+          // Line 3: Pg: ... Deb: ... Med: ...
+          // Using manual spacing estimation for simplicity as column alignment in pdf-lib is manual
+          drawText(`Pg: ${formatCurrency(valPago)}`, margins.left, y, {
+            size: 8,
+          })
+
+          // Deb (Red)
+          const debText = `Deb: ${formatCurrency(valDeb)}`
+          // Centered-ish
+          drawText(debText, margins.left + 70, y, {
+            size: 8,
+            color: rgb(0.8, 0, 0),
+          })
+
+          // Med (Blue)
+          drawText(`Med: ${formatCurrency(valMed)}`, width - margins.right, y, {
+            size: 8,
+            align: 'right',
+            color: rgb(0, 0, 0.8),
+          })
+
+          y -= 15 // Gap between entries
+        }
+        drawLine(y)
+      }
     }
 
     const pdfBytes = await pdfDoc.save()
