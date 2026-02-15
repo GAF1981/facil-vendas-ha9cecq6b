@@ -27,6 +27,9 @@ import {
   Search,
   FileText,
   RotateCcw,
+  Banknote,
+  User,
+  Calendar,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
@@ -41,6 +44,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { cobrancaService } from '@/services/cobrancaService'
+import { CollectionAction } from '@/types/cobranca'
 
 export interface HistoryRow {
   id: number
@@ -62,6 +67,7 @@ export interface HistoryRow {
     employeeName?: string
     createdAt?: string
   }[]
+  collectionActionCount?: number
 }
 
 interface AcertoHistoryTableProps {
@@ -105,6 +111,14 @@ export function AcertoHistoryTable({
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [selectedOrderRef, setSelectedOrderRef] = useState<number | null>(null)
 
+  // State for Collection Actions Details Modal
+  const [collectionActionsOpen, setCollectionActionsOpen] = useState(false)
+  const [selectedCollectionActions, setSelectedCollectionActions] = useState<
+    CollectionAction[]
+  >([])
+  const [loadingCollectionActions, setLoadingCollectionActions] =
+    useState(false)
+
   // Reversal State
   const [reversing, setReversing] = useState(false)
   const [reverseConfirmOpen, setReverseConfirmOpen] = useState(false)
@@ -142,6 +156,27 @@ export function AcertoHistoryTable({
     setSelectedPaymentDetails(order.paymentDetails || [])
     setSelectedOrderRef(order.id)
     setDetailsOpen(true)
+  }
+
+  const handleShowCollectionActions = async (orderId: number) => {
+    setLoadingCollectionActions(true)
+    setSelectedCollectionActions([])
+    setCollectionActionsOpen(true)
+    try {
+      const actions = await cobrancaService.getCollectionActions(
+        orderId.toString(),
+      )
+      setSelectedCollectionActions(actions)
+    } catch (e) {
+      console.error(e)
+      toast({
+        title: 'Erro',
+        description: 'Falha ao buscar detalhes das ações de cobrança.',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoadingCollectionActions(false)
+    }
   }
 
   const handleReprintOrder = async (order: HistoryRow) => {
@@ -287,7 +322,7 @@ export function AcertoHistoryTable({
                     <TableHead className="text-right text-red-600 font-semibold">
                       Débito
                     </TableHead>
-                    <TableHead className="text-center w-[100px]">
+                    <TableHead className="text-center w-[120px]">
                       Ações
                     </TableHead>
                   </TableRow>
@@ -367,6 +402,23 @@ export function AcertoHistoryTable({
                           </TableCell>
                           <TableCell className="text-center">
                             <div className="flex justify-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 relative"
+                                onClick={() =>
+                                  handleShowCollectionActions(row.id)
+                                }
+                                title="Ações de Cobrança"
+                              >
+                                <Banknote className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                                {row.collectionActionCount !== undefined &&
+                                  row.collectionActionCount > 0 && (
+                                    <span className="absolute -top-1.5 -right-1 text-[10px] font-bold text-red-500 bg-red-100 rounded-full px-1 min-w-[14px] h-[14px] flex items-center justify-center border border-red-200">
+                                      {row.collectionActionCount}
+                                    </span>
+                                  )}
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -514,6 +566,109 @@ export function AcertoHistoryTable({
                 Fechar
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={collectionActionsOpen}
+        onOpenChange={setCollectionActionsOpen}
+      >
+        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Detalhamento de Ações de Cobrança</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto">
+            {loadingCollectionActions ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : selectedCollectionActions.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Nenhuma ação de cobrança registrada para este pedido.
+              </div>
+            ) : (
+              <div className="space-y-4 pr-1">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead>Data</TableHead>
+                      <TableHead>Funcionário</TableHead>
+                      <TableHead>Ação</TableHead>
+                      <TableHead>Motivo / Detalhes</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {selectedCollectionActions.map((action) => (
+                      <TableRow key={action.id}>
+                        <TableCell className="w-[120px] align-top text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1.5">
+                            <Calendar className="h-3 w-3" />
+                            {action.dataAcao
+                              ? format(parseISO(action.dataAcao), 'dd/MM/yyyy')
+                              : '-'}
+                          </div>
+                        </TableCell>
+                        <TableCell className="w-[150px] align-top">
+                          <div className="flex items-center gap-1.5 text-xs font-medium">
+                            <User className="h-3 w-3 text-muted-foreground" />
+                            {action.funcionarioNome || 'Sistema'}
+                          </div>
+                        </TableCell>
+                        <TableCell className="align-top font-medium">
+                          {action.acao}
+                          {(action.targetFormaPagamento ||
+                            action.targetVencimento) && (
+                            <div className="text-[10px] text-muted-foreground mt-1">
+                              Ref: {action.targetFormaPagamento || 'Parcela'}
+                              {action.targetVencimento &&
+                                ` (${format(parseISO(action.targetVencimento), 'dd/MM')})`}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="align-top text-sm text-muted-foreground max-w-xs whitespace-pre-wrap">
+                          {action.motivo || '-'}
+                          {action.installments &&
+                            action.installments.length > 0 && (
+                              <div className="mt-1 pt-1 border-t border-dashed text-xs">
+                                <strong>Novo Acordo:</strong>
+                                <ul className="list-disc pl-4 mt-0.5">
+                                  {action.installments.map((inst, i) => (
+                                    <li key={i}>
+                                      {format(
+                                        parseISO(inst.vencimento),
+                                        'dd/MM',
+                                      )}{' '}
+                                      - R$ {formatCurrency(inst.valor)}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          {action.novaDataCombinada && (
+                            <div className="mt-1 text-xs text-blue-600 font-medium">
+                              Nova Data:{' '}
+                              {format(
+                                parseISO(action.novaDataCombinada),
+                                'dd/MM/yyyy',
+                              )}
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end pt-2 border-t">
+            <Button
+              variant="outline"
+              onClick={() => setCollectionActionsOpen(false)}
+            >
+              Fechar
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

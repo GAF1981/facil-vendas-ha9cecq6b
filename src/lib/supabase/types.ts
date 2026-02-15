@@ -64,6 +64,8 @@ export type Database = {
           motivo: string | null
           nova_data_combinada: string | null
           pedido_id: number | null
+          target_forma_pagamento: string | null
+          target_vencimento: string | null
         }
         Insert: {
           acao?: string | null
@@ -77,6 +79,8 @@ export type Database = {
           motivo?: string | null
           nova_data_combinada?: string | null
           pedido_id?: number | null
+          target_forma_pagamento?: string | null
+          target_vencimento?: string | null
         }
         Update: {
           acao?: string | null
@@ -90,6 +94,8 @@ export type Database = {
           motivo?: string | null
           nova_data_combinada?: string | null
           pedido_id?: number | null
+          target_forma_pagamento?: string | null
+          target_vencimento?: string | null
         }
         Relationships: []
       }
@@ -2397,6 +2403,15 @@ export type Database = {
         Row: {
           client_id: number | null
           total_consigned_value: number | null
+        }
+        Relationships: []
+      }
+      view_collection_action_counts: {
+        Row: {
+          action_count: number | null
+          pedido_id: number | null
+          target_forma_pagamento: string | null
+          target_vencimento: string | null
         }
         Relationships: []
       }

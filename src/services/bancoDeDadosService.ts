@@ -240,7 +240,10 @@ export const bancoDeDadosService = {
     ] as number[]
 
     let paymentsMap = new Map<number, any>()
+    let collectionCountsMap = new Map<number, number>()
+
     if (orderIds.length > 0) {
+      // 1. Fetch Receipts
       const { data: paymentsData, error: paymentsError } = await supabase
         .from('RECEBIMENTOS')
         .select(
@@ -270,6 +273,25 @@ export const bancoDeDadosService = {
             createdAt: p.created_at || '',
           })
           paymentsMap.set(p.venda_id, existing)
+        })
+      }
+
+      // 2. Fetch Collection Action Counts
+      const { data: actionsData, error: actionsError } = await supabase
+        .from('acoes_cobranca')
+        .select('pedido_id')
+        .in('pedido_id', orderIds)
+
+      if (actionsError) {
+        console.error('Error fetching collection actions:', actionsError)
+      } else if (actionsData) {
+        actionsData.forEach((a) => {
+          if (a.pedido_id) {
+            collectionCountsMap.set(
+              a.pedido_id,
+              (collectionCountsMap.get(a.pedido_id) || 0) + 1,
+            )
+          }
         })
       }
     }
@@ -311,6 +333,7 @@ export const bancoDeDadosService = {
         : '-'
       const paymentDetails = paymentInfo ? paymentInfo.details : []
       const debito = saldoAPagar - valorPago
+      const collectionActionCount = collectionCountsMap.get(order.id) || 0
 
       return {
         ...order,
@@ -319,6 +342,7 @@ export const bancoDeDadosService = {
         debito: debito,
         methods: uniqueMethods,
         paymentDetails,
+        collectionActionCount,
         mediaMensal: null as number | null,
       }
     })
