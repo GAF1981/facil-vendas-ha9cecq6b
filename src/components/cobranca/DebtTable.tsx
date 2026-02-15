@@ -116,6 +116,10 @@ export function DebtTable({
     orderId: string
     clientId: number
     clientName: string
+    installment?: {
+      vencimento: string | null
+      formaPagamento: string | null
+    }
   } | null>(null)
 
   const { toast } = useToast()
@@ -171,11 +175,13 @@ export function DebtTable({
     orderId: number,
     clientId: number,
     clientName: string,
+    installment?: { vencimento: string | null; formaPagamento: string | null },
   ) => {
     setSelectedOrderForActions({
       orderId: orderId.toString(),
       clientId,
       clientName,
+      installment,
     })
   }
 
@@ -231,7 +237,7 @@ export function DebtTable({
             motivo: currentMotivo,
             telefoneCobranca: client.telefone_cobranca || client.phone,
             emailCobranca: client.email_cobranca,
-            collectionActionCount: order.collectionActionCount,
+            collectionActionCount: inst.collectionActionCount, // Granular count per installment
             orderTotal: order.netValue,
             orderPayments: order.paymentsMade.map((pd) => ({
               method: 'Pagamento',
@@ -538,7 +544,17 @@ export function DebtTable({
                     )}
 
                     <TableCell className="text-center font-mono text-xs text-muted-foreground">
-                      {row.clientTotalActions}
+                      {/* Show collection count specifically for this installment */}
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          'font-mono text-[10px] h-5',
+                          row.collectionActionCount > 0 &&
+                            'bg-blue-50 text-blue-700 border-blue-200',
+                        )}
+                      >
+                        {row.collectionActionCount}
+                      </Badge>
                     </TableCell>
 
                     {!isCobrancaMode && (
@@ -822,12 +838,17 @@ export function DebtTable({
                                 row.orderId,
                                 row.clientId,
                                 row.clientName,
+                                {
+                                  vencimento: row.vencimento,
+                                  formaPagamento: row.formaPagamento,
+                                },
                               )
                             }
                             title="Registrar Ação de Cobrança"
                           >
                             <PlusCircle className="h-4 w-4" />
                           </Button>
+                          {/* We now use the per-installment count */}
                           {row.collectionActionCount > 0 && (
                             <span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-red-600 text-[8px] text-white">
                               {row.collectionActionCount}
@@ -843,6 +864,10 @@ export function DebtTable({
                               row.orderId,
                               row.clientId,
                               row.clientName,
+                              {
+                                vencimento: row.vencimento,
+                                formaPagamento: row.formaPagamento,
+                              },
                             )
                           }
                           title="Ver Histórico"
@@ -897,6 +922,7 @@ export function DebtTable({
           clientId={selectedOrderForActions.clientId}
           clientName={selectedOrderForActions.clientName}
           onActionAdded={() => onRefresh && onRefresh()}
+          installment={selectedOrderForActions.installment}
         />
       )}
     </>

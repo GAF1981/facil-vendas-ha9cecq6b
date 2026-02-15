@@ -21,6 +21,8 @@ export interface Receivable {
   // Metadata to indicate source
   source?: 'NEGOTIATION' | 'RECEIPT' | 'ORIGINAL'
   paymentHistory?: PaymentHistoryDetail[]
+  // NEW: Granular collection action count
+  collectionActionCount: number
 }
 
 export interface CollectionInstallment {
@@ -41,7 +43,10 @@ export interface CollectionAction {
   clienteId: number | null
   clienteNome: string | null
   installments?: CollectionInstallment[]
-  motivo?: string | null // New field
+  motivo?: string | null
+  // NEW: Target fields
+  targetVencimento?: string | null
+  targetFormaPagamento?: string | null
 }
 
 export interface CollectionActionInsert {
@@ -54,7 +59,10 @@ export interface CollectionActionInsert {
   clienteId: number
   clienteNome: string
   installments?: CollectionInstallment[]
-  motivo?: string | null // New field
+  motivo?: string | null
+  // NEW: Target fields
+  targetVencimento?: string | null
+  targetFormaPagamento?: string | null
 }
 
 export interface OrderDebt {
@@ -73,7 +81,7 @@ export interface OrderDebt {
   // New columns
   formaPagamento: string // "Forma de Pagamento" (Order Level)
   valorDevido: number // "Valor Devido"
-  collectionActionCount: number // New: Count of collection actions
+  collectionActionCount: number // Legacy/Aggregate: Count of collection actions
   employeeName: string | null // NEW: Employee Name
 }
 
@@ -120,4 +128,11 @@ export interface LatestCollectionActionView {
   installment_valor: number | null
   installment_forma_pagamento: string | null
   motivo?: string | null // New field if view is updated, otherwise manual fetch
+}
+
+export interface CollectionActionCountView {
+  pedido_id: number
+  target_vencimento: string | null
+  target_forma_pagamento: string | null
+  action_count: number
 }

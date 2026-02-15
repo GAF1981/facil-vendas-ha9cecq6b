@@ -27,6 +27,11 @@ interface CollectionActionsSheetProps {
   clientId: number
   onActionAdded: () => void
   defaultShowForm?: boolean
+  // NEW: Installment context
+  installment?: {
+    vencimento: string | null
+    formaPagamento: string | null
+  }
 }
 
 export function CollectionActionsSheet({
@@ -37,6 +42,7 @@ export function CollectionActionsSheet({
   clientId,
   onActionAdded,
   defaultShowForm = false,
+  installment,
 }: CollectionActionsSheetProps) {
   const [actions, setActions] = useState<CollectionAction[]>([])
   const [loading, setLoading] = useState(false)
@@ -55,7 +61,11 @@ export function CollectionActionsSheet({
     if (!orderId) return
     setLoading(true)
     try {
-      const data = await cobrancaService.getCollectionActions(orderId)
+      // Pass filtering options if installment is present
+      const data = await cobrancaService.getCollectionActions(orderId, {
+        targetVencimento: installment?.vencimento ?? undefined,
+        targetFormaPagamento: installment?.formaPagamento ?? undefined,
+      })
       setActions(data)
     } catch (error) {
       console.error(error)
@@ -78,7 +88,7 @@ export function CollectionActionsSheet({
         dataAcao: format(new Date(), 'yyyy-MM-dd'),
       })
     }
-  }, [isOpen, orderId, defaultShowForm])
+  }, [isOpen, orderId, defaultShowForm, installment])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -112,6 +122,9 @@ export function CollectionActionsSheet({
         clienteId: clientId,
         clienteNome: clientName,
         installments: [],
+        // Save target installment details
+        targetVencimento: installment?.vencimento || null,
+        targetFormaPagamento: installment?.formaPagamento || null,
       })
 
       toast({
@@ -146,6 +159,13 @@ export function CollectionActionsSheet({
           </SheetTitle>
           <SheetDescription>
             Histórico para o Pedido <strong>#{orderId}</strong> - {clientName}
+            {installment && (
+              <div className="mt-1 text-xs text-muted-foreground border-l-2 pl-2 border-primary">
+                Parcela: {installment.formaPagamento}
+                {installment.vencimento &&
+                  ` (${format(parseISO(installment.vencimento), 'dd/MM/yyyy')})`}
+              </div>
+            )}
           </SheetDescription>
         </SheetHeader>
 
@@ -216,7 +236,8 @@ export function CollectionActionsSheet({
                 </div>
               ) : actions.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground text-sm">
-                  Nenhuma ação registrada para este pedido.
+                  Nenhuma ação registrada
+                  {installment ? ' para esta parcela' : ' para este pedido'}.
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -240,6 +261,21 @@ export function CollectionActionsSheet({
                       <div className="font-medium whitespace-pre-wrap">
                         {action.acao}
                       </div>
+                      {/* Show target details if we are viewing ALL order actions (installment not passed) */}
+                      {!installment &&
+                        (action.targetVencimento ||
+                          action.targetFormaPagamento) && (
+                          <div className="text-[10px] text-muted-foreground mt-1 border-t pt-1 border-dashed">
+                            Referente a:{' '}
+                            {action.targetFormaPagamento || 'Parcela'} -{' '}
+                            {action.targetVencimento
+                              ? format(
+                                  parseISO(action.targetVencimento),
+                                  'dd/MM',
+                                )
+                              : ''}
+                          </div>
+                        )}
                       {action.installments && action.installments.length > 0 ? (
                         <div className="mt-2 pt-2 border-t">
                           <p className="text-xs font-semibold text-muted-foreground mb-1">

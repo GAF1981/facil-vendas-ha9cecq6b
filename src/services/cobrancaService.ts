@@ -7,6 +7,7 @@ import {
   CollectionActionInsert,
   LatestCollectionActionView,
   PaymentHistoryDetail,
+  CollectionActionCountView,
 } from '@/types/cobranca'
 import { isBefore, parseISO, startOfDay, isValid } from 'date-fns'
 import { reportsService } from '@/services/reportsService'
@@ -82,6 +83,7 @@ export const cobrancaService = {
       }
     }
 
+    // Fetch action counts per client
     const clientActionCounts = new Map<number, number>()
     if (clientIds.length > 0) {
       const chunkSize = 1000
@@ -105,6 +107,28 @@ export const cobrancaService = {
       }
     }
 
+    // Fetch granular action counts per installment
+    const granularActionCounts = new Map<string, number>()
+    if (orderIds.length > 0) {
+      const chunkSize = 1000
+      for (let i = 0; i < orderIds.length; i += chunkSize) {
+        const chunk = orderIds.slice(i, i + chunkSize)
+        const { data: countsData } = await supabase
+          .from('view_collection_action_counts')
+          .select('*')
+          .in('pedido_id', chunk)
+
+        if (countsData) {
+          countsData.forEach((row: any) => {
+            // Key format: orderId|vencimento|formaPagamento
+            const key = `${row.pedido_id}|${row.target_vencimento || 'null'}|${row.target_forma_pagamento || 'null'}`
+            granularActionCounts.set(key, row.action_count)
+          })
+        }
+      }
+    }
+
+    // Latest actions map (for negotiation info)
     const actionsMap = new Map<number, LatestCollectionActionView[]>()
     const chunkSize = 1000
     for (let i = 0; i < orderIds.length; i += chunkSize) {
@@ -217,6 +241,7 @@ export const cobrancaService = {
           const vDate = row.installment_vencimento
           const parsedDate = vDate ? parseISO(vDate) : null
           const valReg = Number(row.installment_valor) || 0
+          const formaPag = row.installment_forma_pagamento || 'Outros'
 
           const specificPayments = allPayments.filter(
             (p) => p.ID_da_fêmea === instId,
@@ -240,12 +265,16 @@ export const cobrancaService = {
             isValid(parsedDate) &&
             isBefore(parsedDate, today)
 
+          // Granular Count Key
+          const countKey = `${pid}|${vDate || 'null'}|${formaPag || 'null'}`
+          const actionCount = granularActionCounts.get(countKey) || 0
+
           return {
             id: instId,
             vencimento: vDate || null,
             valorRegistrado: valReg,
             valorPago: specificPaid,
-            formaPagamento: row.installment_forma_pagamento || 'Outros',
+            formaPagamento: formaPag,
             status:
               specificPaid >= valReg - 0.05
                 ? 'PAGO'
@@ -257,12 +286,14 @@ export const cobrancaService = {
             motivo: row.motivo || null,
             source: 'NEGOTIATION',
             paymentHistory: history,
+            collectionActionCount: actionCount,
           }
         })
       } else if (paymentInfo.dbInstallments.length > 0) {
         installments = paymentInfo.dbInstallments.map((r) => {
           const instId = r.id
           const valReg = Number(r.valor_registrado) || 0
+          const formaPag = r.forma_pagamento || 'N/D'
 
           const selfPayment = Number(r.valor_pago) || 0
           const linkedPayments = allPayments.filter(
@@ -301,12 +332,16 @@ export const cobrancaService = {
             isValid(parsedDate) &&
             isBefore(parsedDate, today)
 
+          // Granular Count Key
+          const countKey = `${pid}|${vDate || 'null'}|${formaPag || 'null'}`
+          const actionCount = granularActionCounts.get(countKey) || 0
+
           return {
             id: instId,
             vencimento: vDate || null,
             valorRegistrado: valReg,
             valorPago: totalPaid,
-            formaPagamento: r.forma_pagamento || 'N/D',
+            formaPagamento: formaPag,
             status:
               totalPaid >= valReg - 0.05
                 ? 'PAGO'
@@ -318,6 +353,7 @@ export const cobrancaService = {
             motivo: r.motivo || null,
             source: 'RECEIPT',
             paymentHistory: history,
+            collectionActionCount: actionCount,
           }
         })
       } else {
@@ -339,6 +375,15 @@ export const cobrancaService = {
         const isOverdue =
           totalPaid < valReg - 0.05 && isBefore(parsedDate, today)
 
+        // For "ORIGINAL" debt, we might not have a precise target, or maybe we do if actions targeted the order date?
+        // Using "N/D" for formaPagamento as default
+        const countKey = `${pid}|${dateAcerto}|N/D`
+        // Also check if actions were logged with null target
+        const countKeyNull = `${pid}|null|null`
+        const actionCount =
+          (granularActionCounts.get(countKey) || 0) +
+          (granularActionCounts.get(countKeyNull) || 0)
+
         installments.push({
           id: -pid,
           vencimento: dateAcerto,
@@ -356,6 +401,7 @@ export const cobrancaService = {
           motivo: null,
           source: 'ORIGINAL',
           paymentHistory: history,
+          collectionActionCount: actionCount,
         })
       }
 
@@ -596,14 +642,42 @@ export const cobrancaService = {
     }
   },
 
-  async getCollectionActions(orderId: string): Promise<CollectionAction[]> {
+  async getCollectionActions(
+    orderId: string,
+    filters?: {
+      targetVencimento?: string | null
+      targetFormaPagamento?: string | null
+    },
+  ): Promise<CollectionAction[]> {
     if (!orderId) return []
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('acoes_cobranca')
       .select('*, acoes_cobranca_vencimentos(*)')
       .eq('pedido_id', Number(orderId) || 0)
       .order('data_acao', { ascending: false })
+
+    if (filters) {
+      if (filters.targetVencimento !== undefined) {
+        if (filters.targetVencimento === null) {
+          query = query.is('target_vencimento', null)
+        } else {
+          query = query.eq('target_vencimento', filters.targetVencimento)
+        }
+      }
+      if (filters.targetFormaPagamento !== undefined) {
+        if (filters.targetFormaPagamento === null) {
+          query = query.is('target_forma_pagamento', null)
+        } else {
+          query = query.eq(
+            'target_forma_pagamento',
+            filters.targetFormaPagamento,
+          )
+        }
+      }
+    }
+
+    const { data, error } = await query
 
     if (error) throw error
 
@@ -618,6 +692,8 @@ export const cobrancaService = {
       clienteId: row.cliente_id,
       clienteNome: row.cliente_nome,
       motivo: row.motivo,
+      targetVencimento: row.target_vencimento,
+      targetFormaPagamento: row.target_forma_pagamento,
       installments: row.acoes_cobranca_vencimentos?.map((inst: any) => ({
         id: inst.id,
         vencimento: inst.vencimento,
@@ -638,6 +714,8 @@ export const cobrancaService = {
       cliente_id: action.clienteId,
       cliente_nome: action.clienteNome,
       motivo: action.motivo || null,
+      target_vencimento: action.targetVencimento || null,
+      target_forma_pagamento: action.targetFormaPagamento || null,
     }
 
     const { data: insertedAction, error } = await supabase
@@ -787,40 +865,34 @@ export const cobrancaService = {
       .select('*')
       .eq('venda_id', orderId)
 
-    // Prepare items with all necessary fields for the detailed report
     const items = orderData.map((d) => ({
       produtoNome: d.MERCADORIA,
-      produtoCodigo: d['COD. PRODUTO'], // Needed for Detailed
-      tipo: d['TIPO'], // Needed for Detailed
-      precoUnitario: d['PREÇO VENDIDO'] ? parseCurrency(d['PREÇO VENDIDO']) : 0, // Ensure price is parsed
+      produtoCodigo: d['COD. PRODUTO'],
+      tipo: d['TIPO'],
+      precoUnitario: d['PREÇO VENDIDO'] ? parseCurrency(d['PREÇO VENDIDO']) : 0,
       saldoInicial: Number(d['SALDO INICIAL']) || 0,
       contagem: Number(d.CONTAGEM) || 0,
       quantVendida: Number(d['QUANTIDADE VENDIDA']) || 0,
       saldoFinal: Number(d['SALDO FINAL']) || 0,
-      valorVendido: parseCurrency(d['VALOR VENDIDO']), // Ensure robust parsing
+      valorVendido: parseCurrency(d['VALOR VENDIDO']),
       novasConsignacoes: d['NOVAS CONSIGNAÇÕES']
         ? parseCurrency(d['NOVAS CONSIGNAÇÕES'])
-        : 0, // Needed for Detailed
-      recolhido: d['RECOLHIDO'] ? parseCurrency(d['RECOLHIDO']) : 0, // Needed for Detailed
+        : 0,
+      recolhido: d['RECOLHIDO'] ? parseCurrency(d['RECOLHIDO']) : 0,
     }))
 
-    // Calculate total sold (Gross)
     const totalVendido = items.reduce(
       (acc, item) => acc + (item.valorVendido || 0),
       0,
     )
 
-    // Calculate total payable (Net) by summing 'VALOR DEVIDO' column from all items
-    // This column stores the net value (Price * Qty - Discount) for each item transaction
     const valorAcerto = orderData.reduce(
       (acc, d) => acc + (Number(d['VALOR DEVIDO']) || 0),
       0,
     )
 
-    // Calculate effective discount for display
     const valorDesconto = Math.max(0, totalVendido - valorAcerto)
 
-    // Prepare Installments (Parcelas) - typically those with valor_registrado > 0
     const installments = (paymentsData || [])
       .filter((p) => (p.valor_registrado || 0) > 0)
       .map((p) => ({
@@ -832,7 +904,6 @@ export const cobrancaService = {
     let history: any[] = []
     let monthlyAverage = 0
 
-    // Fetch history only if settlement (Red report)
     if (type === 'settlement' && clientId) {
       try {
         const { data: historyData } = await supabase
@@ -854,8 +925,6 @@ export const cobrancaService = {
           mediaMensal: h.media_mensal,
         }))
 
-        // Simplified average calc if not present in row, or just take from first row if available
-        // Usually calculated by trigger/backend
         monthlyAverage = history.length > 0 ? history[0].mediaMensal || 0 : 0
       } catch (histError) {
         console.error('Failed to fetch history for PDF', histError)
@@ -863,9 +932,6 @@ export const cobrancaService = {
     }
 
     const payload = {
-      // Differentiate the report type for the edge function
-      // 'standard' -> Green Button -> Detailed Order (A4)
-      // 'settlement' -> Red Button -> Thermal with History
       reportType: type === 'standard' ? 'detailed-order' : 'thermal-history',
       format: type === 'standard' ? 'a4' : '80mm',
       client: clientData,
@@ -874,12 +940,12 @@ export const cobrancaService = {
       date: firstItem['DATA DO ACERTO'] || new Date().toISOString(),
       orderNumber: orderId,
       totalVendido: totalVendido,
-      valorDesconto: valorDesconto, // Using calculated discount
-      valorAcerto: valorAcerto, // Using calculated net total
-      installments: installments, // For "VALORES A PAGAR (PARCELAS)"
+      valorDesconto: valorDesconto,
+      valorAcerto: valorAcerto,
+      installments: installments,
       history,
       monthlyAverage,
-      payments: [], // Only used if we want to show paid amounts list (optional in new layouts)
+      payments: [],
     }
 
     const { data: pdfBlob, error: pdfError } = await supabase.functions.invoke(
