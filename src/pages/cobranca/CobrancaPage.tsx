@@ -42,6 +42,9 @@ export default function CobrancaPage() {
   const [clientFilter, setClientFilter] = useState('')
   const [orderFilter, setOrderFilter] = useState('')
 
+  // New Filter state for Tipo de Cliente, defaulting to ATIVO
+  const [clientTypeFilter, setClientTypeFilter] = useState<string>('ATIVO')
+
   const [statusFilter, setStatusFilter] = useState<string[]>([
     'VENCIDO',
     'A VENCER',
@@ -120,6 +123,11 @@ export default function CobrancaPage() {
       result = result.filter((d) => d.city === cityFilter)
     }
 
+    // Filter by Client Type (Status)
+    if (clientTypeFilter !== 'all') {
+      result = result.filter((d) => d.clientType === clientTypeFilter)
+    }
+
     const shouldIgnoreMotoqueiroFilter = activeTab === 'motoqueiro'
 
     if (
@@ -161,6 +169,7 @@ export default function CobrancaPage() {
     cityFilter,
     motoqueiroFilter,
     activeTab,
+    clientTypeFilter,
   ])
 
   const handleToggleItem = (id: string) => {
@@ -322,6 +331,7 @@ export default function CobrancaPage() {
     setStatusFilter(['VENCIDO', 'A VENCER'])
     setCityFilter('todos')
     setMotoqueiroFilter('todos')
+    setClientTypeFilter('ATIVO')
   }
 
   return (
@@ -420,6 +430,28 @@ export default function CobrancaPage() {
                   className="pl-9"
                 />
               </div>
+            </div>
+
+            {/* New Client Type Filter */}
+            <div className="w-full md:w-[180px]">
+              <Select
+                value={clientTypeFilter}
+                onValueChange={setClientTypeFilter}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Tipo de Cliente" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="ATIVO">Ativo</SelectItem>
+                  <SelectItem value="INATIVO">Inativo</SelectItem>
+                  <SelectItem value="INATIVO - ROTA">Inativo - Rota</SelectItem>
+                  <SelectItem value="INATIVO-COBRANÇA">
+                    Inativo - Cobrança
+                  </SelectItem>
+                  <SelectItem value="BLOQUEADO">Bloqueado</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="w-full md:w-[250px]">

@@ -92,6 +92,8 @@ export function ClientTable({
         return 'secondary'
       case 'INATIVO - ROTA':
         return 'outline' // Visual differentiation
+      case 'INATIVO-COBRANÇA':
+        return 'outline' // Visual differentiation similar to Rota but might need style override
       case 'BLOQUEADO':
         return 'destructive'
       default:
@@ -117,6 +119,7 @@ export function ClientTable({
           <TableBody>
             {clients.map((client) => {
               const isDup = duplicates?.has(client.CODIGO)
+              const status = client['TIPO DE CLIENTE']
               return (
                 <TableRow
                   key={client.CODIGO}
@@ -138,7 +141,7 @@ export function ClientTable({
                         variant="outline"
                         className="w-fit text-[10px] px-1 py-0 h-4 md:hidden"
                       >
-                        {client['TIPO DE CLIENTE']?.substring(0, 3) || 'N/D'}
+                        {status?.substring(0, 3) || 'N/D'}
                       </Badge>
                     </div>
                   </TableCell>
@@ -154,10 +157,14 @@ export function ClientTable({
                   </TableCell>
                   <TableCell>
                     <Badge
-                      variant={getStatusVariant(client['TIPO DE CLIENTE'])}
-                      className="text-xs whitespace-nowrap"
+                      variant={getStatusVariant(status)}
+                      className={cn(
+                        'text-xs whitespace-nowrap',
+                        status === 'INATIVO-COBRANÇA' &&
+                          'border-orange-200 text-orange-700 bg-orange-50',
+                      )}
                     >
-                      {client['TIPO DE CLIENTE'] || 'N/D'}
+                      {status || 'N/D'}
                     </Badge>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
