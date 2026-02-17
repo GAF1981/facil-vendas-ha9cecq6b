@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { ClientTable } from '@/components/clients/ClientTable'
+import { ClientImportDialog } from '@/components/clients/ClientImportDialog'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
@@ -57,6 +58,11 @@ const ClientsPage = () => {
 
   // Permission check for Export button
   const canExport = employee?.setor?.some((s) =>
+    ['Administrador', 'Gerente'].includes(s),
+  )
+
+  // Permission check for Import button (same as export)
+  const canImport = employee?.setor?.some((s) =>
     ['Administrador', 'Gerente'].includes(s),
   )
 
@@ -256,6 +262,7 @@ const ClientsPage = () => {
           </p>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
+          {canImport && <ClientImportDialog onSuccess={fetchClients} />}
           {canExport && (
             <Button
               variant="outline"

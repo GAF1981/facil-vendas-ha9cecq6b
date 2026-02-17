@@ -302,4 +302,175 @@ export const clientsService = {
     const { data } = await supabase.from('CLIENTES').select('CODIGO, CNPJ')
     return data || []
   },
+
+  // Import related methods
+  async parseCSV(file: File): Promise<any[]> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        try {
+          const text = e.target?.result as string
+          if (!text) {
+            resolve([])
+            return
+          }
+
+          const lines = text.split(/\r?\n/).filter((line) => line.trim() !== '')
+          if (lines.length < 2) {
+            resolve([])
+            return
+          }
+
+          // Detect delimiter
+          const firstLine = lines[0]
+          const delimiter = firstLine.includes(';') ? ';' : ','
+
+          // Parse headers (trim and remove quotes)
+          const headers = lines[0]
+            .split(delimiter)
+            .map((h) => h.trim().replace(/^"|"$/g, ''))
+
+          const result: any[] = []
+
+          for (let i = 1; i < lines.length; i++) {
+            const currentLine = lines[i]
+            // Simple split regex for CSV to handle basic quoting
+            // This splits by delimiter only if not inside quotes
+            const regex = new RegExp(
+              `\\s*${delimiter}(?=(?:(?:[^"]*"){2})*[^"]*$)\\s*`,
+            )
+            const values = currentLine
+              .split(regex)
+              .map((v) => v.trim().replace(/^"|"$/g, ''))
+
+            if (values.length === headers.length) {
+              const row: any = {}
+              headers.forEach((header, index) => {
+                row[header] = values[index]
+              })
+              result.push(row)
+            }
+          }
+          resolve(result)
+        } catch (err) {
+          reject(err)
+        }
+      }
+      reader.onerror = (error) => reject(error)
+      reader.readAsText(file)
+    })
+  },
+
+  async analyzeImport(data: any[]) {
+    try {
+      const { data: existing } = await supabase
+        .from('CLIENTES')
+        .select('CODIGO')
+      const existingIds = new Set(existing?.map((c) => c.CODIGO) || [])
+
+      let toCreate = 0
+      let toUpdate = 0
+
+      data.forEach((row) => {
+        const keys = Object.keys(row)
+        const codigoKey = keys.find((k) => k.toUpperCase() === 'CODIGO')
+        const codigo = codigoKey ? Number(row[codigoKey]) : null
+
+        if (codigo && !isNaN(codigo)) {
+          if (existingIds.has(codigo)) {
+            toUpdate++
+          } else {
+            toCreate++
+          }
+        }
+      })
+
+      return { toCreate, toUpdate }
+    } catch (error) {
+      console.error('Error analyzing import:', error)
+      return { toCreate: 0, toUpdate: 0 }
+    }
+  },
+
+  async importClients(clients: any[]) {
+    // Helper to get value ignoring case of header
+    const getValue = (row: any, key: string) => {
+      const foundKey = Object.keys(row).find(
+        (k) => k.toLowerCase() === key.toLowerCase(),
+      )
+      return foundKey ? row[foundKey] : undefined
+    }
+
+    const mappedClients: ClientInsert[] = clients
+      .map((c) => {
+        return {
+          CODIGO: Number(getValue(c, 'CODIGO')),
+          'NOME CLIENTE': getValue(c, 'NOME CLIENTE') || '',
+          'RAZÃO SOCIAL': getValue(c, 'RAZÃO SOCIAL') || '',
+          CNPJ: getValue(c, 'CNPJ') || '',
+          IE: getValue(c, 'IE') || '',
+          'TIPO DE CLIENTE': getValue(c, 'TIPO DE CLIENTE') || 'ATIVO',
+          TIPO: getValue(c, 'TIPO') || '',
+          MUNICÍPIO: getValue(c, 'MUNICÍPIO') || '',
+          BAIRRO: getValue(c, 'BAIRRO') || '',
+          ENDEREÇO: getValue(c, 'ENDEREÇO') || '',
+          'CEP OFICIO': getValue(c, 'CEP OFICIO') || '',
+          'FONE 1': getValue(c, 'FONE 1') || '',
+          'FONE 2': getValue(c, 'FONE 2') || '',
+          'CONTATO 1': getValue(c, 'CONTATO 1') || '',
+          'CONTATO 2': getValue(c, 'CONTATO 2') || '',
+          EMAIL: getValue(c, 'EMAIL') || '',
+          email_cobranca: getValue(c, 'email_cobranca') || '',
+          telefone_cobranca: getValue(c, 'telefone_cobranca') || '',
+          GRUPO: getValue(c, 'GRUPO') || '',
+          'GRUPO ROTA': getValue(c, 'GRUPO ROTA') || '',
+          'FORMA DE PAGAMENTO': getValue(c, 'FORMA DE PAGAMENTO') || '',
+          'NOTA FISCAL': getValue(c, 'NOTA FISCAL') || '',
+          EXPOSITOR: getValue(c, 'EXPOSITOR') || '',
+          'OBSERVAÇÃO FIXA': getValue(c, 'OBSERVAÇÃO FIXA') || '',
+          Desconto: getValue(c, 'Desconto') || '0%',
+          'DESCONTO BRINQUEDO': getValue(c, 'DESCONTO BRINQUEDO') || '',
+          'DESCONTO ACESSORIO': getValue(c, 'DESCONTO ACESSORIO') || '',
+          'DESCONTO ACESSORIO CELULAR':
+            getValue(c, 'DESCONTO ACESSORIO CELULAR') || '',
+          'DESCONTO OUTROS': getValue(c, 'DESCONTO OUTROS') || '',
+          'ALTERAÇÃO CLIENTE': getValue(c, 'ALTERAÇÃO CLIENTE') || '',
+          situacao: getValue(c, 'situacao') || 'ATIVO',
+        } as ClientInsert
+      })
+      .filter((c) => c.CODIGO && !isNaN(c.CODIGO))
+
+    if (mappedClients.length === 0) {
+      return {
+        success: false,
+        count: 0,
+        errors: 0,
+        message: 'Nenhum cliente válido encontrado.',
+      }
+    }
+
+    const chunkSize = 100
+    let successCount = 0
+    let errorCount = 0
+
+    for (let i = 0; i < mappedClients.length; i += chunkSize) {
+      const chunk = mappedClients.slice(i, i + chunkSize)
+      const { error } = await supabase
+        .from('CLIENTES')
+        .upsert(chunk, { onConflict: 'CODIGO' })
+
+      if (error) {
+        console.error('Import error chunk', i, error)
+        errorCount += chunk.length
+      } else {
+        successCount += chunk.length
+      }
+    }
+
+    return {
+      success: errorCount === 0,
+      count: successCount,
+      errors: errorCount,
+    }
+  },
 }
