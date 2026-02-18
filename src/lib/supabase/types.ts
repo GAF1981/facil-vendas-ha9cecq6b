@@ -2464,16 +2464,8 @@ export type Database = {
       get_client_projections: {
         Args: never
         Returns: {
-          client_code: number
-          client_name: string
-          days_between_orders: number
-          days_since_last_order: number
-          index_days: number
-          monthly_average: number
-          order_date: string
-          order_id: number
-          projection: number
-          total_value: number
+          client_id: number
+          projecao: number
         }[]
       }
       get_clients_last_stock_value: {

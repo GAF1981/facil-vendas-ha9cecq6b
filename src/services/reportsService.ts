@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase/client'
 import { parseCurrency } from '@/lib/formatters'
-import { differenceInDays, parseISO, startOfDay, format } from 'date-fns'
+import { differenceInDays, startOfDay } from 'date-fns'
 import { parseDateSafe } from '@/lib/dateUtils'
 
 export interface ProjectionReportRow {
@@ -180,21 +180,28 @@ export const reportsService = {
           const diffDays = differenceInDays(currDate, prevDate)
           currentOrder.daysBetweenOrders = Math.abs(diffDays) // Ensure positive difference
 
-          const indexD = currentOrder.daysBetweenOrders / 30
-          currentOrder.indexDays = indexD
-
-          if (indexD > 0) {
-            currentOrder.monthlyAverage = currentOrder.totalValue / indexD
+          // Fallback if dates are same or weirdly close
+          if (currentOrder.daysBetweenOrders === 0) {
+            currentOrder.indexDays = 0
+            currentOrder.monthlyAverage = currentOrder.totalValue // Treat as 1 month if 0 days diff to avoid Infinity
           } else {
-            if (currentOrder.totalValue > 0) {
-              currentOrder.monthlyAverage = currentOrder.totalValue / 0.5 // Default to half month if days=0
+            const indexD = currentOrder.daysBetweenOrders / 30
+            currentOrder.indexDays = indexD
+            if (indexD > 0) {
+              currentOrder.monthlyAverage = currentOrder.totalValue / indexD
             } else {
               currentOrder.monthlyAverage = 0
             }
           }
 
-          const daysSinceLastMonths = daysSinceLastForClient / 30
-          if (currentOrder.monthlyAverage) {
+          const daysSinceLastMonths = Math.max(1, daysSinceLastForClient) / 30
+
+          if (
+            currentOrder.monthlyAverage !== null &&
+            currentOrder.monthlyAverage > 0
+          ) {
+            // Projection Logic: Monthly Avg * Months Since Last Order
+            // Or projection = (val / interval_days) * days_since
             currentOrder.projection =
               daysSinceLastMonths * currentOrder.monthlyAverage
             calculated = true

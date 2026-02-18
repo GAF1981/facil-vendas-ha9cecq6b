@@ -82,6 +82,7 @@ export const formatDateTimeBR = (
 /**
  * Robustly parses a date string that might be in ISO (YYYY-MM-DD) or BR (DD/MM/YYYY) format.
  * Returns null if parsing fails.
+ * Handles 2-digit years by assuming 2000s (fixing year 0026 issue).
  */
 export const parseDateSafe = (
   dateString: string | null | undefined,
@@ -97,17 +98,36 @@ export const parseDateSafe = (
     if (isValid(d)) return d
   }
 
-  // Try BR formats
-  const formats = ['dd/MM/yyyy HH:mm:ss', 'dd/MM/yyyy HH:mm', 'dd/MM/yyyy']
+  // Try BR formats, including 2-digit years
+  const formats = [
+    'dd/MM/yyyy HH:mm:ss',
+    'dd/MM/yyyy HH:mm',
+    'dd/MM/yyyy',
+    'dd/MM/yy HH:mm:ss',
+    'dd/MM/yy HH:mm',
+    'dd/MM/yy',
+  ]
 
   for (const fmt of formats) {
     const d = parse(str, fmt, new Date(), { locale: ptBR })
-    if (isValid(d)) return d
+    if (isValid(d)) {
+      // Fix 2-digit year issue: if year is parsed as e.g. 0026, convert to 2026
+      if (d.getFullYear() < 1900) {
+        d.setFullYear(d.getFullYear() + 2000)
+      }
+      return d
+    }
   }
 
   // Last resort: standard Date parsing (might work for some ISO variations or US formats)
   const fallback = new Date(str)
-  if (isValid(fallback)) return fallback
+  if (isValid(fallback)) {
+    // Also apply year fix for fallback parsing if necessary
+    if (fallback.getFullYear() < 1900) {
+      fallback.setFullYear(fallback.getFullYear() + 2000)
+    }
+    return fallback
+  }
 
   return null
 }
