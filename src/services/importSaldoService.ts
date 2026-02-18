@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase/client'
 import { bancoDeDadosService } from '@/services/bancoDeDadosService'
-import { format } from 'date-fns'
+import { format, parse, isValid } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 
 export interface ImportResult {
   successCount: number
@@ -30,7 +31,6 @@ const HEADER_SYNONYMS = {
     'CODIGO',
     'CÓDIGO',
     'CÓDIGO DO CLIENTE',
-    // Typos and variations
     'CODIGO DO CLIENE',
     'CÓDIGO DO CLIENE',
     'COD CLIENE',
@@ -54,6 +54,15 @@ const HEADER_SYNONYMS = {
     'CÓDIGO DO PRODUTO',
   ],
   quantity: ['SALDO INICIAL', 'QUANTIDADE', 'QTD', 'QTDE', 'CONTAGEM', 'SALDO'],
+  date: [
+    'DATA DO ACERTO',
+    'DATA ACERTO',
+    'DATA',
+    'DT ACERTO',
+    'DATA IMPORTACAO',
+    'DATA SALDO',
+    'DT. ACERTO',
+  ],
 }
 
 // Robust normalization: trim, uppercase, remove accents, collapse spaces
@@ -65,6 +74,30 @@ const normalizeHeader = (header: string) => {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '') // Remove accents
     .replace(/\s+/g, ' ') // Collapse multiple spaces
+}
+
+const parseDateStr = (dateStr: string): Date | null => {
+  if (!dateStr) return null
+  const cleanStr = dateStr.trim()
+
+  const formats = [
+    'dd/MM/yyyy',
+    'd/M/yyyy',
+    'yyyy-MM-dd',
+    'dd-MM-yyyy',
+    'd-M-yyyy',
+  ]
+
+  for (const fmt of formats) {
+    const d = parse(cleanStr, fmt, new Date(), { locale: ptBR })
+    if (isValid(d)) return d
+  }
+
+  // Try standard JS date parser as fallback (e.g. for ISO strings)
+  const d = new Date(cleanStr)
+  if (isValid(d)) return d
+
+  return null
 }
 
 // Helper function to fetch all rows from a table (handling pagination/limit)
@@ -109,21 +142,17 @@ export const importSaldoService = {
             return
           }
 
-          // Detect delimiter (comma or semicolon)
           const firstLine = lines[0]
           const delimiter = firstLine.includes(';') ? ';' : ','
 
-          // Parse Headers
           const headers = firstLine
             .split(delimiter)
             .map((h) => h.trim().replace(/^"|"$/g, ''))
 
           const result: CsvRow[] = []
 
-          // Parse Rows
           for (let i = 1; i < lines.length; i++) {
             const currentLine = lines[i]
-            // Regex to handle delimiters inside quotes
             const regex = new RegExp(
               `\\s*${delimiter}(?=(?:(?:[^"]*"){2})*[^"]*$)\\s*`,
             )
@@ -167,8 +196,10 @@ export const importSaldoService = {
     clientCol: string | null
     productCol: string | null
     qtyCol: string | null
+    dateCol: string | null
   } {
-    if (!sampleRow) return { clientCol: null, productCol: null, qtyCol: null }
+    if (!sampleRow)
+      return { clientCol: null, productCol: null, qtyCol: null, dateCol: null }
 
     const headers = Object.keys(sampleRow)
     const normalizedHeaders = headers.map((h) => ({
@@ -177,8 +208,6 @@ export const importSaldoService = {
     }))
 
     const findColumn = (synonyms: string[]) => {
-      // Synonyms are already "clean", but we normalize them just in case
-      // to match the normalization logic of headers (e.g. spaces)
       const normalizedSynonyms = synonyms.map(normalizeHeader)
       const match = normalizedHeaders.find((h) =>
         normalizedSynonyms.includes(h.normalized),
@@ -190,6 +219,7 @@ export const importSaldoService = {
       clientCol: findColumn(HEADER_SYNONYMS.clientCode),
       productCol: findColumn(HEADER_SYNONYMS.productCode),
       qtyCol: findColumn(HEADER_SYNONYMS.quantity),
+      dateCol: findColumn(HEADER_SYNONYMS.date),
     }
   },
 
@@ -210,7 +240,9 @@ export const importSaldoService = {
     }
 
     // 1. Identify Columns
-    const { clientCol, productCol, qtyCol } = this.identifyColumns(csvData[0])
+    const { clientCol, productCol, qtyCol, dateCol } = this.identifyColumns(
+      csvData[0],
+    )
 
     if (!clientCol) {
       result.errors.push(
@@ -232,7 +264,7 @@ export const importSaldoService = {
       return result
     }
 
-    // 2. Fetch Reference Data (ALL rows to avoid silent failures on large datasets)
+    // 2. Fetch Reference Data
     let clients: any[] = []
     try {
       clients = await fetchAllRows('CLIENTES', 'CODIGO, "NOME CLIENTE"')
@@ -253,7 +285,7 @@ export const importSaldoService = {
       throw new Error(`Falha ao carregar lista de produtos: ${e.message}`)
     }
 
-    // Maps for Product Lookup with Priority: codigo_interno > CODIGO > ID
+    // Maps for Product Lookup
     const mapCodigoInterno = new Map<string, ProductInfo>()
     const mapCodigoLegacy = new Map<number, ProductInfo>()
     const mapId = new Map<number, ProductInfo>()
@@ -269,7 +301,6 @@ export const importSaldoService = {
       mapId.set(p.ID, info)
       if (p.CODIGO) mapCodigoLegacy.set(p.CODIGO, info)
       if (p.codigo_interno) {
-        // Normalize internal code for map keys: trim and ensure string
         mapCodigoInterno.set(String(p.codigo_interno).trim(), info)
       }
     })
@@ -284,11 +315,13 @@ export const importSaldoService = {
           productName: string
           quantity: number
           legacyCode: number | null
+          date: Date
         }[]
       }
     >()
 
-    let rowIndex = 1 // 1-based index for user display (skipping header)
+    let rowIndex = 1
+    const defaultDate = new Date()
 
     for (const row of csvData) {
       rowIndex++
@@ -296,6 +329,7 @@ export const importSaldoService = {
       const clientValRaw = row[clientCol]?.trim() || ''
       const productValRaw = row[productCol]?.trim() || ''
       const qtyValRaw = row[qtyCol]?.trim() || ''
+      const dateValRaw = dateCol ? row[dateCol]?.trim() : ''
 
       if (!clientValRaw || !productValRaw || !qtyValRaw) {
         if (clientValRaw || productValRaw || qtyValRaw) {
@@ -303,6 +337,27 @@ export const importSaldoService = {
           result.errors.push(`Linha ${rowIndex}: Dados incompletos.`)
         }
         continue
+      }
+
+      // Date Parsing & Validation
+      let finalDate = defaultDate
+      if (dateCol) {
+        if (!dateValRaw) {
+          result.failureCount++
+          result.errors.push(
+            `Linha ${rowIndex}: Data do Acerto é obrigatória (coluna identificada mas vazia).`,
+          )
+          continue
+        }
+        const parsed = parseDateStr(dateValRaw)
+        if (!parsed) {
+          result.failureCount++
+          result.errors.push(
+            `Linha ${rowIndex}: Formato de data inválido '${dateValRaw}'. Use DD/MM/AAAA.`,
+          )
+          continue
+        }
+        finalDate = parsed
       }
 
       // Client Lookup
@@ -316,13 +371,11 @@ export const importSaldoService = {
       }
       const clientName = clientMap.get(clientCode)!
 
-      // Product Lookup Priority
+      // Product Lookup
       let productInfo: ProductInfo | undefined
 
-      // 1. Try codigo_interno (Exact String Match)
       productInfo = mapCodigoInterno.get(productValRaw)
 
-      // 2. Try CODIGO (Legacy Number)
       if (!productInfo) {
         const numericCode = parseInt(productValRaw)
         if (!isNaN(numericCode)) {
@@ -330,7 +383,6 @@ export const importSaldoService = {
         }
       }
 
-      // 3. Try ID (PK Number)
       if (!productInfo) {
         const numericId = parseInt(productValRaw)
         if (!isNaN(numericId)) {
@@ -368,18 +420,12 @@ export const importSaldoService = {
         productName: productInfo.name,
         quantity,
         legacyCode: productInfo.codigo_legacy,
+        date: finalDate,
       })
     }
 
     // 4. Batch Execution
-    const today = new Date()
-    const dateStr = format(today, 'yyyy-MM-dd')
-    const timeStr = format(today, 'HH:mm:ss')
-    const isoStr = today.toISOString()
-
     const groups = Array.from(validGroups.entries())
-
-    // Process clients in chunks
     const CLIENT_BATCH_SIZE = 10
 
     for (let i = 0; i < groups.length; i += CLIENT_BATCH_SIZE) {
@@ -389,48 +435,59 @@ export const importSaldoService = {
         batch.map(async ([clientCode, groupData]) => {
           try {
             const orderId = await bancoDeDadosService.reserveNextOrderNumber()
-
-            // If items are too many for one client, split inserts
             const ITEM_BATCH_SIZE = 500
+
             for (let j = 0; j < groupData.items.length; j += ITEM_BATCH_SIZE) {
               const chunk = groupData.items.slice(j, j + ITEM_BATCH_SIZE)
 
-              const bancoInserts = chunk.map((item) => ({
-                'NÚMERO DO PEDIDO': orderId,
-                'CÓDIGO DO CLIENTE': clientCode,
-                CLIENTE: groupData.clientName,
-                'COD. PRODUTO': item.legacyCode,
-                MERCADORIA: item.productName,
-                'SALDO FINAL': item.quantity,
-                'SALDO INICIAL': 0,
-                'QUANTIDADE VENDIDA': '0',
-                TIPO: 'SALDO INICIAL',
-                'DATA DO ACERTO': dateStr,
-                'HORA DO ACERTO': timeStr,
-                'DATA E HORA': isoStr,
-                'CODIGO FUNCIONARIO': employeeId,
-                FUNCIONÁRIO: employeeName,
-                'VALOR VENDIDO': '0',
-                'PREÇO VENDIDO': '0',
-                'VALOR VENDA PRODUTO': '0',
-                FORMA: 'IMPORTAÇÃO CSV',
-                CONTAGEM: 0,
-                'NOVAS CONSIGNAÇÕES': '0',
-                RECOLHIDO: '0',
-              }))
+              const bancoInserts = chunk.map((item) => {
+                const dateStr = format(item.date, 'yyyy-MM-dd')
+                // For simplicity in imports, assume 12:00 PM if time is not relevant, or keep it consistent
+                // If using date-fns parse, time is 00:00:00 usually.
+                // We'll use 12:00:00 to be safe with timezone shifts or just existing time
+                const timeStr = '12:00:00'
+                const isoStr = item.date.toISOString()
 
-              const ajusteInserts = chunk.map((item) => ({
-                cliente_id: clientCode,
-                cliente_nome: groupData.clientName,
-                produto_id: item.productId,
-                quantidade_alterada: item.quantity,
-                saldo_anterior: 0,
-                saldo_novo: item.quantity,
-                vendedor_id: employeeId,
-                vendedor_nome: employeeName,
-                data_acerto: isoStr,
-                numero_pedido: orderId,
-              }))
+                return {
+                  'NÚMERO DO PEDIDO': orderId,
+                  'CÓDIGO DO CLIENTE': clientCode,
+                  CLIENTE: groupData.clientName,
+                  'COD. PRODUTO': item.legacyCode,
+                  MERCADORIA: item.productName,
+                  'SALDO FINAL': item.quantity,
+                  'SALDO INICIAL': 0,
+                  'QUANTIDADE VENDIDA': '0',
+                  TIPO: 'SALDO INICIAL',
+                  'DATA DO ACERTO': dateStr,
+                  'HORA DO ACERTO': timeStr,
+                  'DATA E HORA': isoStr,
+                  'CODIGO FUNCIONARIO': employeeId,
+                  FUNCIONÁRIO: employeeName,
+                  'VALOR VENDIDO': '0',
+                  'PREÇO VENDIDO': '0',
+                  'VALOR VENDA PRODUTO': '0',
+                  FORMA: 'IMPORTAÇÃO CSV',
+                  CONTAGEM: 0,
+                  'NOVAS CONSIGNAÇÕES': '0',
+                  RECOLHIDO: '0',
+                }
+              })
+
+              const ajusteInserts = chunk.map((item) => {
+                const isoStr = item.date.toISOString()
+                return {
+                  cliente_id: clientCode,
+                  cliente_nome: groupData.clientName,
+                  produto_id: item.productId,
+                  quantidade_alterada: item.quantity,
+                  saldo_anterior: 0,
+                  saldo_novo: item.quantity,
+                  vendedor_id: employeeId,
+                  vendedor_nome: employeeName,
+                  data_acerto: isoStr,
+                  numero_pedido: orderId,
+                }
+              })
 
               const { error: err1 } = await supabase
                 .from('BANCO_DE_DADOS')

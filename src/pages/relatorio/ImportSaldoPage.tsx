@@ -43,6 +43,7 @@ export default function ImportSaldoPage() {
     clientCol: string | null
     productCol: string | null
     qtyCol: string | null
+    dateCol: string | null
   } | null>(null)
 
   // Security Check: Only 'Administrador' sector allowed
@@ -220,7 +221,7 @@ export default function ImportSaldoPage() {
           <ul className="text-sm text-blue-800 list-disc pl-5 space-y-1">
             <li>
               <strong>Cliente:</strong> CODIGO, CODIGO DO CLIENTE, ID CLIENTE,
-              CLIENTE (ou variações como 'CODIGO DO CLIENE')
+              CLIENTE
             </li>
             <li>
               <strong>Produto:</strong> CÓDIGO DO PRODUTO, CODIGO INTERNO,
@@ -228,6 +229,10 @@ export default function ImportSaldoPage() {
             </li>
             <li>
               <strong>Quantidade:</strong> QUANTIDADE, QTD, SALDO INICIAL, SALDO
+            </li>
+            <li>
+              <strong>Data do Acerto:</strong> DATA DO ACERTO, DATA, DATA
+              IMPORTACAO (Formato: DD/MM/AAAA)
             </li>
           </ul>
         </div>
@@ -296,7 +301,7 @@ export default function ImportSaldoPage() {
             </div>
 
             {detectedColumns && (
-              <div className="grid grid-cols-3 gap-2 text-sm border p-3 rounded bg-muted/20">
+              <div className="grid grid-cols-4 gap-2 text-sm border p-3 rounded bg-muted/20">
                 <div
                   className={`p-2 rounded ${detectedColumns.clientCol ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
                 >
@@ -314,6 +319,12 @@ export default function ImportSaldoPage() {
                 >
                   <span className="font-bold block">Quantidade:</span>
                   {detectedColumns.qtyCol || 'Não identificado'}
+                </div>
+                <div
+                  className={`p-2 rounded ${detectedColumns.dateCol ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}
+                >
+                  <span className="font-bold block">Data:</span>
+                  {detectedColumns.dateCol || 'Usar data atual'}
                 </div>
               </div>
             )}
@@ -396,6 +407,11 @@ export default function ImportSaldoPage() {
                           <span className="text-red-500">QTD (?)</span>
                         )}
                       </th>
+                      <th className="p-2 text-left">
+                        {detectedColumns.dateCol || (
+                          <span className="text-yellow-600">DATA (Hoje)</span>
+                        )}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -414,6 +430,11 @@ export default function ImportSaldoPage() {
                         <td className="p-2">
                           {detectedColumns.qtyCol
                             ? row[detectedColumns.qtyCol]
+                            : '-'}
+                        </td>
+                        <td className="p-2">
+                          {detectedColumns.dateCol
+                            ? row[detectedColumns.dateCol]
                             : '-'}
                         </td>
                       </tr>
