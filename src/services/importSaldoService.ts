@@ -32,6 +32,7 @@ const HEADER_SYNONYMS = {
     'CÓDIGO DO CLIENTE',
   ],
   productCode: [
+    'CODIGO DO PRODUTO', // Requested explicit support
     'CODIGO INTERNO',
     'COD. INTERNO',
     'CÓD. INTERNO',
@@ -44,11 +45,13 @@ const HEADER_SYNONYMS = {
     'ID',
     'CÓDIGO INTERNO',
     'CÓDIGO PRODUTO',
+    'CÓDIGO DO PRODUTO',
   ],
   quantity: ['SALDO INICIAL', 'QUANTIDADE', 'QTD', 'QTDE', 'CONTAGEM', 'SALDO'],
 }
 
 const normalizeHeader = (header: string) => {
+  if (!header) return ''
   return header
     .trim()
     .toUpperCase()
@@ -100,8 +103,10 @@ export const importSaldoService = {
               const row: CsvRow = {}
               let hasData = false
               headers.forEach((header, index) => {
+                // Ensure we don't access out of bounds and handle empty headers safely
+                const key = header || `Column_${index}`
                 const val = values[index] || ''
-                row[header] = val
+                row[key] = val
                 if (val) hasData = true
               })
               if (hasData) {
@@ -111,10 +116,18 @@ export const importSaldoService = {
           }
           resolve(result)
         } catch (err) {
-          reject(err)
+          console.error('CSV Parse Error:', err)
+          reject(
+            new Error(
+              'Falha ao processar arquivo CSV. Verifique a formatação.',
+            ),
+          )
         }
       }
-      reader.onerror = (error) => reject(error)
+      reader.onerror = (error) => {
+        console.error('FileReader Error:', error)
+        reject(new Error('Erro ao ler o arquivo.'))
+      }
       reader.readAsText(file)
     })
   },
@@ -124,6 +137,8 @@ export const importSaldoService = {
     productCol: string | null
     qtyCol: string | null
   } {
+    if (!sampleRow) return { clientCol: null, productCol: null, qtyCol: null }
+
     const headers = Object.keys(sampleRow)
     const normalizedHeaders = headers.map((h) => ({
       original: h,
@@ -156,7 +171,7 @@ export const importSaldoService = {
       errors: [],
     }
 
-    if (csvData.length === 0) {
+    if (!csvData || csvData.length === 0) {
       result.errors.push('O arquivo CSV está vazio ou inválido.')
       return result
     }
@@ -186,7 +201,6 @@ export const importSaldoService = {
 
     // 2. Fetch Reference Data
     // We fetch ALL needed data to memory for robustness and speed
-    // This is safe for up to ~10k-50k clients/products. For much larger datasets, we would need pagination/batch lookup.
     const { data: clients, error: clientsError } = await supabase
       .from('CLIENTES')
       .select('CODIGO, "NOME CLIENTE"')
@@ -222,8 +236,8 @@ export const importSaldoService = {
       mapId.set(p.ID, info)
       if (p.CODIGO) mapCodigoLegacy.set(p.CODIGO, info)
       if (p.codigo_interno) {
-        // Normalize internal code for map keys: trim
-        mapCodigoInterno.set(p.codigo_interno.trim(), info)
+        // Normalize internal code for map keys: trim and ensure string
+        mapCodigoInterno.set(String(p.codigo_interno).trim(), info)
       }
     })
 
@@ -252,8 +266,11 @@ export const importSaldoService = {
       const qtyValRaw = row[qtyCol]?.trim() || ''
 
       if (!clientValRaw || !productValRaw || !qtyValRaw) {
-        result.failureCount++
-        result.errors.push(`Linha ${rowIndex}: Dados incompletos.`)
+        // Only count as failure if at least one field is present but others missing
+        if (clientValRaw || productValRaw || qtyValRaw) {
+          result.failureCount++
+          result.errors.push(`Linha ${rowIndex}: Dados incompletos.`)
+        }
         continue
       }
 
@@ -271,10 +288,8 @@ export const importSaldoService = {
       // Product Lookup Priority
       let productInfo: ProductInfo | undefined
 
-      // 1. Try codigo_interno (Exact String Match - Case Sensitive often, but we might want case insensitive?
-      // User story says: "normalize... trimming whitespace". It doesn't explicitly say case insensitive for values, only headers.
-      // But standard practice for codes is Case Sensitive or at least exact. We use trimmed string.
-      // Checking map keys which are trimmed.
+      // 1. Try codigo_interno (Exact String Match)
+      // The requirement asks to use "código do produto" column value for lookup against `codigo_interno`.
       productInfo = mapCodigoInterno.get(productValRaw)
 
       // 2. Try CODIGO (Legacy Number)
@@ -296,7 +311,7 @@ export const importSaldoService = {
       if (!productInfo) {
         result.failureCount++
         result.errors.push(
-          `Linha ${rowIndex}: Produto com identificador '${productValRaw}' não encontrado.`,
+          `Linha ${rowIndex}: Produto com identificador '${productValRaw}' não encontrado (Tentado: Código Interno, Código Antigo, ID).`,
         )
         continue
       }
@@ -355,7 +370,7 @@ export const importSaldoService = {
                 'NÚMERO DO PEDIDO': orderId,
                 'CÓDIGO DO CLIENTE': clientCode,
                 CLIENTE: groupData.clientName,
-                'COD. PRODUTO': item.legacyCode,
+                'COD. PRODUTO': item.legacyCode, // Database often uses legacy code for historical reasons, or we could use ID
                 MERCADORIA: item.productName,
                 'SALDO FINAL': item.quantity,
                 'SALDO INICIAL': 0,

@@ -27,6 +27,7 @@ import {
 } from '@/services/importSaldoService'
 import { useToast } from '@/hooks/use-toast'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
 export default function ImportSaldoPage() {
   const { employee } = useUserStore()
@@ -35,6 +36,7 @@ export default function ImportSaldoPage() {
 
   const [file, setFile] = useState<File | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [isReading, setIsReading] = useState(false)
   const [result, setResult] = useState<ImportResult | null>(null)
   const [csvPreview, setCsvPreview] = useState<CsvRow[]>([])
   const [detectedColumns, setDetectedColumns] = useState<{
@@ -92,6 +94,7 @@ export default function ImportSaldoPage() {
     setFile(selectedFile)
     setResult(null)
     setDetectedColumns(null)
+    setIsReading(true)
 
     // Parse preview
     try {
@@ -101,19 +104,23 @@ export default function ImportSaldoPage() {
         setDetectedColumns(importSaldoService.identifyColumns(parsed[0]))
       } else {
         setCsvPreview([])
+        setDetectedColumns(null)
         toast({
           title: 'Arquivo Vazio',
           description: 'Não foi possível ler dados do arquivo.',
           variant: 'destructive',
         })
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error(error)
       toast({
         title: 'Erro ao ler arquivo',
-        description: 'Não foi possível ler o arquivo CSV.',
+        description: error.message || 'Não foi possível ler o arquivo CSV.',
         variant: 'destructive',
       })
       setFile(null)
+    } finally {
+      setIsReading(false)
     }
   }
 
@@ -168,6 +175,20 @@ export default function ImportSaldoPage() {
     }
   }
 
+  const hasMissingColumns =
+    detectedColumns &&
+    (!detectedColumns.clientCol ||
+      !detectedColumns.productCol ||
+      !detectedColumns.qtyCol)
+
+  const canProcess =
+    file &&
+    !result &&
+    !isReading &&
+    detectedColumns?.clientCol &&
+    detectedColumns?.productCol &&
+    detectedColumns?.qtyCol
+
   return (
     <div className="space-y-6 animate-fade-in p-4 sm:p-6 pb-20">
       <div className="flex items-center gap-4">
@@ -202,19 +223,13 @@ export default function ImportSaldoPage() {
               CLIENTE
             </li>
             <li>
-              <strong>Produto:</strong> CODIGO INTERNO, ID, CODIGO, PRODUTO,
-              CODIGO PRODUTO
+              <strong>Produto:</strong> CÓDIGO DO PRODUTO, CODIGO INTERNO,
+              PRODUTO, CODIGO
             </li>
             <li>
               <strong>Quantidade:</strong> QUANTIDADE, QTD, SALDO INICIAL, SALDO
             </li>
           </ul>
-          <p className="text-sm text-blue-700 mt-2 font-medium">
-            Prioridade de Busca do Produto:
-          </p>
-          <p className="text-sm text-blue-700">
-            1. Código Interno &rarr; 2. Código (Legado) &rarr; 3. ID do Sistema
-          </p>
         </div>
       </div>
 
@@ -234,7 +249,14 @@ export default function ImportSaldoPage() {
                   : 'border-muted-foreground/20 hover:border-primary/50'
               }`}
             >
-              {file ? (
+              {isReading ? (
+                <div className="space-y-4">
+                  <Loader2 className="h-12 w-12 text-primary mx-auto animate-spin" />
+                  <p className="font-medium text-lg text-muted-foreground">
+                    Lendo arquivo...
+                  </p>
+                </div>
+              ) : file ? (
                 <div className="space-y-2">
                   <FileText className="h-12 w-12 text-primary mx-auto" />
                   <p className="font-medium text-lg">{file.name}</p>
@@ -296,31 +318,52 @@ export default function ImportSaldoPage() {
               </div>
             )}
 
-            {file &&
-              !result &&
-              detectedColumns?.clientCol &&
-              detectedColumns?.productCol &&
-              detectedColumns?.qtyCol && (
-                <div className="flex justify-end">
-                  <Button
-                    onClick={handleProcess}
-                    disabled={isProcessing}
-                    className="w-full sm:w-auto"
-                  >
-                    {isProcessing ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />{' '}
-                        Processando...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="mr-2 h-4 w-4" /> Processar
-                        Importação
-                      </>
+            {/* Error Feedback specifically for missing Product Column or others */}
+            {hasMissingColumns && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Colunas Obrigatórias Faltando</AlertTitle>
+                <AlertDescription>
+                  <ul className="list-disc pl-5 mt-2 space-y-1">
+                    {!detectedColumns.clientCol && (
+                      <li>Coluna de Cliente não identificada.</li>
                     )}
-                  </Button>
-                </div>
-              )}
+                    {!detectedColumns.productCol && (
+                      <li>
+                        Não foi possível identificar a coluna de produto.
+                        Certifique-se de que o cabeçalho está como 'código do
+                        produto' ou 'codigo_interno'.
+                      </li>
+                    )}
+                    {!detectedColumns.qtyCol && (
+                      <li>Coluna de Quantidade não identificada.</li>
+                    )}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {canProcess && (
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleProcess}
+                  disabled={isProcessing}
+                  className="w-full sm:w-auto"
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />{' '}
+                      Processando...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="mr-2 h-4 w-4" /> Processar
+                      Importação
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -334,39 +377,41 @@ export default function ImportSaldoPage() {
                 <table className="w-full text-sm border-collapse">
                   <thead>
                     <tr className="border-b bg-muted/50">
-                      {detectedColumns.clientCol && (
-                        <th className="p-2 text-left">
-                          {detectedColumns.clientCol} (Cliente)
-                        </th>
-                      )}
-                      {detectedColumns.productCol && (
-                        <th className="p-2 text-left">
-                          {detectedColumns.productCol} (Produto)
-                        </th>
-                      )}
-                      {detectedColumns.qtyCol && (
-                        <th className="p-2 text-left">
-                          {detectedColumns.qtyCol} (Qtd)
-                        </th>
-                      )}
+                      <th className="p-2 text-left">
+                        {detectedColumns.clientCol || (
+                          <span className="text-red-500">CLIENTE (?)</span>
+                        )}
+                      </th>
+                      <th className="p-2 text-left">
+                        {detectedColumns.productCol || (
+                          <span className="text-red-500">PRODUTO (?)</span>
+                        )}
+                      </th>
+                      <th className="p-2 text-left">
+                        {detectedColumns.qtyCol || (
+                          <span className="text-red-500">QTD (?)</span>
+                        )}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {csvPreview.map((row, idx) => (
                       <tr key={idx} className="border-b">
-                        {detectedColumns.clientCol && (
-                          <td className="p-2">
-                            {row[detectedColumns.clientCol]}
-                          </td>
-                        )}
-                        {detectedColumns.productCol && (
-                          <td className="p-2">
-                            {row[detectedColumns.productCol]}
-                          </td>
-                        )}
-                        {detectedColumns.qtyCol && (
-                          <td className="p-2">{row[detectedColumns.qtyCol]}</td>
-                        )}
+                        <td className="p-2">
+                          {detectedColumns.clientCol
+                            ? row[detectedColumns.clientCol]
+                            : '-'}
+                        </td>
+                        <td className="p-2">
+                          {detectedColumns.productCol
+                            ? row[detectedColumns.productCol]
+                            : '-'}
+                        </td>
+                        <td className="p-2">
+                          {detectedColumns.qtyCol
+                            ? row[detectedColumns.qtyCol]
+                            : '-'}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
