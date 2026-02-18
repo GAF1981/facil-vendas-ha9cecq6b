@@ -21,20 +21,17 @@ export default function RotaPage() {
   const [loading, setLoading] = useState(false)
   const [sellers, setSellers] = useState<Employee[]>([])
 
-  // Selection Mode State (Simplified view)
   const [isSelectionMode, setIsSelectionMode] = useState(false)
 
-  // Bulk Fill State
   const [isBulkFillOpen, setIsBulkFillOpen] = useState(false)
 
-  // Filters
   const { selectedEmployeeIds, setSelectedEmployeeIds } = useRotaFilterStore()
   const [filters, setFilters] = useState<RotaFilterState>({
     search: '',
     x_na_rota: 'todos',
     agregado: 'todos',
     vendedor: selectedEmployeeIds,
-    proximo_vendedor: 'todos', // Initialize new filter
+    proximo_vendedor: 'todos',
     municipio: 'todos',
     grupo_rota: 'todos',
     debito_min: '',
@@ -47,13 +44,12 @@ export default function RotaPage() {
     vencimento_status: 'todos',
   })
 
-  // Update store when filters change
   useEffect(() => {
     setSelectedEmployeeIds(filters.vendedor)
   }, [filters.vendedor, setSelectedEmployeeIds])
 
   const [sortConfig, setSortConfig] = useState<SortConfig>({
-    key: 'rowNumber', // stable sort default
+    key: 'rowNumber',
     direction: 'asc',
   })
 
@@ -63,7 +59,6 @@ export default function RotaPage() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { employee: loggedInUser } = useUserStore()
 
-  // Load Initial Data
   useEffect(() => {
     loadData()
   }, [])
@@ -81,10 +76,6 @@ export default function RotaPage() {
       setLastRota(last)
       setSellers(sellersData.data.filter((e) => e.situacao === 'ATIVO'))
 
-      // If there is an active rota, load its data
-      // If not, maybe load clients for preparation?
-      // Usually RotaPage shows the active rota or "No active rota" state.
-      // But we load rows regardless to show client list potentially.
       const rotaRows = await rotaService.getFullRotaData(active)
       setRows(rotaRows)
     } catch (error) {
@@ -99,7 +90,6 @@ export default function RotaPage() {
     }
   }
 
-  // Derived Lists for Filters
   const municipios = useMemo(() => {
     const m = new Set<string>()
     rows.forEach((r) => r.client.MUNICÍPIO && m.add(r.client.MUNICÍPIO))
@@ -112,10 +102,8 @@ export default function RotaPage() {
     return Array.from(g).sort()
   }, [rows])
 
-  // Filter Logic
   const filteredRows = useMemo(() => {
     return rows.filter((row) => {
-      // Search
       if (filters.search) {
         const s = filters.search.toLowerCase()
         const matchesSearch =
@@ -124,7 +112,6 @@ export default function RotaPage() {
         if (!matchesSearch) return false
       }
 
-      // X na Rota
       if (filters.x_na_rota !== 'todos') {
         if (filters.x_na_rota === '>3') {
           if (row.x_na_rota <= 3) return false
@@ -133,9 +120,7 @@ export default function RotaPage() {
         }
       }
 
-      // Vendedor
       if (filters.vendedor.length > 0) {
-        // If filter has vendors selected, row must match one of them
         if (
           !row.vendedor_id ||
           !filters.vendedor.includes(row.vendedor_id.toString())
@@ -144,7 +129,6 @@ export default function RotaPage() {
         }
       }
 
-      // Próximo Vendedor
       if (filters.proximo_vendedor !== 'todos') {
         if (
           !row.proximo_vendedor_id ||
@@ -154,26 +138,22 @@ export default function RotaPage() {
         }
       }
 
-      // Municipio
       if (
         filters.municipio !== 'todos' &&
         row.client.MUNICÍPIO !== filters.municipio
       )
         return false
 
-      // Grupo Rota
       if (
         filters.grupo_rota !== 'todos' &&
         row.client['GRUPO ROTA'] !== filters.grupo_rota
       )
         return false
 
-      // Vencimento Status
       if (filters.vencimento_status !== 'todos') {
         if (row.vencimento_status !== filters.vencimento_status) return false
       }
 
-      // Numeric Filters
       if (filters.debito_min && row.debito < parseFloat(filters.debito_min))
         return false
       if (filters.debito_max && row.debito > parseFloat(filters.debito_max))
@@ -183,13 +163,11 @@ export default function RotaPage() {
     })
   }, [rows, filters])
 
-  // Sort Logic
   const sortedRows = useMemo(() => {
     const sorted = [...filteredRows].sort((a, b) => {
       let valA: any = a[sortConfig.key as keyof RotaRow]
       let valB: any = b[sortConfig.key as keyof RotaRow]
 
-      // Handle specific nested keys or computed
       if (sortConfig.key === 'municipio') {
         valA = a.client.MUNICÍPIO || ''
         valB = b.client.MUNICÍPIO || ''
@@ -201,7 +179,6 @@ export default function RotaPage() {
         valB = b.client['CEP OFICIO'] || ''
       }
 
-      // Null handling
       if (valA === null) valA = ''
       if (valB === null) valB = ''
 
@@ -224,7 +201,6 @@ export default function RotaPage() {
     async (clientId: number, field: string, value: any) => {
       if (!activeRota) return
 
-      // Optimistic update
       setRows((prev) =>
         prev.map((r) => {
           if (r.client.CODIGO === clientId) {
@@ -237,7 +213,6 @@ export default function RotaPage() {
       try {
         let result = null
         if (field === 'vendedor_id') {
-          // Check previous value for tasks update logic if needed
           result = await rotaService.upsertRotaItem({
             rota_id: activeRota.id,
             cliente_id: clientId,
@@ -276,8 +251,6 @@ export default function RotaPage() {
           })
         }
 
-        // If result exists (from upsert), update the row state with actual DB data
-        // This is crucial for reflecting DB triggers side-effects (like auto x_na_rota increment)
         if (result && result.x_na_rota !== undefined) {
           setRows((prev) =>
             prev.map((r) => {
@@ -298,7 +271,6 @@ export default function RotaPage() {
           description: 'Falha ao atualizar registro.',
           variant: 'destructive',
         })
-        // Revert (reload data)
         loadData()
       }
     },
@@ -348,12 +320,10 @@ export default function RotaPage() {
   }
 
   const handleExport = () => {
-    // Export logic (simplified)
     toast({
       title: 'Exportando...',
       description: 'O download iniciará em breve.',
     })
-    // Implementation would go here
   }
 
   const handleBulkClear = async () => {
@@ -415,7 +385,6 @@ export default function RotaPage() {
   const handleTransferRow = async (row: RotaRow) => {
     if (!activeRota || !row.proximo_vendedor_id) return
 
-    // Optimistic Update: Set Vendor to Next, and Next to null
     setRows((prev) =>
       prev.map((r) => {
         if (r.client.CODIGO === row.client.CODIGO) {
@@ -437,7 +406,6 @@ export default function RotaPage() {
         row.tarefas,
       )
 
-      // Update state with result to reflect trigger changes (x_na_rota)
       if (result && result.x_na_rota !== undefined) {
         setRows((prev) =>
           prev.map((r) => {
@@ -463,11 +431,10 @@ export default function RotaPage() {
         description: 'Falha ao transferir vendedor.',
         variant: 'destructive',
       })
-      loadData() // Revert
+      loadData()
     }
   }
 
-  // --- Bulk Fill Logic ---
   const handleBulkFillConfirm = async (
     sellerId: number | null,
     sellerName: string,
@@ -485,7 +452,6 @@ export default function RotaPage() {
       return
     }
 
-    // Confirmation Logic
     if (count < 50) {
       if (
         !confirm(
@@ -539,6 +505,7 @@ export default function RotaPage() {
         onEnd={handleEndRota}
         onExport={handleExport}
         loading={loading}
+        onImportSuccess={loadData}
       />
 
       <RotaFilters
@@ -550,7 +517,7 @@ export default function RotaPage() {
         isSelectionMode={isSelectionMode}
         toggleSelectionMode={setIsSelectionMode}
         activeRotaId={activeRota?.id}
-        onDataChange={loadData} // Reload to reflect bulk changes
+        onDataChange={loadData}
       />
 
       <RotaTable

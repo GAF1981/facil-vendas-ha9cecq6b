@@ -24,6 +24,7 @@ import {
 import { useEffect, useState } from 'react'
 import { caixaService, CaixaSummaryRow } from '@/services/caixaService'
 import { rotaService } from '@/services/rotaService'
+import { RotaImportDialog } from './RotaImportDialog'
 
 interface RotaHeaderProps {
   activeRota: Rota | null
@@ -34,6 +35,7 @@ interface RotaHeaderProps {
   loading: boolean
   hasPendingUpdates?: boolean
   pendingClosures?: string[] // Legacy prop, we will use internal logic
+  onImportSuccess?: () => void
 }
 
 export function RotaHeader({
@@ -46,6 +48,7 @@ export function RotaHeader({
   hasPendingUpdates = false,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   pendingClosures: legacyPendingClosures = [],
+  onImportSuccess,
 }: RotaHeaderProps) {
   const displayRota = activeRota || lastRota
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -78,13 +81,11 @@ export function RotaHeader({
     }
   }, [activeRota])
 
-  // Logic for visibility of "Finalizar Rota" (Strict Permissions for Force)
   const isHighLevelAdmin = (() => {
     if (employee?.setor) {
       const sectors = Array.isArray(employee.setor)
         ? employee.setor
         : [employee.setor]
-      // Case insensitive check for Admin/Manager
       if (
         sectors.some(
           (s) =>
@@ -98,20 +99,16 @@ export function RotaHeader({
     return false
   })()
 
-  // Standard permission to see the button at all (could be broader, but keeping it safe)
   const canViewFinalize = isHighLevelAdmin || canAccess('Relatório')
 
-  // ALERT 1: Pendencia de Fechamento (Open/Active without record)
   const pendingClosingEmployees = summaryData
-    .filter((row) => !row.hasClosingRecord) // Not closed
+    .filter((row) => !row.hasClosingRecord)
     .map((row) => row.funcionarioNome)
 
-  // ALERT 2: Pendencia de Confirmação (Record exists, but status is 'Aberto')
   const pendingConfirmationEmployees = summaryData
     .filter((row) => row.hasClosingRecord && row.dbStatus === 'Aberto')
     .map((row) => row.funcionarioNome)
 
-  // ALERT 3: Pendencia de Rota (Sellers in RotaItems who don't have a record)
   const pendingRouteEmployees: string[] = []
   const ignoredRouteEmployees: string[] = []
 
@@ -124,7 +121,6 @@ export function RotaHeader({
 
     activeSellers.forEach((sellerId) => {
       if (!closedSellerIds.has(sellerId)) {
-        // Seller has not closed. Check if they have movement.
         const empSummary = summaryData.find((s) => s.funcionarioId === sellerId)
 
         let hasMovement = false
@@ -132,7 +128,6 @@ export function RotaHeader({
 
         if (empSummary) {
           name = empSummary.funcionarioNome
-          // Calculate strict movement
           const totalActivity =
             Math.abs(empSummary.totalRecebido) +
             Math.abs(empSummary.totalDespesas) +
@@ -155,9 +150,6 @@ export function RotaHeader({
   const hasPendingConfirmation = pendingConfirmationEmployees.length > 0
   const hasPendingRoute = pendingRouteEmployees.length > 0
 
-  // Block logic
-  // If there are pending issues, ONLY High Level Admins can force.
-  // Others are blocked completely if there are issues.
   const hasIssues = hasPendingRoute || hasPendingConfirmation
   const isBlocked =
     loading || hasPendingUpdates || (!isHighLevelAdmin && hasIssues)
@@ -199,23 +191,30 @@ export function RotaHeader({
           )}
         </div>
 
-        <div className="flex flex-wrap gap-2 shrink-0 w-full sm:w-auto items-center">
+        <div className="flex flex-wrap gap-2 shrink-0 w-full sm:w-auto items-start">
           {hasPendingUpdates && (
-            <div className="flex items-center gap-2 text-xs text-orange-600 font-medium animate-pulse mr-2">
+            <div className="flex items-center gap-2 text-xs text-orange-600 font-medium animate-pulse mr-2 mt-2">
               <Save className="h-3 w-3" />
               Salvando...
             </div>
           )}
 
-          <Button
-            onClick={onExport}
-            variant="outline"
-            className="w-full sm:w-auto"
-            title="Exportar para Excel (CSV)"
-          >
-            <Download className="mr-2 h-4 w-4" />
-            Exportar
-          </Button>
+          <div className="flex items-start gap-2">
+            <RotaImportDialog
+              activeRota={activeRota}
+              onSuccess={onImportSuccess}
+            />
+
+            <Button
+              onClick={onExport}
+              variant="outline"
+              className="w-full sm:w-auto"
+              title="Exportar para Excel (CSV)"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Exportar
+            </Button>
+          </div>
 
           {!activeRota ? (
             <Button
@@ -233,7 +232,6 @@ export function RotaHeader({
           ) : (
             canViewFinalize && (
               <>
-                {/* Ignored Sellers Info (Optional but good for clarity) */}
                 {ignoredRouteEmployees.length > 0 && isHighLevelAdmin && (
                   <Popover>
                     <PopoverTrigger asChild>
@@ -264,7 +262,6 @@ export function RotaHeader({
                   </Popover>
                 )}
 
-                {/* Alert: Pendência de Rota (Yellow) */}
                 {hasPendingRoute && (
                   <Popover>
                     <PopoverTrigger asChild>
@@ -305,7 +302,6 @@ export function RotaHeader({
                   </Popover>
                 )}
 
-                {/* Alert: Pendência de Fechamento (Red) */}
                 {!hasPendingRoute && hasPendingClosing && (
                   <Popover>
                     <PopoverTrigger asChild>
@@ -341,7 +337,6 @@ export function RotaHeader({
                   </Popover>
                 )}
 
-                {/* Alert: Pendência de Confirmação (Orange) */}
                 {hasPendingConfirmation && (
                   <Popover>
                     <PopoverTrigger asChild>

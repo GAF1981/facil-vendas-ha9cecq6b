@@ -65,7 +65,6 @@ export const rotaService = {
   },
 
   async finishAndStartNewRoute(currentRotaId: number) {
-    // 1. Fetch current active route details to determine completion status (Green/Red)
     const currentRota = await this.getActiveRota()
     if (!currentRota || currentRota.id !== currentRotaId) {
       throw new Error('Rota mismatch or no active route found.')
@@ -73,7 +72,6 @@ export const rotaService = {
 
     const fullData = await this.getFullRotaData(currentRota)
 
-    // 2. Create new Route
     const { data: maxIdData } = await supabase
       .from('ROTA')
       .select('id')
@@ -94,46 +92,25 @@ export const rotaService = {
 
     if (startError) throw startError
 
-    // 3. Prepare new items based on "Conditional Seller Persistence" logic
     const newItemsPayload = fullData
       .filter((row) => {
-        // Only carry over rows that had relevant data or are active/in route
         return true
       })
       .map((row) => {
-        // Default Logic:
-        // If Green (Completed): Seller -> null, x_na_rota -> 0
-        // If Red (Not Completed): Seller -> Persist
         let nextSellerId = row.vendedor_id
-        let nextXNaRota = row.x_na_rota // Default: preserve current value
+        let nextXNaRota = row.x_na_rota
 
         if (row.is_completed) {
           nextSellerId = null
-          nextXNaRota = 0 // Reset counter if settled
+          nextXNaRota = 0
         } else {
-          // New Requirement: If NOT completed AND has seller, increment x_na_rota
           if (nextSellerId) {
             nextXNaRota = (row.x_na_rota || 0) + 1
           }
         }
 
-        // Apply "Proximo" override if exists
-        // Note: Logic implies nextSellerId should be the one effective in new route.
-        // If override exists, it becomes the new seller.
         if (row.proximo_vendedor_id) {
           nextSellerId = row.proximo_vendedor_id
-          // Does assigning Proximo increment X?
-          // If we follow Logic 4 (Trigger), Assigning Seller increments.
-          // Since we are inserting here, and triggers work on UPDATE usually for our Logic 4 implementation,
-          // we should handle increment here if appropriate.
-          // However, User Story 5 says "identify all ROTA_ITEMS ... No Acerto ... vendedor_id is pre-filled ... must be incremented".
-          // It refers to carrying over existing pending status.
-          // New assignments via "Proximo" might logically reset or start at 1?
-          // Let's assume standard carry over logic applies first, then override.
-          // If override happens, it's a new assignment. New assignment usually implies 1st visit (x=1) or continuation?
-          // If I assign a NEW seller, x should probably start counting for that seller? Or total visits?
-          // Given ambiguity, stick strictly to Requirement 5 for "pending clients with assigned vendor".
-          // If proximo is used, it overrides.
         }
 
         return {
@@ -144,11 +121,9 @@ export const rotaService = {
           boleto: row.boleto,
           agregado: row.agregado,
           tarefas: row.tarefas,
-          // vendedor_proximo_id is not carried over, it resets
         }
       })
 
-    // 4. Batch Insert
     if (newItemsPayload.length > 0) {
       const { error: insertError } = await supabase
         .from('ROTA_ITEMS')
@@ -160,7 +135,6 @@ export const rotaService = {
       }
     }
 
-    // 5. Close old route
     const { error: endError } = await supabase
       .from('ROTA')
       .update({
@@ -221,9 +195,8 @@ export const rotaService = {
     clientId: number,
     nextSellerId: number | null,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    currentTarefas: string | null, // Deprecated param kept for signature compatibility if needed
+    currentTarefas: string | null,
   ) {
-    // New logic: Update dedicated column
     return this.upsertRotaItem({
       rota_id: rotaId,
       cliente_id: clientId,
@@ -238,7 +211,6 @@ export const rotaService = {
   ) {
     if (clientIds.length === 0) return
 
-    // 1. Get existing items for these clients in this route
     const { data: existingItems, error: fetchError } = await supabase
       .from('ROTA_ITEMS')
       .select('id, cliente_id')
@@ -268,7 +240,6 @@ export const rotaService = {
 
     const promises = []
 
-    // Bulk Update existing
     if (updates.length > 0) {
       promises.push(
         supabase
@@ -279,9 +250,7 @@ export const rotaService = {
       )
     }
 
-    // Bulk Insert new
     if (inserts.length > 0) {
-      // Chunking if necessary, but Supabase handles reasonably large batches
       const chunkSize = 1000
       for (let i = 0; i < inserts.length; i += chunkSize) {
         promises.push(
@@ -294,7 +263,6 @@ export const rotaService = {
   },
 
   async bulkClearNextSellers(rotaId: number) {
-    // New logic: Clear column
     const { error } = await supabase
       .from('ROTA_ITEMS')
       .update({ vendedor_proximo_id: null })
@@ -309,14 +277,13 @@ export const rotaService = {
 
     for (const item of items) {
       const nextSellerId = item.vendedor_proximo_id
-      // Condition: No current seller assigned AND has a "Next Seller" set
       if (!item.vendedor_id && nextSellerId) {
         updates.push(
           this.upsertRotaItem({
             rota_id: rotaId,
             cliente_id: item.cliente_id,
             vendedor_id: nextSellerId,
-            vendedor_proximo_id: null, // Clear after transfer
+            vendedor_proximo_id: null,
           }),
         )
       }
@@ -340,7 +307,6 @@ export const rotaService = {
   },
 
   async getFullRotaData(rota: Rota | null) {
-    // 1. Fetch all Clients
     const { data: clients, error: clientsError } = await supabase
       .from('CLIENTES')
       .select('*')
@@ -351,7 +317,6 @@ export const rotaService = {
     if (clientsError) throw clientsError
     if (!clients) return []
 
-    // Helper to safely run promises
     const safeFetch = async <T>(
       promise: Promise<T>,
       fallback: T,
@@ -416,7 +381,6 @@ export const rotaService = {
       ),
     ])
 
-    // Process Debts
     const debtMap = new Map<
       number,
       { totalDebt: number; orderCount: number; oldestDate: string | null }
@@ -462,7 +426,6 @@ export const rotaService = {
       })
     }
 
-    // Process Pendencies
     const pendencyMap = new Map<number, string[]>()
     allPendencies.forEach((p) => {
       const existing = pendencyMap.get(p.cliente_id) || []
@@ -470,11 +433,9 @@ export const rotaService = {
       pendencyMap.set(p.cliente_id, existing)
     })
 
-    // Process Rota Items
     const rotaItemsMap = new Map<number, RotaItem>()
     rotaItems.forEach((i) => rotaItemsMap.set(i.cliente_id, i))
 
-    // Process Projections
     const orderProjectionMap = new Map<number, number>()
     projectionsReport.forEach((p) => {
       if (p.projection !== null) {
@@ -482,7 +443,6 @@ export const rotaService = {
       }
     })
 
-    // Process Stats
     const statsMap = new Map<
       number,
       { lastDate: string | null; lastOrderId: number | null }
@@ -497,7 +457,6 @@ export const rotaService = {
       })
     })
 
-    // Process Consigned
     const consignedMap = new Map<number, number>()
     if (consignedData) {
       consignedData.forEach((row: any) => {
@@ -505,7 +464,6 @@ export const rotaService = {
       })
     }
 
-    // Oldest Unpaid Date Fetching
     const clientOldestDueMap = new Map<number, string>()
     const ordersWithDebtArray = Array.from(ordersWithDebt)
     const orderExplicitDateMap = new Map<number, string>()
@@ -675,7 +633,6 @@ export const rotaService = {
 
       const isCompleted = completedSet.has(cid)
 
-      // Use column directly
       const nextSellerId = rotaItem?.vendedor_proximo_id || null
 
       return {
@@ -706,5 +663,53 @@ export const rotaService = {
 
   async checkAndDecrementXNaRota() {
     // Logic handled by DB triggers/transfers
+  },
+
+  async importSellerAssignments(
+    rotaId: number,
+    assignments: { clientId: number; sellerId: number }[],
+  ) {
+    const clientIds = assignments.map((a) => a.clientId)
+    const chunkSize = 1000
+    let totalUpdated = 0
+
+    for (let i = 0; i < clientIds.length; i += chunkSize) {
+      const chunkClientIds = clientIds.slice(i, i + chunkSize)
+      const { data: existingItems, error: fetchError } = await supabase
+        .from('ROTA_ITEMS')
+        .select('*')
+        .eq('rota_id', rotaId)
+        .in('cliente_id', chunkClientIds)
+
+      if (fetchError) throw fetchError
+      if (!existingItems || existingItems.length === 0) continue
+
+      const itemMap = new Map(
+        existingItems.map((item) => [item.cliente_id, item]),
+      )
+      const chunkAssignments = assignments.slice(i, i + chunkSize)
+      const rowsToUpsert = []
+
+      for (const assignment of chunkAssignments) {
+        const item = itemMap.get(assignment.clientId)
+        if (item) {
+          // Merge existing item with new seller to ensure other fields are preserved
+          rowsToUpsert.push({
+            ...item,
+            vendedor_id: assignment.sellerId,
+          })
+        }
+      }
+
+      if (rowsToUpsert.length > 0) {
+        const { error: upsertError } = await supabase
+          .from('ROTA_ITEMS')
+          .upsert(rowsToUpsert)
+
+        if (upsertError) throw upsertError
+        totalUpdated += rowsToUpsert.length
+      }
+    }
+    return { count: totalUpdated }
   },
 }
