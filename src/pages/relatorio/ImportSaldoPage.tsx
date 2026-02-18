@@ -220,7 +220,7 @@ export default function ImportSaldoPage() {
           <ul className="text-sm text-blue-800 list-disc pl-5 space-y-1">
             <li>
               <strong>Cliente:</strong> CODIGO, CODIGO DO CLIENTE, ID CLIENTE,
-              CLIENTE
+              CLIENTE (ou variações como 'CODIGO DO CLIENE')
             </li>
             <li>
               <strong>Produto:</strong> CÓDIGO DO PRODUTO, CODIGO INTERNO,
@@ -253,7 +253,7 @@ export default function ImportSaldoPage() {
                 <div className="space-y-4">
                   <Loader2 className="h-12 w-12 text-primary mx-auto animate-spin" />
                   <p className="font-medium text-lg text-muted-foreground">
-                    Lendo arquivo...
+                    Lendo arquivo e identificando colunas...
                   </p>
                 </div>
               ) : file ? (
@@ -326,7 +326,11 @@ export default function ImportSaldoPage() {
                 <AlertDescription>
                   <ul className="list-disc pl-5 mt-2 space-y-1">
                     {!detectedColumns.clientCol && (
-                      <li>Coluna de Cliente não identificada.</li>
+                      <li>
+                        Não foi possível identificar a coluna de cliente.
+                        Certifique-se de que o cabeçalho está como 'código do
+                        cliente' ou 'código do cliene'.
+                      </li>
                     )}
                     {!detectedColumns.productCol && (
                       <li>

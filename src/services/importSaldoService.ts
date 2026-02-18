@@ -17,7 +17,7 @@ interface ProductInfo {
   name: string
 }
 
-// Enhanced Synonyms for flexible matching
+// Enhanced Synonyms for flexible matching including common typos
 const HEADER_SYNONYMS = {
   clientCode: [
     'CODIGO DO CLIENTE',
@@ -30,9 +30,15 @@ const HEADER_SYNONYMS = {
     'CODIGO',
     'CÓDIGO',
     'CÓDIGO DO CLIENTE',
+    // Typos and variations
+    'CODIGO DO CLIENE',
+    'CÓDIGO DO CLIENE',
+    'COD CLIENE',
+    'CODIGO CLIENE',
+    'COD. CLIENE',
   ],
   productCode: [
-    'CODIGO DO PRODUTO', // Requested explicit support
+    'CODIGO DO PRODUTO',
     'CODIGO INTERNO',
     'COD. INTERNO',
     'CÓD. INTERNO',
@@ -50,6 +56,7 @@ const HEADER_SYNONYMS = {
   quantity: ['SALDO INICIAL', 'QUANTIDADE', 'QTD', 'QTDE', 'CONTAGEM', 'SALDO'],
 }
 
+// Robust normalization: trim, uppercase, remove accents, collapse spaces
 const normalizeHeader = (header: string) => {
   if (!header) return ''
   return header
@@ -57,6 +64,31 @@ const normalizeHeader = (header: string) => {
     .toUpperCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '') // Remove accents
+    .replace(/\s+/g, ' ') // Collapse multiple spaces
+}
+
+// Helper function to fetch all rows from a table (handling pagination/limit)
+async function fetchAllRows<T>(table: string, select: string): Promise<T[]> {
+  let allData: T[] = []
+  let from = 0
+  const limit = 1000
+
+  while (true) {
+    const { data, error } = await supabase
+      .from(table)
+      .select(select)
+      .range(from, from + limit - 1)
+
+    if (error) throw error
+    if (!data || data.length === 0) break
+
+    allData = [...allData, ...data] as T[]
+
+    if (data.length < limit) break
+    from += limit
+  }
+
+  return allData
 }
 
 export const importSaldoService = {
@@ -103,7 +135,6 @@ export const importSaldoService = {
               const row: CsvRow = {}
               let hasData = false
               headers.forEach((header, index) => {
-                // Ensure we don't access out of bounds and handle empty headers safely
                 const key = header || `Column_${index}`
                 const val = values[index] || ''
                 row[key] = val
@@ -146,6 +177,8 @@ export const importSaldoService = {
     }))
 
     const findColumn = (synonyms: string[]) => {
+      // Synonyms are already "clean", but we normalize them just in case
+      // to match the normalization logic of headers (e.g. spaces)
       const normalizedSynonyms = synonyms.map(normalizeHeader)
       const match = normalizedHeaders.find((h) =>
         normalizedSynonyms.includes(h.normalized),
@@ -181,17 +214,17 @@ export const importSaldoService = {
 
     if (!clientCol) {
       result.errors.push(
-        `Coluna de CLIENTE não encontrada. (Esperado: ${HEADER_SYNONYMS.clientCode.join(', ')})`,
+        `Coluna de CLIENTE não encontrada. (Esperado: ${HEADER_SYNONYMS.clientCode.slice(0, 3).join(', ')}...)`,
       )
     }
     if (!productCol) {
       result.errors.push(
-        `Coluna de PRODUTO não encontrada. (Esperado: ${HEADER_SYNONYMS.productCode.join(', ')})`,
+        `Coluna de PRODUTO não encontrada. (Esperado: ${HEADER_SYNONYMS.productCode.slice(0, 3).join(', ')}...)`,
       )
     }
     if (!qtyCol) {
       result.errors.push(
-        `Coluna de QUANTIDADE não encontrada. (Esperado: ${HEADER_SYNONYMS.quantity.join(', ')})`,
+        `Coluna de QUANTIDADE não encontrada. (Esperado: ${HEADER_SYNONYMS.quantity.slice(0, 3).join(', ')}...)`,
       )
     }
 
@@ -199,25 +232,25 @@ export const importSaldoService = {
       return result
     }
 
-    // 2. Fetch Reference Data
-    // We fetch ALL needed data to memory for robustness and speed
-    const { data: clients, error: clientsError } = await supabase
-      .from('CLIENTES')
-      .select('CODIGO, "NOME CLIENTE"')
-
-    if (clientsError || !clients) {
-      throw new Error('Falha ao carregar lista de clientes para validação.')
+    // 2. Fetch Reference Data (ALL rows to avoid silent failures on large datasets)
+    let clients: any[] = []
+    try {
+      clients = await fetchAllRows('CLIENTES', 'CODIGO, "NOME CLIENTE"')
+    } catch (e: any) {
+      throw new Error(`Falha ao carregar lista de clientes: ${e.message}`)
     }
 
     const clientMap = new Map<number, string>()
     clients.forEach((c) => clientMap.set(c.CODIGO, c['NOME CLIENTE']))
 
-    const { data: products, error: productsError } = await supabase
-      .from('PRODUTOS')
-      .select('ID, codigo_interno, PRODUTO, CODIGO')
-
-    if (productsError || !products) {
-      throw new Error('Falha ao carregar lista de produtos para validação.')
+    let products: any[] = []
+    try {
+      products = await fetchAllRows(
+        'PRODUTOS',
+        'ID, codigo_interno, PRODUTO, CODIGO',
+      )
+    } catch (e: any) {
+      throw new Error(`Falha ao carregar lista de produtos: ${e.message}`)
     }
 
     // Maps for Product Lookup with Priority: codigo_interno > CODIGO > ID
@@ -242,7 +275,6 @@ export const importSaldoService = {
     })
 
     // 3. Validate and Group Data
-    // Grouping by Client allows for better transaction handling (Order Number Reservation)
     const validGroups = new Map<
       number,
       {
@@ -266,7 +298,6 @@ export const importSaldoService = {
       const qtyValRaw = row[qtyCol]?.trim() || ''
 
       if (!clientValRaw || !productValRaw || !qtyValRaw) {
-        // Only count as failure if at least one field is present but others missing
         if (clientValRaw || productValRaw || qtyValRaw) {
           result.failureCount++
           result.errors.push(`Linha ${rowIndex}: Dados incompletos.`)
@@ -289,7 +320,6 @@ export const importSaldoService = {
       let productInfo: ProductInfo | undefined
 
       // 1. Try codigo_interno (Exact String Match)
-      // The requirement asks to use "código do produto" column value for lookup against `codigo_interno`.
       productInfo = mapCodigoInterno.get(productValRaw)
 
       // 2. Try CODIGO (Legacy Number)
@@ -311,7 +341,7 @@ export const importSaldoService = {
       if (!productInfo) {
         result.failureCount++
         result.errors.push(
-          `Linha ${rowIndex}: Produto com identificador '${productValRaw}' não encontrado (Tentado: Código Interno, Código Antigo, ID).`,
+          `Linha ${rowIndex}: Produto com identificador '${productValRaw}' não encontrado.`,
         )
         continue
       }
@@ -349,8 +379,8 @@ export const importSaldoService = {
 
     const groups = Array.from(validGroups.entries())
 
-    // Process clients in chunks to avoid overwhelming the database connection or exceeding limits
-    const CLIENT_BATCH_SIZE = 10 // Process 10 clients concurrently
+    // Process clients in chunks
+    const CLIENT_BATCH_SIZE = 10
 
     for (let i = 0; i < groups.length; i += CLIENT_BATCH_SIZE) {
       const batch = groups.slice(i, i + CLIENT_BATCH_SIZE)
@@ -358,7 +388,6 @@ export const importSaldoService = {
       await Promise.all(
         batch.map(async ([clientCode, groupData]) => {
           try {
-            // Reserve One Order ID per Client Group for "Saldo Inicial" batch
             const orderId = await bancoDeDadosService.reserveNextOrderNumber()
 
             // If items are too many for one client, split inserts
@@ -370,7 +399,7 @@ export const importSaldoService = {
                 'NÚMERO DO PEDIDO': orderId,
                 'CÓDIGO DO CLIENTE': clientCode,
                 CLIENTE: groupData.clientName,
-                'COD. PRODUTO': item.legacyCode, // Database often uses legacy code for historical reasons, or we could use ID
+                'COD. PRODUTO': item.legacyCode,
                 MERCADORIA: item.productName,
                 'SALDO FINAL': item.quantity,
                 'SALDO INICIAL': 0,
