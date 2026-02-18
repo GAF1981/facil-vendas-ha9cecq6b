@@ -184,6 +184,9 @@ export const bancoDeDadosService = {
       })
       .filter((i) => i !== null) as AcertoItem[]
 
+    // Sort alphabetically by product name
+    items.sort((a, b) => a.produtoNome.localeCompare(b.produtoNome))
+
     return { items, nextId: 0 }
   },
 

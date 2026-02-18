@@ -46,6 +46,63 @@ const safeFormatTime = (dateString: string | null | undefined): string => {
   }
 }
 
+// Function to calculate exact height needed for thermal receipt content
+const calculateThermalHeight = (body: any) => {
+  // Base header height (Title, Subtitle, Client Info, Seller Info, Dates, Lines)
+  // Header section approx sum: 20+20+15+12*5+15+15 = ~145
+  let h = 145
+
+  // Items Section Header
+  h += 15 // "ITENS DO PEDIDO"
+
+  const items = body.items || []
+  // Per Item: Name(12) + 5 Stats(60) + Spacer(2) + Line(12) = 86
+  h += items.length * 86
+
+  // Totals Section
+  // Approx: 5(spacer) + 12(Total) + 12(Desc) + 12(Prod count) + 12(Qtd count) + 15(Total Pay) + 15(Line) = 83
+  h += 83
+
+  // VALOR PAGO Section
+  const payments =
+    body.detailedPayments && body.detailedPayments.length > 0
+      ? body.detailedPayments
+      : body.payments || []
+
+  if (payments.length > 0) {
+    h += 60 // Header + Title + Line
+    // Per payment row: 12
+    h += payments.length * 12
+    h += 15 // Line after
+  }
+
+  // Installments Section
+  const installments = body.installments || []
+  if (installments.length > 0) {
+    h += 60 // Header + Title + Line
+    // Per installment row: 12
+    h += installments.length * 12
+    h += 40 // Footer total + line
+  }
+
+  // Signature Section
+  h += 60 // Space + Line + Text
+
+  // History Section
+  const history = body.history || []
+  if (history.length > 0) {
+    h += 15 // Header
+    // Per history item: 3 lines(30) + 15 gap = 45
+    h += history.length * 45
+    h += 10 // Final line
+  }
+
+  // Buffer at bottom (5cm ~ 142px)
+  h += 142
+
+  return Math.max(400, Math.ceil(h))
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -75,37 +132,19 @@ Deno.serve(async (req) => {
       margins = { top: 40, bottom: 40, left: 25, right: 25 }
       y = height - margins.top
     } else if (isThermal) {
-      // Thermal 80mm
-      const itemsCount = body.items ? body.items.length : 0
-      const historyCount = body.history ? body.history.length : 0
-      const installmentsCount = body.installments ? body.installments.length : 0
-      const detailedPaymentsCount = body.detailedPayments
-        ? body.detailedPayments.length
-        : body.payments
-          ? body.payments.length
-          : 0
-
-      // Calculate variable height dynamically
-      let estimatedHeight = 500 // Base height
+      // Thermal 80mm - Calculate Optimized Height
+      let calculatedHeight = 600 // Default fallback
 
       if (
         reportType === 'closing-confirmation' ||
         reportType === 'employee-cash-summary'
       ) {
-        // Fixed height for summary layout as requested
-        estimatedHeight = 600
+        calculatedHeight = 600
       } else {
-        // Detailed Acerto items are verbose (6 lines each approx 80px)
-        estimatedHeight += itemsCount * 100
-        estimatedHeight += installmentsCount * 25
-        estimatedHeight += detailedPaymentsCount * 25
-        // History items are verbose (3 lines each approx 50px)
-        estimatedHeight += historyCount * 60
-        // Header + Footer + Signatures buffer
-        estimatedHeight += 400
+        calculatedHeight = calculateThermalHeight(body)
       }
 
-      page = pdfDoc.addPage([226, Math.max(400, estimatedHeight)])
+      page = pdfDoc.addPage([226, calculatedHeight])
       width = page.getSize().width
       height = page.getSize().height
       margins = { top: 20, bottom: 20, left: 10, right: 10 }
@@ -198,6 +237,7 @@ Deno.serve(async (req) => {
 
     // --- CUSTOM DETAILED ORDER (RELATORIO DETALHADO DE PEDIDO - A4) ---
     if (isDetailedOrder && !isThermal) {
+      // Keep existing logic for A4 detailed order, adding new metrics
       const {
         client,
         items = [],
@@ -207,8 +247,11 @@ Deno.serve(async (req) => {
         valorDesconto = 0,
         valorAcerto = 0,
         employee,
+        totalItemsSold,
+        totalQuantitySold,
       } = body
 
+      // ... (Rest of A4 logic same as before until footer)
       const clientName =
         client?.['NOME CLIENTE'] || client?.['RAZÃO SOCIAL'] || 'Consumidor'
       const clientAddress = client?.ENDEREÇO || '-'
@@ -316,7 +359,12 @@ Deno.serve(async (req) => {
 
       // Items Row
       const rowFontSize = 8
-      for (const item of items) {
+      // Sort items alphabetically if not already sorted
+      const sortedItems = [...items].sort((a, b) =>
+        (a.produtoNome || '').localeCompare(b.produtoNome || ''),
+      )
+
+      for (const item of sortedItems) {
         checkPageBreak(15)
 
         drawText(String(item.produtoCodigo || ''), tableX.cod, y, {
@@ -391,6 +439,27 @@ Deno.serve(async (req) => {
       })
       y -= 15
 
+      // New Metrics for A4 as well if available
+      if (totalItemsSold !== undefined) {
+        drawText('Total de produtos vendidos:', footerLabelX, y, { size: 10 })
+        drawText(String(totalItemsSold), footerRightX, y, {
+          size: 10,
+          align: 'right',
+        })
+        y -= 15
+      }
+
+      if (totalQuantitySold !== undefined) {
+        drawText('Quantidade de produtos vendidos:', footerLabelX, y, {
+          size: 10,
+        })
+        drawText(String(totalQuantitySold), footerRightX, y, {
+          size: 10,
+          align: 'right',
+        })
+        y -= 15
+      }
+
       drawText('TOTAL A PAGAR:', footerLabelX, y, {
         size: 12,
         font: fontBold,
@@ -408,6 +477,7 @@ Deno.serve(async (req) => {
       (reportType === 'closing-confirmation' ||
         reportType === 'employee-cash-summary')
     ) {
+      // ... (Keep existing logic)
       const { fechamento, date } = body
       const closingData = fechamento || body.data || {}
 
@@ -415,7 +485,6 @@ Deno.serve(async (req) => {
       const rotaId = closingData.rota_id || '-'
       const reportDate = closingData.created_at || date
 
-      // Values
       const saldoAcerto = closingData.saldo_acerto || 0
       const vDinheiro = closingData.valor_dinheiro || 0
       const vPix = closingData.valor_pix || 0
@@ -425,7 +494,6 @@ Deno.serve(async (req) => {
       const vendaTotal = closingData.venda_total || 0
       const descontoTotal = closingData.desconto_total || 0
 
-      // Title
       drawText('FACIL VENDAS', width / 2, y, {
         size: 18,
         font: fontBold,
@@ -441,7 +509,6 @@ Deno.serve(async (req) => {
       drawLine(y)
       y -= 20
 
-      // Metadata
       const formattedDate =
         safeFormatDate(reportDate) + ' ' + safeFormatTime(reportDate)
 
@@ -457,7 +524,6 @@ Deno.serve(async (req) => {
       drawLine(y)
       y -= 25
 
-      // SALDO DO ACERTO
       drawText('SALDO DO ACERTO', margins.left, y, {
         size: 14,
         font: fontBold,
@@ -471,7 +537,6 @@ Deno.serve(async (req) => {
       drawLine(y)
       y -= 25
 
-      // RESUMO DE ENTRADA
       drawText('RESUMO DE ENTRADA', width / 2, y, {
         size: 12,
         font: fontBold,
@@ -507,7 +572,6 @@ Deno.serve(async (req) => {
       drawLine(y)
       y -= 25
 
-      // DETALHAMENTO DA SAIDA
       drawText('DETALHAMENTO DA SAIDA', width / 2, y, {
         size: 12,
         font: fontBold,
@@ -525,7 +589,6 @@ Deno.serve(async (req) => {
       drawLine(y)
       y -= 25
 
-      // DETALHAMENTO DO ACERTO
       drawText('DETALHAMENTO DO ACERTO', width / 2, y, {
         size: 12,
         font: fontBold,
@@ -546,6 +609,7 @@ Deno.serve(async (req) => {
       (reportType === 'closing-confirmation' ||
         reportType === 'employee-cash-summary')
     ) {
+      // ... (Keep existing logic)
       const { fechamento, date } = body
       const closingData = fechamento || body.data || {}
 
@@ -553,17 +617,15 @@ Deno.serve(async (req) => {
       const rotaId = closingData.rota_id || '-'
       const reportDate = closingData.created_at || date
 
-      // Values
       const saldoAcerto = closingData.saldo_acerto || 0
       const vDinheiro = closingData.valor_dinheiro || 0
       const vPix = closingData.valor_pix || 0
       const vCheque = closingData.valor_cheque || 0
-      const totalEntrada = vDinheiro + vPix + vCheque // Excluding Boleto for this specific layout
+      const totalEntrada = vDinheiro + vPix + vCheque
       const vDespesas = closingData.valor_despesas || 0
       const vendaTotal = closingData.venda_total || 0
       const descontoTotal = closingData.desconto_total || 0
 
-      // HEADER
       drawText('FACIL VENDAS', width / 2, y, {
         size: 14,
         font: fontBold,
@@ -579,7 +641,6 @@ Deno.serve(async (req) => {
       drawLine(y)
       y -= 15
 
-      // METADATA
       const formattedDate =
         safeFormatDate(reportDate) + ' ' + safeFormatTime(reportDate)
       drawText(`Data: ${formattedDate}`, margins.left, y, { size: 9 })
@@ -595,7 +656,6 @@ Deno.serve(async (req) => {
       drawLine(y)
       y -= 15
 
-      // SALDO DO ACERTO
       drawText('SALDO DO ACERTO', margins.left, y, { size: 11, font: fontBold })
       drawText(`R$ ${formatCurrency(saldoAcerto)}`, width - margins.right, y, {
         size: 11,
@@ -607,7 +667,6 @@ Deno.serve(async (req) => {
       drawLine(y)
       y -= 15
 
-      // RESUMO DE ENTRADA
       drawText('RESUMO DE ENTRADA', width / 2, y, {
         size: 10,
         font: fontBold,
@@ -640,7 +699,6 @@ Deno.serve(async (req) => {
       drawLine(y)
       y -= 15
 
-      // DETALHAMENTO DA SAIDA
       drawText('DETALHAMENTO DA SAIDA', width / 2, y, {
         size: 10,
         font: fontBold,
@@ -658,7 +716,6 @@ Deno.serve(async (req) => {
       drawLine(y)
       y -= 15
 
-      // DETALHAMENTO DO ACERTO
       drawText('DETALHAMENTO DO ACERTO', width / 2, y, {
         size: 10,
         font: fontBold,
@@ -693,6 +750,8 @@ Deno.serve(async (req) => {
         history = [],
         detailedPayments = [],
         payments = [],
+        totalItemsSold,
+        totalQuantitySold,
       } = body
 
       const sellerName = employee?.nome_completo || 'N/D'
@@ -756,8 +815,15 @@ Deno.serve(async (req) => {
       })
       y -= 15
 
-      if (items.length > 0) {
-        for (const item of items) {
+      // Ensure Alphabetical Sort for PDF
+      const sortedItems = [...items].sort((a, b) =>
+        (a.produtoNome || a.produto || '').localeCompare(
+          b.produtoNome || b.produto || '',
+        ),
+      )
+
+      if (sortedItems.length > 0) {
+        for (const item of sortedItems) {
           checkPageBreak(80)
 
           // Product Name and Unit Price
@@ -819,6 +885,34 @@ Deno.serve(async (req) => {
         },
       )
       y -= 12
+
+      // New Metrics
+      if (totalItemsSold !== undefined) {
+        drawText('Total de produtos vendidos:', margins.left, y, {
+          size: 9,
+          font: fontBold,
+        })
+        drawText(String(totalItemsSold), width - margins.right, y, {
+          size: 9,
+          font: fontBold,
+          align: 'right',
+        })
+        y -= 12
+      }
+
+      if (totalQuantitySold !== undefined) {
+        drawText('Quantidade de produtos vendidos:', margins.left, y, {
+          size: 9,
+          font: fontBold,
+        })
+        drawText(String(totalQuantitySold), width - margins.right, y, {
+          size: 9,
+          font: fontBold,
+          align: 'right',
+        })
+        y -= 12
+      }
+
       drawText('TOTAL A PAGAR:', margins.left, y, { size: 10, font: fontBold })
       drawText(`R$ ${formatCurrency(valorAcerto)}`, width - margins.right, y, {
         size: 10,

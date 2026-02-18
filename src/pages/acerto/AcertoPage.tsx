@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Save, Printer, Loader2, Copy } from 'lucide-react'
+import { Save, Printer, Loader2, Copy, ArrowRight } from 'lucide-react'
 import { parseCurrency } from '@/lib/formatters'
 import { fechamentoService } from '@/services/fechamentoService'
 import { rotaService } from '@/services/rotaService'
@@ -300,7 +300,12 @@ export default function AcertoPage() {
       idVendaItens: null,
     }))
 
-    setItems((prev) => [...prev, ...newItems])
+    // Sort items alphabetically after adding
+    setItems((prev) => {
+      const combined = [...prev, ...newItems]
+      return combined.sort((a, b) => a.produtoNome.localeCompare(b.produtoNome))
+    })
+
     toast({
       title: 'Produtos Adicionados',
       description: `${newProducts.length} produto(s) incluído(s) na lista.`,
@@ -308,7 +313,10 @@ export default function AcertoPage() {
   }
 
   const handleAddKit = (kitItems: AcertoItem[]) => {
-    setItems((prev) => [...prev, ...kitItems])
+    setItems((prev) => {
+      const combined = [...prev, ...kitItems]
+      return combined.sort((a, b) => a.produtoNome.localeCompare(b.produtoNome))
+    })
   }
 
   const handleRepeatCount = () => {
@@ -327,6 +335,33 @@ export default function AcertoPage() {
       toast({
         title: 'Atualizado',
         description: 'Saldo Final atualizado com valores da Contagem.',
+      })
+    }
+  }
+
+  const handleRepeatInitialToCount = () => {
+    if (items.length === 0) return
+    if (
+      confirm(
+        'Tem certeza que deseja copiar o SALDO INICIAL para a CONTAGEM de todos os itens? Isso zerará as vendas calculadas se não houverem ajustes.',
+      )
+    ) {
+      setItems((prev) =>
+        prev.map((item) => {
+          const newContagem = item.saldoInicial
+          const quantVendida = item.saldoInicial - newContagem
+          const valorVendido = quantVendida * item.precoUnitario
+          return {
+            ...item,
+            contagem: newContagem,
+            quantVendida,
+            valorVendido,
+          }
+        }),
+      )
+      toast({
+        title: 'Atualizado',
+        description: 'Contagem atualizada com valores do Saldo Inicial.',
       })
     }
   }
@@ -386,11 +421,26 @@ export default function AcertoPage() {
           ]
         })
 
+      // Calculate Metrics for Summary
+      const totalItemsSold = items.reduce(
+        (acc, i) => acc + (i.quantVendida > 0 ? 1 : 0),
+        0,
+      )
+      const totalQuantitySold = items.reduce(
+        (acc, i) => acc + i.quantVendida,
+        0,
+      )
+
+      // Ensure items are sorted alphabetically for PDF
+      const sortedItemsForPdf = [...items].sort((a, b) =>
+        a.produtoNome.localeCompare(b.produtoNome),
+      )
+
       const pdfBlob = await acertoService.generatePdf(
         {
           client,
           employee: emp,
-          items,
+          items: sortedItemsForPdf,
           date: new Date().toISOString(),
           // Ensure we use 'thermal-history' layout when 80mm is selected, or 'acerto' which logic inside generate-pdf handles similarly.
           // User story implies vertical thermal receipt.
@@ -411,6 +461,8 @@ export default function AcertoPage() {
           orderNumber: nextOrderNumber,
           issuerName: loggedInUser?.nome_completo,
           history: history.slice(0, 10),
+          totalItemsSold,
+          totalQuantitySold,
         },
         { preview: true, signature, format: pdfFormat },
       )
@@ -561,6 +613,8 @@ export default function AcertoPage() {
     setSaving(true)
     try {
       const now = new Date()
+      // Items are already sorted in state if user used UI controls properly, but DB saves order of insert.
+      // Retrieval handles sort.
       const finalOrderNumber = await bancoDeDadosService.saveTransaction(
         client,
         emp,
@@ -655,11 +709,26 @@ export default function AcertoPage() {
           ]
         })
 
+      // Calculate Metrics for Summary
+      const totalItemsSold = items.reduce(
+        (acc, i) => acc + (i.quantVendida > 0 ? 1 : 0),
+        0,
+      )
+      const totalQuantitySold = items.reduce(
+        (acc, i) => acc + i.quantVendida,
+        0,
+      )
+
+      // Ensure items are sorted alphabetically for PDF
+      const sortedItemsForPdf = [...items].sort((a, b) =>
+        a.produtoNome.localeCompare(b.produtoNome),
+      )
+
       const pdfBlob = await acertoService.generatePdf(
         {
           client,
           employee: emp,
-          items,
+          items: sortedItemsForPdf,
           date: now.toISOString(),
           acertoTipo: isCaptacao ? 'Captação' : 'Acerto',
           totalVendido: totalSalesValue,
@@ -678,6 +747,8 @@ export default function AcertoPage() {
           orderNumber: finalOrderNumber,
           issuerName: loggedInUser?.nome_completo,
           history: history.slice(0, 10),
+          totalItemsSold,
+          totalQuantitySold,
         },
         { preview: false, signature, format: pdfFormat },
       )
@@ -769,6 +840,14 @@ export default function AcertoPage() {
           />
 
           <div className="flex justify-end gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              onClick={handleRepeatInitialToCount}
+              title="Copiar Saldo Inicial para Contagem em todos os itens"
+            >
+              <ArrowRight className="mr-2 h-4 w-4" />
+              Repetir Saldo Inicial na Contagem
+            </Button>
             <Button
               variant="outline"
               onClick={handleRepeatCount}

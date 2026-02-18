@@ -174,6 +174,11 @@ export const acertoService = {
       saldoFinal: item['SALDO FINAL'] || 0,
     }))
 
+    // Sort items alphabetically for the PDF
+    items.sort((a, b) =>
+      (a.produtoNome || '').localeCompare(b.produtoNome || ''),
+    )
+
     // Construct detailed payments list from DB records
     const detailedPayments = dbPayments
       .map((p) => ({
@@ -229,6 +234,13 @@ export const acertoService = {
     const valorPago = payments.reduce((acc, p) => acc + p.paidValue, 0)
     const debito = Math.max(0, valorAcerto - valorPago)
 
+    // New Metrics for Summary
+    const totalItemsSold = items.reduce(
+      (acc, i) => acc + (i.quantVendida > 0 ? 1 : 0),
+      0,
+    )
+    const totalQuantitySold = items.reduce((acc, i) => acc + i.quantVendida, 0)
+
     // Ensure we are passing 10 history items max (service limits to 10 but slice again to be safe)
     const finalHistory = recentHistory.slice(0, 10)
 
@@ -259,6 +271,8 @@ export const acertoService = {
       lastOrder: lastOrder ? { id: lastOrder.id, date: lastOrder.data } : null,
       history: finalHistory, // Pass history to PDF
       monthlyAverage,
+      totalItemsSold,
+      totalQuantitySold,
     }
 
     return this.generatePdf(data, { format })
