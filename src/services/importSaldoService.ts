@@ -13,10 +13,11 @@ export type CsvRow = Record<string, string>
 interface ProductInfo {
   id: number
   codigo_interno: string
+  codigo_legacy: number | null
   name: string
 }
 
-// Synonyms definitions
+// Enhanced Synonyms for flexible matching
 const HEADER_SYNONYMS = {
   clientCode: [
     'CODIGO DO CLIENTE',
@@ -25,16 +26,26 @@ const HEADER_SYNONYMS = {
     'ID CLIENTE',
     'CLIENTE ID',
     'COD CLIENTE',
+    'CLIENTE',
+    'CODIGO',
+    'CÓDIGO',
+    'CÓDIGO DO CLIENTE',
   ],
   productCode: [
     'CODIGO INTERNO',
     'COD. INTERNO',
+    'CÓD. INTERNO',
     'CODIGO PRODUTO',
     'COD. PRODUTO',
     'COD PRODUTO',
     'PRODUTO CODIGO',
+    'PRODUTO',
+    'ID PRODUTO',
+    'ID',
+    'CÓDIGO INTERNO',
+    'CÓDIGO PRODUTO',
   ],
-  quantity: ['SALDO INICIAL', 'QUANTIDADE', 'QTD', 'CONTAGEM', 'SALDO'],
+  quantity: ['SALDO INICIAL', 'QUANTIDADE', 'QTD', 'QTDE', 'CONTAGEM', 'SALDO'],
 }
 
 const normalizeHeader = (header: string) => {
@@ -50,51 +61,58 @@ export const importSaldoService = {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = (e) => {
-        const text = e.target?.result as string
-        if (!text) {
-          resolve([])
-          return
-        }
-
-        const lines = text.split(/\r?\n/).filter((line) => line.trim() !== '')
-        if (lines.length < 2) {
-          resolve([])
-          return
-        }
-
-        // Detect delimiter (comma or semicolon)
-        const firstLine = lines[0]
-        const delimiter = firstLine.includes(';') ? ';' : ','
-
-        // Keep original headers for row mapping, but we will analyze them later
-        const headers = lines[0]
-          .split(delimiter)
-          .map((h) => h.trim().replace(/^"|"$/g, ''))
-
-        const result: CsvRow[] = []
-
-        for (let i = 1; i < lines.length; i++) {
-          const currentLine = lines[i]
-          // Handle simple quotes handling
-          // This regex splits by delimiter but ignores delimiters inside quotes
-          const regex = new RegExp(
-            `\\s*${delimiter}(?=(?:(?:[^"]*"){2})*[^"]*$)\\s*`,
-          )
-          const values = currentLine
-            .split(regex)
-            .map((v) => v.trim().replace(/^"|"$/g, ''))
-
-          // Allow partial rows if at least important columns are there?
-          // Better to enforce length check or handle missing values gracefully
-          if (values.length > 0) {
-            const row: CsvRow = {}
-            headers.forEach((header, index) => {
-              row[header] = values[index] || ''
-            })
-            result.push(row)
+        try {
+          const text = e.target?.result as string
+          if (!text) {
+            resolve([])
+            return
           }
+
+          const lines = text.split(/\r?\n/).filter((line) => line.trim() !== '')
+          if (lines.length < 2) {
+            resolve([])
+            return
+          }
+
+          // Detect delimiter (comma or semicolon)
+          const firstLine = lines[0]
+          const delimiter = firstLine.includes(';') ? ';' : ','
+
+          // Parse Headers
+          const headers = firstLine
+            .split(delimiter)
+            .map((h) => h.trim().replace(/^"|"$/g, ''))
+
+          const result: CsvRow[] = []
+
+          // Parse Rows
+          for (let i = 1; i < lines.length; i++) {
+            const currentLine = lines[i]
+            // Regex to handle delimiters inside quotes
+            const regex = new RegExp(
+              `\\s*${delimiter}(?=(?:(?:[^"]*"){2})*[^"]*$)\\s*`,
+            )
+            const values = currentLine
+              .split(regex)
+              .map((v) => v.trim().replace(/^"|"$/g, ''))
+
+            if (values.length > 0) {
+              const row: CsvRow = {}
+              let hasData = false
+              headers.forEach((header, index) => {
+                const val = values[index] || ''
+                row[header] = val
+                if (val) hasData = true
+              })
+              if (hasData) {
+                result.push(row)
+              }
+            }
+          }
+          resolve(result)
+        } catch (err) {
+          reject(err)
         }
-        resolve(result)
       }
       reader.onerror = (error) => reject(error)
       reader.readAsText(file)
@@ -148,12 +166,12 @@ export const importSaldoService = {
 
     if (!clientCol) {
       result.errors.push(
-        `Coluna de CÓDIGO DO CLIENTE não encontrada. (Esperado: ${HEADER_SYNONYMS.clientCode.join(', ')})`,
+        `Coluna de CLIENTE não encontrada. (Esperado: ${HEADER_SYNONYMS.clientCode.join(', ')})`,
       )
     }
     if (!productCol) {
       result.errors.push(
-        `Coluna de CÓDIGO DO PRODUTO (INTERNO) não encontrada. (Esperado: ${HEADER_SYNONYMS.productCode.join(', ')})`,
+        `Coluna de PRODUTO não encontrada. (Esperado: ${HEADER_SYNONYMS.productCode.join(', ')})`,
       )
     }
     if (!qtyCol) {
@@ -166,8 +184,9 @@ export const importSaldoService = {
       return result
     }
 
-    // 2. Fetch Reference Data for Validation
-    // Fetch all clients (Lightweight)
+    // 2. Fetch Reference Data
+    // We fetch ALL needed data to memory for robustness and speed
+    // This is safe for up to ~10k-50k clients/products. For much larger datasets, we would need pagination/batch lookup.
     const { data: clients, error: clientsError } = await supabase
       .from('CLIENTES')
       .select('CODIGO, "NOME CLIENTE"')
@@ -179,33 +198,37 @@ export const importSaldoService = {
     const clientMap = new Map<number, string>()
     clients.forEach((c) => clientMap.set(c.CODIGO, c['NOME CLIENTE']))
 
-    // Fetch all products (ID, codigo_interno, PRODUTO)
     const { data: products, error: productsError } = await supabase
       .from('PRODUTOS')
-      .select('ID, codigo_interno, PRODUTO')
+      .select('ID, codigo_interno, PRODUTO, CODIGO')
 
     if (productsError || !products) {
       throw new Error('Falha ao carregar lista de produtos para validação.')
     }
 
-    // Map by codigo_interno (string match)
+    // Maps for Product Lookup with Priority: codigo_interno > CODIGO > ID
     const mapCodigoInterno = new Map<string, ProductInfo>()
+    const mapCodigoLegacy = new Map<number, ProductInfo>()
+    const mapId = new Map<number, ProductInfo>()
 
     products.forEach((p) => {
       const info: ProductInfo = {
         id: p.ID,
         codigo_interno: p.codigo_interno || '',
+        codigo_legacy: p.CODIGO,
         name: p.PRODUTO || '',
       }
 
+      mapId.set(p.ID, info)
+      if (p.CODIGO) mapCodigoLegacy.set(p.CODIGO, info)
       if (p.codigo_interno) {
-        // Normalize: trim
+        // Normalize internal code for map keys: trim
         mapCodigoInterno.set(p.codigo_interno.trim(), info)
       }
     })
 
     // 3. Validate and Group Data
-    // We group by Client to create efficient transactions
+    // Grouping by Client allows for better transaction handling (Order Number Reservation)
     const validGroups = new Map<
       number,
       {
@@ -214,158 +237,178 @@ export const importSaldoService = {
           productId: number
           productName: string
           quantity: number
+          legacyCode: number | null
         }[]
       }
     >()
 
-    let rowIndex = 1 // 1-based index for user feedback (skipping header)
+    let rowIndex = 1 // 1-based index for user display (skipping header)
 
     for (const row of csvData) {
       rowIndex++
 
-      // Get Client Code
-      const clientCodeVal = row[clientCol].trim()
-      const clientCode = parseInt(clientCodeVal)
+      const clientValRaw = row[clientCol]?.trim() || ''
+      const productValRaw = row[productCol]?.trim() || ''
+      const qtyValRaw = row[qtyCol]?.trim() || ''
 
-      // Get Product Code (Internal Code as string)
-      const productCodeRaw = row[productCol].trim()
+      if (!clientValRaw || !productValRaw || !qtyValRaw) {
+        result.failureCount++
+        result.errors.push(`Linha ${rowIndex}: Dados incompletos.`)
+        continue
+      }
 
-      // Get Quantity
-      const quantityVal = row[qtyCol].trim()
-      const quantity = parseFloat(quantityVal.replace(',', '.'))
-
-      // Validation
-      if (!clientCode || isNaN(clientCode)) {
+      // Client Lookup
+      const clientCode = parseInt(clientValRaw)
+      if (isNaN(clientCode) || !clientMap.has(clientCode)) {
         result.failureCount++
         result.errors.push(
-          `Linha ${rowIndex}: Código do cliente inválido ou faltando ('${clientCodeVal}').`,
+          `Linha ${rowIndex}: Cliente com código '${clientValRaw}' não encontrado.`,
         )
         continue
       }
+      const clientName = clientMap.get(clientCode)!
 
-      if (!productCodeRaw) {
-        result.failureCount++
-        result.errors.push(`Linha ${rowIndex}: Código do produto faltando.`)
-        continue
+      // Product Lookup Priority
+      let productInfo: ProductInfo | undefined
+
+      // 1. Try codigo_interno (Exact String Match - Case Sensitive often, but we might want case insensitive?
+      // User story says: "normalize... trimming whitespace". It doesn't explicitly say case insensitive for values, only headers.
+      // But standard practice for codes is Case Sensitive or at least exact. We use trimmed string.
+      // Checking map keys which are trimmed.
+      productInfo = mapCodigoInterno.get(productValRaw)
+
+      // 2. Try CODIGO (Legacy Number)
+      if (!productInfo) {
+        const numericCode = parseInt(productValRaw)
+        if (!isNaN(numericCode)) {
+          productInfo = mapCodigoLegacy.get(numericCode)
+        }
       }
 
-      if (!clientMap.has(clientCode)) {
-        result.failureCount++
-        result.errors.push(
-          `Linha ${rowIndex}: Cliente com código ${clientCode} não encontrado.`,
-        )
-        continue
+      // 3. Try ID (PK Number)
+      if (!productInfo) {
+        const numericId = parseInt(productValRaw)
+        if (!isNaN(numericId)) {
+          productInfo = mapId.get(numericId)
+        }
       }
-
-      // Product Lookup Logic - Strict matching on codigo_interno
-      const productInfo = mapCodigoInterno.get(productCodeRaw)
 
       if (!productInfo) {
         result.failureCount++
         result.errors.push(
-          `Linha ${rowIndex}: Produto com código interno '${productCodeRaw}' não encontrado.`,
+          `Linha ${rowIndex}: Produto com identificador '${productValRaw}' não encontrado.`,
         )
         continue
       }
 
+      // Quantity Parsing
+      const quantity = parseFloat(qtyValRaw.replace(',', '.'))
       if (isNaN(quantity)) {
         result.failureCount++
         result.errors.push(
-          `Linha ${rowIndex}: Quantidade inválida ('${quantityVal}').`,
+          `Linha ${rowIndex}: Quantidade inválida '${qtyValRaw}'.`,
         )
         continue
       }
 
-      // Add to valid groups
+      // Add to Group
       if (!validGroups.has(clientCode)) {
         validGroups.set(clientCode, {
-          clientName: clientMap.get(clientCode)!,
+          clientName,
           items: [],
         })
       }
-
       validGroups.get(clientCode)!.items.push({
         productId: productInfo.id,
         productName: productInfo.name,
         quantity,
+        legacyCode: productInfo.codigo_legacy,
       })
     }
 
-    // 4. Execute Insertions per Client Group
+    // 4. Batch Execution
     const today = new Date()
     const dateStr = format(today, 'yyyy-MM-dd')
     const timeStr = format(today, 'HH:mm:ss')
     const isoStr = today.toISOString()
 
-    for (const [clientCode, groupData] of validGroups) {
-      try {
-        // Reserve Order Number
-        const orderId = await bancoDeDadosService.reserveNextOrderNumber()
+    const groups = Array.from(validGroups.entries())
 
-        // Chunk items if too many (safe margin 500)
-        const chunkSize = 500
-        for (let i = 0; i < groupData.items.length; i += chunkSize) {
-          const chunk = groupData.items.slice(i, i + chunkSize)
+    // Process clients in chunks to avoid overwhelming the database connection or exceeding limits
+    const CLIENT_BATCH_SIZE = 10 // Process 10 clients concurrently
 
-          // Prepare BANCO_DE_DADOS inserts
-          const bancoInserts = chunk.map((item) => ({
-            'NÚMERO DO PEDIDO': orderId,
-            'CÓDIGO DO CLIENTE': clientCode,
-            CLIENTE: groupData.clientName,
-            'COD. PRODUTO': null, // We don't have short CODIGO mapped here reliably if strict mode
-            MERCADORIA: item.productName,
-            'SALDO FINAL': item.quantity,
-            'SALDO INICIAL': 0,
-            'QUANTIDADE VENDIDA': '0',
-            TIPO: 'SALDO INICIAL',
-            'DATA DO ACERTO': dateStr,
-            'HORA DO ACERTO': timeStr,
-            'DATA E HORA': isoStr,
-            'CODIGO FUNCIONARIO': employeeId,
-            FUNCIONÁRIO: employeeName,
-            'VALOR VENDIDO': '0',
-            'PREÇO VENDIDO': '0',
-            'VALOR VENDA PRODUTO': '0',
-            FORMA: 'IMPORTAÇÃO CSV',
-            CONTAGEM: 0,
-            'NOVAS CONSIGNAÇÕES': '0',
-            RECOLHIDO: '0',
-          }))
+    for (let i = 0; i < groups.length; i += CLIENT_BATCH_SIZE) {
+      const batch = groups.slice(i, i + CLIENT_BATCH_SIZE)
 
-          // Prepare AJUSTE_SALDO_INICIAL inserts
-          const ajusteInserts = chunk.map((item) => ({
-            cliente_id: clientCode,
-            cliente_nome: groupData.clientName,
-            produto_id: item.productId,
-            quantidade_alterada: item.quantity,
-            saldo_anterior: 0,
-            saldo_novo: item.quantity,
-            vendedor_id: employeeId,
-            vendedor_nome: employeeName,
-            data_acerto: isoStr,
-            numero_pedido: orderId,
-          }))
+      await Promise.all(
+        batch.map(async ([clientCode, groupData]) => {
+          try {
+            // Reserve One Order ID per Client Group for "Saldo Inicial" batch
+            const orderId = await bancoDeDadosService.reserveNextOrderNumber()
 
-          // Execute Batch Inserts
-          const { error: bancoError } = await supabase
-            .from('BANCO_DE_DADOS')
-            .insert(bancoInserts)
-          if (bancoError) throw bancoError
+            // If items are too many for one client, split inserts
+            const ITEM_BATCH_SIZE = 500
+            for (let j = 0; j < groupData.items.length; j += ITEM_BATCH_SIZE) {
+              const chunk = groupData.items.slice(j, j + ITEM_BATCH_SIZE)
 
-          const { error: ajusteError } = await supabase
-            .from('AJUSTE_SALDO_INICIAL')
-            .insert(ajusteInserts)
-          if (ajusteError) throw ajusteError
-        }
+              const bancoInserts = chunk.map((item) => ({
+                'NÚMERO DO PEDIDO': orderId,
+                'CÓDIGO DO CLIENTE': clientCode,
+                CLIENTE: groupData.clientName,
+                'COD. PRODUTO': item.legacyCode,
+                MERCADORIA: item.productName,
+                'SALDO FINAL': item.quantity,
+                'SALDO INICIAL': 0,
+                'QUANTIDADE VENDIDA': '0',
+                TIPO: 'SALDO INICIAL',
+                'DATA DO ACERTO': dateStr,
+                'HORA DO ACERTO': timeStr,
+                'DATA E HORA': isoStr,
+                'CODIGO FUNCIONARIO': employeeId,
+                FUNCIONÁRIO: employeeName,
+                'VALOR VENDIDO': '0',
+                'PREÇO VENDIDO': '0',
+                'VALOR VENDA PRODUTO': '0',
+                FORMA: 'IMPORTAÇÃO CSV',
+                CONTAGEM: 0,
+                'NOVAS CONSIGNAÇÕES': '0',
+                RECOLHIDO: '0',
+              }))
 
-        result.successCount += groupData.items.length
-      } catch (error: any) {
-        console.error(`Error importing for client ${clientCode}:`, error)
-        result.failureCount += groupData.items.length
-        result.errors.push(
-          `Erro ao salvar dados do cliente ${clientCode}: ${error.message}`,
-        )
-      }
+              const ajusteInserts = chunk.map((item) => ({
+                cliente_id: clientCode,
+                cliente_nome: groupData.clientName,
+                produto_id: item.productId,
+                quantidade_alterada: item.quantity,
+                saldo_anterior: 0,
+                saldo_novo: item.quantity,
+                vendedor_id: employeeId,
+                vendedor_nome: employeeName,
+                data_acerto: isoStr,
+                numero_pedido: orderId,
+              }))
+
+              const { error: err1 } = await supabase
+                .from('BANCO_DE_DADOS')
+                .insert(bancoInserts)
+              if (err1) throw err1
+
+              const { error: err2 } = await supabase
+                .from('AJUSTE_SALDO_INICIAL')
+                .insert(ajusteInserts)
+              if (err2) throw err2
+            }
+
+            result.successCount += groupData.items.length
+          } catch (error: any) {
+            console.error(`Erro importação cliente ${clientCode}:`, error)
+            result.failureCount += groupData.items.length
+            result.errors.push(
+              `Erro ao salvar dados do cliente ${clientCode}: ${error.message}`,
+            )
+          }
+        }),
+      )
     }
 
     return result

@@ -198,18 +198,23 @@ export default function ImportSaldoPage() {
           </p>
           <ul className="text-sm text-blue-800 list-disc pl-5 space-y-1">
             <li>
-              <strong>Cliente:</strong> CÓDIGO DO CLIENTE, COD. CLIENTE, CODIGO
-              CLIENTE, ID CLIENTE
+              <strong>Cliente:</strong> CODIGO, CODIGO DO CLIENTE, ID CLIENTE,
+              CLIENTE
             </li>
             <li>
-              <strong>Produto (Código Interno):</strong> CODIGO INTERNO, COD.
-              INTERNO, CODIGO PRODUTO, COD. PRODUTO
+              <strong>Produto:</strong> CODIGO INTERNO, ID, CODIGO, PRODUTO,
+              CODIGO PRODUTO
             </li>
             <li>
-              <strong>Quantidade:</strong> SALDO INICIAL, QUANTIDADE, QTD,
-              CONTAGEM
+              <strong>Quantidade:</strong> QUANTIDADE, QTD, SALDO INICIAL, SALDO
             </li>
           </ul>
+          <p className="text-sm text-blue-700 mt-2 font-medium">
+            Prioridade de Busca do Produto:
+          </p>
+          <p className="text-sm text-blue-700">
+            1. Código Interno &rarr; 2. Código (Legado) &rarr; 3. ID do Sistema
+          </p>
         </div>
       </div>
 
