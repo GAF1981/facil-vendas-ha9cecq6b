@@ -97,8 +97,8 @@ const calculateThermalHeight = (body: any) => {
   // History Section
   const history = body.history || []
   if (history.length > 0) {
-    h += 15 // Header
-    // Per history item: 3 lines(30) + 15 gap = 45
+    h += 20 // Header title space
+    // Per history item: 3 lines(10px each) + gaps ~ 45px per item
     h += history.length * 45
     h += 10 // Final line
   }
@@ -257,7 +257,7 @@ Deno.serve(async (req) => {
 
     // --- CUSTOM DETAILED ORDER (RELATORIO DETALHADO DE PEDIDO - A4) ---
     if (isDetailedOrder && !isThermal) {
-      // Keep existing logic for A4 detailed order, adding new metrics
+      // Keep existing logic for A4 detailed order
       const {
         client,
         items = [],
@@ -269,7 +269,6 @@ Deno.serve(async (req) => {
         employee,
       } = body
 
-      // ... (Rest of A4 logic same as before until footer)
       const clientName =
         client?.['NOME CLIENTE'] || client?.['RAZÃO SOCIAL'] || 'Consumidor'
       const clientAddress = client?.ENDEREÇO || '-'
@@ -292,7 +291,7 @@ Deno.serve(async (req) => {
       drawLine(y)
       y -= 15
 
-      // Header Grid (Left / Right split roughly)
+      // Header Grid
       const leftColX = margins.left
       const rightColX = width / 2 + 20
 
@@ -331,7 +330,6 @@ Deno.serve(async (req) => {
       y -= 20
       drawLine(y)
 
-      // Fix Overlapping Headers: Move Y down significantly before drawing headers
       y -= 100
 
       // Table Header - Vertical Headers
@@ -352,7 +350,6 @@ Deno.serve(async (req) => {
       const headerFontSize = 8
 
       const drawVerticalHeader = (text: string, x: number) => {
-        // Draw rotated text. It will extend UPWARDS from y.
         drawText(text, x + 5, headerY, {
           size: headerFontSize,
           font: fontBold,
@@ -371,13 +368,12 @@ Deno.serve(async (req) => {
       drawVerticalHeader('NOVAS CONSIGNACOES', tableX.nc)
       drawVerticalHeader('RECOLHIDO', tableX.rec)
 
-      y -= 10 // small gap after headers base
+      y -= 10
       drawLine(y)
       y -= 12
 
       // Items Row
       const rowFontSize = 8
-      // Sort items alphabetically if not already sorted
       const sortedItems = [...items].sort((a, b) =>
         (a.produtoNome || '').localeCompare(b.produtoNome || ''),
       )
@@ -430,8 +426,8 @@ Deno.serve(async (req) => {
       drawLine(y)
       y -= 20
 
-      // Footer - RESUMO FINANCEIRO
-      checkPageBreak(120) // Need more space for footer + signature
+      // Footer
+      checkPageBreak(120)
       const footerRightX = width - margins.right
       const footerLabelX = width - 350
 
@@ -453,7 +449,7 @@ Deno.serve(async (req) => {
       drawText(`R$ ${formatCurrency(valorDesconto)}`, footerRightX, y, {
         size: 10,
         align: 'right',
-        color: rgb(1, 0, 0), // Red
+        color: rgb(1, 0, 0),
       })
       y -= 15
 
@@ -468,9 +464,7 @@ Deno.serve(async (req) => {
       })
       y -= 30
 
-      // Add Signature Section for A4 as well
       if (signatureImage) {
-        // Draw centered in page width
         const scaled = signatureImage.scaleToFit(200, 60)
         const xPos = (width - scaled.width) / 2
         page.drawImage(signatureImage, {
@@ -490,13 +484,15 @@ Deno.serve(async (req) => {
       })
     }
 
-    // --- CASH CLOSURE (FECHAMENTO DE CAIXA) - A4 LAYOUT ---
+    // --- CASH CLOSURE (FECHAMENTO DE CAIXA) ---
     else if (
-      !isThermal &&
-      (reportType === 'closing-confirmation' ||
-        reportType === 'employee-cash-summary')
+      reportType === 'closing-confirmation' ||
+      reportType === 'employee-cash-summary'
     ) {
-      // ... (Keep existing logic)
+      // Keep existing logic for closing reports (omitted for brevity as no changes requested here, reusing existing blocks logic conceptually)
+      // Since I am overwriting the file, I must include the logic from the context if I want it to persist.
+      // Based on context provided in prompt, I will copy the logic for closing reports from context.
+
       const { fechamento, date } = body
       const closingData = fechamento || body.data || {}
 
@@ -513,240 +509,243 @@ Deno.serve(async (req) => {
       const vendaTotal = closingData.venda_total || 0
       const descontoTotal = closingData.desconto_total || 0
 
-      drawText('FACIL VENDAS', width / 2, y, {
-        size: 18,
-        font: fontBold,
-        align: 'center',
-      })
-      y -= 25
-      drawText('FECHAMENTO DE CAIXA', width / 2, y, {
-        size: 14,
-        font: fontBold,
-        align: 'center',
-      })
-      y -= 20
-      drawLine(y)
-      y -= 20
+      if (!isThermal) {
+        // A4 Layout for Closing
+        drawText('FACIL VENDAS', width / 2, y, {
+          size: 18,
+          font: fontBold,
+          align: 'center',
+        })
+        y -= 25
+        drawText('FECHAMENTO DE CAIXA', width / 2, y, {
+          size: 14,
+          font: fontBold,
+          align: 'center',
+        })
+        y -= 20
+        drawLine(y)
+        y -= 20
 
-      const formattedDate =
-        safeFormatDate(reportDate) + ' ' + safeFormatTime(reportDate)
+        const formattedDate =
+          safeFormatDate(reportDate) + ' ' + safeFormatTime(reportDate)
 
-      drawText(`Data: ${formattedDate}`, margins.left, y, { size: 10 })
-      y -= 15
-      drawText(`Funcionario: ${empName}`, margins.left, y, {
-        size: 10,
-        font: fontBold,
-      })
-      y -= 15
-      drawText(`Rota ID: ${rotaId}`, margins.left, y, { size: 10 })
-      y -= 20
-      drawLine(y)
-      y -= 25
-
-      drawText('SALDO DO ACERTO', margins.left, y, {
-        size: 14,
-        font: fontBold,
-      })
-      drawText(`R$ ${formatCurrency(saldoAcerto)}`, width - margins.right, y, {
-        size: 14,
-        font: fontBold,
-        align: 'right',
-      })
-      y -= 10
-      drawLine(y)
-      y -= 25
-
-      drawText('RESUMO DE ENTRADA', width / 2, y, {
-        size: 12,
-        font: fontBold,
-        align: 'center',
-      })
-      y -= 25
-
-      const drawRow = (label: string, val: number, boldVal = false) => {
-        drawText(label, margins.left, y, { size: 10 })
-        drawText(`R$ ${formatCurrency(val)}`, width - margins.right, y, {
+        drawText(`Data: ${formattedDate}`, margins.left, y, { size: 10 })
+        y -= 15
+        drawText(`Funcionario: ${empName}`, margins.left, y, {
           size: 10,
-          align: 'right',
-          font: boldVal ? fontBold : fontRegular,
+          font: fontBold,
         })
         y -= 15
-      }
+        drawText(`Rota ID: ${rotaId}`, margins.left, y, { size: 10 })
+        y -= 20
+        drawLine(y)
+        y -= 25
 
-      drawRow('Dinheiro:', vDinheiro)
-      drawRow('Pix:', vPix)
-      drawRow('Cheque:', vCheque)
+        drawText('SALDO DO ACERTO', margins.left, y, {
+          size: 14,
+          font: fontBold,
+        })
+        drawText(
+          `R$ ${formatCurrency(saldoAcerto)}`,
+          width - margins.right,
+          y,
+          {
+            size: 14,
+            font: fontBold,
+            align: 'right',
+          },
+        )
+        y -= 10
+        drawLine(y)
+        y -= 25
 
-      y -= 5
-      drawText('TOTAL ENTRADA:', margins.left, y, {
-        size: 10,
-        font: fontBold,
-      })
-      drawText(`R$ ${formatCurrency(totalEntrada)}`, width - margins.right, y, {
-        size: 10,
-        font: fontBold,
-        align: 'right',
-      })
-      y -= 20
-      drawLine(y)
-      y -= 25
+        drawText('RESUMO DE ENTRADA', width / 2, y, {
+          size: 12,
+          font: fontBold,
+          align: 'center',
+        })
+        y -= 25
 
-      drawText('DETALHAMENTO DA SAIDA', width / 2, y, {
-        size: 12,
-        font: fontBold,
-        align: 'center',
-      })
-      y -= 25
+        const drawRow = (label: string, val: number, boldVal = false) => {
+          drawText(label, margins.left, y, { size: 10 })
+          drawText(`R$ ${formatCurrency(val)}`, width - margins.right, y, {
+            size: 10,
+            align: 'right',
+            font: boldVal ? fontBold : fontRegular,
+          })
+          y -= 15
+        }
 
-      drawText('TOTAL SAIDA (DESPESAS):', margins.left, y, { size: 10 })
-      drawText(`R$ ${formatCurrency(vDespesas)}`, width - margins.right, y, {
-        size: 10,
-        font: fontBold,
-        align: 'right',
-      })
-      y -= 20
-      drawLine(y)
-      y -= 25
+        drawRow('Dinheiro:', vDinheiro)
+        drawRow('Pix:', vPix)
+        drawRow('Cheque:', vCheque)
 
-      drawText('DETALHAMENTO DO ACERTO', width / 2, y, {
-        size: 12,
-        font: fontBold,
-        align: 'center',
-      })
-      y -= 25
+        y -= 5
+        drawText('TOTAL ENTRADA:', margins.left, y, {
+          size: 10,
+          font: fontBold,
+        })
+        drawText(
+          `R$ ${formatCurrency(totalEntrada)}`,
+          width - margins.right,
+          y,
+          {
+            size: 10,
+            font: fontBold,
+            align: 'right',
+          },
+        )
+        y -= 20
+        drawLine(y)
+        y -= 25
 
-      drawRow('Venda Total:', vendaTotal)
-      drawRow('Desconto Total:', descontoTotal)
+        drawText('DETALHAMENTO DA SAIDA', width / 2, y, {
+          size: 12,
+          font: fontBold,
+          align: 'center',
+        })
+        y -= 25
 
-      y -= 5
-      drawLine(y)
-    }
+        drawText('TOTAL SAIDA (DESPESAS):', margins.left, y, { size: 10 })
+        drawText(`R$ ${formatCurrency(vDespesas)}`, width - margins.right, y, {
+          size: 10,
+          font: fontBold,
+          align: 'right',
+        })
+        y -= 20
+        drawLine(y)
+        y -= 25
 
-    // --- CASH CLOSURE (FECHAMENTO DE CAIXA) - Standardized Layout (80mm) ---
-    else if (
-      isThermal &&
-      (reportType === 'closing-confirmation' ||
-        reportType === 'employee-cash-summary')
-    ) {
-      // ... (Keep existing logic)
-      const { fechamento, date } = body
-      const closingData = fechamento || body.data || {}
+        drawText('DETALHAMENTO DO ACERTO', width / 2, y, {
+          size: 12,
+          font: fontBold,
+          align: 'center',
+        })
+        y -= 25
 
-      const empName = closingData.funcionario?.nome_completo || 'Funcionario'
-      const rotaId = closingData.rota_id || '-'
-      const reportDate = closingData.created_at || date
+        drawRow('Venda Total:', vendaTotal)
+        drawRow('Desconto Total:', descontoTotal)
 
-      const saldoAcerto = closingData.saldo_acerto || 0
-      const vDinheiro = closingData.valor_dinheiro || 0
-      const vPix = closingData.valor_pix || 0
-      const vCheque = closingData.valor_cheque || 0
-      const totalEntrada = vDinheiro + vPix + vCheque
-      const vDespesas = closingData.valor_despesas || 0
-      const vendaTotal = closingData.venda_total || 0
-      const descontoTotal = closingData.desconto_total || 0
+        y -= 5
+        drawLine(y)
+      } else {
+        // Thermal Layout for Closing
+        drawText('FACIL VENDAS', width / 2, y, {
+          size: 14,
+          font: fontBold,
+          align: 'center',
+        })
+        y -= 18
+        drawText('FECHAMENTO DE CAIXA', width / 2, y, {
+          size: 12,
+          font: fontBold,
+          align: 'center',
+        })
+        y -= 15
+        drawLine(y)
+        y -= 15
 
-      drawText('FACIL VENDAS', width / 2, y, {
-        size: 14,
-        font: fontBold,
-        align: 'center',
-      })
-      y -= 18
-      drawText('FECHAMENTO DE CAIXA', width / 2, y, {
-        size: 12,
-        font: fontBold,
-        align: 'center',
-      })
-      y -= 15
-      drawLine(y)
-      y -= 15
+        const formattedDate =
+          safeFormatDate(reportDate) + ' ' + safeFormatTime(reportDate)
+        drawText(`Data: ${formattedDate}`, margins.left, y, { size: 9 })
+        y -= 12
+        drawText(`Funcionario: ${empName}`, margins.left, y, {
+          size: 9,
+          font: fontBold,
+        })
+        y -= 12
+        drawText(`Rota ID: ${rotaId}`, margins.left, y, { size: 9 })
+        y -= 15
 
-      const formattedDate =
-        safeFormatDate(reportDate) + ' ' + safeFormatTime(reportDate)
-      drawText(`Data: ${formattedDate}`, margins.left, y, { size: 9 })
-      y -= 12
-      drawText(`Funcionario: ${empName}`, margins.left, y, {
-        size: 9,
-        font: fontBold,
-      })
-      y -= 12
-      drawText(`Rota ID: ${rotaId}`, margins.left, y, { size: 9 })
-      y -= 15
+        drawLine(y)
+        y -= 15
 
-      drawLine(y)
-      y -= 15
+        drawText('SALDO DO ACERTO', margins.left, y, {
+          size: 11,
+          font: fontBold,
+        })
+        drawText(
+          `R$ ${formatCurrency(saldoAcerto)}`,
+          width - margins.right,
+          y,
+          {
+            size: 11,
+            font: fontBold,
+            align: 'right',
+          },
+        )
+        y -= 15
 
-      drawText('SALDO DO ACERTO', margins.left, y, { size: 11, font: fontBold })
-      drawText(`R$ ${formatCurrency(saldoAcerto)}`, width - margins.right, y, {
-        size: 11,
-        font: fontBold,
-        align: 'right',
-      })
-      y -= 15
+        drawLine(y)
+        y -= 15
 
-      drawLine(y)
-      y -= 15
+        drawText('RESUMO DE ENTRADA', width / 2, y, {
+          size: 10,
+          font: fontBold,
+          align: 'center',
+        })
+        y -= 15
 
-      drawText('RESUMO DE ENTRADA', width / 2, y, {
-        size: 10,
-        font: fontBold,
-        align: 'center',
-      })
-      y -= 15
+        const drawRow = (label: string, val: number) => {
+          drawText(label + ':', margins.left, y, { size: 9 })
+          drawText(`R$ ${formatCurrency(val)}`, width - margins.right, y, {
+            size: 9,
+            align: 'right',
+          })
+          y -= 12
+        }
 
-      const drawRow = (label: string, val: number) => {
-        drawText(label + ':', margins.left, y, { size: 9 })
-        drawText(`R$ ${formatCurrency(val)}`, width - margins.right, y, {
+        drawRow('Dinheiro', vDinheiro)
+        drawRow('Pix', vPix)
+        drawRow('Cheque', vCheque)
+
+        y -= 3
+        drawText('TOTAL ENTRADA:', margins.left, y, { size: 9, font: fontBold })
+        drawText(
+          `R$ ${formatCurrency(totalEntrada)}`,
+          width - margins.right,
+          y,
+          {
+            size: 9,
+            font: fontBold,
+            align: 'right',
+          },
+        )
+        y -= 15
+
+        drawLine(y)
+        y -= 15
+
+        drawText('DETALHAMENTO DA SAIDA', width / 2, y, {
+          size: 10,
+          font: fontBold,
+          align: 'center',
+        })
+        y -= 15
+
+        drawText('TOTAL SAIDA (DESPESAS):', margins.left, y, { size: 9 })
+        drawText(`R$ ${formatCurrency(vDespesas)}`, width - margins.right, y, {
           size: 9,
           align: 'right',
         })
-        y -= 12
+        y -= 15
+
+        drawLine(y)
+        y -= 15
+
+        drawText('DETALHAMENTO DO ACERTO', width / 2, y, {
+          size: 10,
+          font: fontBold,
+          align: 'center',
+        })
+        y -= 15
+
+        drawRow('Venda Total', vendaTotal)
+        drawRow('Desconto Total', descontoTotal)
+
+        y -= 15
+        drawLine(y)
       }
-
-      drawRow('Dinheiro', vDinheiro)
-      drawRow('Pix', vPix)
-      drawRow('Cheque', vCheque)
-
-      y -= 3
-      drawText('TOTAL ENTRADA:', margins.left, y, { size: 9, font: fontBold })
-      drawText(`R$ ${formatCurrency(totalEntrada)}`, width - margins.right, y, {
-        size: 9,
-        font: fontBold,
-        align: 'right',
-      })
-      y -= 15
-
-      drawLine(y)
-      y -= 15
-
-      drawText('DETALHAMENTO DA SAIDA', width / 2, y, {
-        size: 10,
-        font: fontBold,
-        align: 'center',
-      })
-      y -= 15
-
-      drawText('TOTAL SAIDA (DESPESAS):', margins.left, y, { size: 9 })
-      drawText(`R$ ${formatCurrency(vDespesas)}`, width - margins.right, y, {
-        size: 9,
-        align: 'right',
-      })
-      y -= 15
-
-      drawLine(y)
-      y -= 15
-
-      drawText('DETALHAMENTO DO ACERTO', width / 2, y, {
-        size: 10,
-        font: fontBold,
-        align: 'center',
-      })
-      y -= 15
-
-      drawRow('Venda Total', vendaTotal)
-      drawRow('Desconto Total', descontoTotal)
-
-      y -= 15
-      drawLine(y)
     }
 
     // --- ACERTO DETAILED THERMAL (Based on User Story / OCR Image) ---
@@ -914,7 +913,6 @@ Deno.serve(async (req) => {
       y -= 15
 
       // NEW: Quantidades Pedido Section
-      // This section provides aggregated view of inventory movements for the entire order
       const totalEstoqueInicial = items.reduce(
         (acc: number, item: any) => acc + (Number(item.saldoInicial) || 0),
         0,
@@ -977,7 +975,6 @@ Deno.serve(async (req) => {
         })
         y -= 15
 
-        // Header Row
         drawText('Forma de Pagamento', margins.left, y, {
           size: 8,
           font: fontBold,
@@ -993,7 +990,6 @@ Deno.serve(async (req) => {
 
         for (const pay of paymentsList) {
           checkPageBreak(20)
-          // Use paidValue as it represents "Valor Pago".
           const pVal =
             pay.paidValue !== undefined
               ? Number(pay.paidValue)
@@ -1018,7 +1014,7 @@ Deno.serve(async (req) => {
         y -= 15
       }
 
-      // 4. Installments Section ("VALORES A PAGAR (PARCELAS)")
+      // 4. Installments Section
       if (installments && installments.length > 0) {
         checkPageBreak(60)
         drawText('VALORES A PAGAR (PARCELAS)', width / 2, y, {
@@ -1028,7 +1024,6 @@ Deno.serve(async (req) => {
         })
         y -= 15
 
-        // Header Row
         drawText('Forma', margins.left, y, { size: 8, font: fontBold })
         drawText('Vencimento', width / 2, y, {
           size: 8,
@@ -1084,16 +1079,11 @@ Deno.serve(async (req) => {
       }
 
       // 5. Signature
-      // Ensure space for signature block (image + line + text)
       checkPageBreak(80)
 
       if (signatureImage) {
         const scaled = signatureImage.scaleToFit(180, 50)
-        // Position image so it sits on the line
         const xPos = (width - scaled.width) / 2
-        // We want to draw the line at `y - 50` (roughly)
-        // The image should be above that line.
-        // Image bottom left is (x, y - 50).
         page.drawImage(signatureImage, {
           x: xPos,
           y: y - 50,
@@ -1113,6 +1103,11 @@ Deno.serve(async (req) => {
       y -= 20
 
       // 6. History Section ("RESUMO DE ACERTOS (HISTORICO)")
+      // Updated to match the requested layout:
+      // Header: Date, Order #, Salesman
+      // Line 1: V: [Total] (Left)   A Pagar: [Total] (Right)
+      // Line 2: Pg: [Paid] (Left)   Deb: [Debit] (Center, Red)   Med: [Avg] (Right, Blue)
+
       if (history && history.length > 0) {
         checkPageBreak(80)
         drawText('RESUMO DE ACERTOS (HISTORICO)', width / 2, y, {
@@ -1127,7 +1122,10 @@ Deno.serve(async (req) => {
 
           const hDate = safeFormatDate(h.data || h.data_acerto)
           const hId = h.id || h.pedido_id
-          const hSeller = h.vendedor || h.vendedor_nome || 'N/D'
+          const hSeller = (h.vendedor || h.vendedor_nome || 'N/D').substring(
+            0,
+            12,
+          )
 
           const valTotal = Number(h.valorVendaTotal || h.valor_venda || 0)
           const valAPagar = Number(h.saldoAPagar || h.saldo_a_pagar || valTotal)
@@ -1135,19 +1133,17 @@ Deno.serve(async (req) => {
           const valDeb = Number(h.debito || 0)
           const valMed = Number(h.mediaMensal || h.media_mensal || 0)
 
-          // Line 1: Date #ID Seller
-          drawText(`${hDate}   #${hId}`, margins.left, y, {
-            size: 8,
-            font: fontBold,
-          })
+          // Line 1: Date (Left) | #Order (Center/Left) | Seller (Right)
+          drawText(hDate, margins.left, y, { size: 8, font: fontBold })
+          drawText(`#${hId}`, margins.left + 70, y, { size: 8, font: fontBold }) // Adjusted spacing
           drawText(hSeller, width - margins.right, y, {
             size: 8,
-            align: 'right',
             font: fontBold,
+            align: 'right',
           })
           y -= 10
 
-          // Line 2: V: ... A Pagar: ...
+          // Line 2: V: [Value] (Left) | A Pagar: [Value] (Right)
           drawText(`V: ${formatCurrency(valTotal)}`, margins.left, y, {
             size: 8,
           })
@@ -1159,25 +1155,26 @@ Deno.serve(async (req) => {
           )
           y -= 10
 
-          // Line 3: Pg: ... Deb: ... Med: ...
-          // Using manual spacing estimation for simplicity as column alignment in pdf-lib is manual
+          // Line 3: Pg: [Value] (Left) | Deb: [Value] (Red, Center) | Med: [Value] (Blue, Right)
           drawText(`Pg: ${formatCurrency(valPago)}`, margins.left, y, {
             size: 8,
           })
 
-          // Deb (Red)
+          // Calculate center position for Deb. Approx center of page is 113.
+          // Adjust based on text length to look centered visually.
           const debText = `Deb: ${formatCurrency(valDeb)}`
-          // Centered-ish
+          // Using margin + 70 as starting point seems reasonable for visual centering in 80mm
           drawText(debText, margins.left + 70, y, {
             size: 8,
-            color: rgb(0.8, 0, 0),
+            color: rgb(0.8, 0, 0), // Red
+            font: fontBold,
           })
 
-          // Med (Blue)
           drawText(`Med: ${formatCurrency(valMed)}`, width - margins.right, y, {
             size: 8,
             align: 'right',
-            color: rgb(0, 0, 0.8),
+            color: rgb(0, 0, 0.8), // Blue
+            font: fontBold,
           })
 
           y -= 15 // Gap between entries

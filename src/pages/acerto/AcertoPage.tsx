@@ -373,7 +373,8 @@ export default function AcertoPage() {
 
     setGeneratingPdf(true)
     try {
-      const history = await bancoDeDadosService.getAcertoHistory(client.CODIGO)
+      // Fetch history from 'debitos_historico' view for PDF consistency
+      const history = await bancoDeDadosService.getHistoryForPdf(client.CODIGO)
 
       const detailedPayments = payments
         .filter((p) => p.paidValue > 0)
@@ -460,7 +461,7 @@ export default function AcertoPage() {
           monthlyAverage,
           orderNumber: nextOrderNumber,
           issuerName: loggedInUser?.nome_completo,
-          history: history.slice(0, 10),
+          history: history.slice(0, 10), // Limit history to recent 10
           totalItemsSold,
           totalQuantitySold,
         },
@@ -661,7 +662,12 @@ export default function AcertoPage() {
         })
       }
 
-      const history = await bancoDeDadosService.getAcertoHistory(client.CODIGO)
+      // Retrieve history for PDF - Exclude the current order we just saved to avoid redundancy
+      // Use getHistoryForPdf as requested by User Story to use debitos_historico view
+      const history = await bancoDeDadosService.getHistoryForPdf(client.CODIGO)
+      const filteredHistory = history
+        .filter((h) => h.id !== finalOrderNumber)
+        .slice(0, 10)
 
       const detailedPayments = payments
         .filter((p) => p.paidValue > 0)
@@ -746,7 +752,7 @@ export default function AcertoPage() {
           monthlyAverage,
           orderNumber: finalOrderNumber,
           issuerName: loggedInUser?.nome_completo,
-          history: history.slice(0, 10),
+          history: filteredHistory,
           totalItemsSold,
           totalQuantitySold,
         },
@@ -757,7 +763,8 @@ export default function AcertoPage() {
 
       const a = document.createElement('a')
       a.href = url
-      a.download = `Pedido_${finalOrderNumber}_${client['NOME CLIENTE']}.pdf`
+      // Update Filename pattern as per User Story: [NOME CLIENTE] - [CODIGO CLIENTE] - [NÚMERO DO PEDIDO].pdf
+      a.download = `${client['NOME CLIENTE']} - ${client.CODIGO} - ${finalOrderNumber}.pdf`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
