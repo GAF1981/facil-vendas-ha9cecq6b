@@ -184,7 +184,7 @@ export const bancoDeDadosService = {
       })
       .filter((i) => i !== null) as AcertoItem[]
 
-    // Sort alphabetically by product name
+    // Sort items alphabetically by product name
     items.sort((a, b) => a.produtoNome.localeCompare(b.produtoNome))
 
     return { items, nextId: 0 }
@@ -428,7 +428,10 @@ export const bancoDeDadosService = {
   }) {
     const quantity = payload.saldo_novo - payload.saldo_anterior
 
-    const timestamp = payload.data_acerto || new Date().toISOString()
+    // Ensure strict ISO format for database compatibility
+    const timestamp = payload.data_acerto
+      ? new Date(payload.data_acerto).toISOString()
+      : new Date().toISOString()
 
     const { error } = await supabase.from('AJUSTE_SALDO_INICIAL').insert({
       ...payload,
@@ -452,6 +455,7 @@ export const bancoDeDadosService = {
       customOrderNumber ?? (await this.reserveNextOrderNumber())
     const dataAcertoStr = format(date, 'yyyy-MM-dd')
     const horaAcerto = format(date, 'HH:mm:ss')
+    // Ensure strict ISO format for database compatibility
     const dataEHora = date.toISOString()
 
     const activeRoute = await rotaService.getActiveRota()
