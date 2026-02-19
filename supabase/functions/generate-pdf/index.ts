@@ -63,6 +63,10 @@ const calculateThermalHeight = (body: any) => {
   // Approx: 5(spacer) + 12(Total) + 12(Desc) + 12(Prod count) + 12(Qtd count) + 15(Total Pay) + 15(Line) = 83
   h += 83
 
+  // Quantidades Pedido Section (New)
+  // Header(15) + Line(12) + 4 rows(48) + Line(12) + Spacer(15) ~ 102
+  h += 102
+
   // VALOR PAGO Section
   const payments =
     body.detailedPayments && body.detailedPayments.length > 0
@@ -853,7 +857,7 @@ Deno.serve(async (req) => {
       y -= 15
 
       // Ensure Alphabetical Sort for PDF
-      const sortedItems = [...items].sort((a, b) =>
+      const sortedItems = [...items].sort((a: any, b: any) =>
         (a.produtoNome || a.produto || '').localeCompare(
           b.produtoNome || b.produto || '',
         ),
@@ -958,6 +962,55 @@ Deno.serve(async (req) => {
       })
       y -= 15
       drawLine(y)
+      y -= 15
+
+      // NEW: Quantidades Pedido Section
+      // This section provides aggregated view of inventory movements for the entire order
+      const totalEstoqueInicial = items.reduce(
+        (acc: number, item: any) => acc + (Number(item.saldoInicial) || 0),
+        0,
+      )
+      const totalContagem = items.reduce(
+        (acc: number, item: any) => acc + (Number(item.contagem) || 0),
+        0,
+      )
+      const totalQuantidadeVendida = items.reduce(
+        (acc: number, item: any) => acc + (Number(item.quantVendida) || 0),
+        0,
+      )
+      const totalEstoqueFinal = items.reduce(
+        (acc: number, item: any) => acc + (Number(item.saldoFinal) || 0),
+        0,
+      )
+
+      checkPageBreak(100)
+
+      drawText('Quantidades Pedido', width / 2, y, {
+        size: 10,
+        font: fontBold,
+        align: 'center',
+      })
+      y -= 15
+      drawLine(y, 0.5)
+      y -= 12
+
+      const quantityRows = [
+        { label: 'Estoque inicial:', value: totalEstoqueInicial },
+        { label: 'Quantidade contagem:', value: totalContagem },
+        { label: 'Quantidade vendida:', value: totalQuantidadeVendida },
+        { label: 'Quantidade final:', value: totalEstoqueFinal },
+      ]
+
+      for (const row of quantityRows) {
+        drawText(row.label, margins.left, y, { size: 9 })
+        drawText(String(row.value), width - margins.right, y, {
+          size: 9,
+          align: 'right',
+        })
+        y -= 12
+      }
+
+      drawLine(y, 0.5)
       y -= 15
 
       // NEW: VALOR PAGO Section
