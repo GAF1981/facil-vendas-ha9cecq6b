@@ -60,8 +60,9 @@ const calculateThermalHeight = (body: any) => {
   h += items.length * 86
 
   // Totals Section
-  // Approx: 5(spacer) + 12(Total) + 12(Desc) + 12(Prod count) + 12(Qtd count) + 15(Total Pay) + 15(Line) = 83
-  h += 83
+  // Approx: 5(spacer) + 12(Total) + 12(Desc) + 15(Total Pay) + 15(Line) = 59
+  // Removed lines for product counts: 12(Prod count) + 12(Qtd count) = 24 less than before (83)
+  h += 59
 
   // Quantidades Pedido Section (New)
   // Header(15) + Line(12) + 4 rows(48) + Line(12) + Spacer(15) ~ 102
@@ -266,8 +267,6 @@ Deno.serve(async (req) => {
         valorDesconto = 0,
         valorAcerto = 0,
         employee,
-        totalItemsSold,
-        totalQuantitySold,
       } = body
 
       // ... (Rest of A4 logic same as before until footer)
@@ -457,27 +456,6 @@ Deno.serve(async (req) => {
         color: rgb(1, 0, 0), // Red
       })
       y -= 15
-
-      // New Metrics for A4 as well if available
-      if (totalItemsSold !== undefined) {
-        drawText('Total de produtos vendidos:', footerLabelX, y, { size: 10 })
-        drawText(String(totalItemsSold), footerRightX, y, {
-          size: 10,
-          align: 'right',
-        })
-        y -= 15
-      }
-
-      if (totalQuantitySold !== undefined) {
-        drawText('Quantidade de produtos vendidos:', footerLabelX, y, {
-          size: 10,
-        })
-        drawText(String(totalQuantitySold), footerRightX, y, {
-          size: 10,
-          align: 'right',
-        })
-        y -= 15
-      }
 
       drawText('TOTAL A PAGAR:', footerLabelX, y, {
         size: 12,
@@ -791,8 +769,6 @@ Deno.serve(async (req) => {
         history = [],
         detailedPayments = [],
         payments = [],
-        totalItemsSold,
-        totalQuantitySold,
       } = body
 
       const sellerName = employee?.nome_completo || 'N/D'
@@ -926,33 +902,6 @@ Deno.serve(async (req) => {
         },
       )
       y -= 12
-
-      // New Metrics
-      if (totalItemsSold !== undefined) {
-        drawText('Total de produtos vendidos:', margins.left, y, {
-          size: 9,
-          font: fontBold,
-        })
-        drawText(String(totalItemsSold), width - margins.right, y, {
-          size: 9,
-          font: fontBold,
-          align: 'right',
-        })
-        y -= 12
-      }
-
-      if (totalQuantitySold !== undefined) {
-        drawText('Quantidade de produtos vendidos:', margins.left, y, {
-          size: 9,
-          font: fontBold,
-        })
-        drawText(String(totalQuantitySold), width - margins.right, y, {
-          size: 9,
-          font: fontBold,
-          align: 'right',
-        })
-        y -= 12
-      }
 
       drawText('TOTAL A PAGAR:', margins.left, y, { size: 10, font: fontBold })
       drawText(`R$ ${formatCurrency(valorAcerto)}`, width - margins.right, y, {
