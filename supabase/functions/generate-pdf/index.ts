@@ -488,10 +488,7 @@ Deno.serve(async (req) => {
       reportType === 'closing-confirmation' ||
       reportType === 'employee-cash-summary'
     ) {
-      // Keep existing logic for closing reports (omitted for brevity as no changes requested here, reusing existing blocks logic conceptually)
-      // Since I am overwriting the file, I must include the logic from the context if I want it to persist.
-      // Based on context provided in prompt, I will copy the logic for closing reports from context.
-
+      // Keep existing logic for closing reports
       const { fechamento, date } = body
       const closingData = fechamento || body.data || {}
 
@@ -1102,11 +1099,7 @@ Deno.serve(async (req) => {
       y -= 20
 
       // 6. History Section ("RESUMO DE ACERTOS (HISTORICO)")
-      // Updated to match the requested layout:
-      // Header: Date, Order #, Salesman
-      // Line 1: V: [Total] (Left)   A Pagar: [Total] (Right)
-      // Line 2: Pg: [Paid] (Left)   Deb: [Debit] (Center, Red)   Med: [Avg] (Right, Blue)
-
+      // Updated to match the requested layout
       if (history && history.length > 0) {
         checkPageBreak(80)
         drawText('RESUMO DE ACERTOS (HISTORICO)', width / 2, y, {
@@ -1134,7 +1127,7 @@ Deno.serve(async (req) => {
 
           // Line 1: Date (Left) | #Order (Center/Left) | Seller (Right)
           drawText(hDate, margins.left, y, { size: 8, font: fontBold })
-          drawText(`#${hId}`, margins.left + 70, y, { size: 8, font: fontBold }) // Adjusted spacing
+          drawText(`#${hId}`, margins.left + 70, y, { size: 8, font: fontBold })
           drawText(hSeller, width - margins.right, y, {
             size: 8,
             font: fontBold,
@@ -1159,10 +1152,7 @@ Deno.serve(async (req) => {
             size: 8,
           })
 
-          // Calculate center position for Deb. Approx center of page is 113.
-          // Adjust based on text length to look centered visually.
           const debText = `Deb: ${formatCurrency(valDeb)}`
-          // Using margin + 70 as starting point seems reasonable for visual centering in 80mm
           drawText(debText, margins.left + 70, y, {
             size: 8,
             color: rgb(0.8, 0, 0), // Red
@@ -1186,7 +1176,7 @@ Deno.serve(async (req) => {
     return new Response(pdfBytes, {
       headers: { ...corsHeaders, 'Content-Type': 'application/pdf' },
     })
-  } catch (error) {
+  } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,

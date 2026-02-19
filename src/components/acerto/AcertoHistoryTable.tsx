@@ -15,6 +15,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { bancoDeDadosService } from '@/services/bancoDeDadosService'
 import { acertoService } from '@/services/acertoService'
 import { formatCurrency } from '@/lib/formatters'
@@ -30,6 +33,7 @@ import {
   Banknote,
   User,
   Calendar,
+  Plus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
@@ -68,6 +72,8 @@ export interface HistoryRow {
     createdAt?: string
   }[]
   collectionActionCount?: number
+  // Add required fields for collection actions if missing in original
+  cliente_nome?: string
 }
 
 interface AcertoHistoryTableProps {
@@ -118,6 +124,17 @@ export function AcertoHistoryTable({
   >([])
   const [loadingCollectionActions, setLoadingCollectionActions] =
     useState(false)
+  const [selectedOrderIdForActions, setSelectedOrderIdForActions] = useState<
+    number | null
+  >(null)
+
+  // Add Action Form State
+  const [showAddActionForm, setShowAddActionForm] = useState(false)
+  const [newAction, setNewAction] = useState({
+    acao: '',
+    dataAcao: new Date().toISOString().split('T')[0],
+  })
+  const [submittingAction, setSubmittingAction] = useState(false)
 
   // Reversal State
   const [reversing, setReversing] = useState(false)
@@ -161,7 +178,9 @@ export function AcertoHistoryTable({
   const handleShowCollectionActions = async (orderId: number) => {
     setLoadingCollectionActions(true)
     setSelectedCollectionActions([])
+    setSelectedOrderIdForActions(orderId)
     setCollectionActionsOpen(true)
+    setShowAddActionForm(false) // Reset form state
     try {
       const actions = await cobrancaService.getCollectionActions(
         orderId.toString(),
@@ -176,6 +195,78 @@ export function AcertoHistoryTable({
       })
     } finally {
       setLoadingCollectionActions(false)
+    }
+  }
+
+  const handleAddAction = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!loggedInUser) {
+      toast({
+        title: 'Erro',
+        description: 'Você precisa estar logado.',
+        variant: 'destructive',
+      })
+      return
+    }
+    if (!selectedOrderIdForActions) return
+    if (!newAction.acao.trim()) {
+      toast({
+        title: 'Atenção',
+        description: 'Descreva a ação realizada.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setSubmittingAction(true)
+    try {
+      // Find client name from history
+      const order = history.find((h) => h.id === selectedOrderIdForActions)
+      const clientName = order?.cliente_nome || 'Cliente'
+
+      await cobrancaService.addCollectionAction({
+        acao: newAction.acao,
+        dataAcao: newAction.dataAcao,
+        novaDataCombinada: null,
+        funcionarioId: loggedInUser.id,
+        funcionarioNome: loggedInUser.nome_completo,
+        pedidoId: selectedOrderIdForActions,
+        clienteId: clientId,
+        clienteNome: clientName,
+        installments: [],
+        targetVencimento: null,
+        targetFormaPagamento: null,
+      })
+
+      toast({
+        title: 'Sucesso',
+        description: 'Ação de cobrança registrada.',
+        className: 'bg-green-600 text-white',
+      })
+
+      // Refresh list
+      const actions = await cobrancaService.getCollectionActions(
+        selectedOrderIdForActions.toString(),
+      )
+      setSelectedCollectionActions(actions)
+      setShowAddActionForm(false)
+      setNewAction({
+        acao: '',
+        dataAcao: new Date().toISOString().split('T')[0],
+      })
+      // Refresh history to update count bubble if needed
+      if (!externalData) {
+        loadHistory()
+      }
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível salvar a ação.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSubmittingAction(false)
     }
   }
 
@@ -576,8 +667,73 @@ export function AcertoHistoryTable({
       >
         <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Detalhamento de Ações de Cobrança</DialogTitle>
+            <DialogTitle className="flex justify-between items-center pr-8">
+              <span>Detalhamento de Ações de Cobrança</span>
+            </DialogTitle>
           </DialogHeader>
+
+          {!showAddActionForm && (
+            <div className="flex justify-end mb-2">
+              <Button size="sm" onClick={() => setShowAddActionForm(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Registrar Ação
+              </Button>
+            </div>
+          )}
+
+          {showAddActionForm && (
+            <div className="bg-muted/30 p-4 rounded-lg border space-y-4 mb-4 animate-in slide-in-from-top-4 fade-in">
+              <h3 className="text-sm font-semibold">Registrar Nova Ação</h3>
+              <form onSubmit={handleAddAction} className="space-y-3">
+                <div className="grid gap-2">
+                  <Label htmlFor="acao">Descrição da Ação</Label>
+                  <Textarea
+                    id="acao"
+                    placeholder="Ex: Cliente informou que pagará na próxima semana..."
+                    value={newAction.acao}
+                    onChange={(e) =>
+                      setNewAction({ ...newAction, acao: e.target.value })
+                    }
+                    className="min-h-[80px]"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="dataAcao">Data da Ação</Label>
+                  <Input
+                    id="dataAcao"
+                    type="date"
+                    value={newAction.dataAcao}
+                    onChange={(e) =>
+                      setNewAction({ ...newAction, dataAcao: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowAddActionForm(false)}
+                    disabled={submittingAction}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={submittingAction || !newAction.acao.trim()}
+                  >
+                    {submittingAction && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    Salvar
+                  </Button>
+                </div>
+              </form>
+            </div>
+          )}
+
           <div className="flex-1 overflow-auto">
             {loadingCollectionActions ? (
               <div className="flex justify-center py-8">

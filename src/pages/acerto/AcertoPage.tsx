@@ -35,7 +35,14 @@ import {
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Save, Printer, Loader2, Copy, ArrowRight } from 'lucide-react'
+import {
+  Save,
+  Printer,
+  Loader2,
+  Copy,
+  ArrowRight,
+  RefreshCw,
+} from 'lucide-react'
 import { parseCurrency } from '@/lib/formatters'
 import { fechamentoService } from '@/services/fechamentoService'
 import { rotaService } from '@/services/rotaService'
@@ -362,6 +369,26 @@ export default function AcertoPage() {
       toast({
         title: 'Atualizado',
         description: 'Contagem atualizada com valores do Saldo Inicial.',
+      })
+    }
+  }
+
+  const handleRepeatInitialToFinal = () => {
+    if (items.length === 0) return
+    if (
+      confirm(
+        'Tem certeza que deseja copiar o SALDO INICIAL para o SALDO FINAL de todos os itens?',
+      )
+    ) {
+      setItems((prev) =>
+        prev.map((item) => ({
+          ...item,
+          saldoFinal: item.saldoInicial,
+        })),
+      )
+      toast({
+        title: 'Atualizado',
+        description: 'Saldo Final atualizado com valores do Saldo Inicial.',
       })
     }
   }
@@ -854,6 +881,14 @@ export default function AcertoPage() {
             >
               <ArrowRight className="mr-2 h-4 w-4" />
               Repetir Saldo Inicial na Contagem
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleRepeatInitialToFinal}
+              title="Copiar Saldo Inicial para Saldo Final em todos os itens"
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Repetir Saldo Inicial no Final
             </Button>
             <Button
               variant="outline"
