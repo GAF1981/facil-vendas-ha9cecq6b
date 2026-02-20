@@ -20,6 +20,7 @@ import {
   Gift,
   Mail,
   Loader2,
+  Target,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useUserStore } from '@/stores/useUserStore'
@@ -168,6 +169,15 @@ const RelatorioDashboard = () => {
       to: '/relatorio/debitos',
       color: 'text-red-600',
       bg: 'bg-red-100',
+    },
+    {
+      title: 'Metas',
+      description:
+        'Acompanhamento de metas diárias de acertos por funcionário.',
+      icon: Target,
+      to: '/relatorio/metas',
+      color: 'text-indigo-600',
+      bg: 'bg-indigo-100',
     },
     {
       title: 'Itens mais Vendidos',

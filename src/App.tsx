@@ -35,6 +35,7 @@ import GeneralInventoryReportPage from '@/pages/relatorio/GeneralInventoryReport
 import FuelReportPage from '@/pages/relatorio/FuelReportPage'
 import ImportSaldoPage from '@/pages/relatorio/ImportSaldoPage'
 import BrindeReportPage from '@/pages/relatorio/BrindeReportPage'
+import MetasReportPage from '@/pages/relatorio/MetasReportPage'
 import CaixaPage from '@/pages/caixa/CaixaPage'
 import FechamentosPage from '@/pages/fechamento/FechamentosPage'
 import PagamentosPage from '@/pages/pagamentos/PagamentosPage'
@@ -188,6 +189,10 @@ const App = () => (
                   <Route
                     path="/relatorio/debitos"
                     element={<DebitosReportPage />}
+                  />
+                  <Route
+                    path="/relatorio/metas"
+                    element={<MetasReportPage />}
                   />
                   <Route
                     path="/relatorio/itens-mais-vendidos"

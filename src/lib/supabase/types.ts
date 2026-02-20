@@ -2599,7 +2599,19 @@ export type Database = {
           setor: string[]
         }[]
       }
-      parse_currency_sql: { Args: { price: string }; Returns: number }
+      parse_currency_sql:
+        | {
+            Args: { val_str: string }
+            Returns: {
+              error: true
+            } & "Could not choose the best candidate function between: public.parse_currency_sql(val_str => text), public.parse_currency_sql(val_str => varchar). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
+          }
+        | {
+            Args: { val_str: string }
+            Returns: {
+              error: true
+            } & "Could not choose the best candidate function between: public.parse_currency_sql(val_str => text), public.parse_currency_sql(val_str => varchar). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
+          }
       process_inventory_batch: {
         Args: { p_funcionario_id: number; p_items: Json; p_session_id: number }
         Returns: undefined
@@ -2626,19 +2638,10 @@ export type Database = {
         Args: { p_new_rota_id: number; p_old_rota_id: number }
         Returns: undefined
       }
-      update_debito_historico_order:
-        | {
-            Args: { p_pedido_id: number }
-            Returns: {
-              error: true
-            } & "Could not choose the best candidate function between: public.update_debito_historico_order(p_pedido_id => int8), public.update_debito_historico_order(p_pedido_id => int4). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
-          }
-        | {
-            Args: { p_pedido_id: number }
-            Returns: {
-              error: true
-            } & "Could not choose the best candidate function between: public.update_debito_historico_order(p_pedido_id => int8), public.update_debito_historico_order(p_pedido_id => int4). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
-          }
+      update_debito_historico_order: {
+        Args: { p_pedido_id: number }
+        Returns: undefined
+      }
       verify_employee_credentials: {
         Args: { p_email: string; p_senha: string }
         Returns: {
@@ -3637,14 +3640,59 @@ export const Constants = {
 //   END;
 //   $function$
 //   
-// FUNCTION parse_currency_sql(text)
-//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(price text)
+// FUNCTION parse_currency_sql(character varying)
+//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str character varying)
 //    RETURNS numeric
 //    LANGUAGE plpgsql
 //   AS $function$
+//   DECLARE
+//       cleaned TEXT;
 //   BEGIN
-//       IF price IS NULL THEN RETURN 0; END IF;
-//       RETURN CAST(REPLACE(REPLACE(REPLACE(price, '.', ''), ',', '.'), 'R$ ', '') AS NUMERIC);
+//       IF val_str IS NULL OR TRIM(val_str) = '' THEN
+//           RETURN 0;
+//       END IF;
+//   
+//       cleaned := REGEXP_REPLACE(val_str, '[^0-9.,-]', '', 'g');
+//       
+//       IF cleaned = '' OR cleaned = '-' THEN
+//           RETURN 0;
+//       END IF;
+//   
+//       IF POSITION(',' IN cleaned) > 0 THEN
+//           cleaned := REPLACE(cleaned, '.', '');
+//           cleaned := REPLACE(cleaned, ',', '.');
+//       END IF;
+//   
+//       RETURN CAST(cleaned AS NUMERIC);
+//   EXCEPTION WHEN OTHERS THEN
+//       RETURN 0;
+//   END;
+//   $function$
+//   
+// FUNCTION parse_currency_sql(text)
+//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str text)
+//    RETURNS numeric
+//    LANGUAGE plpgsql
+//   AS $function$
+//   DECLARE
+//       cleaned TEXT;
+//   BEGIN
+//       IF val_str IS NULL OR TRIM(val_str) = '' THEN
+//           RETURN 0;
+//       END IF;
+//   
+//       cleaned := REGEXP_REPLACE(val_str, '[^0-9.,-]', '', 'g');
+//       
+//       IF cleaned = '' OR cleaned = '-' THEN
+//           RETURN 0;
+//       END IF;
+//   
+//       IF POSITION(',' IN cleaned) > 0 THEN
+//           cleaned := REPLACE(cleaned, '.', '');
+//           cleaned := REPLACE(cleaned, ',', '.');
+//       END IF;
+//   
+//       RETURN CAST(cleaned AS NUMERIC);
 //   EXCEPTION WHEN OTHERS THEN
 //       RETURN 0;
 //   END;
@@ -3787,7 +3835,6 @@ export const Constants = {
 //       DELETE FROM debitos_historico;
 //   
 //       INSERT INTO debitos_historico (
-//           rota_id,
 //           pedido_id,
 //           data_acerto,
 //           hora_acerto,
@@ -3795,7 +3842,6 @@ export const Constants = {
 //           cliente_codigo,
 //           cliente_nome,
 //           rota,
-//           media_mensal,
 //           valor_venda,
 //           desconto,
 //           saldo_a_pagar,
@@ -3805,7 +3851,7 @@ export const Constants = {
 //       WITH vendas AS (
 //           SELECT 
 //               "NÚMERO DO PEDIDO" as pedido_id,
-//               MAX(CAST("DATA DO ACERTO" AS TIMESTAMP)) as data_acerto,
+//               MAX("DATA DO ACERTO") as data_acerto_str,
 //               MAX("HORA DO ACERTO") as hora_acerto,
 //               MAX("FUNCIONÁRIO") as vendedor_nome,
 //               MAX("CÓDIGO DO CLIENTE") as cliente_id,
@@ -3819,13 +3865,22 @@ export const Constants = {
 //       vendas_calc AS (
 //           SELECT 
 //               v.*,
+//               -- Replicate Discount Logic
 //               CASE 
-//                   WHEN v.desconto_str LIKE '%%%' THEN
-//                       v.valor_venda * (public.parse_currency_sql(REPLACE(v.desconto_str, '%', '')) / 100.0)
-//                   ELSE
-//                       public.parse_currency_sql(v.desconto_str)
+//                   WHEN public.parse_currency_sql(v.desconto_str) > 0 THEN
+//                       CASE
+//                           WHEN v.desconto_str LIKE '%%%' THEN
+//                                v.valor_venda * (public.parse_currency_sql(REPLACE(v.desconto_str, '%', '')) / 100.0)
+//                           WHEN public.parse_currency_sql(v.desconto_str) < 1 THEN
+//                                v.valor_venda * public.parse_currency_sql(v.desconto_str)
+//                           WHEN public.parse_currency_sql(v.desconto_str) <= 100 THEN
+//                                v.valor_venda * (public.parse_currency_sql(v.desconto_str) / 100.0)
+//                           ELSE
+//                                public.parse_currency_sql(v.desconto_str)
+//                       END
+//                   ELSE 0
 //               END as desconto_calc,
-//               LAG(v.data_acerto) OVER (PARTITION BY v.cliente_id ORDER BY v.data_acerto) as prev_data_acerto
+//               public.safe_cast_timestamp(v.data_acerto_str, v.hora_acerto) as data_acerto
 //           FROM vendas v
 //       ),
 //       pagamentos AS (
@@ -3836,15 +3891,10 @@ export const Constants = {
 //           GROUP BY venda_id
 //       ),
 //       client_info AS (
-//           SELECT "CODIGO" as cliente_id, "GRUPO ROTA" as rota, "TIPO DE CLIENTE"
+//           SELECT "CODIGO" as cliente_id, "GRUPO ROTA" as rota
 //           FROM "CLIENTES"
-//       ),
-//       rota_links AS (
-//           SELECT DISTINCT ON (cliente_id) cliente_id, rota_id 
-//           FROM "ROTA_ITEMS"
 //       )
 //       SELECT
-//           rota_links.rota_id,
 //           vc.pedido_id,
 //           vc.data_acerto,
 //           vc.hora_acerto,
@@ -3852,11 +3902,6 @@ export const Constants = {
 //           vc.cliente_id,
 //           vc.cliente_nome,
 //           client_info.rota,
-//           CASE 
-//               WHEN vc.prev_data_acerto IS NOT NULL AND EXTRACT(DAY FROM (vc.data_acerto - vc.prev_data_acerto)) > 0 THEN
-//                   vc.valor_venda / (EXTRACT(DAY FROM (vc.data_acerto - vc.prev_data_acerto)) / 30.0)
-//               ELSE 0
-//           END as media_mensal,
 //           vc.valor_venda,
 //           vc.desconto_calc,
 //           (vc.valor_venda - vc.desconto_calc),
@@ -3864,7 +3909,6 @@ export const Constants = {
 //           GREATEST(0, (vc.valor_venda - vc.desconto_calc) - COALESCE(p.valor_pago, 0))
 //       FROM vendas_calc vc
 //       LEFT JOIN pagamentos p ON vc.pedido_id = p.venda_id
-//       LEFT JOIN rota_links ON vc.cliente_id = rota_links.cliente_id
 //       LEFT JOIN client_info ON vc.cliente_id = client_info.cliente_id;
 //   END;
 //   $function$
@@ -4190,46 +4234,39 @@ export const Constants = {
 //       v_desconto_str TEXT;
 //       v_desconto_val NUMERIC := 0;
 //       v_desconto_final NUMERIC := 0;
+//       v_saldo_a_pagar NUMERIC := 0;
 //       v_debito NUMERIC := 0;
-//       v_saldo_a_pagar_raw NUMERIC := 0;
 //       
 //       v_cliente_id BIGINT;
 //       v_cliente_nome TEXT;
 //       v_vendedor_nome TEXT;
 //       v_data_acerto_str TEXT;
 //       v_hora_acerto TEXT;
-//       v_data_e_hora_str TEXT;
-//       v_final_timestamp TIMESTAMP;
 //       v_rota TEXT;
-//       v_rota_id INTEGER;
-//       
+//       v_data_acerto_ts TIMESTAMP;
 //   BEGIN
-//       -- 1. Calculate Total Paid
+//       -- 1. Calculate Total Paid from RECEBIMENTOS
 //       SELECT COALESCE(SUM(valor_pago), 0)
 //       INTO v_total_pago
 //       FROM "RECEBIMENTOS"
 //       WHERE venda_id = p_pedido_id;
 //   
-//       -- 2. Fetch Order Data
+//       -- 2. Fetch Sales Data
 //       SELECT 
 //           SUM(public.parse_currency_sql("VALOR VENDIDO")),
-//           SUM("VALOR DEVIDO"),
 //           MAX("CÓDIGO DO CLIENTE"),
 //           MAX("CLIENTE"),
 //           MAX("FUNCIONÁRIO"),
 //           MAX("DATA DO ACERTO"),
 //           MAX("HORA DO ACERTO"),
-//           MAX("DATA E HORA"),
 //           MAX("DESCONTO POR GRUPO")
 //       INTO 
 //           v_valor_venda,
-//           v_saldo_a_pagar_raw,
 //           v_cliente_id,
 //           v_cliente_nome,
 //           v_vendedor_nome,
 //           v_data_acerto_str,
 //           v_hora_acerto,
-//           v_data_e_hora_str,
 //           v_desconto_str
 //       FROM "BANCO_DE_DADOS"
 //       WHERE "NÚMERO DO PEDIDO" = p_pedido_id;
@@ -4238,45 +4275,57 @@ export const Constants = {
 //           RETURN;
 //       END IF;
 //   
-//       -- 3. Resolve Timestamp with Explicit Casting
-//       BEGIN
-//           IF v_data_e_hora_str IS NOT NULL AND v_data_e_hora_str <> '' THEN
-//               v_final_timestamp := v_data_e_hora_str::TIMESTAMP;
-//           ELSIF v_data_acerto_str IS NOT NULL AND v_data_acerto_str <> '' THEN
-//                IF v_hora_acerto IS NOT NULL AND v_hora_acerto <> '' THEN
-//                   v_final_timestamp := (v_data_acerto_str || ' ' || v_hora_acerto)::TIMESTAMP;
-//                ELSE
-//                   v_final_timestamp := v_data_acerto_str::TIMESTAMP;
-//                END IF;
+//       -- Get Rota Name
+//       SELECT "GRUPO ROTA" INTO v_rota
+//       FROM "CLIENTES"
+//       WHERE "CODIGO" = v_cliente_id;
+//   
+//       -- 3. Calculate Discount safely
+//       v_desconto_val := public.parse_currency_sql(v_desconto_str);
+//       
+//       IF v_desconto_val > 0 THEN
+//           IF v_desconto_str LIKE '%%%' THEN
+//                v_desconto_final := v_valor_venda * (public.parse_currency_sql(REPLACE(v_desconto_str, '%', '')) / 100.0);
+//           ELSIF v_desconto_val < 1 THEN 
+//                -- e.g. 0.10 -> 10%
+//                v_desconto_final := v_valor_venda * v_desconto_val;
+//           ELSIF v_desconto_val <= 100 THEN 
+//                -- e.g. 10 -> 10%
+//                v_desconto_final := v_valor_venda * (v_desconto_val / 100.0);
 //           ELSE
-//               v_final_timestamp := NOW();
+//                -- Absolute values larger than 100
+//                v_desconto_final := v_desconto_val;
+//           END IF;
+//       ELSE
+//           v_desconto_final := 0;
+//       END IF;
+//   
+//       -- 4. Calculate Expected Payment (Sales - Discount)
+//       v_saldo_a_pagar := v_valor_venda - v_desconto_final;
+//       
+//       -- 5. Calculate Debt
+//       v_debito := v_saldo_a_pagar - v_total_pago;
+//       
+//       IF v_debito < 0.01 THEN 
+//           v_debito := 0; 
+//       END IF;
+//   
+//       -- Handle date formatting reliably
+//       BEGIN
+//           IF v_data_acerto_str IS NOT NULL AND v_data_acerto_str <> '' THEN
+//               IF v_hora_acerto IS NOT NULL AND v_hora_acerto <> '' THEN
+//                   v_data_acerto_ts := (v_data_acerto_str || ' ' || v_hora_acerto)::TIMESTAMP;
+//               ELSE
+//                   v_data_acerto_ts := v_data_acerto_str::TIMESTAMP;
+//               END IF;
+//           ELSE
+//               v_data_acerto_ts := NOW();
 //           END IF;
 //       EXCEPTION WHEN OTHERS THEN
-//           v_final_timestamp := NOW();
+//           v_data_acerto_ts := NOW();
 //       END;
 //   
-//       -- 4. Calculate Discount
-//       v_desconto_val := public.parse_currency_sql(v_desconto_str);
-//       -- Check if it is a percentage (e.g. "5" meaning 5% or "0.05")
-//       -- In this system, typically > 1 is percentage (10 = 10%), <= 1 is factor (0.1 = 10%)
-//       IF v_desconto_val > 1 THEN
-//           v_desconto_val := v_desconto_val / 100;
-//       END IF;
-//       
-//       v_desconto_final := v_valor_venda * v_desconto_val;
-//   
-//       -- 5. Calculate Debt
-//       -- We calculate saldo_a_pagar derived from sales - discount
-//       -- But we also respect explicit VALOR DEVIDO if relevant, usually we trust calculation for consistency
-//       v_debito := (v_valor_venda - v_desconto_final) - v_total_pago;
-//       
-//       IF v_debito < 0.01 THEN v_debito := 0; END IF;
-//   
-//       -- 6. Get Rota Info
-//       SELECT rota_id INTO v_rota_id FROM "ROTA_ITEMS" WHERE cliente_id = v_cliente_id LIMIT 1;
-//       SELECT "GRUPO ROTA" INTO v_rota FROM "CLIENTES" WHERE "CODIGO" = v_cliente_id;
-//   
-//       -- 7. Upsert
+//       -- 6. UPSERT into debitos_historico
 //       INSERT INTO debitos_historico (
 //           pedido_id,
 //           cliente_codigo,
@@ -4289,7 +4338,6 @@ export const Constants = {
 //           vendedor_nome,
 //           desconto,
 //           saldo_a_pagar,
-//           rota_id,
 //           rota
 //       ) VALUES (
 //           p_pedido_id,
@@ -4298,12 +4346,11 @@ export const Constants = {
 //           v_valor_venda,
 //           v_total_pago,
 //           v_debito,
-//           v_final_timestamp,
+//           v_data_acerto_ts,
 //           v_hora_acerto,
 //           v_vendedor_nome,
 //           v_desconto_final,
-//           (v_valor_venda - v_desconto_final),
-//           v_rota_id,
+//           v_saldo_a_pagar,
 //           v_rota
 //       )
 //       ON CONFLICT (pedido_id) DO UPDATE SET
@@ -4315,142 +4362,8 @@ export const Constants = {
 //           data_acerto = EXCLUDED.data_acerto,
 //           hora_acerto = EXCLUDED.hora_acerto,
 //           vendedor_nome = EXCLUDED.vendedor_nome,
-//           rota_id = EXCLUDED.rota_id,
 //           rota = EXCLUDED.rota;
 //           
-//   END;
-//   $function$
-//   
-// FUNCTION update_debito_historico_order(integer)
-//   CREATE OR REPLACE FUNCTION public.update_debito_historico_order(p_pedido_id integer)
-//    RETURNS void
-//    LANGUAGE plpgsql
-//   AS $function$
-//   DECLARE
-//       v_valor_venda NUMERIC;
-//       v_saldo_a_pagar NUMERIC;
-//       v_valor_pago NUMERIC;
-//       v_data_acerto TIMESTAMP;
-//       v_hora_acerto TEXT;
-//       v_vendedor_nome TEXT;
-//       v_rota_id INTEGER;
-//       v_cliente_id INTEGER;
-//       v_cliente_nome TEXT;
-//       v_rota TEXT;
-//       v_desconto_str TEXT;
-//       v_desconto_val NUMERIC;
-//       v_desconto_total NUMERIC := 0;
-//       v_prev_data TIMESTAMP;
-//       v_diff_days NUMERIC;
-//       v_media_mensal NUMERIC := 0;
-//   BEGIN
-//       SELECT
-//           MAX(CAST("DATA DO ACERTO" AS TIMESTAMP)),
-//           MAX("HORA DO ACERTO"),
-//           MAX("FUNCIONÁRIO"),
-//           MAX("CÓDIGO DO CLIENTE"),
-//           MAX("CLIENTE"),
-//           MAX("DESCONTO POR GRUPO"),
-//           SUM(public.parse_currency_sql("VALOR VENDIDO")),
-//           SUM("VALOR DEVIDO")
-//       INTO
-//           v_data_acerto,
-//           v_hora_acerto,
-//           v_vendedor_nome,
-//           v_cliente_id,
-//           v_cliente_nome,
-//           v_desconto_str,
-//           v_valor_venda,
-//           v_saldo_a_pagar
-//       FROM "BANCO_DE_DADOS"
-//       WHERE "NÚMERO DO PEDIDO" = p_pedido_id;
-//   
-//       IF v_cliente_id IS NULL THEN
-//           RETURN;
-//       END IF;
-//   
-//       v_desconto_val := public.parse_currency_sql(REPLACE(v_desconto_str, '%', ''));
-//       IF v_desconto_str LIKE '%%%' THEN
-//           v_desconto_total := v_valor_venda * (v_desconto_val / 100.0);
-//       ELSE
-//           v_desconto_total := v_desconto_val;
-//       END IF;
-//   
-//       v_saldo_a_pagar := v_valor_venda - v_desconto_total;
-//   
-//       SELECT COALESCE(SUM(valor_pago), 0)
-//       INTO v_valor_pago
-//       FROM "RECEBIMENTOS"
-//       WHERE venda_id = p_pedido_id;
-//   
-//       SELECT rota_id INTO v_rota_id
-//       FROM "ROTA_ITEMS"
-//       WHERE cliente_id = v_cliente_id
-//       LIMIT 1;
-//   
-//       SELECT "GRUPO ROTA" INTO v_rota
-//       FROM "CLIENTES"
-//       WHERE "CODIGO" = v_cliente_id;
-//   
-//       SELECT MAX(CAST("DATA DO ACERTO" AS TIMESTAMP))
-//       INTO v_prev_data
-//       FROM "BANCO_DE_DADOS"
-//       WHERE "CÓDIGO DO CLIENTE" = v_cliente_id
-//         AND "NÚMERO DO PEDIDO" != p_pedido_id
-//         AND CAST("DATA DO ACERTO" AS TIMESTAMP) < v_data_acerto;
-//   
-//       IF v_prev_data IS NOT NULL THEN
-//           v_diff_days := EXTRACT(DAY FROM (v_data_acerto - v_prev_data));
-//           IF v_diff_days > 0 THEN
-//                v_media_mensal := COALESCE(v_valor_venda, 0) / (v_diff_days / 30.0);
-//           END IF;
-//       END IF;
-//   
-//       INSERT INTO debitos_historico (
-//           pedido_id,
-//           rota_id,
-//           data_acerto,
-//           hora_acerto,
-//           vendedor_nome,
-//           cliente_codigo,
-//           cliente_nome,
-//           rota,
-//           media_mensal,
-//           valor_venda,
-//           desconto,
-//           saldo_a_pagar,
-//           valor_pago,
-//           debito
-//       ) VALUES (
-//           p_pedido_id,
-//           v_rota_id,
-//           v_data_acerto,
-//           v_hora_acerto,
-//           v_vendedor_nome,
-//           v_cliente_id,
-//           v_cliente_nome,
-//           v_rota,
-//           v_media_mensal,
-//           COALESCE(v_valor_venda, 0),
-//           COALESCE(v_desconto_total, 0),
-//           COALESCE(v_saldo_a_pagar, 0),
-//           v_valor_pago,
-//           GREATEST(0, COALESCE(v_saldo_a_pagar, 0) - v_valor_pago)
-//       )
-//       ON CONFLICT (pedido_id) DO UPDATE SET
-//           rota_id = EXCLUDED.rota_id,
-//           data_acerto = EXCLUDED.data_acerto,
-//           hora_acerto = EXCLUDED.hora_acerto,
-//           vendedor_nome = EXCLUDED.vendedor_nome,
-//           cliente_codigo = EXCLUDED.cliente_codigo,
-//           cliente_nome = EXCLUDED.cliente_nome,
-//           rota = EXCLUDED.rota,
-//           media_mensal = EXCLUDED.media_mensal,
-//           valor_venda = EXCLUDED.valor_venda,
-//           desconto = EXCLUDED.desconto,
-//           saldo_a_pagar = EXCLUDED.saldo_a_pagar,
-//           valor_pago = EXCLUDED.valor_pago,
-//           debito = EXCLUDED.debito;
 //   END;
 //   $function$
 //   
