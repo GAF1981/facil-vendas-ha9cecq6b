@@ -1,4 +1,6 @@
 -- Fix parse_currency_sql to avoid breaking types.ts generation with newlines
+DROP FUNCTION IF EXISTS public.parse_currency_sql(text);
+
 CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str text)
  RETURNS numeric
  LANGUAGE plpgsql
