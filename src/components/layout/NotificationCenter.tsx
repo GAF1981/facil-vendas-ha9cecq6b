@@ -75,16 +75,16 @@ export function NotificationCenter() {
     label: string
     alert: boolean
   }) => (
-    <div className="flex flex-col items-center justify-center gap-0.5 w-14">
+    <div className="flex flex-col items-center justify-center gap-0.5 w-11 sm:w-14">
       <Icon
         className={cn(
-          'h-5 w-5 transition-colors',
+          'h-4 w-4 sm:h-5 sm:w-5 transition-colors',
           alert ? 'text-destructive animate-pulse' : 'text-muted-foreground',
         )}
       />
       <span
         className={cn(
-          'text-[10px] leading-none whitespace-nowrap',
+          'text-[9px] sm:text-[10px] leading-none whitespace-nowrap',
           alert ? 'text-destructive font-medium' : 'text-muted-foreground',
         )}
       >
@@ -94,7 +94,7 @@ export function NotificationCenter() {
   )
 
   return (
-    <div className="hidden sm:flex items-center gap-3 mr-4 border-r pr-4">
+    <div className="flex items-center gap-1 sm:gap-3 mr-2 sm:mr-4 border-r pr-2 sm:pr-4">
       <IconWrapper
         icon={ClipboardList}
         label="pendencia"

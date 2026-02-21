@@ -101,12 +101,12 @@ export function Header() {
   const photoUrl = employee?.foto_url
 
   return (
-    <header className="flex min-h-16 shrink-0 items-center gap-2 border-b bg-background px-4 sticky top-0 z-10 shadow-sm py-2">
-      <div className="flex items-center gap-2">
+    <header className="flex min-h-16 shrink-0 items-center gap-2 border-b bg-background px-2 sm:px-4 sticky top-0 z-10 shadow-sm py-2">
+      <div className="flex items-center gap-1 sm:gap-2">
         <SidebarTrigger className="-ml-1" />
-        <Separator orientation="vertical" className="mr-2 h-4" />
+        <Separator orientation="vertical" className="mr-1 sm:mr-2 h-4" />
 
-        <div className="flex items-center gap-1 mr-2">
+        <div className="flex items-center gap-1 mr-1 sm:mr-2">
           <Button
             variant="ghost"
             size="icon"
@@ -169,33 +169,33 @@ export function Header() {
         </Breadcrumb>
       </div>
 
-      <div className="ml-auto flex items-center gap-4">
+      <div className="ml-auto flex items-center gap-2 sm:gap-4">
         <NotificationCenter />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              className="relative h-auto p-1 rounded-full hover:bg-transparent focus-visible:ring-1 focus-visible:ring-offset-1 px-2 flex items-center gap-2"
+              className="relative h-auto p-1 rounded-full hover:bg-transparent focus-visible:ring-1 focus-visible:ring-offset-1 px-1 sm:px-2 flex items-center gap-2"
             >
-              <div className="flex flex-col items-end hidden sm:flex">
+              <div className="flex-col items-end hidden sm:flex">
                 <span className="text-sm font-medium leading-none">
                   {employee?.nome_completo || 'Usuário'}
                 </span>
                 {employee?.setor && (
                   <span className="text-xs text-muted-foreground uppercase font-semibold">
-                    {employee.setor}
+                    {employee.setor.join(', ')}
                   </span>
                 )}
               </div>
-              <Avatar className="h-10 w-10 border border-border">
+              <Avatar className="h-8 w-8 sm:h-10 sm:w-10 border border-border">
                 <AvatarImage
                   src={photoUrl || undefined}
                   alt={employee?.nome_completo || 'User'}
                   className="object-cover"
                 />
-                <AvatarFallback className="text-[12px] font-bold bg-primary/10 text-primary">
-                  {initials || <User className="h-5 w-5" />}
+                <AvatarFallback className="text-[10px] sm:text-[12px] font-bold bg-primary/10 text-primary">
+                  {initials || <User className="h-4 w-4 sm:h-5 sm:w-5" />}
                 </AvatarFallback>
               </Avatar>
             </Button>
@@ -211,7 +211,7 @@ export function Header() {
                 </p>
                 {employee?.setor && (
                   <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold transition-colors border-transparent bg-secondary text-secondary-foreground w-fit mt-1">
-                    {employee.setor}
+                    {employee.setor.join(', ')}
                   </span>
                 )}
               </div>
