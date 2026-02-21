@@ -18,10 +18,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Bell, ArrowLeft, Home, User, LogOut } from 'lucide-react'
+import { ArrowLeft, Home, User, LogOut } from 'lucide-react'
 import { useLocation, Link, useNavigate } from 'react-router-dom'
 import { useUserStore } from '@/stores/useUserStore'
-import { cn } from '@/lib/utils'
+import { NotificationCenter } from './NotificationCenter'
 
 export function Header() {
   const location = useLocation()
@@ -170,14 +170,7 @@ export function Header() {
       </div>
 
       <div className="ml-auto flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-muted-foreground hidden sm:flex"
-        >
-          <Bell className="h-5 w-5" />
-          <span className="sr-only">Notificações</span>
-        </Button>
+        <NotificationCenter />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
