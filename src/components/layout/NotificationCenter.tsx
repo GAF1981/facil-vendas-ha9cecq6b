@@ -41,12 +41,16 @@ export function NotificationCenter() {
       )
 
       if (isFinanceiro) {
-        // Nota Fiscal Alert - strictly exact 'Pendente'
+        // Nota Fiscal Alert - strictly exact 'Pendente' and NOT NULL order
         try {
           const { data: nfData1, error: nfError1 } = await supabase
             .from('BANCO_DE_DADOS')
             .select('"NÚMERO DO PEDIDO"')
-            .eq('nota_fiscal_emitida', 'Pendente')
+            .not('"NÚMERO DO PEDIDO"', 'is', null)
+            .neq('nota_fiscal_emitida', 'Emitida')
+            .or(
+              'nota_fiscal_emitida.eq.Pendente,nota_fiscal_cadastro.eq.SIM,nota_fiscal_venda.eq.SIM,solicitacao_nf.eq.SIM',
+            )
             .limit(1)
 
           if (!nfError1) {
@@ -132,7 +136,7 @@ export function NotificationCenter() {
     <div className="flex items-center gap-1 sm:gap-3 mr-2 sm:mr-4 border-r pr-2 sm:pr-4">
       <IconWrapper
         icon={ClipboardList}
-        label="pendencia"
+        label="pendências"
         alert={hasPendencia}
         to="/pendencias"
       />
@@ -148,7 +152,7 @@ export function NotificationCenter() {
           />
           <IconWrapper
             icon={QrCode}
-            label="Pix"
+            label="pix"
             alert={hasPix}
             to="/fechamentos"
           />

@@ -556,7 +556,6 @@ export default function RotaPage() {
         sortConfig={sortConfig}
         loading={loading}
         isSelectionMode={isSelectionMode}
-        isFiltrosActive={isFiltrosActive}
         onBulkTransfer={activeRota ? handleBulkTransfer : undefined}
         onBulkClear={activeRota ? handleBulkClear : undefined}
         onBulkFill={activeRota ? () => setIsBulkFillOpen(true) : undefined}
