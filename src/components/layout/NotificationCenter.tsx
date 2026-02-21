@@ -11,11 +11,12 @@ export function NotificationCenter() {
   const [hasPix, setHasPix] = useState(false)
 
   useEffect(() => {
-    if (!employee) return
+    // Session validation: only proceed if employee and valid ID are present
+    if (!employee || !employee.id) return
 
     const checkNotifications = async () => {
+      // Pendência Alert
       try {
-        // Pendência Alert
         const { data: pendenciaData, error: pendenciaError } = await supabase
           .from('PENDENCIAS')
           .select('id')
@@ -26,13 +27,21 @@ export function NotificationCenter() {
         if (!pendenciaError) {
           setHasPendencia((pendenciaData?.length || 0) > 0)
         }
-
-        const isFinanceiro = employee.setor?.some(
-          (s) => s.toLowerCase() === 'financeiro',
+      } catch (error) {
+        // Silently fail on network/fetch errors
+        console.warn(
+          'Network or fetch error checking pendencia notifications:',
+          error,
         )
+      }
 
-        if (isFinanceiro) {
-          // Nota Fiscal Alert
+      const isFinanceiro = employee.setor?.some(
+        (s) => typeof s === 'string' && s.toLowerCase() === 'financeiro',
+      )
+
+      if (isFinanceiro) {
+        // Nota Fiscal Alert
+        try {
           const { data: nfData1, error: nfError1 } = await supabase
             .from('BANCO_DE_DADOS')
             .select('"NÚMERO DO PEDIDO"')
@@ -51,8 +60,15 @@ export function NotificationCenter() {
               (nfData1?.length || 0) > 0 || (nfData2?.length || 0) > 0,
             )
           }
+        } catch (error) {
+          console.warn(
+            'Network or fetch error checking nota fiscal notifications:',
+            error,
+          )
+        }
 
-          // Pix Alert
+        // Pix Alert
+        try {
           const { data: pixData1, error: pixError1 } = await supabase
             .from('fechamento_caixa')
             .select('id')
@@ -72,9 +88,12 @@ export function NotificationCenter() {
               (pixData1?.length || 0) > 0 || (pixData2?.length || 0) > 0,
             )
           }
+        } catch (error) {
+          console.warn(
+            'Network or fetch error checking pix notifications:',
+            error,
+          )
         }
-      } catch (error) {
-        console.error('Error fetching notifications:', error)
       }
     }
 
@@ -119,7 +138,9 @@ export function NotificationCenter() {
         label="pendencia"
         alert={hasPendencia}
       />
-      {employee?.setor?.some((s) => s.toLowerCase() === 'financeiro') && (
+      {employee?.setor?.some(
+        (s) => typeof s === 'string' && s.toLowerCase() === 'financeiro',
+      ) && (
         <>
           <IconWrapper
             icon={FileText}
