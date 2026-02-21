@@ -38,7 +38,7 @@ import {
   Edit3,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Rota } from '@/types/rota'
 import { Employee } from '@/types/employee'
 import { employeesService } from '@/services/employeesService'
@@ -63,6 +63,7 @@ export default function ResumoAcertosPage() {
     useState<SettlementSummary | null>(null)
 
   const { toast } = useToast()
+  const navigate = useNavigate()
 
   const fetchRoutes = async () => {
     try {
@@ -432,7 +433,7 @@ export default function ResumoAcertosPage() {
                   <TableHead>Pagto (BD)</TableHead>
                   <TableHead>Pagto (Receb.)</TableHead>
                   <TableHead className="text-right">Valor Pago</TableHead>
-                  <TableHead className="text-center w-[100px]">Ações</TableHead>
+                  <TableHead className="text-center w-[120px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -514,6 +515,17 @@ export default function ResumoAcertosPage() {
                       </TableCell>
                       <TableCell className="text-center">
                         <div className="flex items-center justify-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-amber-600"
+                            onClick={() =>
+                              navigate(`/acerto?editOrderId=${row.orderId}`)
+                            }
+                            title="Editar Pedido"
+                          >
+                            <Edit3 className="h-4 w-4" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"

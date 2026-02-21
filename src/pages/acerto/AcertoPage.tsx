@@ -44,6 +44,7 @@ import {
   ArrowRight,
   RefreshCw,
   Banknote,
+  Edit3,
 } from 'lucide-react'
 import { parseCurrency } from '@/lib/formatters'
 import { fechamentoService } from '@/services/fechamentoService'
@@ -68,6 +69,10 @@ export default function AcertoPage() {
   const [zeroStockDialogOpen, setZeroStockDialogOpen] = useState(false)
   const [isCaptacao, setIsCaptacao] = useState(false)
   const [collectionDialogOpen, setCollectionDialogOpen] = useState(false)
+
+  // Edit Mode States
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [editOrderId, setEditOrderId] = useState<number | null>(null)
 
   // Default to 80mm as per user story requirement for thermal printer optimization
   const [pdfFormat, setPdfFormat] = useState<'A4' | '80mm'>('80mm')
@@ -117,11 +122,59 @@ export default function AcertoPage() {
     }
   }, [loggedInUser, selectedEmployeeId])
 
-  // Smart Redirect Logic: Handle URL Params for Auto-Selection
+  // Smart Redirect Logic: Handle URL Params for Auto-Selection and Edit Mode
   useEffect(() => {
+    const eid = searchParams.get('editOrderId')
     const cid = searchParams.get('clientId')
 
-    if (cid && !client) {
+    if (eid && !isEditMode) {
+      const oid = Number(eid)
+      if (!isNaN(oid) && oid > 0) {
+        setLoadingAcerto(true)
+        setIsEditMode(true)
+        setEditOrderId(oid)
+        setNextOrderNumber(oid)
+
+        bancoDeDadosService
+          .getEditableOrderDetails(oid)
+          .then(async (details) => {
+            if (details) {
+              const clientData = await clientsService.getById(details.clientId)
+              setItems(details.items)
+              setPayments(details.payments)
+              setSelectedEmployeeId(details.employeeId.toString())
+              setNotaFiscal(details.nfVenda)
+
+              setClient(clientData)
+
+              bancoDeDadosService
+                .getMonthlyAverage(details.clientId)
+                .then(setMonthlyAverage)
+              setIsCaptacao(false)
+
+              toast({
+                title: 'Modo de Edição',
+                description: `Carregado pedido #${oid} para edição.`,
+              })
+            } else {
+              toast({
+                title: 'Erro',
+                description: 'Pedido não encontrado.',
+                variant: 'destructive',
+              })
+            }
+          })
+          .catch((e) => {
+            console.error(e)
+            toast({
+              title: 'Erro',
+              description: 'Erro ao carregar pedido.',
+              variant: 'destructive',
+            })
+          })
+          .finally(() => setLoadingAcerto(false))
+      }
+    } else if (cid && !client && !isEditMode) {
       const clientIdNum = Number(cid)
       if (!isNaN(clientIdNum) && clientIdNum > 0) {
         setLoadingAcerto(true)
@@ -152,6 +205,10 @@ export default function AcertoPage() {
   // Client Selection Effect
   useEffect(() => {
     if (client) {
+      if (isEditMode) {
+        return // Skip normal fetching if in edit mode
+      }
+
       setLoadingAcerto(true)
 
       // 0. Check for History (Captação Logic)
@@ -219,8 +276,10 @@ export default function AcertoPage() {
       setNotaFiscal('')
       setPendingAdjustments([])
       setIsCaptacao(false)
+      setIsEditMode(false)
+      setEditOrderId(null)
     }
-  }, [client])
+  }, [client, isEditMode])
 
   // Calculations
   const totalSalesValue = items.reduce(
@@ -663,15 +722,31 @@ export default function AcertoPage() {
       const now = new Date()
       // Items are already sorted in state if user used UI controls properly, but DB saves order of insert.
       // Retrieval handles sort.
-      const finalOrderNumber = await bancoDeDadosService.saveTransaction(
-        client,
-        emp,
-        items,
-        now,
-        isCaptacao ? 'Captação' : 'Acerto',
-        payments,
-        notaFiscal,
-      )
+
+      let finalOrderNumber: number
+
+      if (isEditMode && editOrderId) {
+        finalOrderNumber = await bancoDeDadosService.editTransaction(
+          client,
+          emp,
+          items,
+          now,
+          isCaptacao ? 'Captação' : 'Acerto',
+          payments,
+          notaFiscal,
+          editOrderId,
+        )
+      } else {
+        finalOrderNumber = await bancoDeDadosService.saveTransaction(
+          client,
+          emp,
+          items,
+          now,
+          isCaptacao ? 'Captação' : 'Acerto',
+          payments,
+          notaFiscal,
+        )
+      }
 
       if (pendingAdjustments.length > 0) {
         for (const adj of pendingAdjustments) {
@@ -818,7 +893,11 @@ export default function AcertoPage() {
       }, 100)
 
       toast({
-        title: isCaptacao ? 'Captação Realizada' : 'Acerto Realizado',
+        title: isCaptacao
+          ? 'Captação Realizada'
+          : isEditMode
+            ? 'Acerto Atualizado'
+            : 'Acerto Realizado',
         description: 'Pedido salvo e PDF gerado com sucesso.',
         className: 'bg-green-600 text-white',
       })
@@ -826,8 +905,17 @@ export default function AcertoPage() {
       setClient(null)
       setPendingAdjustments([])
 
+      const wasEditMode = isEditMode
+
+      setIsEditMode(false)
+      setEditOrderId(null)
+
       if (flagInactivation) {
         navigate('/inativar-clientes')
+      } else if (wasEditMode) {
+        setTimeout(() => {
+          navigate('/resumo-acertos')
+        }, 1000)
       }
     } catch (err: any) {
       console.error(err)
@@ -884,6 +972,21 @@ export default function AcertoPage() {
 
       {client && (
         <div className="space-y-6 animate-fade-in-up">
+          {isEditMode && editOrderId && (
+            <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-900 p-4 rounded-r shadow-sm flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <Edit3 className="h-6 w-6 text-amber-600 shrink-0" />
+              <div>
+                <h3 className="font-bold text-lg">
+                  Editando Pedido #{editOrderId}
+                </h3>
+                <p className="text-sm opacity-90">
+                  Ao finalizar, os dados anteriores deste pedido serão
+                  substituídos pelas informações atuais na base de dados.
+                </p>
+              </div>
+            </div>
+          )}
+
           <ClientDetails
             client={client}
             lastAcerto={lastAcerto}
@@ -1010,7 +1113,11 @@ export default function AcertoPage() {
               ) : (
                 <>
                   <Save className="mr-2 h-4 w-4" />
-                  {isCaptacao ? 'Finalizar Captação' : 'Finalizar Acerto'}
+                  {isCaptacao
+                    ? 'Finalizar Captação'
+                    : isEditMode
+                      ? 'Salvar Alterações'
+                      : 'Finalizar Acerto'}
                 </>
               )}
             </Button>

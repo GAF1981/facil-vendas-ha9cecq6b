@@ -5,7 +5,7 @@ import { Employee } from '@/types/employee'
 import { ProductRow } from '@/types/product'
 import { parseCurrency, formatCurrency } from '@/lib/formatters'
 import { format } from 'date-fns'
-import { PaymentEntry } from '@/types/payment'
+import { PaymentEntry, PaymentMethodType } from '@/types/payment'
 import { RecebimentoInsert } from '@/types/recebimento'
 import { rotaService } from '@/services/rotaService'
 import { reportsService } from '@/services/reportsService'
@@ -530,6 +530,93 @@ export const bancoDeDadosService = {
     return { items: itemsData || [], payments: paymentsData || [] }
   },
 
+  async getEditableOrderDetails(orderId: number) {
+    const { items: dbItems, payments: dbPayments } =
+      await this.getOrderDetails(orderId)
+
+    if (dbItems.length === 0) return null
+
+    const clientId = dbItems[0]['CÓDIGO DO CLIENTE']
+    const employeeId = dbItems[0]['CODIGO FUNCIONARIO']
+    const nfVenda = dbItems[0].nota_fiscal_venda || 'NÃO'
+
+    const codigos = [
+      ...new Set(dbItems.map((i: any) => i['COD. PRODUTO']).filter(Boolean)),
+    ]
+    const { data: products } = await supabase
+      .from('PRODUTOS')
+      .select('ID, CODIGO, PRODUTO')
+      .in('CODIGO', codigos)
+
+    const items: AcertoItem[] = dbItems.map((dbItem: any) => {
+      const p = products?.find((p) => p.CODIGO === dbItem['COD. PRODUTO'])
+      return {
+        uid: Math.random().toString(36).substr(2, 9),
+        produtoId: p?.ID || 0,
+        produtoCodigo: dbItem['COD. PRODUTO'],
+        produtoNome: dbItem['MERCADORIA'] || p?.PRODUTO || '',
+        tipo: dbItem['TIPO'],
+        precoUnitario: parseCurrency(dbItem['PREÇO VENDIDO']),
+        saldoInicial: dbItem['SALDO INICIAL'] || 0,
+        contagem: dbItem['CONTAGEM'] || 0,
+        quantVendida: parseCurrency(dbItem['QUANTIDADE VENDIDA']),
+        valorVendido: parseCurrency(dbItem['VALOR VENDIDO']),
+        saldoFinal: dbItem['SALDO FINAL'] || 0,
+        idVendaItens: dbItem['ID VENDA ITENS'],
+      }
+    })
+
+    const paymentsMap = new Map<string, PaymentEntry>()
+    dbPayments.forEach((p: any) => {
+      const method = p.forma_pagamento as PaymentMethodType
+      if (!paymentsMap.has(method)) {
+        paymentsMap.set(method, {
+          method,
+          value: 0,
+          paidValue: 0,
+          installments: 0,
+          dueDate: p.vencimento ? p.vencimento.split('T')[0] : '',
+          hasZeroDownPayment: false,
+          details: [],
+        })
+      }
+      const entry = paymentsMap.get(method)!
+      entry.value += p.valor_registrado || 0
+      entry.paidValue += p.valor_pago || 0
+      entry.installments += 1
+
+      if ((p.valor_registrado || 0) > 0 || (p.valor_pago || 0) > 0) {
+        entry.details!.push({
+          number: entry.installments,
+          value: p.valor_registrado || 0,
+          paidValue: p.valor_pago || 0,
+          dueDate: p.vencimento ? p.vencimento.split('T')[0] : '',
+        })
+      }
+    })
+
+    const payments = Array.from(paymentsMap.values())
+    payments.forEach((p) => {
+      p.details?.sort(
+        (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime(),
+      )
+      if (p.details && p.details.length > 0) {
+        p.details.forEach((d, i) => (d.number = i + 1))
+      }
+      if (p.installments > 1 && p.details && p.details.length > 0) {
+        p.dueDate = p.details[0].dueDate
+      }
+    })
+
+    return {
+      clientId,
+      employeeId,
+      items,
+      payments,
+      nfVenda,
+    }
+  },
+
   async logInitialBalanceAdjustment(payload: {
     numero_pedido?: number | null
     cliente_id: number
@@ -552,6 +639,42 @@ export const bancoDeDadosService = {
       data_acerto: timestamp,
     } as any)
     if (error) throw error
+  },
+
+  async editTransaction(
+    client: ClientRow,
+    employee: Employee,
+    items: AcertoItem[],
+    date: Date,
+    acertoTipo: string,
+    payments: PaymentEntry[],
+    notaFiscalVenda: string,
+    orderId: number,
+  ) {
+    await supabase
+      .from('ESTOQUE CARRO: CARRO PARA O CLIENTE')
+      .delete()
+      .eq('pedido', orderId)
+    await supabase
+      .from('ESTOQUE CARRO: CLIENTE PARA O CARRO')
+      .delete()
+      .eq('pedido', orderId)
+    await supabase.from('RECEBIMENTOS').delete().eq('venda_id', orderId)
+    await supabase
+      .from('BANCO_DE_DADOS')
+      .delete()
+      .eq('"NÚMERO DO PEDIDO"', orderId)
+
+    return await this.saveTransaction(
+      client,
+      employee,
+      items,
+      date,
+      acertoTipo,
+      payments,
+      notaFiscalVenda,
+      orderId,
+    )
   },
 
   async saveTransaction(
