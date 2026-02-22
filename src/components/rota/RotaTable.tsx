@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import {
   TableHeader,
   TableBody,
@@ -56,7 +56,7 @@ interface RotaTableProps {
   sellers: Employee[]
   onUpdateRow: (clientId: number, field: string, value: any) => void
   disabled?: boolean
-  onSort: (key: string) => void
+  onSort: (key: string, e: React.MouseEvent) => void
   sortConfig: SortConfig
   loading?: boolean
   isSelectionMode: boolean
@@ -99,11 +99,23 @@ export function RotaTable({
   }
 
   const getSortIcon = (columnKey: string) => {
-    if (sortConfig.key !== columnKey)
+    const sortIndex = sortConfig.findIndex((s) => s.key === columnKey)
+    if (sortIndex === -1)
       return <ArrowUpDown className="h-3 w-3 ml-1 text-muted-foreground/50" />
-    if (sortConfig.direction === 'asc')
-      return <ArrowUp className="h-3 w-3 ml-1 text-primary" />
-    return <ArrowDown className="h-3 w-3 ml-1 text-primary" />
+
+    const sort = sortConfig[sortIndex]
+    const Icon = sort.direction === 'asc' ? ArrowUp : ArrowDown
+
+    return (
+      <div className="flex items-center">
+        <Icon className="h-3 w-3 ml-1 text-primary" />
+        {sortConfig.length > 1 && (
+          <span className="text-[10px] ml-0.5 font-bold text-primary leading-none">
+            {sortIndex + 1}
+          </span>
+        )}
+      </div>
+    )
   }
 
   const SortableHeader = ({
@@ -119,14 +131,15 @@ export function RotaTable({
   }) => (
     <TableHead
       className={cn(
-        'cursor-pointer hover:bg-muted/50 transition-colors',
+        'cursor-pointer hover:bg-muted/50 transition-colors select-none',
         className,
         {
           'text-right': align === 'right',
           'text-center': align === 'center',
         },
       )}
-      onClick={() => onSort(column)}
+      onClick={(e) => onSort(column, e)}
+      title="Clique para ordenar. Shift+Clique para ordenação múltipla."
     >
       <div
         className={cn('flex items-center gap-1', {
@@ -177,9 +190,12 @@ export function RotaTable({
                     #
                   </TableHead>
 
-                  <TableHead className="min-w-[200px] font-bold text-xs">
-                    Cliente
-                  </TableHead>
+                  <SortableHeader
+                    column="client_nome"
+                    label="Cliente"
+                    align="left"
+                    className="min-w-[200px] font-bold text-xs"
+                  />
 
                   <SortableHeader
                     column="municipio"
@@ -196,8 +212,9 @@ export function RotaTable({
                   />
 
                   <TableHead
-                    className="min-w-[90px] bg-muted/50 cursor-pointer hover:bg-muted/50 transition-colors text-center"
-                    onClick={() => onSort('vencimento_cobranca')}
+                    className="min-w-[90px] bg-muted/50 cursor-pointer hover:bg-muted/50 transition-colors text-center select-none"
+                    onClick={(e) => onSort('vencimento_cobranca', e)}
+                    title="Clique para ordenar. Shift+Clique para ordenação múltipla."
                   >
                     <TooltipProvider>
                       <Tooltip>
@@ -221,9 +238,12 @@ export function RotaTable({
                     className="min-w-[100px]"
                   />
 
-                  <TableHead className="min-w-[140px] font-bold text-xs">
-                    Vendedor
-                  </TableHead>
+                  <SortableHeader
+                    column="vendedor_nome"
+                    label="Vendedor"
+                    align="left"
+                    className="min-w-[140px] font-bold text-xs"
+                  />
 
                   <TableHead className="min-w-[200px] font-bold text-xs bg-muted/30">
                     <div className="flex items-center justify-between gap-2">

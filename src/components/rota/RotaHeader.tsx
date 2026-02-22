@@ -160,7 +160,7 @@ export function RotaHeader({
       <CardContent className="p-3 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 overflow-hidden">
           <h2 className="text-lg font-bold tracking-tight whitespace-nowrap">
-            Controle de Rota
+            Controle de Rota {totalClients !== undefined && `(${totalClients})`}
           </h2>
           {displayRota ? (
             <div className="text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
@@ -184,11 +184,6 @@ export function RotaHeader({
                   </span>
                 )}
               </span>
-              {totalClients !== undefined && (
-                <span className="text-blue-700 font-semibold ml-2 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 shadow-sm whitespace-nowrap">
-                  {totalClients} clientes
-                </span>
-              )}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">

@@ -69,7 +69,9 @@ export interface RotaFilterState {
 
 export type SortDirection = 'asc' | 'desc'
 
-export interface SortConfig {
+export interface SortItem {
   key: string
   direction: SortDirection
 }
+
+export type SortConfig = SortItem[]

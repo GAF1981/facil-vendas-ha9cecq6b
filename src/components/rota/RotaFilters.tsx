@@ -287,6 +287,11 @@ export function RotaFilters({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="todos">Próx: Todos</SelectItem>
+                    <SelectItem value="nenhum">Nenhum</SelectItem>
+                    <SelectItem value="preenchidos">
+                      Todos os preenchidos
+                    </SelectItem>
+                    <SelectItem value="manter_atual">Manter atual</SelectItem>
                     {sellers.map((s) => (
                       <SelectItem key={s.id} value={s.id.toString()}>
                         {s.nome_completo.split(' ')[0]}

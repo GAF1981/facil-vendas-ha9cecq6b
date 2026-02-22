@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { RotaHeader } from '@/components/rota/RotaHeader'
 import { RotaFilters } from '@/components/rota/RotaFilters'
 import { RotaTable } from '@/components/rota/RotaTable'
@@ -92,10 +92,9 @@ export default function RotaPage() {
     setSelectedEmployeeIds(filters.vendedor)
   }, [filters.vendedor, setSelectedEmployeeIds])
 
-  const [sortConfig, setSortConfig] = useState<SortConfig>({
-    key: 'rowNumber',
-    direction: 'asc',
-  })
+  const [sortConfig, setSortConfig] = useState<SortConfig>([
+    { key: 'rowNumber', direction: 'asc' },
+  ])
 
   const { toast } = useToast()
   const { canAccess } = usePermissions()
@@ -173,12 +172,21 @@ export default function RotaPage() {
         }
       }
 
-      if (filters.proximo_vendedor !== 'todos') {
-        if (
-          !row.proximo_vendedor_id ||
-          row.proximo_vendedor_id.toString() !== filters.proximo_vendedor
-        ) {
-          return false
+      if (
+        filters.proximo_vendedor !== 'todos' &&
+        filters.proximo_vendedor !== 'manter_atual'
+      ) {
+        if (filters.proximo_vendedor === 'nenhum') {
+          if (row.proximo_vendedor_id !== null) return false
+        } else if (filters.proximo_vendedor === 'preenchidos') {
+          if (row.proximo_vendedor_id === null) return false
+        } else {
+          if (
+            !row.proximo_vendedor_id ||
+            row.proximo_vendedor_id.toString() !== filters.proximo_vendedor
+          ) {
+            return false
+          }
         }
       }
 
@@ -214,37 +222,72 @@ export default function RotaPage() {
   }, [rows, filters])
 
   const sortedRows = useMemo(() => {
+    const sellersMap = new Map(sellers.map((s) => [s.id, s.nome_completo]))
+
     const sorted = [...filteredRows].sort((a, b) => {
-      let valA: any = a[sortConfig.key as keyof RotaRow]
-      let valB: any = b[sortConfig.key as keyof RotaRow]
+      for (const sort of sortConfig) {
+        let valA: any = a[sort.key as keyof RotaRow]
+        let valB: any = b[sort.key as keyof RotaRow]
 
-      if (sortConfig.key === 'municipio') {
-        valA = a.client.MUNICÍPIO || ''
-        valB = b.client.MUNICÍPIO || ''
-      } else if (sortConfig.key === 'grupo_rota') {
-        valA = a.client['GRUPO ROTA'] || ''
-        valB = b.client['GRUPO ROTA'] || ''
-      } else if (sortConfig.key === 'cep') {
-        valA = a.client['CEP OFICIO'] || ''
-        valB = b.client['CEP OFICIO'] || ''
+        if (sort.key === 'municipio') {
+          valA = a.client.MUNICÍPIO || ''
+          valB = b.client.MUNICÍPIO || ''
+        } else if (sort.key === 'grupo_rota') {
+          valA = a.client['GRUPO ROTA'] || ''
+          valB = b.client['GRUPO ROTA'] || ''
+        } else if (sort.key === 'cep') {
+          valA = a.client['CEP OFICIO'] || ''
+          valB = b.client['CEP OFICIO'] || ''
+        } else if (sort.key === 'client_nome') {
+          valA = a.client['NOME CLIENTE'] || ''
+          valB = b.client['NOME CLIENTE'] || ''
+        } else if (sort.key === 'vendedor_nome') {
+          valA = a.vendedor_id ? sellersMap.get(a.vendedor_id) || '' : ''
+          valB = b.vendedor_id ? sellersMap.get(b.vendedor_id) || '' : ''
+        }
+
+        if (valA === null || valA === undefined) valA = ''
+        if (valB === null || valB === undefined) valB = ''
+
+        if (valA < valB) return sort.direction === 'asc' ? -1 : 1
+        if (valA > valB) return sort.direction === 'asc' ? 1 : -1
       }
-
-      if (valA === null) valA = ''
-      if (valB === null) valB = ''
-
-      if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1
-      if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1
       return 0
     })
     return sorted
-  }, [filteredRows, sortConfig])
+  }, [filteredRows, sortConfig, sellers])
 
-  const handleSort = (key: string) => {
-    setSortConfig((current) => ({
-      key,
-      direction:
-        current.key === key && current.direction === 'asc' ? 'desc' : 'asc',
-    }))
+  const handleSort = (key: string, e: React.MouseEvent) => {
+    setSortConfig((current) => {
+      const isMulti = e.shiftKey || e.ctrlKey || e.metaKey
+      const existingIdx = current.findIndex((s) => s.key === key)
+
+      if (!isMulti) {
+        if (existingIdx >= 0 && current.length === 1) {
+          const existing = current[existingIdx]
+          if (existing.direction === 'asc') return [{ key, direction: 'desc' }]
+          return [{ key: 'rowNumber', direction: 'asc' }]
+        }
+        return [{ key, direction: 'asc' }]
+      }
+
+      const newConfig = [...current]
+      if (existingIdx >= 0) {
+        const existing = newConfig[existingIdx]
+        if (existing.direction === 'asc') {
+          newConfig[existingIdx] = { key, direction: 'desc' }
+        } else {
+          newConfig.splice(existingIdx, 1)
+        }
+      } else {
+        newConfig.push({ key, direction: 'asc' })
+      }
+
+      if (newConfig.length === 0) {
+        return [{ key: 'rowNumber', direction: 'asc' }]
+      }
+      return newConfig
+    })
   }
 
   const handleUpdateRow = useCallback(
@@ -557,7 +600,7 @@ export default function RotaPage() {
         loading={loading}
         onImportSuccess={loadData}
         isGerencialActive={isGerencialActive}
-        totalClients={rows.length}
+        totalClients={filteredRows.length}
       />
 
       <RotaFilters
