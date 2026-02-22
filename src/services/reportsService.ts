@@ -215,13 +215,13 @@ export const reportsService = {
           currentOrder.projection = null
         }
 
-        // Fallback Rule: If projection cannot be calculated or is 0, default to 100.00
+        // Fallback Rule: If projection cannot be calculated or is 0, default to 14.99
         if (
           !calculated ||
           currentOrder.projection === 0 ||
           currentOrder.projection === null
         ) {
-          currentOrder.projection = 100
+          currentOrder.projection = 14.99
         }
 
         result.push(currentOrder)
