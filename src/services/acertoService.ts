@@ -159,6 +159,8 @@ export const acertoService = {
       uid: item['ID VENDA ITENS']?.toString() || Math.random().toString(),
       produtoId: 0,
       produtoCodigo: item['COD. PRODUTO'],
+      codigoInterno: item.codigo_interno || '',
+      codigoBarras: item.codigo_barras || '',
       produtoNome: item['MERCADORIA'] || '',
       tipo: item['TIPO'],
       precoUnitario: parseCurrency(item['PREÇO VENDIDO']),

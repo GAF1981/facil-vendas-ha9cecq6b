@@ -192,6 +192,8 @@ export type Database = {
           "COD. PRODUTO": number | null
           "CÓDIGO DO CLIENTE": number | null
           "CODIGO FUNCIONARIO": number | null
+          codigo_barras: string | null
+          codigo_interno: string | null
           CONTAGEM: number | null
           "DATA DO ACERTO": string | null
           "DATA E HORA": string | null
@@ -228,6 +230,8 @@ export type Database = {
           "COD. PRODUTO"?: number | null
           "CÓDIGO DO CLIENTE"?: number | null
           "CODIGO FUNCIONARIO"?: number | null
+          codigo_barras?: string | null
+          codigo_interno?: string | null
           CONTAGEM?: number | null
           "DATA DO ACERTO"?: string | null
           "DATA E HORA"?: string | null
@@ -264,6 +268,8 @@ export type Database = {
           "COD. PRODUTO"?: number | null
           "CÓDIGO DO CLIENTE"?: number | null
           "CODIGO FUNCIONARIO"?: number | null
+          codigo_barras?: string | null
+          codigo_interno?: string | null
           CONTAGEM?: number | null
           "DATA DO ACERTO"?: string | null
           "DATA E HORA"?: string | null

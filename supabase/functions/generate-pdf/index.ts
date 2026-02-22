@@ -51,7 +51,7 @@ const calculateThermalHeight = (body: any) => {
   h += 15
 
   const items = body.items || []
-  h += items.length * 86
+  h += items.length * 110
 
   h += 59
   h += 102
@@ -320,7 +320,7 @@ Deno.serve(async (req) => {
         })
       }
 
-      drawVerticalHeader('CODIGO', tableX.cod)
+      drawVerticalHeader('COD. INTERNO', tableX.cod)
       drawVerticalHeader('MERCADORIA', tableX.merc)
       drawVerticalHeader('TIPO', tableX.tipo)
       drawVerticalHeader('SALDO INICIAL', tableX.si)
@@ -343,9 +343,14 @@ Deno.serve(async (req) => {
       for (const item of sortedItems) {
         checkPageBreak(15)
 
-        drawText(String(item.produtoCodigo || ''), tableX.cod, y, {
-          size: rowFontSize,
-        })
+        drawText(
+          String(item.codigoInterno || item.produtoCodigo || ''),
+          tableX.cod,
+          y,
+          {
+            size: rowFontSize,
+          },
+        )
         drawText(
           String(item.produtoNome || '').substring(0, 35),
           tableX.merc,
@@ -785,7 +790,7 @@ Deno.serve(async (req) => {
 
       if (sortedItems.length > 0) {
         for (const item of sortedItems) {
-          checkPageBreak(80)
+          checkPageBreak(110)
 
           const prodName = `${item.produtoNome || item.produto} R$ ${formatCurrency(item.precoUnitario || item.preco)}`
           drawText(prodName, margins.left, y, {
@@ -796,6 +801,8 @@ Deno.serve(async (req) => {
           y -= 12
 
           const stats = [
+            { label: 'Cód Interno:', val: String(item.codigoInterno || '-') },
+            { label: 'Cód Barras:', val: String(item.codigoBarras || '-') },
             { label: 'Saldo Inicial:', val: String(item.saldoInicial || 0) },
             { label: 'Contagem:', val: String(item.contagem || 0) },
             { label: 'Qtd. Vendida:', val: String(item.quantVendida || 0) },

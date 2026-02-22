@@ -244,8 +244,8 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
               Saldo Acerto
             </TableHead>
             <TableHead className="text-center">Responsável</TableHead>
-            <TableHead className="text-right">Ação</TableHead>
             <TableHead className="text-center w-[120px]">Recolhido</TableHead>
+            <TableHead className="text-right">Ação</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -423,6 +423,38 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
                     {item.responsavel?.nome_completo || '-'}
                   </TableCell>
 
+                  {/* Recolhido Column */}
+                  <TableCell className="text-center">
+                    {isClosed ? (
+                      item.recolhido_por_id ? (
+                        <div className="flex flex-col items-center justify-center">
+                          <CheckCheck className="h-4 w-4 text-green-600 mb-1" />
+                          <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                            {item.recolhedor?.nome_completo?.split(' ')[0] ||
+                              'OK'}
+                          </span>
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full h-8 text-xs border-orange-200 text-orange-700 hover:bg-orange-50"
+                          onClick={() => handleMarkRecolhido(item)}
+                          disabled={isLoading || isGeneratingPdf}
+                        >
+                          {isLoading ? (
+                            <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                          ) : (
+                            <Banknote className="mr-2 h-3 w-3" />
+                          )}
+                          Recolher
+                        </Button>
+                      )
+                    ) : (
+                      <span className="text-xs text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+
                   {/* Ação Column */}
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
@@ -504,38 +536,6 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
                         </Button>
                       )}
                     </div>
-                  </TableCell>
-
-                  {/* Recolhido Column */}
-                  <TableCell className="text-center">
-                    {isClosed ? (
-                      item.recolhido_por_id ? (
-                        <div className="flex flex-col items-center justify-center">
-                          <CheckCheck className="h-4 w-4 text-green-600 mb-1" />
-                          <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                            {item.recolhedor?.nome_completo?.split(' ')[0] ||
-                              'OK'}
-                          </span>
-                        </div>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="w-full h-8 text-xs border-orange-200 text-orange-700 hover:bg-orange-50"
-                          onClick={() => handleMarkRecolhido(item)}
-                          disabled={isLoading || isGeneratingPdf}
-                        >
-                          {isLoading ? (
-                            <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                          ) : (
-                            <Banknote className="mr-2 h-3 w-3" />
-                          )}
-                          Recolher
-                        </Button>
-                      )
-                    ) : (
-                      <span className="text-xs text-muted-foreground">-</span>
-                    )}
                   </TableCell>
                 </TableRow>
               )

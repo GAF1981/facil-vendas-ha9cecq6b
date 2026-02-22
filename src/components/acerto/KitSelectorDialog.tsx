@@ -77,6 +77,8 @@ export function KitSelectorDialog({ onSelect }: KitSelectorDialogProps) {
           uid: Math.random().toString(36).substr(2, 9),
           produtoId: p.ID,
           produtoCodigo: p.CODIGO,
+          codigoInterno: p.codigo_interno || '',
+          codigoBarras: p['CÓDIGO BARRAS'] || '',
           produtoNome: p.PRODUTO || 'Sem nome',
           tipo: p.TIPO,
           precoUnitario: price,
