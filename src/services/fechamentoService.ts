@@ -135,6 +135,16 @@ export const fechamentoService = {
     if (error) throw error
   },
 
+  async cancelClosing(id: number) {
+    const { error } = await supabase
+      .from('fechamento_caixa')
+      .delete()
+      .eq('id', id)
+      .eq('status', 'Aberto') // Safety check to prevent deleting finalized closures
+
+    if (error) throw error
+  },
+
   async checkExistingClosing(rotaId: number, funcionarioId: number) {
     const { data, error } = await supabase
       .from('fechamento_caixa')

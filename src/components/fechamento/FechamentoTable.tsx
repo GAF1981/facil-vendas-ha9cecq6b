@@ -23,6 +23,7 @@ import {
   CalendarClock,
   Printer,
   Banknote,
+  Trash2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -37,6 +38,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 
 interface FechamentoTableProps {
   data: FechamentoCaixa[]
@@ -98,6 +110,33 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
         title: 'Erro',
         description: 'Falha ao atualizar aprovação.',
         variant: 'destructive',
+      })
+    }
+  }
+
+  const handleCancelClosing = async (item: FechamentoCaixa) => {
+    setLoadingIds((prev) => new Set(prev).add(item.id))
+    try {
+      await fechamentoService.cancelClosing(item.id)
+      toast({
+        title: 'Fechamento Cancelado',
+        description: `O início do fechamento de caixa de ${item.funcionario?.nome_completo || 'funcionário'} foi desfeito com sucesso. O caixa está aberto novamente.`,
+        className: 'bg-green-600 text-white',
+      })
+      onRefresh()
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: 'Erro',
+        description: 'Falha ao cancelar o fechamento.',
+        variant: 'destructive',
+      })
+      onRefresh()
+    } finally {
+      setLoadingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(item.id)
+        return next
       })
     }
   }
@@ -509,31 +548,78 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
                           Confirmado
                         </Button>
                       ) : (
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            // If auto-checked due to Pix Conference, update the DB state before confirming
-                            if (allPixConfirmed && !item.pix_aprovado) {
-                              fechamentoService
-                                .updateApproval(item.id, 'pix_aprovado', true)
-                                .then(() => handleConfirm(item))
-                            } else {
-                              handleConfirm(item)
-                            }
-                          }}
-                          disabled={!canConfirm || isLoading}
-                          className={cn(
-                            'w-[110px]',
-                            canConfirm ? 'bg-green-600 hover:bg-green-700' : '',
-                          )}
-                        >
-                          {isLoading ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          ) : (
-                            <Lock className="mr-2 h-4 w-4" />
-                          )}
-                          Confirmar
-                        </Button>
+                        <>
+                          <AlertDialog>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                                      disabled={isLoading || isGeneratingPdf}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Cancelar Início de Fechamento</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>
+                                  Cancelar Fechamento?
+                                </AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Deseja cancelar o início do fechamento? Isso
+                                  permitirá adicionar novos lançamentos ao
+                                  caixa.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Voltar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleCancelClosing(item)}
+                                  className="bg-red-600 hover:bg-red-700 text-white"
+                                >
+                                  Sim, Cancelar
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              // If auto-checked due to Pix Conference, update the DB state before confirming
+                              if (allPixConfirmed && !item.pix_aprovado) {
+                                fechamentoService
+                                  .updateApproval(item.id, 'pix_aprovado', true)
+                                  .then(() => handleConfirm(item))
+                              } else {
+                                handleConfirm(item)
+                              }
+                            }}
+                            disabled={!canConfirm || isLoading}
+                            className={cn(
+                              'w-[110px]',
+                              canConfirm
+                                ? 'bg-green-600 hover:bg-green-700'
+                                : '',
+                            )}
+                          >
+                            {isLoading ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <Lock className="mr-2 h-4 w-4" />
+                            )}
+                            Confirmar
+                          </Button>
+                        </>
                       )}
                     </div>
                   </TableCell>
