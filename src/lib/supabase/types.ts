@@ -3327,7 +3327,7 @@ export const Constants = {
 //             l.cid,
 //             (l.dt - p.dt) as days_diff,
 //             CASE
-//                 WHEN p.dt IS NULL OR (l.dt - p.dt) <= 0 THEN 100.00
+//                 WHEN p.dt IS NULL OR (l.dt - p.dt) <= 0 THEN 14.99
 //                 ELSE
 //                      ((CURRENT_DATE - l.dt)::numeric / 30.0) *
 //                      (l.val / ((l.dt - p.dt)::numeric / 30.0))
@@ -3338,7 +3338,7 @@ export const Constants = {
 //     SELECT
 //         cid as client_id,
 //         CASE 
-//           WHEN calc_proj IS NULL OR calc_proj = 0 THEN 100.00 
+//           WHEN calc_proj IS NULL OR calc_proj = 0 THEN 14.99 
 //           ELSE ROUND(calc_proj, 2) 
 //         END as projecao,
 //         COALESCE(days_diff, 0) as dias_entre_acertos

@@ -47,6 +47,32 @@ const safeFormatTime = (dateString: string | null | undefined): string => {
 }
 
 const calculateThermalHeight = (body: any) => {
+  const { reportType } = body
+
+  if (
+    reportType === 'closing-confirmation' ||
+    reportType === 'employee-cash-summary'
+  ) {
+    let h = 650
+    const settlements = body.settlements || []
+    if (settlements.length > 0) {
+      h += 60
+      for (const s of settlements) {
+        h += 35
+        if (s.items && s.items.length > 0) {
+          h += 20
+          h += s.items.length * 15
+        }
+        if (s.payments && s.payments.length > 0) {
+          h += 20
+          h += s.payments.length * 15
+        }
+        h += 80
+      }
+    }
+    return Math.max(650, Math.ceil(h))
+  }
+
   let h = 145
   h += 15
 
@@ -128,16 +154,7 @@ Deno.serve(async (req) => {
       margins = { top: 40, bottom: 40, left: 25, right: 25 }
       y = height - margins.top
     } else if (isThermal) {
-      let calculatedHeight = 600
-
-      if (
-        reportType === 'closing-confirmation' ||
-        reportType === 'employee-cash-summary'
-      ) {
-        calculatedHeight = 600
-      } else {
-        calculatedHeight = calculateThermalHeight(body)
-      }
+      let calculatedHeight = calculateThermalHeight(body)
 
       page = pdfDoc.addPage([226, calculatedHeight])
       width = page.getSize().width
@@ -452,21 +469,27 @@ Deno.serve(async (req) => {
       reportType === 'closing-confirmation' ||
       reportType === 'employee-cash-summary'
     ) {
-      const { fechamento, date } = body
+      const { fechamento, date, periodo } = body
       const closingData = fechamento || body.data || {}
 
-      const empName = closingData.funcionario?.nome_completo || 'Funcionario'
-      const rotaId = closingData.rota_id || '-'
+      const empName =
+        closingData.funcionario?.nome_completo ||
+        body.employee?.name ||
+        'Funcionario'
+      const rotaId = closingData.rota_id || periodo?.rotaId || '-'
       const reportDate = closingData.created_at || date
 
-      const saldoAcerto = closingData.saldo_acerto || 0
+      const saldoAcerto = closingData.saldo_acerto || body.saldoDeAcerto || 0
       const vDinheiro = closingData.valor_dinheiro || 0
       const vPix = closingData.valor_pix || 0
       const vCheque = closingData.valor_cheque || 0
-      const totalEntrada = vDinheiro + vPix + vCheque
+      const vBoleto = closingData.valor_boleto || 0
+      const totalEntrada = vDinheiro + vPix + vCheque + vBoleto
       const vDespesas = closingData.valor_despesas || 0
       const vendaTotal = closingData.venda_total || 0
       const descontoTotal = closingData.desconto_total || 0
+
+      const settlements = body.settlements || []
 
       if (!isThermal) {
         drawText('FACIL VENDAS', width / 2, y, {
@@ -537,6 +560,7 @@ Deno.serve(async (req) => {
         drawRow('Dinheiro:', vDinheiro)
         drawRow('Pix:', vPix)
         drawRow('Cheque:', vCheque)
+        drawRow('Boleto:', vBoleto)
 
         y -= 5
         drawText('TOTAL ENTRADA:', margins.left, y, {
@@ -586,6 +610,104 @@ Deno.serve(async (req) => {
 
         y -= 5
         drawLine(y)
+
+        // Resumo de Acertos A4
+        if (settlements.length > 0) {
+          y -= 30
+          checkPageBreak(40)
+          drawText('RESUMO DE ACERTOS', width / 2, y, {
+            size: 14,
+            font: fontBold,
+            align: 'center',
+          })
+          y -= 20
+          drawLine(y)
+          y -= 20
+
+          for (const s of settlements) {
+            checkPageBreak(100)
+            drawText(
+              `Pedido: #${s.orderId} | Cliente: ${s.clientCode} - ${s.clientName}`,
+              margins.left,
+              y,
+              { size: 11, font: fontBold },
+            )
+            y -= 15
+
+            if (s.items && s.items.length > 0) {
+              drawText('Mercadoria', margins.left, y, {
+                size: 9,
+                font: fontBold,
+              })
+              drawText('SI', margins.left + 250, y, { size: 9, font: fontBold })
+              drawText('Cont', margins.left + 280, y, {
+                size: 9,
+                font: fontBold,
+              })
+              drawText('Qtd V.', margins.left + 310, y, {
+                size: 9,
+                font: fontBold,
+              })
+              drawText('SF', margins.left + 350, y, { size: 9, font: fontBold })
+              drawText('Total (R$)', width - margins.right, y, {
+                size: 9,
+                font: fontBold,
+                align: 'right',
+              })
+              y -= 15
+
+              for (const item of s.items) {
+                checkPageBreak(15)
+                drawText(item.produtoNome.substring(0, 45), margins.left, y, {
+                  size: 9,
+                })
+                drawText(String(item.saldoInicial), margins.left + 250, y, {
+                  size: 9,
+                })
+                drawText(String(item.contagem), margins.left + 280, y, {
+                  size: 9,
+                })
+                drawText(String(item.quantidade), margins.left + 310, y, {
+                  size: 9,
+                })
+                drawText(String(item.saldoFinal), margins.left + 350, y, {
+                  size: 9,
+                })
+                drawText(
+                  formatCurrency(item.valorVendido),
+                  width - margins.right,
+                  y,
+                  { size: 9, align: 'right' },
+                )
+                y -= 12
+              }
+            }
+
+            y -= 10
+            checkPageBreak(40)
+            let paymentStr = ''
+            if (s.payments && s.payments.length > 0) {
+              paymentStr = s.payments
+                .map((p: any) => `${p.method}: R$ ${formatCurrency(p.value)}`)
+                .join(' | ')
+            }
+
+            drawText(`Pagamentos: ${paymentStr || 'Nenhum'}`, margins.left, y, {
+              size: 9,
+            })
+            y -= 12
+
+            drawText(
+              `Total: R$ ${formatCurrency(s.totalSalesValue)} | Desc: R$ ${formatCurrency(s.totalDiscount)} | Pago: R$ ${formatCurrency(s.totalPaid)} | Devido: R$ ${formatCurrency(s.valorDevido)}`,
+              margins.left,
+              y,
+              { size: 9, font: fontBold },
+            )
+            y -= 20
+            drawLine(y, 0.5)
+            y -= 20
+          }
+        }
       } else {
         drawText('FACIL VENDAS', width / 2, y, {
           size: 14,
@@ -655,6 +777,7 @@ Deno.serve(async (req) => {
         drawRow('Dinheiro', vDinheiro)
         drawRow('Pix', vPix)
         drawRow('Cheque', vCheque)
+        drawRow('Boleto', vBoleto)
 
         y -= 3
         drawText('TOTAL ENTRADA:', margins.left, y, { size: 9, font: fontBold })
@@ -702,6 +825,113 @@ Deno.serve(async (req) => {
 
         y -= 15
         drawLine(y)
+
+        // Resumo de Acertos Thermal
+        if (settlements.length > 0) {
+          y -= 25
+          drawText('RESUMO DE ACERTOS', width / 2, y, {
+            size: 12,
+            font: fontBold,
+            align: 'center',
+          })
+          y -= 15
+          drawLine(y)
+          y -= 15
+
+          for (const s of settlements) {
+            checkPageBreak(80)
+            drawText(
+              `Pedido: #${s.orderId} - Cliente: ${s.clientCode}`,
+              margins.left,
+              y,
+              { size: 9, font: fontBold, maxWidth: width - 20 },
+            )
+            y -= 12
+            drawText(`${s.clientName}`, margins.left, y, {
+              size: 9,
+              font: fontBold,
+              maxWidth: width - 20,
+            })
+            y -= 15
+
+            if (s.items && s.items.length > 0) {
+              drawText('Item', margins.left, y, { size: 8, font: fontBold })
+              drawText('Qtd', width - 70, y, {
+                size: 8,
+                font: fontBold,
+                align: 'right',
+              })
+              drawText('Total', width - margins.right, y, {
+                size: 8,
+                font: fontBold,
+                align: 'right',
+              })
+              y -= 12
+              for (const item of s.items) {
+                checkPageBreak(15)
+                drawText(item.produtoNome.substring(0, 25), margins.left, y, {
+                  size: 8,
+                })
+                drawText(String(item.quantidade), width - 70, y, {
+                  size: 8,
+                  align: 'right',
+                })
+                drawText(
+                  formatCurrency(item.valorVendido),
+                  width - margins.right,
+                  y,
+                  { size: 8, align: 'right' },
+                )
+                y -= 10
+              }
+            }
+
+            if (s.payments && s.payments.length > 0) {
+              y -= 5
+              drawText('Pagamentos:', margins.left, y, {
+                size: 8,
+                font: fontBold,
+              })
+              y -= 12
+              for (const p of s.payments) {
+                checkPageBreak(15)
+                drawText(p.method, margins.left + 10, y, { size: 8 })
+                drawText(
+                  `R$ ${formatCurrency(p.value)}`,
+                  width - margins.right,
+                  y,
+                  { size: 8, align: 'right' },
+                )
+                y -= 10
+              }
+            }
+
+            y -= 5
+            drawText(
+              `Total Venda: R$ ${formatCurrency(s.totalSalesValue)}`,
+              margins.left,
+              y,
+              { size: 9, font: fontBold },
+            )
+            y -= 12
+            drawText(
+              `Desconto: R$ ${formatCurrency(s.totalDiscount)}`,
+              margins.left,
+              y,
+              { size: 9 },
+            )
+            y -= 12
+            drawText(
+              `Total Pago: R$ ${formatCurrency(s.totalPaid)}`,
+              margins.left,
+              y,
+              { size: 9 },
+            )
+            y -= 15
+            drawLine(y, 0.5)
+            y -= 15
+          }
+        }
       }
     } else if (
       isThermal &&

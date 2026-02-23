@@ -3,6 +3,17 @@ import { formatCurrency, parseCurrency } from '@/lib/formatters'
 import { parseISO, isAfter, isBefore, isEqual } from 'date-fns'
 import { Rota } from '@/types/rota'
 
+export interface SettlementItem {
+  produtoNome: string
+  quantidade: number
+  valorVendido: number
+  saldoInicial: number
+  saldoFinal: number
+  contagem: number
+  codigoInterno?: string
+  precoUnitario: number
+}
+
 export interface SettlementSummary {
   orderId: number
   employee: string
@@ -20,6 +31,7 @@ export interface SettlementSummary {
   totalPaid: number
   totalDiscount: number
   valorDevido: number
+  items: SettlementItem[]
 }
 
 export const resumoAcertosService = {
@@ -219,6 +231,7 @@ export const resumoAcertosService = {
           totalPaid: 0,
           totalDiscount: 0,
           valorDevido: 0,
+          items: [],
         })
       }
 
@@ -233,6 +246,20 @@ export const resumoAcertosService = {
       } else {
         order.totalDiscount = parseCurrency(discountStr)
       }
+
+      const qtdStr = String(row['QUANTIDADE VENDIDA'] || '0')
+      const qtd = parseFloat(qtdStr.replace(',', '.') || '0') || 0
+
+      order.items.push({
+        produtoNome: row['MERCADORIA'] || 'N/D',
+        quantidade: qtd,
+        valorVendido: itemValue,
+        saldoInicial: Number(row['SALDO INICIAL']) || 0,
+        saldoFinal: Number(row['SALDO FINAL']) || 0,
+        contagem: Number(row['CONTAGEM']) || 0,
+        precoUnitario: parseCurrency(row['PREÇO VENDIDO']),
+        codigoInterno: row.codigo_interno || '',
+      })
     })
 
     const orderIds = Array.from(ordersMap.keys())

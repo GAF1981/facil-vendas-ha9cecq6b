@@ -341,6 +341,9 @@ export default function CaixaPage() {
 
       let settlements = []
 
+      const allSettlements =
+        await resumoAcertosService.getSettlements(selectedRoute)
+
       if (targetId) {
         const empSummary = summaryData.find((s) => s.funcionarioId === targetId)
         if (empSummary) {
@@ -358,9 +361,9 @@ export default function CaixaPage() {
           .reduce((acc, r) => acc + r.valor, 0)
         finalSaldoDeAcerto = finalTotalSaldo - empPix
 
-        const allSettlements =
-          await resumoAcertosService.getSettlements(selectedRoute)
         settlements = allSettlements.filter((s) => s.employeeId === targetId)
+      } else {
+        settlements = allSettlements
       }
 
       const valorDinheiro = receiptsToPass
