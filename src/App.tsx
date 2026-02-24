@@ -190,10 +190,14 @@ const App = () => (
                     path="/relatorio/debitos"
                     element={<DebitosReportPage />}
                   />
-                  <Route
-                    path="/relatorio/metas"
-                    element={<MetasReportPage />}
-                  />
+
+                  <Route element={<PermissionGuard module="Relatório Meta" />}>
+                    <Route
+                      path="/relatorio/metas"
+                      element={<MetasReportPage />}
+                    />
+                  </Route>
+
                   <Route
                     path="/relatorio/itens-mais-vendidos"
                     element={<TopSellingReportsPage />}

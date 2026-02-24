@@ -39,9 +39,11 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
+import { usePermissions } from '@/hooks/use-permissions'
 
 const RelatorioDashboard = () => {
   const { employee } = useUserStore()
+  const { canAccess } = usePermissions()
   const [showNewRoutePrompt, setShowNewRoutePrompt] = useState(false)
   const [currentRouteId, setCurrentRouteId] = useState<number | null>(null)
   const [sendingEmail, setSendingEmail] = useState(false)
@@ -170,15 +172,19 @@ const RelatorioDashboard = () => {
       color: 'text-red-600',
       bg: 'bg-red-100',
     },
-    {
-      title: 'Metas',
-      description:
-        'Acompanhamento de metas diárias de acertos por funcionário.',
-      icon: Target,
-      to: '/relatorio/metas',
-      color: 'text-indigo-600',
-      bg: 'bg-indigo-100',
-    },
+    ...(canAccess('Relatório Meta')
+      ? [
+          {
+            title: 'Metas',
+            description:
+              'Acompanhamento de metas diárias de acertos por funcionário.',
+            icon: Target,
+            to: '/relatorio/metas',
+            color: 'text-indigo-600',
+            bg: 'bg-indigo-100',
+          },
+        ]
+      : []),
     {
       title: 'Itens mais Vendidos',
       description: 'Análise de produtos com maior volume de vendas.',

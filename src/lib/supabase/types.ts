@@ -1784,24 +1784,48 @@ export type Database = {
         }
         Relationships: []
       }
+      meta_excecoes: {
+        Row: {
+          created_at: string
+          data: string
+          descricao: string
+          id: number
+        }
+        Insert: {
+          created_at?: string
+          data: string
+          descricao: string
+          id?: number
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          descricao?: string
+          id?: number
+        }
+        Relationships: []
+      }
       metas_funcionarios: {
         Row: {
           created_at: string
           funcionario_id: number
           id: number
           meta_diaria: number
+          meta_mensal: number | null
         }
         Insert: {
           created_at?: string
           funcionario_id: number
           id?: number
           meta_diaria?: number
+          meta_mensal?: number | null
         }
         Update: {
           created_at?: string
           funcionario_id?: number
           id?: number
           meta_diaria?: number
+          meta_mensal?: number | null
         }
         Relationships: [
           {
@@ -2509,6 +2533,7 @@ export type Database = {
         | { Args: { d: string }; Returns: string }
         | { Args: { t: string }; Returns: string }
       bulk_update_product_codes: { Args: { payload: Json }; Returns: undefined }
+      delete_full_order: { Args: { p_order_id: number }; Returns: undefined }
       get_client_projections: {
         Args: never
         Returns: {
@@ -3015,6 +3040,8 @@ export const Constants = {
 //   FOREIGN KEY kit_items_produto_id_fkey: FOREIGN KEY (produto_id) REFERENCES "PRODUTOS"("ID") ON DELETE CASCADE
 // Table: kits
 //   PRIMARY KEY kits_pkey: PRIMARY KEY (id)
+// Table: meta_excecoes
+//   PRIMARY KEY meta_excecoes_pkey: PRIMARY KEY (id)
 // Table: metas_funcionarios
 //   FOREIGN KEY metas_funcionarios_funcionario_id_fkey: FOREIGN KEY (funcionario_id) REFERENCES "FUNCIONARIOS"(id) ON DELETE CASCADE
 //   UNIQUE metas_funcionarios_funcionario_id_key: UNIQUE (funcionario_id)
@@ -3235,6 +3262,25 @@ export const Constants = {
 //       NEW.data_combinada := NULL;
 //     END IF;
 //     RETURN NEW;
+//   END;
+//   $function$
+//   
+// FUNCTION delete_full_order(bigint)
+//   CREATE OR REPLACE FUNCTION public.delete_full_order(p_order_id bigint)
+//    RETURNS void
+//    LANGUAGE plpgsql
+//    SECURITY DEFINER
+//   AS $function$
+//   BEGIN
+//     DELETE FROM "BANCO_DE_DADOS" WHERE "NÚMERO DO PEDIDO" = p_order_id;
+//     DELETE FROM "RECEBIMENTOS" WHERE venda_id = p_order_id;
+//     DELETE FROM "debitos_historico" WHERE pedido_id = p_order_id;
+//     DELETE FROM "RELATORIO_DE_ESTOQUE" WHERE numero_pedido = p_order_id;
+//     DELETE FROM "notas_fiscais_emitidas" WHERE pedido_id = p_order_id;
+//     DELETE FROM "inativar_clientes" WHERE pedido_id = p_order_id;
+//     DELETE FROM "AJUSTE_SALDO_INICIAL" WHERE numero_pedido = p_order_id;
+//     DELETE FROM "AÇOES DE COBRANÇA_BACKUP" WHERE "NÚMERO DO PEDIDO" = p_order_id;
+//     DELETE FROM "acoes_cobranca" WHERE pedido_id = p_order_id;
 //   END;
 //   $function$
 //   

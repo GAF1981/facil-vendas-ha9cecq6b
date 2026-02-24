@@ -22,6 +22,7 @@ const MODULES_LIST = [
   'Rota',
   'Resumo Acertos',
   'Relatório',
+  'Relatório Meta',
   'Pendências',
   'Backup',
   'Permissões',
