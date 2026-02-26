@@ -825,7 +825,7 @@ export default function AcertoPage() {
         }
       }
 
-      if (flagInactivation) {
+      if (flagInactivation && !isVendaMercadoria) {
         const valorPagoTotal = payments.reduce((acc, p) => acc + p.paidValue, 0)
         let totalDebt = 0
         try {
@@ -978,7 +978,7 @@ export default function AcertoPage() {
       setOriginalSessionId(null)
       setIsVendaMercadoria(false)
 
-      if (flagInactivation) {
+      if (flagInactivation && !isVendaMercadoria) {
         navigate('/inativar-clientes')
       } else if (wasEditMode) {
         setTimeout(() => {
@@ -1023,8 +1023,7 @@ export default function AcertoPage() {
                 <SelectItem key={e.id} value={e.id.toString()}>
                   {e.nome_completo}
                 </SelectItem>
-              ))}
-            </SelectContent>
+              </SelectContent>
           </Select>
         </div>
       </div>

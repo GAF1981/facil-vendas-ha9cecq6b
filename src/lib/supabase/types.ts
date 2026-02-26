@@ -3823,6 +3823,10 @@ export const Constants = {
 //     WITH CHECK: true
 //   Policy "Allow read access for authenticated users" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: true
+// Table: fechamento_caixa
+//   Policy "Enable all access for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
 // Table: metas_funcionarios
 //   Policy "Enable all access for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true

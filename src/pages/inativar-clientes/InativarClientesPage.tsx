@@ -28,7 +28,7 @@ import {
 import { inativarClientesService } from '@/services/inativarClientesService'
 import { InativarCliente } from '@/types/inativar_clientes'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, UserX, ArrowLeft, CheckCircle } from 'lucide-react'
+import { Loader2, UserX, ArrowLeft, CheckCircle, Trash2 } from 'lucide-react'
 import { formatCurrency } from '@/lib/formatters'
 import { Link } from 'react-router-dom'
 import {
@@ -47,6 +47,9 @@ export default function InativarClientesPage() {
   const [loading, setLoading] = useState(true)
   const [targetClient, setTargetClient] = useState<InativarCliente | null>(null)
   const [modalClient, setModalClient] = useState<InativarCliente | null>(null)
+  const [clientToDelete, setClientToDelete] = useState<InativarCliente | null>(
+    null,
+  )
   const { toast } = useToast()
 
   const loadData = async () => {
@@ -162,6 +165,28 @@ export default function InativarClientesPage() {
     }
   }
 
+  const handleDelete = async () => {
+    if (!clientToDelete) return
+
+    try {
+      await inativarClientesService.removeEntry(clientToDelete.id)
+      toast({
+        title: 'Sucesso',
+        description: `Cliente ${clientToDelete.cliente_nome} removido da lista de inativação.`,
+        className: 'bg-green-600 text-white',
+      })
+      setClientToDelete(null)
+      loadData()
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: 'Erro',
+        description: 'Falha ao remover cliente da lista.',
+        variant: 'destructive',
+      })
+    }
+  }
+
   // Helper to determine confirmation message
   const getConfirmationMessage = () => {
     if (!targetClient) return ''
@@ -222,7 +247,9 @@ export default function InativarClientesPage() {
                     <TableHead className="text-center w-[100px]">
                       Expositor
                     </TableHead>
-                    <TableHead className="text-center w-[80px]">Ação</TableHead>
+                    <TableHead className="text-center w-[120px]">
+                      Ações
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -267,7 +294,7 @@ export default function InativarClientesPage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-center">
-                          <div className="flex justify-center">
+                          <div className="flex justify-center gap-2">
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -289,6 +316,24 @@ export default function InativarClientesPage() {
                                       ? 'Marque a retirada do expositor primeiro'
                                       : 'Confirmar Inativação'}
                                   </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="icon"
+                                    variant="outline"
+                                    className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                                    onClick={() => setClientToDelete(row)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Remover da lista de inativação</p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
@@ -342,6 +387,35 @@ export default function InativarClientesPage() {
               className="bg-red-600 hover:bg-red-700"
             >
               Sim, Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Dialog */}
+      <AlertDialog
+        open={!!clientToDelete}
+        onOpenChange={(open) => !open && setClientToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover da Lista de Inativação</AlertDialogTitle>
+            <AlertDialogDescription className="text-foreground font-medium">
+              Tem certeza que deseja remover o cliente{' '}
+              {clientToDelete?.cliente_nome} desta lista?
+            </AlertDialogDescription>
+            <AlertDialogDescription>
+              Isso <strong>não</strong> alterará o cadastro do cliente nem seu
+              histórico de vendas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Sim, Remover
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
