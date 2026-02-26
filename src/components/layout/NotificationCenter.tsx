@@ -31,7 +31,7 @@ export function NotificationCenter() {
 
     const checkNotifications = async () => {
       try {
-        // Pendência Alert
+        // Pendência Alert - Robust error handling for intermittent network failures
         try {
           const { data: pendenciaData, error: pendenciaError } = await supabase
             .from('PENDENCIAS')
@@ -40,16 +40,20 @@ export function NotificationCenter() {
             .eq('responsavel_id', employee.id)
             .limit(1)
 
-          if (!pendenciaError) {
-            setHasPendencia((pendenciaData?.length || 0) > 0)
+          if (pendenciaError) {
+            console.warn(
+              'Supabase error checking pendencias:',
+              pendenciaError.message || pendenciaError,
+            )
           } else {
-            console.warn('Supabase error checking pendencias:', pendenciaError)
+            setHasPendencia((pendenciaData?.length || 0) > 0)
           }
-        } catch (error) {
-          console.warn(
-            'Network or fetch error checking pendencia notifications:',
-            error,
+        } catch (error: any) {
+          console.error(
+            'Network or fetch error checking pendencia notifications. Failed to fetch from PENDENCIAS table:',
+            error?.message || error,
           )
+          // Catch the error and continue execution to prevent app crashes
         }
 
         // Caixa Alert - globally checks all open routes for the logged-in user
@@ -64,12 +68,15 @@ export function NotificationCenter() {
           if (!caixaError) {
             setHasCaixaAberto((caixaData?.length || 0) > 0)
           } else {
-            console.warn('Supabase error checking caixa:', caixaError)
+            console.warn(
+              'Supabase error checking caixa:',
+              caixaError.message || caixaError,
+            )
           }
-        } catch (error) {
-          console.warn(
+        } catch (error: any) {
+          console.error(
             'Network or fetch error checking caixa notifications:',
-            error,
+            error?.message || error,
           )
         }
 
@@ -91,13 +98,13 @@ export function NotificationCenter() {
             } else {
               console.warn(
                 'Supabase error checking nota fiscal notifications:',
-                nfError1,
+                nfError1.message || nfError1,
               )
             }
-          } catch (error) {
-            console.warn(
+          } catch (error: any) {
+            console.error(
               'Network or fetch error checking nota fiscal notifications:',
-              error,
+              error?.message || error,
             )
           }
 
@@ -124,13 +131,13 @@ export function NotificationCenter() {
             } else {
               console.warn(
                 'Supabase error checking pix notifications:',
-                pixError1 || pixError2,
+                pixError1?.message || pixError2?.message,
               )
             }
-          } catch (error) {
-            console.warn(
+          } catch (error: any) {
+            console.error(
               'Network or fetch error checking pix notifications:',
-              error,
+              error?.message || error,
             )
           }
 
@@ -148,18 +155,21 @@ export function NotificationCenter() {
             } else {
               console.warn(
                 'Supabase error checking recolhido notifications:',
-                recError,
+                recError.message || recError,
               )
             }
-          } catch (error) {
-            console.warn(
+          } catch (error: any) {
+            console.error(
               'Network or fetch error checking recolhido notifications:',
-              error,
+              error?.message || error,
             )
           }
         }
-      } catch (e) {
-        console.error('Unexpected error in checkNotifications:', e)
+      } catch (e: any) {
+        console.error(
+          'Unexpected error in checkNotifications:',
+          e?.message || e,
+        )
       }
     }
 

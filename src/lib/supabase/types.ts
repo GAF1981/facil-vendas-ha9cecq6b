@@ -311,6 +311,47 @@ export type Database = {
           },
         ]
       }
+      boletos: {
+        Row: {
+          cliente_codigo: number
+          cliente_nome: string
+          created_at: string
+          id: number
+          pedido_id: number | null
+          status: string
+          valor: number
+          vencimento: string
+        }
+        Insert: {
+          cliente_codigo: number
+          cliente_nome: string
+          created_at?: string
+          id?: number
+          pedido_id?: number | null
+          status?: string
+          valor: number
+          vencimento: string
+        }
+        Update: {
+          cliente_codigo?: number
+          cliente_nome?: string
+          created_at?: string
+          id?: number
+          pedido_id?: number | null
+          status?: string
+          valor?: number
+          vencimento?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boletos_cliente_codigo_fkey"
+            columns: ["cliente_codigo"]
+            isOneToOne: false
+            referencedRelation: "CLIENTES"
+            referencedColumns: ["CODIGO"]
+          },
+        ]
+      }
       brinde: {
         Row: {
           cliente_codigo: number | null
@@ -3350,6 +3391,15 @@ export const Constants = {
 //   valor: numeric (not null)
 //   forma_pagamento: text (nullable)
 //   created_at: timestamp with time zone (not null, default: timezone('utc'::text, now()))
+// Table: boletos
+//   id: bigint (not null)
+//   cliente_nome: text (not null)
+//   cliente_codigo: bigint (not null)
+//   status: text (not null, default: 'A Receber'::text)
+//   vencimento: date (not null)
+//   valor: numeric (not null)
+//   pedido_id: bigint (nullable)
+//   created_at: timestamp with time zone (not null, default: now())
 // Table: brinde
 //   id: bigint (not null)
 //   cliente_codigo: bigint (nullable)
@@ -3678,6 +3728,9 @@ export const Constants = {
 // Table: acoes_cobranca_vencimentos
 //   FOREIGN KEY acoes_cobranca_vencimentos_acao_cobranca_id_fkey: FOREIGN KEY (acao_cobranca_id) REFERENCES acoes_cobranca(id) ON DELETE CASCADE
 //   PRIMARY KEY acoes_cobranca_vencimentos_pkey: PRIMARY KEY (id)
+// Table: boletos
+//   FOREIGN KEY boletos_cliente_codigo_fkey: FOREIGN KEY (cliente_codigo) REFERENCES "CLIENTES"("CODIGO") ON DELETE CASCADE
+//   PRIMARY KEY boletos_pkey: PRIMARY KEY (id)
 // Table: brinde
 //   FOREIGN KEY brinde_funcionario_id_fkey: FOREIGN KEY (funcionario_id) REFERENCES "FUNCIONARIOS"(id)
 //   PRIMARY KEY brinde_pkey: PRIMARY KEY (id)
@@ -3817,6 +3870,10 @@ export const Constants = {
 //     USING: true
 //   Policy "Enable update access for authenticated users" (UPDATE, PERMISSIVE) roles={authenticated}
 //     USING: true
+// Table: boletos
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={public}
+//     USING: (auth.role() = 'authenticated'::text)
+//     WITH CHECK: (auth.role() = 'authenticated'::text)
 // Table: configuracoes
 //   Policy "Allow insert/update access for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
@@ -5287,6 +5344,9 @@ export const Constants = {
 //   CREATE INDEX idx_rota_items_vendedor_proximo_id ON public."ROTA_ITEMS" USING btree (vendedor_proximo_id)
 // Table: VEICULOS
 //   CREATE UNIQUE INDEX "VEICULOS_placa_key" ON public."VEICULOS" USING btree (placa)
+// Table: boletos
+//   CREATE INDEX idx_boletos_cliente_codigo ON public.boletos USING btree (cliente_codigo)
+//   CREATE INDEX idx_boletos_vencimento ON public.boletos USING btree (vencimento)
 // Table: configuracoes
 //   CREATE UNIQUE INDEX configuracoes_chave_key ON public.configuracoes USING btree (chave)
 // Table: debitos_historico
