@@ -1,6 +1,8 @@
 import { useEffect, useState, useMemo } from 'react'
 import { cobrancaService } from '@/services/cobrancaService'
+import { boletoService } from '@/services/boletoService'
 import { ClientDebt } from '@/types/cobranca'
+import { Boleto } from '@/types/boleto'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -38,6 +40,7 @@ export default function CobrancaPage() {
   const [loading, setLoading] = useState(true)
   const [debts, setDebts] = useState<ClientDebt[]>([])
   const [filteredDebts, setFilteredDebts] = useState<ClientDebt[]>([])
+  const [boletos, setBoletos] = useState<Boleto[]>([])
 
   const [clientFilter, setClientFilter] = useState('')
   const [orderFilter, setOrderFilter] = useState('')
@@ -57,11 +60,15 @@ export default function CobrancaPage() {
   const [activeTab, setActiveTab] = useState('geral')
   const { toast } = useToast()
 
-  const loadDebts = async () => {
+  const loadData = async () => {
     setLoading(true)
     try {
-      const data = await cobrancaService.getDebts()
-      setDebts(data)
+      const [debtsData, boletosData] = await Promise.all([
+        cobrancaService.getDebts(),
+        boletoService.getAll(),
+      ])
+      setDebts(debtsData)
+      setBoletos(boletosData)
     } catch (error) {
       console.error(error)
       toast({
@@ -82,12 +89,12 @@ export default function CobrancaPage() {
         { event: '*', schema: 'public', table: 'debitos_historico' },
         (payload) => {
           console.log('Debitos updated, refreshing...', payload)
-          setTimeout(() => loadDebts(), 500)
+          setTimeout(() => loadData(), 500)
         },
       )
       .subscribe()
 
-    loadDebts()
+    loadData()
 
     return () => {
       supabase.removeChannel(channel)
@@ -270,7 +277,7 @@ export default function CobrancaPage() {
       })
       toast({ title: 'Sucesso', description: 'Motoqueiro removido.' })
       setSelectedItems(new Set())
-      loadDebts()
+      loadData()
     } catch (e) {
       console.error(e)
       toast({
@@ -300,7 +307,7 @@ export default function CobrancaPage() {
       })
       toast({ title: 'Sucesso', description: 'Data combinada removida.' })
       setSelectedItems(new Set())
-      loadDebts()
+      loadData()
     } catch (e) {
       console.error(e)
       toast({
@@ -312,7 +319,7 @@ export default function CobrancaPage() {
   }
 
   const handleRefreshCourierRoute = async () => {
-    await loadDebts()
+    await loadData()
     toast({
       title: 'Rota Atualizada',
       description: 'O painel do motoqueiro está sincronizado.',
@@ -359,7 +366,7 @@ export default function CobrancaPage() {
 
           <Button
             variant="outline"
-            onClick={() => loadDebts()}
+            onClick={() => loadData()}
             disabled={loading}
           >
             <RefreshCw
@@ -563,7 +570,8 @@ export default function CobrancaPage() {
               </div>
               <DebtTable
                 data={filteredDebts}
-                onRefresh={loadDebts}
+                boletos={boletos}
+                onRefresh={loadData}
                 selectedItems={selectedItems}
                 onToggleItem={handleToggleItem}
                 isCobrancaMode={false}
@@ -599,7 +607,8 @@ export default function CobrancaPage() {
               </div>
               <DebtTable
                 data={filteredDebts}
-                onRefresh={loadDebts}
+                boletos={boletos}
+                onRefresh={loadData}
                 selectedItems={selectedItems}
                 onToggleItem={handleToggleItem}
                 isCobrancaMode={true}

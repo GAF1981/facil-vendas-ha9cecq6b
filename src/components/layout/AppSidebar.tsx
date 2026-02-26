@@ -34,6 +34,7 @@ import {
   UserX,
   Bike,
   Mail,
+  Barcode,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { usePermissions } from '@/hooks/use-permissions'
@@ -106,6 +107,12 @@ export function AppSidebar() {
       url: '/cobranca',
       icon: CreditCard,
       module: 'Cobrança',
+    },
+    {
+      title: 'Boletos',
+      url: '/boletos',
+      icon: Barcode,
+      module: 'Boletos',
     },
     {
       title: 'Nota Fiscal',
@@ -189,7 +196,7 @@ export function AppSidebar() {
 
   const visibleItems = items.filter((item) => {
     if (item.module === 'Menu') return true
-    if (item.module === 'Email Seguro') return true // Allow access by default for now
+    if (item.module === 'Email Seguro') return true
     if (item.module === 'Permissões') {
       if (Array.isArray(employee?.setor)) {
         return employee?.setor.includes('Administrador')

@@ -22,6 +22,7 @@ import {
   CircleAlert,
 } from 'lucide-react'
 import { ClientDebt, PaymentHistoryDetail } from '@/types/cobranca'
+import { Boleto } from '@/types/boleto'
 import { formatCurrency, safeFormatDate } from '@/lib/formatters'
 import { format, parseISO } from 'date-fns'
 import { DebtDetailsDialog } from './DebtDetailsDialog'
@@ -46,6 +47,7 @@ import {
 
 interface DebtTableProps {
   data: ClientDebt[]
+  boletos?: Boleto[]
   onRefresh?: () => void
   selectedItems: Set<string>
   onToggleItem: (id: string) => void
@@ -88,6 +90,8 @@ interface FlatRow {
   orderPayments: { method: string; value: number; dueDate: string }[]
   source: 'NEGOTIATION' | 'RECEIPT' | 'ORIGINAL'
   paymentHistory?: PaymentHistoryDetail[]
+  isConferido: boolean
+  needsConferir: boolean
 }
 
 type SortConfig = {
@@ -97,6 +101,7 @@ type SortConfig = {
 
 export function DebtTable({
   data,
+  boletos = [],
   onRefresh,
   selectedItems,
   onToggleItem,
@@ -212,6 +217,24 @@ export function DebtTable({
           const currentMotivo =
             updates.motivo !== undefined ? updates.motivo : inst.motivo
 
+          const debito = Math.max(0, inst.valorRegistrado - inst.valorPago)
+          const bDateStr = inst.vencimento
+            ? inst.vencimento.substring(0, 10)
+            : null
+
+          // Matching logic for Boletos
+          const match = boletos.find(
+            (b) =>
+              b.cliente_codigo === client.clientId &&
+              (b.vencimento ? b.vencimento.substring(0, 10) : null) ===
+                bDateStr &&
+              Math.abs(Number(b.valor) - debito) < 0.01,
+          )
+
+          const isConferido = !!match
+          const needsConferir =
+            !match && inst.formaPagamento?.toLowerCase().includes('boleto')
+
           return {
             uniqueId,
             receivableId: inst.id,
@@ -230,14 +253,14 @@ export function DebtTable({
             formaPagamento: inst.formaPagamento,
             valorRegistrado: inst.valorRegistrado,
             valorPago: inst.valorPago,
-            debito: Math.max(0, inst.valorRegistrado - inst.valorPago),
+            debito,
             status: inst.status,
             formaCobranca: currentFormaCobranca,
             dataCombinada: currentDataCombinada,
             motivo: currentMotivo,
             telefoneCobranca: client.telefone_cobranca || client.phone,
             emailCobranca: client.email_cobranca,
-            collectionActionCount: inst.collectionActionCount, // Granular count per installment
+            collectionActionCount: inst.collectionActionCount,
             orderTotal: order.netValue,
             orderPayments: order.paymentsMade.map((pd) => ({
               method: 'Pagamento',
@@ -246,6 +269,8 @@ export function DebtTable({
             })),
             source: inst.source || 'ORIGINAL',
             paymentHistory: inst.paymentHistory || [],
+            isConferido,
+            needsConferir,
           }
         })
       }),
@@ -293,6 +318,7 @@ export function DebtTable({
     return filtered
   }, [
     data,
+    boletos,
     localUpdates,
     sortConfig,
     statusFilter,
@@ -447,7 +473,9 @@ export function DebtTable({
                   {getSortIcon('vencimento')}
                 </div>
               </TableHead>
-              <TableHead className="bg-background">F. Pagamento</TableHead>
+              <TableHead className="bg-background min-w-[110px]">
+                F. Pagamento
+              </TableHead>
               <TableHead className="text-right bg-background">
                 Valor Parc.
               </TableHead>
@@ -544,7 +572,6 @@ export function DebtTable({
                     )}
 
                     <TableCell className="text-center font-mono text-xs text-muted-foreground">
-                      {/* Show collection count specifically for this installment */}
                       <Badge
                         variant="outline"
                         className={cn(
@@ -568,56 +595,68 @@ export function DebtTable({
                         : '-'}
                     </TableCell>
                     <TableCell className="text-xs">
-                      <div className="flex items-center gap-1">
-                        <span
-                          className="truncate max-w-[80px]"
-                          title={row.formaPagamento}
-                        >
-                          {row.formaPagamento}
-                        </span>
-                        {row.source === 'NEGOTIATION' && (
-                          <Badge
-                            variant="secondary"
-                            className="text-[9px] px-1 h-4"
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1">
+                          <span
+                            className="truncate max-w-[80px]"
+                            title={row.formaPagamento}
                           >
-                            Negoc.
-                          </Badge>
-                        )}
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-5 w-5 p-0 text-muted-foreground hover:text-primary"
+                            {row.formaPagamento}
+                          </span>
+                          {row.source === 'NEGOTIATION' && (
+                            <Badge
+                              variant="secondary"
+                              className="text-[9px] px-1 h-4"
                             >
-                              <Info className="h-3 w-3" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-64 p-3 text-xs">
-                            <h4 className="font-semibold mb-2">
-                              Detalhes do Pedido #{row.orderId}
-                            </h4>
-                            <div className="space-y-2">
-                              <div className="flex justify-between border-b pb-1">
-                                <span>Total Pedido (Rota):</span>
-                                <span className="font-bold">
-                                  {formatCurrency(row.orderTotal)}
-                                </span>
+                              Negoc.
+                            </Badge>
+                          )}
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 p-0 text-muted-foreground hover:text-primary"
+                              >
+                                <Info className="h-3 w-3" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-64 p-3 text-xs">
+                              <h4 className="font-semibold mb-2">
+                                Detalhes do Pedido #{row.orderId}
+                              </h4>
+                              <div className="space-y-2">
+                                <div className="flex justify-between border-b pb-1">
+                                  <span>Total Pedido (Rota):</span>
+                                  <span className="font-bold">
+                                    {formatCurrency(row.orderTotal)}
+                                  </span>
+                                </div>
+                                <div className="space-y-1">
+                                  {row.orderPayments.map((p, i) => (
+                                    <div
+                                      key={i}
+                                      className="flex justify-between text-muted-foreground"
+                                    >
+                                      <span>{p.method}</span>
+                                      <span>{formatCurrency(p.value)}</span>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
-                              <div className="space-y-1">
-                                {row.orderPayments.map((p, i) => (
-                                  <div
-                                    key={i}
-                                    className="flex justify-between text-muted-foreground"
-                                  >
-                                    <span>{p.method}</span>
-                                    <span>{formatCurrency(p.value)}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </PopoverContent>
-                        </Popover>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        {row.isConferido && (
+                          <span className="text-[10px] text-green-600 font-bold">
+                            conferido
+                          </span>
+                        )}
+                        {row.needsConferir && (
+                          <span className="text-[10px] text-red-600 font-bold">
+                            conferir
+                          </span>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs">
@@ -848,7 +887,6 @@ export function DebtTable({
                           >
                             <PlusCircle className="h-4 w-4" />
                           </Button>
-                          {/* We now use the per-installment count */}
                           {row.collectionActionCount > 0 && (
                             <span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-red-600 text-[8px] text-white">
                               {row.collectionActionCount}

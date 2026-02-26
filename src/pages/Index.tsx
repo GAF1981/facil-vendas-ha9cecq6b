@@ -21,6 +21,7 @@ import {
   UserX,
   Bike,
   ShieldCheck,
+  Barcode,
 } from 'lucide-react'
 import { usePermissions } from '@/hooks/use-permissions'
 import { DashboardStats } from '@/components/dashboard/DashboardStats'
@@ -100,6 +101,14 @@ export default function Index() {
       description: 'Gestão de cobranças e inadimplência',
       color: 'text-red-600',
       module: 'Cobrança',
+    },
+    {
+      title: 'Boletos',
+      icon: Barcode,
+      to: '/boletos',
+      description: 'Gestão e conferência de boletos gerados',
+      color: 'text-slate-800',
+      module: 'Boletos',
     },
     {
       title: 'Nota Fiscal',

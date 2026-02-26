@@ -49,6 +49,7 @@ import InativarClientesPage from '@/pages/inativar-clientes/InativarClientesPage
 import VehiclesPage from '@/pages/vehicles/VehiclesPage'
 import RotaMotoqueiroPage from '@/pages/rota-motoqueiro/RotaMotoqueiroPage'
 import EmailSeguroPage from '@/pages/email-seguro/EmailSeguroPage'
+import BoletosPage from '@/pages/boletos/BoletosPage'
 import { AuthProvider } from '@/hooks/use-auth'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { PermissionsProvider } from '@/hooks/use-permissions'
@@ -250,6 +251,10 @@ const App = () => (
 
                 <Route element={<PermissionGuard module="Permissões" />}>
                   <Route path="/permissoes" element={<PermissionsPage />} />
+                </Route>
+
+                <Route element={<PermissionGuard module="Boletos" />}>
+                  <Route path="/boletos" element={<BoletosPage />} />
                 </Route>
 
                 {/* E-mail Seguro - Assuming it's open or basic access for manager */}
