@@ -34,6 +34,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { format, parseISO } from 'date-fns'
 
 interface FlatDebt {
@@ -47,6 +54,9 @@ export default function BoletosPage() {
   const [boletos, setBoletos] = useState<Boleto[]>([])
   const [flatDebts, setFlatDebts] = useState<FlatDebt[]>([])
   const [searchTerm, setSearchTerm] = useState('')
+  const [conferidoFilter, setConferidoFilter] = useState<
+    'SIM' | 'NÃO' | 'VAZIO'
+  >('NÃO')
 
   // Dialogs
   const [isFormOpen, setIsFormOpen] = useState(false)
@@ -120,16 +130,24 @@ export default function BoletosPage() {
   }, [boletos, flatDebts])
 
   const filteredBoletos = useMemo(() => {
-    if (!searchTerm.trim()) return boletosWithConferido
+    let filtered = boletosWithConferido
 
-    const lower = searchTerm.toLowerCase()
-    return boletosWithConferido.filter(
-      (b) =>
-        b.cliente_nome.toLowerCase().includes(lower) ||
-        b.cliente_codigo.toString().includes(lower) ||
-        (b.pedido_id && b.pedido_id.toString().includes(lower)),
-    )
-  }, [searchTerm, boletosWithConferido])
+    if (conferidoFilter !== 'VAZIO') {
+      filtered = filtered.filter((b) => b.conferido === conferidoFilter)
+    }
+
+    if (searchTerm.trim()) {
+      const lower = searchTerm.toLowerCase()
+      filtered = filtered.filter(
+        (b) =>
+          b.cliente_nome.toLowerCase().includes(lower) ||
+          b.cliente_codigo.toString().includes(lower) ||
+          (b.pedido_id && b.pedido_id.toString().includes(lower)),
+      )
+    }
+
+    return filtered
+  }, [searchTerm, conferidoFilter, boletosWithConferido])
 
   const handleEdit = (boleto: Boleto) => {
     setEditingBoleto(boleto)
@@ -194,7 +212,7 @@ export default function BoletosPage() {
       </div>
 
       <Card>
-        <CardContent className="p-4 flex flex-col sm:flex-row gap-4">
+        <CardContent className="p-4 flex flex-col md:flex-row gap-4">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
@@ -204,6 +222,28 @@ export default function BoletosPage() {
               className="pl-9"
             />
           </div>
+
+          <div className="w-full md:w-56">
+            <Select
+              value={conferidoFilter}
+              onValueChange={(val: any) => setConferidoFilter(val)}
+            >
+              <SelectTrigger>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  Boleto Conferido:{' '}
+                  <span className="font-medium text-foreground">
+                    {conferidoFilter}
+                  </span>
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="VAZIO">VAZIO</SelectItem>
+                <SelectItem value="SIM">SIM</SelectItem>
+                <SelectItem value="NÃO">NÃO</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <Button
             variant="ghost"
             size="icon"
@@ -225,7 +265,7 @@ export default function BoletosPage() {
           <AlertCircle className="h-10 w-10 text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold">Nenhum boleto encontrado</h3>
           <p className="text-muted-foreground">
-            Cadastre um novo ou importe via CSV.
+            Verifique os filtros ou cadastre um novo boleto.
           </p>
         </div>
       ) : (

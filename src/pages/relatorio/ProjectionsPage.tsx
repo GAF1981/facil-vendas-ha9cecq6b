@@ -10,7 +10,15 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ArrowLeft, Loader2, Search, TrendingUp } from 'lucide-react'
+import {
+  ArrowLeft,
+  Loader2,
+  Search,
+  TrendingUp,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+} from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { reportsService, ProjectionReportRow } from '@/services/reportsService'
 import { formatCurrency } from '@/lib/formatters'
@@ -22,7 +30,11 @@ const ProjectionsPage = () => {
   const [data, setData] = useState<ProjectionReportRow[]>([])
   const [filteredData, setFilteredData] = useState<ProjectionReportRow[]>([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
+
+  const [searchClient, setSearchClient] = useState('')
+  const [searchOrder, setSearchOrder] = useState('')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | null>(null)
+
   const navigate = useNavigate()
   const { toast } = useToast()
 
@@ -48,15 +60,36 @@ const ProjectionsPage = () => {
   }, [toast])
 
   useEffect(() => {
-    const lowerSearch = search.toLowerCase()
-    const filtered = data.filter(
-      (item) =>
-        item.clientName.toLowerCase().includes(lowerSearch) ||
-        item.clientCode.toString().includes(lowerSearch) ||
-        item.orderId.toString().includes(lowerSearch),
-    )
+    const lowerClient = searchClient.toLowerCase()
+    const lowerOrder = searchOrder.toLowerCase()
+
+    let filtered = data.filter((item) => {
+      const matchClient =
+        !lowerClient ||
+        item.clientName.toLowerCase().includes(lowerClient) ||
+        item.clientCode.toString().includes(lowerClient)
+
+      const matchOrder =
+        !lowerOrder || item.orderId.toString().includes(lowerOrder)
+
+      return matchClient && matchOrder
+    })
+
+    if (sortOrder) {
+      filtered = [...filtered].sort((a, b) => {
+        if (sortOrder === 'asc') return a.orderId - b.orderId
+        return b.orderId - a.orderId
+      })
+    }
+
     setFilteredData(filtered)
-  }, [search, data])
+  }, [searchClient, searchOrder, sortOrder, data])
+
+  const toggleSortOrder = () => {
+    if (sortOrder === null) setSortOrder('asc')
+    else if (sortOrder === 'asc') setSortOrder('desc')
+    else setSortOrder(null)
+  }
 
   return (
     <div className="space-y-6 animate-fade-in pb-10">
@@ -80,19 +113,30 @@ const ProjectionsPage = () => {
 
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
             <CardTitle className="text-lg font-medium flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-blue-600" />
               Histórico de Pedidos e Projeções
             </CardTitle>
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por cliente ou pedido..."
-                className="pl-8"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+            <div className="flex flex-col sm:flex-row gap-2 w-full xl:w-auto">
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por cliente ou código..."
+                  className="pl-8"
+                  value={searchClient}
+                  onChange={(e) => setSearchClient(e.target.value)}
+                />
+              </div>
+              <div className="relative w-full sm:w-48">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar nº pedido..."
+                  className="pl-8"
+                  value={searchOrder}
+                  onChange={(e) => setSearchOrder(e.target.value)}
+                />
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -110,7 +154,23 @@ const ProjectionsPage = () => {
                     <TableHead className="min-w-[200px]">
                       Nome do Cliente
                     </TableHead>
-                    <TableHead className="w-[100px]">Nº Pedido</TableHead>
+                    <TableHead
+                      className="w-[120px] cursor-pointer hover:bg-muted transition-colors select-none group"
+                      onClick={toggleSortOrder}
+                    >
+                      <div className="flex items-center gap-1">
+                        Nº Pedido
+                        <span className="text-muted-foreground group-hover:text-foreground">
+                          {sortOrder === 'asc' ? (
+                            <ArrowUp className="h-3 w-3" />
+                          ) : sortOrder === 'desc' ? (
+                            <ArrowDown className="h-3 w-3" />
+                          ) : (
+                            <ArrowUpDown className="h-3 w-3 opacity-50" />
+                          )}
+                        </span>
+                      </div>
+                    </TableHead>
                     <TableHead className="w-[120px]">Data</TableHead>
                     <TableHead className="text-right whitespace-nowrap">
                       Valor Venda
