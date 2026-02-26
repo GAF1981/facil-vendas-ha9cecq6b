@@ -52,6 +52,7 @@ export default function RotaPage() {
       x_na_rota: 'todos',
       agregado: 'todos',
       vendedor: initialVendedor,
+      status_vendedor: 'com_vendedor',
       proximo_vendedor: 'todos',
       municipio: 'todos',
       grupo_rota: 'todos',
@@ -93,7 +94,8 @@ export default function RotaPage() {
   }, [filters.vendedor, setSelectedEmployeeIds])
 
   const [sortConfig, setSortConfig] = useState<SortConfig>([
-    { key: 'rowNumber', direction: 'asc' },
+    { key: 'grupo_rota', direction: 'asc' },
+    { key: 'cep', direction: 'asc' },
   ])
 
   const { toast } = useToast()
@@ -157,6 +159,16 @@ export default function RotaPage() {
           if (row.x_na_rota <= 3) return false
         } else {
           if (row.x_na_rota !== parseInt(filters.x_na_rota)) return false
+        }
+      }
+
+      if (filters.status_vendedor && filters.status_vendedor !== 'todos') {
+        if (filters.status_vendedor === 'com_vendedor') {
+          if (row.vendedor_id === null || row.vendedor_id === undefined)
+            return false
+        } else if (filters.status_vendedor === 'sem_vendedor') {
+          if (row.vendedor_id !== null && row.vendedor_id !== undefined)
+            return false
         }
       }
 

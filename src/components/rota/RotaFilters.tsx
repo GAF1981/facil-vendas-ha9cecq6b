@@ -67,6 +67,7 @@ export function RotaFilters({
       x_na_rota: 'todos',
       agregado: 'todos',
       vendedor: [],
+      status_vendedor: 'todos',
       proximo_vendedor: 'todos',
       municipio: 'todos',
       grupo_rota: 'todos',
@@ -274,6 +275,23 @@ export function RotaFilters({
                     </Command>
                   </PopoverContent>
                 </Popover>
+              </div>
+
+              {/* Status Vendedor */}
+              <div className="w-[115px]">
+                <Select
+                  value={filters.status_vendedor || 'todos'}
+                  onValueChange={(v) => handleChange('status_vendedor', v)}
+                >
+                  <SelectTrigger className="h-8 text-xs px-2">
+                    <SelectValue placeholder="Atribuição" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Atr: Todas</SelectItem>
+                    <SelectItem value="com_vendedor">Com Vendedor</SelectItem>
+                    <SelectItem value="sem_vendedor">Sem Vendedor</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Próximo Filter */}

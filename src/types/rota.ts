@@ -53,6 +53,7 @@ export interface RotaFilterState {
   x_na_rota: string | 'todos'
   agregado: string | 'todos'
   vendedor: string[]
+  status_vendedor: string | 'todos' | 'com_vendedor' | 'sem_vendedor'
   proximo_vendedor: string | 'todos' // Added filter
   municipio: string | 'todos'
   grupo_rota: string | 'todos'
