@@ -70,10 +70,11 @@ export const reportsService = {
     if (rpcError) throw rpcError
 
     const rpcMap = new Map<number, { projecao: number; dias: number }>()
+    // Ensure BigInt values from Supabase are safely cast to numbers for map keys
     rpcData?.forEach((r) =>
-      rpcMap.set(r.client_id, {
-        projecao: r.projecao,
-        dias: r.dias_entre_acertos,
+      rpcMap.set(Number(r.client_id), {
+        projecao: Number(r.projecao),
+        dias: Number(r.dias_entre_acertos),
       }),
     )
 
@@ -130,7 +131,7 @@ export const reportsService = {
       const val = parseCurrency(row['VALOR VENDIDO'])
       const uniqueId = `sale-${orderId}`
 
-      const cid = row['CÓDIGO DO CLIENTE'] || 0
+      const cid = Number(row['CÓDIGO DO CLIENTE'] || 0)
 
       if (!ordersMap.has(uniqueId)) {
         ordersMap.set(uniqueId, {
@@ -159,20 +160,21 @@ export const reportsService = {
 
       const orderId = row.numero_pedido || -row.id
       const uniqueId = `adj-${orderId}-${row.id}`
+      const cid = Number(row.cliente_id)
 
       if (!ordersMap.has(uniqueId)) {
         ordersMap.set(uniqueId, {
           id: uniqueId,
           orderId: orderId,
-          clientCode: row.cliente_id,
+          clientCode: cid,
           clientName: row.cliente_nome || 'Cliente Importado',
           orderDate: dateObj.toISOString(),
           totalValue: 0,
           daysBetweenOrders: null,
-          indexDays: rpcMap.get(row.cliente_id)?.dias || null,
+          indexDays: rpcMap.get(cid)?.dias || null,
           monthlyAverage: null,
           daysSinceLastOrder: null,
-          projection: rpcMap.get(row.cliente_id)?.projecao || null,
+          projection: rpcMap.get(cid)?.projecao || null,
         })
       }
     })

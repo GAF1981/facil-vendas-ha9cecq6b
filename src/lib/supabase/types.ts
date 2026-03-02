@@ -4038,18 +4038,17 @@ export const Constants = {
 //         SELECT
 //             "CÓDIGO DO CLIENTE" as cid,
 //             "NÚMERO DO PEDIDO" as oid,
-//             "DATA DO ACERTO"::text as date_str,
-//             "VALOR VENDIDO"::text as val_str
+//             COALESCE(NULLIF(TRIM("DATA DO ACERTO"::text), ''), to_char("DATA E HORA", 'YYYY-MM-DD')) as date_str,
+//             "VALOR VENDIDO" as val_str
 //         FROM "BANCO_DE_DADOS"
-//         WHERE "DATA DO ACERTO" IS NOT NULL 
-//           AND trim("DATA DO ACERTO"::text) != ''
+//         WHERE (NULLIF(TRIM("DATA DO ACERTO"::text), '') IS NOT NULL OR "DATA E HORA" IS NOT NULL)
 //           AND "CÓDIGO DO CLIENTE" IS NOT NULL
 //           AND "NÚMERO DO PEDIDO" IS NOT NULL
 //     ),
 //     adj_data AS (
 //         SELECT
 //             cliente_id as cid,
-//             COALESCE(numero_pedido, -(id)) as oid,
+//             numero_pedido as oid,
 //             to_char(data_acerto, 'YYYY-MM-DD') as date_str,
 //             '0' as val_str
 //         FROM "AJUSTE_SALDO_INICIAL"
@@ -4067,30 +4066,18 @@ export const Constants = {
 //           oid,
 //           val_str,
 //           CASE
-//               WHEN trim(date_str) = '' THEN NULL
-//               WHEN trim(date_str) ~ '^\d{4}-\d{2}-\d{2}' THEN to_date(substring(trim(date_str) from 1 for 10), 'YYYY-MM-DD')
-//               WHEN trim(date_str) ~ '^\d{4}/\d{2}/\d{2}' THEN to_date(substring(trim(date_str) from 1 for 10), 'YYYY/MM/DD')
-//               WHEN trim(date_str) ~ '^\d{2}/\d{2}/\d{4}' THEN to_date(substring(trim(date_str) from 1 for 10), 'DD/MM/YYYY')
-//               WHEN trim(date_str) ~ '^\d{2}-\d{2}-\d{4}' THEN to_date(substring(trim(date_str) from 1 for 10), 'DD-MM-YYYY')
-//               WHEN trim(date_str) ~ '^\d{2}/\d{2}/\d{2}
- THEN to_date(trim(date_str), 'DD/MM/YY')
-//               WHEN trim(date_str) ~ '^\d{2}/\d{2}/\d{2}\s+' THEN to_date(substring(trim(date_str) from 1 for 8), 'DD/MM/YY')
+//               WHEN date_str ~ '^\d{2}/\d{2}/\d{4}' THEN 
+//                   to_date(substring(date_str from 1 for 10), 'DD/MM/YYYY')
+//               WHEN date_str ~ '^\d{2}/\d{2}/\d{2}
+ THEN 
+//                    to_date(date_str, 'DD/MM/YY')
+//               WHEN date_str ~ '^\d{4}-\d{2}-\d{2}' THEN 
+//                   to_date(substring(date_str from 1 for 10), 'YYYY-MM-DD')
+//               WHEN date_str LIKE '%T%' THEN
+//                   to_date(substring(date_str from 1 for 10), 'YYYY-MM-DD')
 //               ELSE NULL
-//           END as raw_dt
+//           END as dt
 //         FROM combined_raw
-//         WHERE date_str IS NOT NULL
-//     ),
-//     corrected_dates AS (
-//         SELECT
-//           cid,
-//           oid,
-//           val_str,
-//           CASE
-//               WHEN raw_dt IS NULL THEN NULL
-//               WHEN EXTRACT(YEAR FROM raw_dt) < 1900 THEN raw_dt + (INTERVAL '2000 years')
-//               ELSE raw_dt
-//           END::date as dt
-//         FROM parsed_data
 //     ),
 //     parsed_values AS (
 //         SELECT
@@ -4098,10 +4085,13 @@ export const Constants = {
 //           oid,
 //           dt,
 //           CASE 
-//                WHEN val_str IS NULL OR trim(val_str) = '' THEN 0
-//                ELSE CAST(COALESCE(NULLIF(regexp_replace(REPLACE(REPLACE(val_str, '.', ''), ',', '.'), '[^0-9.-]', '', 'g'), ''), '0') AS NUMERIC)
+//                WHEN val_str ~ '^[0-9.]+,[0-9]+
+ THEN CAST(REPLACE(REPLACE(val_str, '.', ''), ',', '.') AS NUMERIC)
+//                WHEN val_str ~ '^[0-9,]+
+ THEN CAST(REPLACE(val_str, ',', '.') AS NUMERIC)
+//                ELSE CAST(COALESCE(NULLIF(val_str, ''), '0') AS NUMERIC)
 //           END as val
-//         FROM corrected_dates
+//         FROM parsed_data
 //         WHERE dt IS NOT NULL
 //     ),
 //     grouped_orders AS (
@@ -4531,8 +4521,8 @@ export const Constants = {
 //   END;
 //   $function$
 //   
-// FUNCTION parse_currency_sql(text)
-//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str text)
+// FUNCTION parse_currency_sql(character varying)
+//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str character varying)
 //    RETURNS numeric
 //    LANGUAGE plpgsql
 //   AS $function$
@@ -4560,8 +4550,8 @@ export const Constants = {
 //   END;
 //   $function$
 //   
-// FUNCTION parse_currency_sql(character varying)
-//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str character varying)
+// FUNCTION parse_currency_sql(text)
+//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str text)
 //    RETURNS numeric
 //    LANGUAGE plpgsql
 //   AS $function$
