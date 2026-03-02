@@ -1,16 +1,28 @@
 DO $$
 BEGIN
-    -- This ensures historical orders like 608 and 747 have dates populated from DATA E HORA if available
-    UPDATE "BANCO_DE_DADOS"
-    SET "DATA DO ACERTO" = COALESCE(TO_CHAR("DATA E HORA", 'YYYY-MM-DD'), '2023-01-01')
-    WHERE "NÚMERO DO PEDIDO" IN (608, 747)
-      AND ("DATA DO ACERTO" IS NULL OR trim("DATA DO ACERTO") = '');
+    BEGIN
+        -- Try assigning string first (if column is varchar/text)
+        UPDATE "BANCO_DE_DADOS"
+        SET "DATA DO ACERTO" = COALESCE(TO_CHAR("DATA E HORA"::timestamp, 'YYYY-MM-DD'), '2023-01-01')
+        WHERE "NÚMERO DO PEDIDO" IN (608, 747)
+          AND ("DATA DO ACERTO" IS NULL OR trim("DATA DO ACERTO"::text) = '');
 
-    -- Generic repair for any other missing dates if DATA E HORA is present
-    UPDATE "BANCO_DE_DADOS"
-    SET "DATA DO ACERTO" = TO_CHAR("DATA E HORA", 'YYYY-MM-DD')
-    WHERE ("DATA DO ACERTO" IS NULL OR trim("DATA DO ACERTO") = '')
-      AND "DATA E HORA" IS NOT NULL;
+        UPDATE "BANCO_DE_DADOS"
+        SET "DATA DO ACERTO" = TO_CHAR("DATA E HORA"::timestamp, 'YYYY-MM-DD')
+        WHERE ("DATA DO ACERTO" IS NULL OR trim("DATA DO ACERTO"::text) = '')
+          AND "DATA E HORA" IS NOT NULL;
+    EXCEPTION WHEN OTHERS THEN
+        -- Fallback: If column is actually DATE type, ignore empty strings in condition and cast assignment
+        UPDATE "BANCO_DE_DADOS"
+        SET "DATA DO ACERTO" = COALESCE(TO_CHAR("DATA E HORA"::timestamp, 'YYYY-MM-DD'), '2023-01-01')::date
+        WHERE "NÚMERO DO PEDIDO" IN (608, 747)
+          AND "DATA DO ACERTO" IS NULL;
+
+        UPDATE "BANCO_DE_DADOS"
+        SET "DATA DO ACERTO" = TO_CHAR("DATA E HORA"::timestamp, 'YYYY-MM-DD')::date
+        WHERE "DATA DO ACERTO" IS NULL
+          AND "DATA E HORA" IS NOT NULL;
+    END;
 END $$;
 
 DROP FUNCTION IF EXISTS get_client_projections();
@@ -28,11 +40,11 @@ BEGIN
       SELECT
           "CÓDIGO DO CLIENTE" as cid,
           "NÚMERO DO PEDIDO" as oid,
-          "DATA DO ACERTO" as date_str,
-          "VALOR VENDIDO" as val_str
+          "DATA DO ACERTO"::text as date_str,
+          "VALOR VENDIDO"::text as val_str
       FROM "BANCO_DE_DADOS"
       WHERE "DATA DO ACERTO" IS NOT NULL 
-        AND trim("DATA DO ACERTO") != ''
+        AND trim("DATA DO ACERTO"::text) != ''
         AND "CÓDIGO DO CLIENTE" IS NOT NULL
         AND "NÚMERO DO PEDIDO" IS NOT NULL
   ),
