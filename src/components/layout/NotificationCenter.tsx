@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { ClipboardList, FileText, QrCode, Wallet, Banknote } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useUserStore } from '@/stores/useUserStore'
@@ -25,160 +25,159 @@ export function NotificationCenter() {
     )
   }, [employee])
 
-  useEffect(() => {
-    // Session validation: only proceed if employee and valid ID are present
-    if (!employee || !employee.id) return
+  const checkNotifications = useCallback(
+    async (isMounted: () => boolean) => {
+      if (!employee?.id) return
 
-    const checkNotifications = async () => {
+      // State Validation: Ensure user is authenticated before attempting fetches
+      // This prevents unauthorized request attempts that might trigger fetch failures
       try {
-        // Pendência Alert - Robust error handling for intermittent network failures
-        try {
-          const { data: pendenciaData, error: pendenciaError } = await supabase
-            .from('PENDENCIAS')
-            .select('id')
-            .eq('resolvida', false)
-            .eq('responsavel_id', employee.id)
-            .limit(1)
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession()
+        if (sessionError || !session) return
+      } catch (e) {
+        // Fail silently on session check error
+        return
+      }
 
-          if (pendenciaError) {
-            console.warn(
-              'Supabase error checking pendencias:',
-              pendenciaError.message || pendenciaError,
-            )
-          } else {
-            setHasPendencia((pendenciaData?.length || 0) > 0)
-          }
-        } catch (error: any) {
-          console.error(
-            'Network or fetch error checking pendencia notifications. Failed to fetch from PENDENCIAS table:',
-            error?.message || error,
-          )
-          // Catch the error and continue execution to prevent app crashes
+      if (!isMounted()) return
+
+      // Pendência Alert
+      try {
+        const { data: pendenciaData, error: pendenciaError } = await supabase
+          .from('PENDENCIAS')
+          .select('id')
+          .eq('resolvida', false)
+          .eq('responsavel_id', employee.id)
+          .limit(1)
+
+        if (!pendenciaError && isMounted()) {
+          setHasPendencia((pendenciaData?.length || 0) > 0)
         }
-
-        // Caixa Alert - globally checks all open routes for the logged-in user
-        try {
-          const { data: caixaData, error: caixaError } = await supabase
-            .from('fechamento_caixa')
-            .select('id')
-            .in('status', ['ABERTO', 'Aberto']) // Case-sensitive exact match for ABERTO (and legacy Aberto)
-            .eq('funcionario_id', employee.id)
-            .limit(1)
-
-          if (!caixaError) {
-            setHasCaixaAberto((caixaData?.length || 0) > 0)
-          } else {
-            console.warn(
-              'Supabase error checking caixa:',
-              caixaError.message || caixaError,
-            )
-          }
-        } catch (error: any) {
-          console.error(
-            'Network or fetch error checking caixa notifications:',
-            error?.message || error,
-          )
-        }
-
-        if (isFinanceiroOuAdmin) {
-          // Nota Fiscal Alert
-          try {
-            const { data: nfData1, error: nfError1 } = await supabase
-              .from('BANCO_DE_DADOS')
-              .select('"NÚMERO DO PEDIDO"')
-              .not('"NÚMERO DO PEDIDO"', 'is', null)
-              .or(
-                'nota_fiscal_cadastro.eq.SIM,nota_fiscal_venda.eq.SIM,solicitacao_nf.eq.SIM',
-              )
-              .or('nota_fiscal_emitida.neq.Emitida,nota_fiscal_emitida.is.null')
-              .limit(1)
-
-            if (!nfError1) {
-              setHasNotaFiscal((nfData1?.length || 0) > 0)
-            } else {
-              console.warn(
-                'Supabase error checking nota fiscal notifications:',
-                nfError1.message || nfError1,
-              )
-            }
-          } catch (error: any) {
-            console.error(
-              'Network or fetch error checking nota fiscal notifications:',
-              error?.message || error,
-            )
-          }
-
-          // Pix Alert
-          try {
-            const { data: pixData1, error: pixError1 } = await supabase
-              .from('fechamento_caixa')
-              .select('id')
-              .gt('valor_pix', 0)
-              .is('pix_aprovado', null)
-              .limit(1)
-
-            const { data: pixData2, error: pixError2 } = await supabase
-              .from('fechamento_caixa')
-              .select('id')
-              .gt('valor_pix', 0)
-              .eq('pix_aprovado', false)
-              .limit(1)
-
-            if (!pixError1 && !pixError2) {
-              setHasPix(
-                (pixData1?.length || 0) > 0 || (pixData2?.length || 0) > 0,
-              )
-            } else {
-              console.warn(
-                'Supabase error checking pix notifications:',
-                pixError1?.message || pixError2?.message,
-              )
-            }
-          } catch (error: any) {
-            console.error(
-              'Network or fetch error checking pix notifications:',
-              error?.message || error,
-            )
-          }
-
-          // Recolhido Alert
-          try {
-            const { data: recData, error: recError } = await supabase
-              .from('fechamento_caixa')
-              .select('id')
-              .in('status', ['Fechado', 'FECHADO'])
-              .is('recolhido_por_id', null)
-              .limit(1)
-
-            if (!recError) {
-              setHasRecolhido((recData?.length || 0) > 0)
-            } else {
-              console.warn(
-                'Supabase error checking recolhido notifications:',
-                recError.message || recError,
-              )
-            }
-          } catch (error: any) {
-            console.error(
-              'Network or fetch error checking recolhido notifications:',
-              error?.message || error,
-            )
-          }
-        }
-      } catch (e: any) {
-        console.error(
-          'Unexpected error in checkNotifications:',
-          e?.message || e,
+      } catch (error: any) {
+        // Graceful Failure: Use warn instead of error to avoid dev overlays and fail silently
+        console.warn(
+          'Silent failure checking pendencia notifications:',
+          error?.message || error,
         )
       }
+
+      if (!isMounted()) return
+
+      // Caixa Alert
+      try {
+        const { data: caixaData, error: caixaError } = await supabase
+          .from('fechamento_caixa')
+          .select('id')
+          .in('status', ['ABERTO', 'Aberto'])
+          .eq('funcionario_id', employee.id)
+          .limit(1)
+
+        if (!caixaError && isMounted()) {
+          setHasCaixaAberto((caixaData?.length || 0) > 0)
+        }
+      } catch (error: any) {
+        console.warn(
+          'Silent failure checking caixa notifications:',
+          error?.message || error,
+        )
+      }
+
+      if (!isMounted() || !isFinanceiroOuAdmin) return
+
+      // Nota Fiscal Alert
+      try {
+        const { data: nfData1, error: nfError1 } = await supabase
+          .from('BANCO_DE_DADOS')
+          .select('"NÚMERO DO PEDIDO"')
+          .not('"NÚMERO DO PEDIDO"', 'is', null)
+          .or(
+            'nota_fiscal_cadastro.eq.SIM,nota_fiscal_venda.eq.SIM,solicitacao_nf.eq.SIM',
+          )
+          .or('nota_fiscal_emitida.neq.Emitida,nota_fiscal_emitida.is.null')
+          .limit(1)
+
+        if (!nfError1 && isMounted()) {
+          setHasNotaFiscal((nfData1?.length || 0) > 0)
+        }
+      } catch (error: any) {
+        console.warn(
+          'Silent failure checking nota fiscal notifications:',
+          error?.message || error,
+        )
+      }
+
+      if (!isMounted()) return
+
+      // Pix Alert
+      try {
+        const { data: pixData1, error: pixError1 } = await supabase
+          .from('fechamento_caixa')
+          .select('id')
+          .gt('valor_pix', 0)
+          .is('pix_aprovado', null)
+          .limit(1)
+
+        const { data: pixData2, error: pixError2 } = await supabase
+          .from('fechamento_caixa')
+          .select('id')
+          .gt('valor_pix', 0)
+          .eq('pix_aprovado', false)
+          .limit(1)
+
+        if (!pixError1 && !pixError2 && isMounted()) {
+          setHasPix((pixData1?.length || 0) > 0 || (pixData2?.length || 0) > 0)
+        }
+      } catch (error: any) {
+        console.warn(
+          'Silent failure checking pix notifications:',
+          error?.message || error,
+        )
+      }
+
+      if (!isMounted()) return
+
+      // Recolhido Alert
+      try {
+        const { data: recData, error: recError } = await supabase
+          .from('fechamento_caixa')
+          .select('id')
+          .in('status', ['Fechado', 'FECHADO'])
+          .is('recolhido_por_id', null)
+          .limit(1)
+
+        if (!recError && isMounted()) {
+          setHasRecolhido((recData?.length || 0) > 0)
+        }
+      } catch (error: any) {
+        console.warn(
+          'Silent failure checking recolhido notifications:',
+          error?.message || error,
+        )
+      }
+    },
+    [employee?.id, isFinanceiroOuAdmin],
+  )
+
+  useEffect(() => {
+    let isMounted = true
+    const getIsMounted = () => isMounted
+
+    const runChecks = async () => {
+      if (isMounted) await checkNotifications(getIsMounted)
     }
 
-    checkNotifications()
+    runChecks()
 
-    // Refresh notifications every 30 seconds
-    const interval = setInterval(checkNotifications, 30000)
-    return () => clearInterval(interval)
-  }, [employee, isFinanceiroOuAdmin])
+    const interval = setInterval(runChecks, 30000)
+
+    return () => {
+      isMounted = false
+      clearInterval(interval)
+    }
+  }, [checkNotifications])
 
   const IconWrapper = ({
     icon: Icon,
