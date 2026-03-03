@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Card,
   CardContent,
@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { reportsService, TopSellingItem } from '@/services/reportsService'
+import { reportsService, TopSellingItemV3 } from '@/services/reportsService'
 import { formatCurrency } from '@/lib/formatters'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 import {
@@ -33,9 +33,10 @@ import { MetricCard } from '@/components/dashboard/MetricCard'
 
 export default function TopSellingReportsPage() {
   const [loading, setLoading] = useState(false)
-  const [data, setData] = useState<TopSellingItem[]>([])
+  const [data, setData] = useState<TopSellingItemV3[]>([])
+  const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
 
-  // Default to current month
   const [startDate, setStartDate] = useState(
     format(startOfMonth(new Date()), 'yyyy-MM-dd'),
   )
@@ -43,11 +44,20 @@ export default function TopSellingReportsPage() {
     format(endOfMonth(new Date()), 'yyyy-MM-dd'),
   )
 
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm)
+    }, 300)
+    return () => clearTimeout(handler)
+  }, [searchTerm])
+
   const fetchData = async () => {
     setLoading(true)
     try {
-      // Using the updated service method which aggregates data in JS
-      const result = await reportsService.getTopSellingItems(startDate, endDate)
+      const result = await reportsService.getTopSellingItemsV3(
+        startDate,
+        endDate,
+      )
       setData(result)
     } catch (error) {
       console.error('Failed to fetch top selling items', error)
@@ -57,7 +67,6 @@ export default function TopSellingReportsPage() {
   }
 
   const handleMonthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Input type="month" returns "YYYY-MM"
     const val = e.target.value
     if (val) {
       const date = new Date(`${val}-01T12:00:00`)
@@ -68,15 +77,28 @@ export default function TopSellingReportsPage() {
 
   useEffect(() => {
     fetchData()
-  }, []) // Initial load
+  }, [])
 
-  // Calculate totals
-  const totalValue = data.reduce((acc, item) => acc + item.valor_total, 0)
-  const totalQuantity = data.reduce(
+  const filteredData = useMemo(() => {
+    if (!debouncedSearch) return data
+    const lower = debouncedSearch.toLowerCase()
+    return data.filter(
+      (item) =>
+        (item.produto_nome &&
+          item.produto_nome.toLowerCase().includes(lower)) ||
+        (item.produto_codigo && String(item.produto_codigo).includes(lower)),
+    )
+  }, [data, debouncedSearch])
+
+  const totalValue = filteredData.reduce(
+    (acc, item) => acc + item.valor_total,
+    0,
+  )
+  const totalQuantity = filteredData.reduce(
     (acc, item) => acc + item.quantidade_total,
     0,
   )
-  const totalItems = data.length
+  const totalItems = filteredData.length
 
   return (
     <div className="space-y-6 animate-fade-in p-4 sm:p-6 pb-20">
@@ -100,21 +122,35 @@ export default function TopSellingReportsPage() {
         <CardHeader>
           <CardTitle>Filtros</CardTitle>
           <CardDescription>
-            Selecione o mês ou período personalizado.
+            Selecione o mês ou busque por produtos específicos.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-4">
-            <div className="w-full sm:w-auto">
-              <Label>Mês de Referência</Label>
-              <Input
-                type="month"
-                className="w-full sm:w-[200px]"
-                onChange={handleMonthChange}
-                defaultValue={format(new Date(), 'yyyy-MM')}
-              />
+            <div className="flex flex-col sm:flex-row gap-4 items-start">
+              <div className="w-full sm:w-auto space-y-2">
+                <Label>Mês de Referência</Label>
+                <Input
+                  type="month"
+                  className="w-full sm:w-[200px]"
+                  onChange={handleMonthChange}
+                  defaultValue={format(new Date(), 'yyyy-MM')}
+                />
+              </div>
+              <div className="w-full sm:flex-1 max-w-md space-y-2">
+                <Label>Buscar Produto</Label>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por nome ou código..."
+                    className="pl-8"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+              </div>
             </div>
-            <div className="flex flex-col sm:flex-row gap-4 items-end pt-2 border-t">
+            <div className="flex flex-col sm:flex-row gap-4 items-end pt-2 border-t mt-2">
               <div className="space-y-2 w-full sm:w-auto">
                 <Label htmlFor="start-date">Início (Personalizado)</Label>
                 <Input
@@ -150,7 +186,6 @@ export default function TopSellingReportsPage() {
         </CardContent>
       </Card>
 
-      {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
         <MetricCard
           title="Venda Total do Período"
@@ -168,7 +203,7 @@ export default function TopSellingReportsPage() {
           title="Produtos Diferentes"
           value={totalItems}
           icon={ShoppingCart}
-          description="Contagem de SKUs vendidos"
+          description="Contagem de SKUs exibidos"
         />
       </div>
 
@@ -211,8 +246,17 @@ export default function TopSellingReportsPage() {
                       Nenhum dado encontrado para o período selecionado.
                     </TableCell>
                   </TableRow>
+                ) : filteredData.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={5}
+                      className="h-24 text-center text-muted-foreground"
+                    >
+                      Nenhum registro encontrado para a busca realizada.
+                    </TableCell>
+                  </TableRow>
                 ) : (
-                  data.map((item, index) => (
+                  filteredData.map((item, index) => (
                     <TableRow
                       key={`${item.produto_codigo}-${index}`}
                       className="hover:bg-muted/30"

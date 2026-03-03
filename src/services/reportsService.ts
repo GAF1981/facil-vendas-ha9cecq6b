@@ -24,6 +24,14 @@ export interface TopSellingItem {
   valor_total: number
 }
 
+export interface TopSellingItemV3 {
+  produto_nome: string
+  produto_codigo: number
+  quantidade_total: number
+  valor_total: number
+  estoque_inicial_total: number
+}
+
 export interface AdjustmentReportRow {
   id: number
   numero_pedido: number | null
@@ -36,7 +44,6 @@ export interface AdjustmentReportRow {
   saldo_novo: number
   quantidade_alterada: number
   produto_id: number
-  // Enhanced fields
   produto_nome?: string
   valor_ajuste?: number
 }
@@ -63,14 +70,12 @@ export const reportsService = {
   async getProjectionsReport(
     clientIds?: number[],
   ): Promise<ProjectionReportRow[]> {
-    // 1. Fetch RPC Data for accurate pre-calculated projections
     const { data: rpcData, error: rpcError } = await supabase.rpc(
       'get_client_projections',
     )
     if (rpcError) throw rpcError
 
     const rpcMap = new Map<number, { projecao: number; dias: number }>()
-    // Ensure BigInt values from Supabase are safely cast to numbers for map keys
     rpcData?.forEach((r) =>
       rpcMap.set(Number(r.client_id), {
         projecao: Number(r.projecao),
@@ -78,7 +83,6 @@ export const reportsService = {
       }),
     )
 
-    // Helper to bypass 1000 row limits
     const fetchBatchedData = async (
       table: string,
       select: string,
@@ -86,7 +90,7 @@ export const reportsService = {
     ) => {
       let allRows: any[] = []
       const batchSize = 1000
-      const limit = 100000 // Ensure we grab full order history to include orders like 608, 747, etc.
+      const limit = 100000
 
       for (let i = 0; i < limit / batchSize; i++) {
         const from = i * batchSize
@@ -103,7 +107,6 @@ export const reportsService = {
       return allRows
     }
 
-    // 2. Fetch Sales Data batched
     const salesData = await fetchBatchedData(
       'BANCO_DE_DADOS',
       '"NÚMERO DO PEDIDO", "CÓDIGO DO CLIENTE", "CLIENTE", "DATA DO ACERTO", "DATA E HORA", "VALOR VENDIDO", "HORA DO ACERTO"',
@@ -116,7 +119,6 @@ export const reportsService = {
       },
     )
 
-    // 3. Fetch Adjustment Data batched
     const adjData = await fetchBatchedData(
       'AJUSTE_SALDO_INICIAL',
       'cliente_id, cliente_nome, data_acerto, numero_pedido, saldo_novo, id',
@@ -131,12 +133,10 @@ export const reportsService = {
 
     const ordersMap = new Map<string, ProjectionReportRow>()
 
-    // Process Sales Data
     salesData?.forEach((row: any) => {
       const orderId = row['NÚMERO DO PEDIDO']
       if (!orderId) return
 
-      // Robust date processing: fallback to DATA E HORA if DATA DO ACERTO is missing
       let dateStr = row['DATA DO ACERTO']
       if ((!dateStr || String(dateStr).trim() === '') && row['DATA E HORA']) {
         dateStr = row['DATA E HORA'].split('T')[0]
@@ -171,7 +171,6 @@ export const reportsService = {
       order.totalValue += val
     })
 
-    // Process Adjustment Data
     adjData?.forEach((row: any) => {
       const dateObj = parseDateSafe(row.data_acerto)
       if (!dateObj) return
@@ -209,7 +208,6 @@ export const reportsService = {
     const today = startOfDay(new Date())
 
     clientOrdersMap.forEach((orders) => {
-      // Sort using date timestamps AND orderId to maintain precise timeline order
       orders.sort((a, b) => {
         const dateA = new Date(a.orderDate).getTime()
         const dateB = new Date(b.orderDate).getTime()
@@ -226,7 +224,6 @@ export const reportsService = {
         : 0
 
       orders.forEach((currentOrder, index) => {
-        // Calculate intervals between chronological orders
         if (index < orders.length - 1) {
           const prevOrder = orders[index + 1]
           currentOrder.daysBetweenOrders = Math.abs(
@@ -317,6 +314,23 @@ export const reportsService = {
     return Array.from(aggregationMap.values()).sort(
       (a, b) => b.valor_total - a.valor_total,
     )
+  },
+
+  async getTopSellingItemsV3(
+    startDate: string,
+    endDate: string,
+    funcionarioId?: number,
+    grupo?: string,
+  ): Promise<TopSellingItemV3[]> {
+    const { data, error } = await supabase.rpc('get_top_selling_items_v3', {
+      start_date: startDate,
+      end_date: endDate,
+      p_funcionario_id: funcionarioId,
+      p_grupo: grupo,
+    })
+
+    if (error) throw error
+    return data as TopSellingItemV3[]
   },
 
   async getInitialBalanceAdjustments(filters?: {
