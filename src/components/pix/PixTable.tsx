@@ -92,6 +92,7 @@ export function PixTable({
             <TableHead className="w-[60px] text-center">Rota</TableHead>
             {renderSortableHead('Número do Pedido', 'id_da_femea', 'w-[140px]')}
             {renderSortableHead('Data Acerto', 'data_acerto')}
+            {renderSortableHead('Data Pagto', 'data_pagamento')}
             <TableHead>Vendedor</TableHead>
             <TableHead className="w-[80px]">Código Cliente</TableHead>
             <TableHead>Nome Cliente</TableHead>
@@ -109,7 +110,7 @@ export function PixTable({
           {data.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={14}
+                colSpan={15}
                 className="h-24 text-center text-muted-foreground"
               >
                 Nenhum recebimento encontrado.
@@ -127,6 +128,11 @@ export function PixTable({
                 <TableCell className="text-sm">
                   {row.data_acerto
                     ? format(parseISO(row.data_acerto), 'dd/MM/yyyy')
+                    : '-'}
+                </TableCell>
+                <TableCell className="text-sm">
+                  {row.data_pagamento
+                    ? format(parseISO(row.data_pagamento), 'dd/MM/yyyy')
                     : '-'}
                 </TableCell>
                 <TableCell className="text-sm truncate max-w-[120px]">

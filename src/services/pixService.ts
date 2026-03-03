@@ -15,7 +15,7 @@ export const pixService = {
         PIX (*)
       `,
       )
-      .ilike('forma_pagamento', '%Pix%')
+      .ilike('forma_pagamento', '%pix%') // Fully case-insensitive robust match
       .gt('valor_pago', 0) // Filter strictly greater than 0
       .order('created_at', { ascending: false })
       .limit(2000)
@@ -33,9 +33,9 @@ export const pixService = {
       const pix = Array.isArray(row.PIX) ? row.PIX[0] : row.PIX
       const clientName = row.CLIENTES?.['NOME CLIENTE'] || 'N/D'
 
-      // Determine Rota ID based on created_at
-      let rotaId: number | undefined
-      if (row.created_at && rotas) {
+      // Determine Rota ID: Use db rota_id directly if available, fallback to date logic
+      let rotaId: number | undefined = row.rota_id
+      if (!rotaId && row.created_at && rotas) {
         const created = parseISO(row.created_at)
         const rota = rotas.find((r) => {
           const start = parseISO(r.data_inicio)
@@ -58,13 +58,14 @@ export const pixService = {
         valor_registrado: row.valor_registrado,
         vencimento: row.vencimento,
         created_at: row.created_at,
+        data_pagamento: row.data_pagamento || row.created_at,
         cliente_nome: clientName,
         pix_id: pix?.id,
         nome_no_pix: pix?.nome_no_pix,
         banco_pix: pix?.banco_pix,
         data_pix_realizado: pix?.data_pix_realizado,
         confirmado_por: pix?.confirmado_por,
-        rota_id: rotaId, // New field
+        rota_id: rotaId,
       }
     })
 
@@ -143,7 +144,7 @@ export const pixService = {
       .from('RECEBIMENTOS')
       .select('id, PIX(confirmado_por)')
       .eq('funcionario_id', employeeId)
-      .ilike('forma_pagamento', '%Pix%')
+      .ilike('forma_pagamento', '%pix%')
       .gt('valor_pago', 0) // Consistent filtering
       .gte('created_at', rota.data_inicio)
       // If route closed, check upper bound

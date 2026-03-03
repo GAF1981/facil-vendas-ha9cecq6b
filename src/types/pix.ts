@@ -20,6 +20,7 @@ export interface PixReceiptRow {
   valor_registrado: number | null
   vencimento: string | null
   created_at: string | null
+  data_pagamento?: string | null
   cliente_nome: string
   // Pix specific data
   pix_id?: number

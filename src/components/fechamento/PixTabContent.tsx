@@ -47,6 +47,7 @@ export function PixTabContent() {
       | 'valor_pago'
       | 'id_da_femea'
       | 'data_acerto'
+      | 'data_pagamento'
       | 'data_pix_realizado'
     direction: 'asc' | 'desc'
   }>({
@@ -142,6 +143,7 @@ export function PixTabContent() {
 
       if (
         sortConfig.key === 'data_acerto' ||
+        sortConfig.key === 'data_pagamento' ||
         sortConfig.key === 'data_pix_realizado'
       ) {
         const timeA = aValue ? parseISO(aValue).getTime() : 0
@@ -235,7 +237,7 @@ export function PixTabContent() {
               <Label htmlFor="orderId">Número do Pedido</Label>
               <Input
                 id="orderId"
-                placeholder="Ex: 12345"
+                placeholder="Ex: 785"
                 value={filters.orderId}
                 onChange={(e) => handleFilterChange('orderId', e.target.value)}
               />

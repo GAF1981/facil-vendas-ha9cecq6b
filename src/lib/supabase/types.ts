@@ -4444,7 +4444,7 @@ export const Constants = {
 //   
 // FUNCTION get_top_selling_items_v3(text, text, integer, text)
 //   CREATE OR REPLACE FUNCTION public.get_top_selling_items_v3(start_date text, end_date text, p_funcionario_id integer DEFAULT NULL::integer, p_grupo text DEFAULT NULL::text)
-//    RETURNS TABLE(produto_nome text, produto_codigo integer, quantidade_total numeric, valor_total numeric, estoque_inicial_total numeric)
+//    RETURNS TABLE(produto_nome text, produto_codigo bigint, quantidade_total numeric, valor_total numeric, estoque_inicial_total numeric)
 //    LANGUAGE plpgsql
 //   AS $function$
 //   BEGIN
