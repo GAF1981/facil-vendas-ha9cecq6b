@@ -75,14 +75,17 @@ export const recebimentoService = {
         if (payment.method === 'Pix' && payment.pixDetails && insertedData) {
           const insertedRecord = insertedData[0]
           if (insertedRecord) {
-            const { error: pixError } = await supabase.from('PIX').insert({
-              recebimento_id: insertedRecord.id,
-              nome_no_pix: payment.pixDetails.nome,
-              banco_pix: payment.pixDetails.banco,
-              data_pix_realizado: new Date().toISOString(),
-              confirmado_por: employee.nome_completo,
-              venda_id: linkedOrderId,
-            })
+            const { error: pixError } = await supabase.from('PIX').upsert(
+              {
+                recebimento_id: insertedRecord.id,
+                nome_no_pix: payment.pixDetails.nome,
+                banco_pix: payment.pixDetails.banco,
+                data_pix_realizado: new Date().toISOString(),
+                confirmado_por: employee.nome_completo,
+                venda_id: linkedOrderId,
+              },
+              { onConflict: 'recebimento_id' },
+            )
             if (pixError) console.error('Error creating PIX record:', pixError)
           }
         }
@@ -421,14 +424,19 @@ export const recebimentoService = {
 
     // 2. Handle Pix
     if (method === 'Pix' && pixDetails && insertedData) {
-      await supabase.from('PIX').insert({
-        recebimento_id: insertedData.id,
-        nome_no_pix: pixDetails.nome,
-        banco_pix: pixDetails.banco,
-        data_pix_realizado: new Date().toISOString(),
-        confirmado_por: userName || 'Sistema',
-        venda_id: orderId,
-      })
+      const { error: pixError } = await supabase.from('PIX').upsert(
+        {
+          recebimento_id: insertedData.id,
+          nome_no_pix: pixDetails.nome,
+          banco_pix: pixDetails.banco,
+          data_pix_realizado: new Date().toISOString(),
+          confirmado_por: userName || 'Sistema',
+          venda_id: orderId,
+        },
+        { onConflict: 'recebimento_id' },
+      )
+      if (pixError)
+        console.error('Error creating/updating PIX record:', pixError)
     }
 
     // 3. Log

@@ -2059,32 +2059,32 @@ export type Database = {
       }
       PIX: {
         Row: {
-          banco_pix: string
+          banco_pix: string | null
           confirmado_por: string | null
           created_at: string
           data_pix_realizado: string | null
           id: number
-          nome_no_pix: string
+          nome_no_pix: string | null
           recebimento_id: number
           venda_id: number | null
         }
         Insert: {
-          banco_pix?: string
+          banco_pix?: string | null
           confirmado_por?: string | null
           created_at?: string
           data_pix_realizado?: string | null
           id?: number
-          nome_no_pix: string
+          nome_no_pix?: string | null
           recebimento_id: number
           venda_id?: number | null
         }
         Update: {
-          banco_pix?: string
+          banco_pix?: string | null
           confirmado_por?: string | null
           created_at?: string
           data_pix_realizado?: string | null
           id?: number
-          nome_no_pix?: string
+          nome_no_pix?: string | null
           recebimento_id?: number
           venda_id?: number | null
         }
@@ -3297,8 +3297,8 @@ export const Constants = {
 //   id: bigint (not null)
 //   recebimento_id: bigint (not null)
 //   venda_id: bigint (nullable)
-//   nome_no_pix: text (not null)
-//   banco_pix: text (not null, default: 'BS2'::text)
+//   nome_no_pix: text (nullable)
+//   banco_pix: text (nullable, default: 'BS2'::text)
 //   data_pix_realizado: timestamp with time zone (nullable)
 //   confirmado_por: text (nullable)
 //   created_at: timestamp with time zone (not null, default: now())
@@ -4549,8 +4549,8 @@ export const Constants = {
 //   END;
 //   $function$
 //   
-// FUNCTION parse_currency_sql(text)
-//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str text)
+// FUNCTION parse_currency_sql(character varying)
+//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str character varying)
 //    RETURNS numeric
 //    LANGUAGE plpgsql
 //   AS $function$
@@ -4578,8 +4578,8 @@ export const Constants = {
 //   END;
 //   $function$
 //   
-// FUNCTION parse_currency_sql(character varying)
-//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str character varying)
+// FUNCTION parse_currency_sql(text)
+//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str text)
 //    RETURNS numeric
 //    LANGUAGE plpgsql
 //   AS $function$
@@ -4962,6 +4962,21 @@ export const Constants = {
 //   END;
 //   $function$
 //   
+// FUNCTION sync_pix_receipt_on_insert()
+//   CREATE OR REPLACE FUNCTION public.sync_pix_receipt_on_insert()
+//    RETURNS trigger
+//    LANGUAGE plpgsql
+//   AS $function$
+//   BEGIN
+//       IF NEW.forma_pagamento ILIKE '%pix%' THEN
+//           INSERT INTO "public"."PIX" (recebimento_id, venda_id)
+//           VALUES (NEW.id, NEW.venda_id)
+//           ON CONFLICT (recebimento_id) DO NOTHING;
+//       END IF;
+//       RETURN NEW;
+//   END;
+//   $function$
+//   
 // FUNCTION transfer_unattended_items(integer, integer)
 //   CREATE OR REPLACE FUNCTION public.transfer_unattended_items(p_old_rota_id integer, p_new_rota_id integer)
 //    RETURNS void
@@ -5321,6 +5336,7 @@ export const Constants = {
 //   trg_update_debito_historico_sales: CREATE TRIGGER trg_update_debito_historico_sales AFTER INSERT OR UPDATE ON public."BANCO_DE_DADOS" FOR EACH ROW EXECUTE FUNCTION trigger_update_debito_historico_sales()
 // Table: RECEBIMENTOS
 //   trg_reset_x_na_rota_rec: CREATE TRIGGER trg_reset_x_na_rota_rec AFTER INSERT ON public."RECEBIMENTOS" FOR EACH ROW EXECUTE FUNCTION reset_x_na_rota_on_activity()
+//   trg_sync_pix_receipt: CREATE TRIGGER trg_sync_pix_receipt AFTER INSERT OR UPDATE OF forma_pagamento ON public."RECEBIMENTOS" FOR EACH ROW EXECUTE FUNCTION sync_pix_receipt_on_insert()
 //   trg_update_debito_historico_recebimentos: CREATE TRIGGER trg_update_debito_historico_recebimentos AFTER INSERT OR DELETE OR UPDATE ON public."RECEBIMENTOS" FOR EACH ROW EXECUTE FUNCTION trigger_update_debito_historico()
 //   trigger_clear_cobranca_info: CREATE TRIGGER trigger_clear_cobranca_info BEFORE INSERT OR UPDATE ON public."RECEBIMENTOS" FOR EACH ROW EXECUTE FUNCTION clear_cobranca_info_if_paid()
 // Table: ROTA_ITEMS
