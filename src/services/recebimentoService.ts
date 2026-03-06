@@ -72,21 +72,23 @@ export const recebimentoService = {
           .select()
         if (recError) throw recError
 
-        if (payment.method === 'Pix' && payment.pixDetails && insertedData) {
-          const insertedRecord = insertedData[0]
-          if (insertedRecord) {
-            const { error: pixError } = await supabase.from('PIX').upsert(
-              {
-                recebimento_id: insertedRecord.id,
-                nome_no_pix: payment.pixDetails.nome,
-                banco_pix: payment.pixDetails.banco,
-                data_pix_realizado: new Date().toISOString(),
-                confirmado_por: employee.nome_completo,
-                venda_id: linkedOrderId,
-              },
-              { onConflict: 'recebimento_id' },
-            )
-            if (pixError) console.error('Error creating PIX record:', pixError)
+        if (payment.method?.toLowerCase().includes('pix') && insertedData) {
+          for (const insertedRecord of insertedData) {
+            if (insertedRecord.valor_pago > 0) {
+              const { error: pixError } = await supabase.from('PIX').upsert(
+                {
+                  recebimento_id: insertedRecord.id,
+                  nome_no_pix: payment.pixDetails?.nome || '',
+                  banco_pix: payment.pixDetails?.banco || 'OUTROS',
+                  data_pix_realizado: new Date().toISOString(),
+                  confirmado_por: employee.nome_completo,
+                  venda_id: linkedOrderId,
+                },
+                { onConflict: 'recebimento_id' },
+              )
+              if (pixError)
+                console.error('Error creating PIX record:', pixError)
+            }
           }
         }
       }
@@ -155,7 +157,6 @@ export const recebimentoService = {
       endDate?: Date
     } = {},
   ): Promise<ConsolidatedRecebimento[]> {
-    // 1. Initial Query to find relevant rows (Installments)
     let query = supabase
       .from('RECEBIMENTOS')
       .select(
@@ -195,14 +196,10 @@ export const recebimentoService = {
 
     if (!installmentsData || installmentsData.length === 0) return []
 
-    // 2. Extract Order IDs to fetch all related payments
     const orderIds = Array.from(
       new Set(installmentsData.map((r) => r.venda_id)),
     )
 
-    // 3. Fetch Payments (records with valor_pago > 0 AND valor_registrado = 0)
-    // We also fetch records with valor_registrado > 0 if they have payments, but those are already in installmentsData.
-    // However, to be thorough and simple, let's just fetch ALL payments for these orders.
     const { data: paymentsData, error: payError } = await supabase
       .from('RECEBIMENTOS')
       .select('*, FUNCIONARIOS(nome_completo)')
@@ -211,7 +208,6 @@ export const recebimentoService = {
 
     if (payError) throw payError
 
-    // 4. Organize Installments
     const installmentMap = new Map<number, ConsolidatedRecebimento>()
     const installmentsByOrder = new Map<number, ConsolidatedRecebimento[]>()
 
@@ -223,12 +219,9 @@ export const recebimentoService = {
         funcionario_nome: row.FUNCIONARIOS?.nome_completo || 'N/D',
         history: [],
         saldo: row.valor_registrado || 0,
-        // Reset valor_pago to 0 initially, we will recalculate from history/allocation
-        // EXCEPT if the row itself has immediate payment
         valor_pago: 0,
       }
 
-      // If the installment row itself has payment (paid on creation), add it
       if ((row.valor_pago || 0) > 0) {
         const paid = row.valor_pago
         inst.valor_pago += paid
@@ -252,7 +245,6 @@ export const recebimentoService = {
       installmentsByOrder.get(row.venda_id)!.push(inst)
     })
 
-    // Sort installments by due date for FIFO logic
     installmentsByOrder.forEach((list) => {
       list.sort((a, b) => {
         const dateA = a.vencimento ? new Date(a.vencimento).getTime() : 0
@@ -261,10 +253,6 @@ export const recebimentoService = {
       })
     })
 
-    // 5. Distribute Payments
-    // We filter paymentsData to only those that are NOT already processed as installments
-    // (i.e. valor_registrado == 0).
-    // If a row has both (processed above), we skip it here.
     const purePayments =
       paymentsData?.filter((p) => (p.valor_registrado || 0) === 0) || []
 
@@ -276,7 +264,6 @@ export const recebimentoService = {
 
       let allocated = false
 
-      // Strategy 1: Direct Link (ID_da_fêmea points to Installment ID)
       if (linkId && installmentMap.has(linkId)) {
         const target = installmentMap.get(linkId)!
         target.valor_pago += amount
@@ -293,7 +280,6 @@ export const recebimentoService = {
         allocated = true
       }
 
-      // Strategy 2: General Order Payment (ID_da_fêmea points to Order ID or Legacy)
       if (!allocated && installmentsByOrder.has(orderId)) {
         const candidates = installmentsByOrder.get(orderId)!
         let remainingAmount = amount
@@ -304,7 +290,6 @@ export const recebimentoService = {
             (inst.valor_registrado || 0) - (inst.valor_pago || 0)
 
           if (remainingDebt > 0.01) {
-            // Tolerance for float
             const take = Math.min(remainingDebt, remainingAmount)
             inst.valor_pago += take
             inst.saldo = Math.max(
@@ -325,12 +310,10 @@ export const recebimentoService = {
             remainingAmount -= take
           }
         }
-        // If there's still remaining amount (Overpayment), we could attach it to the last installment
-        // or ignore/log. For now, we attach to the last one to show totals correctly even if negative debt.
         if (remainingAmount > 0.01 && candidates.length > 0) {
           const last = candidates[candidates.length - 1]
           last.valor_pago += remainingAmount
-          last.saldo = (last.valor_registrado || 0) - last.valor_pago // Can be negative
+          last.saldo = (last.valor_registrado || 0) - last.valor_pago
           last.history.push({
             id: payId,
             data:
@@ -344,7 +327,6 @@ export const recebimentoService = {
       }
     })
 
-    // 6. Calculate Status and Flatten
     let results = Array.from(installmentMap.values())
 
     results.forEach((item) => {
@@ -364,7 +346,6 @@ export const recebimentoService = {
       }
     })
 
-    // 7. Filter by Status (in memory)
     if (filters.status && filters.status !== 'TODOS') {
       results = results.filter((item) => {
         if (filters.status === 'PAGO') return item.status_calculado === 'PAGO'
@@ -374,7 +355,6 @@ export const recebimentoService = {
       })
     }
 
-    // Sort by Due Date
     results.sort((a, b) => {
       const dateA = a.vencimento ? new Date(a.vencimento).getTime() : 0
       const dateB = b.vencimento ? new Date(b.vencimento).getTime() : 0
@@ -393,23 +373,37 @@ export const recebimentoService = {
     pixDetails?: { nome: string; banco: string },
     userName?: string,
     employeeId?: number,
-    installmentId?: number, // New parameter for direct linking
+    installmentId?: number,
   ): Promise<{ success: boolean; syncWarning?: boolean }> {
     const activeRoute = await rotaService.getActiveRota()
     const activeRouteId = activeRoute?.id || null
 
+    let finalOrderId = orderId
+
+    // Ensure we link to the original order, standardizing the venda_id
+    if (installmentId && installmentId > 0) {
+      const { data: instData } = await supabase
+        .from('RECEBIMENTOS')
+        .select('venda_id')
+        .eq('id', installmentId)
+        .single()
+
+      if (instData && instData.venda_id) {
+        finalOrderId = instData.venda_id
+      }
+    }
+
     // 1. Insert New Payment Record
     const insertPayload: any = {
-      venda_id: orderId,
+      venda_id: finalOrderId,
       cliente_id: clientId,
       funcionario_id: employeeId || null,
       forma_pagamento: method,
-      valor_registrado: 0, // 0 because this is strictly a payment
+      valor_registrado: 0,
       valor_pago: amountPaid,
-      vencimento: new Date().toISOString(), // Use current timestamp
+      vencimento: new Date().toISOString(),
       data_pagamento: new Date(`${paymentDate}T12:00:00`).toISOString(),
-      // Link to installment if provided, otherwise link to order (Legacy behavior)
-      ID_da_fêmea: installmentId || orderId,
+      ID_da_fêmea: installmentId || finalOrderId,
       motivo: 'Pagamento de Pedido',
       rota_id: activeRouteId,
     }
@@ -422,16 +416,16 @@ export const recebimentoService = {
 
     if (insertError) throw insertError
 
-    // 2. Handle Pix
-    if (method === 'Pix' && pixDetails && insertedData) {
+    // 2. Handle Pix resiliently for ANY Pix payment method, agnostic of order creation method
+    if (method?.toLowerCase().includes('pix') && insertedData) {
       const { error: pixError } = await supabase.from('PIX').upsert(
         {
           recebimento_id: insertedData.id,
-          nome_no_pix: pixDetails.nome,
-          banco_pix: pixDetails.banco,
+          nome_no_pix: pixDetails?.nome || '',
+          banco_pix: pixDetails?.banco || 'OUTROS',
           data_pix_realizado: new Date().toISOString(),
           confirmado_por: userName || 'Sistema',
-          venda_id: orderId,
+          venda_id: finalOrderId,
         },
         { onConflict: 'recebimento_id' },
       )
@@ -442,13 +436,13 @@ export const recebimentoService = {
     // 3. Log
     await supabase.from('system_logs').insert({
       type: 'PAYMENT_RECEIVED',
-      description: `Pagamento recebido de R$ ${amountPaid} no pedido #${orderId} ${installmentId ? `(Parcela #${installmentId})` : ''}`,
+      description: `Pagamento recebido de R$ ${amountPaid} no pedido #${finalOrderId} ${installmentId ? `(Parcela #${installmentId})` : ''}`,
       user_id: employeeId || null,
       meta: {
         newReceiptId: insertedData.id,
         amountPaid,
         method,
-        orderId,
+        orderId: finalOrderId,
         installmentId,
         processedBy: userName,
       },
@@ -457,18 +451,16 @@ export const recebimentoService = {
 
     // 4. Update Debt History
     try {
-      await reportsService.updateDebtHistoryForOrder(orderId)
+      await reportsService.updateDebtHistoryForOrder(finalOrderId)
 
       // 5. Automatic Clearing Logic for fully paid installments
       if (installmentId && installmentId > 0) {
-        // Fetch current status of this installment
         const { data: recData } = await supabase
           .from('RECEBIMENTOS')
           .select('valor_registrado')
           .eq('id', installmentId)
           .single()
 
-        // Sum all payments linked to this receivable (ID_da_fêmea)
         const { data: linkedPayments } = await supabase
           .from('RECEBIMENTOS')
           .select('valor_pago')
@@ -482,7 +474,6 @@ export const recebimentoService = {
 
         const registered = recData?.valor_registrado || 0
 
-        // If fully paid (allowing small float tolerance)
         if (totalPaid >= registered - 0.05) {
           await supabase
             .from('RECEBIMENTOS')
@@ -493,7 +484,7 @@ export const recebimentoService = {
 
       return { success: true }
     } catch (syncError) {
-      console.error('Sync failed for order:', orderId, syncError)
+      console.error('Sync failed for order:', finalOrderId, syncError)
       return { success: true, syncWarning: true }
     }
   },

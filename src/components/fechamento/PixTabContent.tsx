@@ -45,13 +45,13 @@ export function PixTabContent() {
     key:
       | keyof PixReceiptRow
       | 'valor_pago'
-      | 'id_da_femea'
+      | 'venda_id'
       | 'data_acerto'
       | 'data_pagamento'
       | 'data_pix_realizado'
     direction: 'asc' | 'desc'
   }>({
-    key: 'id_da_femea',
+    key: 'venda_id',
     direction: 'desc',
   })
 
@@ -97,9 +97,7 @@ export function PixTabContent() {
 
     if (filters.orderId) {
       result = result.filter((row) =>
-        (row.id_da_femea?.toString() || row.venda_id.toString()).includes(
-          filters.orderId,
-        ),
+        row.venda_id.toString().includes(filters.orderId),
       )
     }
 
@@ -139,11 +137,6 @@ export function PixTabContent() {
     result.sort((a, b) => {
       let aValue: any = a[sortConfig.key as keyof PixReceiptRow]
       let bValue: any = b[sortConfig.key as keyof PixReceiptRow]
-
-      if (sortConfig.key === 'id_da_femea') {
-        aValue = a.id_da_femea || a.venda_id
-        bValue = b.id_da_femea || b.venda_id
-      }
 
       if (
         sortConfig.key === 'data_acerto' ||
