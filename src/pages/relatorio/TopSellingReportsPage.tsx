@@ -10,6 +10,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   Table,
   TableBody,
   TableCell,
@@ -17,7 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { reportsService, TopSellingItemV3 } from '@/services/reportsService'
+import { reportsService, TopSellingItemV4 } from '@/services/reportsService'
 import { formatCurrency } from '@/lib/formatters'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 import {
@@ -33,9 +40,11 @@ import { MetricCard } from '@/components/dashboard/MetricCard'
 
 export default function TopSellingReportsPage() {
   const [loading, setLoading] = useState(false)
-  const [data, setData] = useState<TopSellingItemV3[]>([])
+  const [data, setData] = useState<TopSellingItemV4[]>([])
+  const [tipos, setTipos] = useState<string[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [selectedTipo, setSelectedTipo] = useState<string>('todos')
 
   const [startDate, setStartDate] = useState(
     format(startOfMonth(new Date()), 'yyyy-MM-dd'),
@@ -43,6 +52,10 @@ export default function TopSellingReportsPage() {
   const [endDate, setEndDate] = useState(
     format(endOfMonth(new Date()), 'yyyy-MM-dd'),
   )
+
+  useEffect(() => {
+    reportsService.getUniqueProductTypes().then(setTipos).catch(console.error)
+  }, [])
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -54,7 +67,7 @@ export default function TopSellingReportsPage() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const result = await reportsService.getTopSellingItemsV3(
+      const result = await reportsService.getTopSellingItemsV4(
         startDate,
         endDate,
       )
@@ -80,15 +93,24 @@ export default function TopSellingReportsPage() {
   }, [])
 
   const filteredData = useMemo(() => {
-    if (!debouncedSearch) return data
-    const lower = debouncedSearch.toLowerCase()
-    return data.filter(
-      (item) =>
-        (item.produto_nome &&
-          item.produto_nome.toLowerCase().includes(lower)) ||
-        (item.produto_codigo && String(item.produto_codigo).includes(lower)),
-    )
-  }, [data, debouncedSearch])
+    let filtered = data
+
+    if (selectedTipo && selectedTipo !== 'todos') {
+      filtered = filtered.filter((item) => item.tipo === selectedTipo)
+    }
+
+    if (debouncedSearch) {
+      const lower = debouncedSearch.toLowerCase()
+      filtered = filtered.filter(
+        (item) =>
+          (item.produto_nome &&
+            item.produto_nome.toLowerCase().includes(lower)) ||
+          (item.produto_codigo && String(item.produto_codigo).includes(lower)),
+      )
+    }
+
+    return filtered
+  }, [data, debouncedSearch, selectedTipo])
 
   const totalValue = filteredData.reduce(
     (acc, item) => acc + item.valor_total,
@@ -122,7 +144,7 @@ export default function TopSellingReportsPage() {
         <CardHeader>
           <CardTitle>Filtros</CardTitle>
           <CardDescription>
-            Selecione o mês ou busque por produtos específicos.
+            Selecione o mês, tipo de produto ou busque itens específicos.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -132,10 +154,26 @@ export default function TopSellingReportsPage() {
                 <Label>Mês de Referência</Label>
                 <Input
                   type="month"
-                  className="w-full sm:w-[200px]"
+                  className="w-full sm:w-[160px]"
                   onChange={handleMonthChange}
                   defaultValue={format(new Date(), 'yyyy-MM')}
                 />
+              </div>
+              <div className="w-full sm:w-[200px] space-y-2">
+                <Label>Tipo de Produto</Label>
+                <Select value={selectedTipo} onValueChange={setSelectedTipo}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos os tipos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    {tipos.map((tipo) => (
+                      <SelectItem key={tipo} value={tipo}>
+                        {tipo}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="w-full sm:flex-1 max-w-md space-y-2">
                 <Label>Buscar Produto</Label>
@@ -191,13 +229,13 @@ export default function TopSellingReportsPage() {
           title="Venda Total do Período"
           value={`R$ ${formatCurrency(totalValue)}`}
           icon={DollarSign}
-          description="Soma do valor total vendido"
+          description="Soma do valor total vendido (filtrado)"
         />
         <MetricCard
           title="Quantidade de Itens"
           value={totalQuantity.toLocaleString('pt-BR')}
           icon={Package}
-          description="Soma da quantidade de produtos"
+          description="Soma da quantidade de produtos (filtrado)"
         />
         <MetricCard
           title="Produtos Diferentes"
@@ -223,6 +261,7 @@ export default function TopSellingReportsPage() {
                   <TableHead className="w-[80px]">Rank</TableHead>
                   <TableHead className="w-[100px]">Código</TableHead>
                   <TableHead>Produto</TableHead>
+                  <TableHead>Tipo</TableHead>
                   <TableHead className="text-right">Qtd. Vendida</TableHead>
                   <TableHead className="text-right">Valor Total</TableHead>
                 </TableRow>
@@ -230,7 +269,7 @@ export default function TopSellingReportsPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-32 text-center">
+                    <TableCell colSpan={6} className="h-32 text-center">
                       <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
                       <span className="text-muted-foreground mt-2 block">
                         Calculando...
@@ -240,7 +279,7 @@ export default function TopSellingReportsPage() {
                 ) : data.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={6}
                       className="h-24 text-center text-muted-foreground"
                     >
                       Nenhum dado encontrado para o período selecionado.
@@ -249,10 +288,11 @@ export default function TopSellingReportsPage() {
                 ) : filteredData.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={6}
                       className="h-24 text-center text-muted-foreground"
                     >
-                      Nenhum registro encontrado para a busca realizada.
+                      Nenhum registro encontrado para a busca ou filtro
+                      selecionado.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -269,6 +309,9 @@ export default function TopSellingReportsPage() {
                       </TableCell>
                       <TableCell className="font-medium">
                         {item.produto_nome}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {item.tipo || '-'}
                       </TableCell>
                       <TableCell className="text-right font-bold text-blue-600">
                         {item.quantidade_total.toFixed(2).replace('.', ',')}
