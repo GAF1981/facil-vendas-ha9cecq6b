@@ -67,7 +67,7 @@ export default function ResumoAcertosPage() {
 
   const [employees, setEmployees] = useState<Employee[]>([])
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('todos')
-  const [clientNameFilter, setClientNameFilter] = useState<string>('')
+  const [clientSearchFilter, setClientSearchFilter] = useState<string>('')
   const [orderNumberFilter, setOrderNumberFilter] = useState<string>('')
 
   const [filterMode, setFilterMode] = useState<'periodo' | 'rota' | 'cliente'>(
@@ -324,10 +324,12 @@ export default function ResumoAcertosPage() {
         (item) => item.employeeId?.toString() === selectedEmployeeId,
       )
     }
-    if (clientNameFilter) {
-      const lowerName = clientNameFilter.toLowerCase()
-      result = result.filter((item) =>
-        item.clientName.toLowerCase().includes(lowerName),
+    if (clientSearchFilter) {
+      const searchLower = clientSearchFilter.toLowerCase()
+      result = result.filter(
+        (item) =>
+          item.clientName.toLowerCase().includes(searchLower) ||
+          item.clientCode.toString().includes(searchLower),
       )
     }
     if (orderNumberFilter) {
@@ -336,7 +338,7 @@ export default function ResumoAcertosPage() {
       )
     }
     return result
-  }, [data, selectedEmployeeId, clientNameFilter, orderNumberFilter])
+  }, [data, selectedEmployeeId, clientSearchFilter, orderNumberFilter])
 
   const filteredProjections = useMemo(() => {
     const allowedClientIds = new Set(filteredData.map((d) => d.clientCode))
@@ -498,12 +500,12 @@ export default function ResumoAcertosPage() {
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <Search className="h-4 w-4 text-blue-600" />
-                Filtrar por Cliente
+                Cliente (Nome ou Cód.)
               </div>
               <Input
-                placeholder="Nome do cliente..."
-                value={clientNameFilter}
-                onChange={(e) => setClientNameFilter(e.target.value)}
+                placeholder="Nome ou código..."
+                value={clientSearchFilter}
+                onChange={(e) => setClientSearchFilter(e.target.value)}
                 className="bg-background"
               />
             </div>
