@@ -42,6 +42,8 @@ import {
   Trash2,
   Filter,
   CalendarDays,
+  Search,
+  Hash,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { Link, useNavigate } from 'react-router-dom'
@@ -65,6 +67,8 @@ export default function ResumoAcertosPage() {
 
   const [employees, setEmployees] = useState<Employee[]>([])
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('todos')
+  const [clientNameFilter, setClientNameFilter] = useState<string>('')
+  const [orderNumberFilter, setOrderNumberFilter] = useState<string>('')
 
   const [filterMode, setFilterMode] = useState<'periodo' | 'rota' | 'cliente'>(
     'rota',
@@ -314,11 +318,30 @@ export default function ResumoAcertosPage() {
   }
 
   const filteredData = useMemo(() => {
-    if (selectedEmployeeId === 'todos') return data
-    return data.filter(
-      (item) => item.employeeId?.toString() === selectedEmployeeId,
-    )
-  }, [data, selectedEmployeeId])
+    let result = data
+    if (selectedEmployeeId !== 'todos') {
+      result = result.filter(
+        (item) => item.employeeId?.toString() === selectedEmployeeId,
+      )
+    }
+    if (clientNameFilter) {
+      const lowerName = clientNameFilter.toLowerCase()
+      result = result.filter((item) =>
+        item.clientName.toLowerCase().includes(lowerName),
+      )
+    }
+    if (orderNumberFilter) {
+      result = result.filter((item) =>
+        item.orderId.toString().includes(orderNumberFilter),
+      )
+    }
+    return result
+  }, [data, selectedEmployeeId, clientNameFilter, orderNumberFilter])
+
+  const filteredProjections = useMemo(() => {
+    const allowedClientIds = new Set(filteredData.map((d) => d.clientCode))
+    return projectionsData.filter((p) => allowedClientIds.has(p.clientCode))
+  }, [projectionsData, filteredData])
 
   const selectedRoute = routes.find((r) => r.id.toString() === selectedRouteId)
 
@@ -370,7 +393,7 @@ export default function ResumoAcertosPage() {
 
       <Card className="border-l-4 border-l-blue-600 bg-blue-50/20">
         <CardHeader className="pb-2">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <Filter className="h-4 w-4 text-blue-600" />
@@ -470,6 +493,32 @@ export default function ResumoAcertosPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <Search className="h-4 w-4 text-blue-600" />
+                Filtrar por Cliente
+              </div>
+              <Input
+                placeholder="Nome do cliente..."
+                value={clientNameFilter}
+                onChange={(e) => setClientNameFilter(e.target.value)}
+                className="bg-background"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <Hash className="h-4 w-4 text-blue-600" />
+                Filtrar por Pedido
+              </div>
+              <Input
+                placeholder="Número do pedido..."
+                value={orderNumberFilter}
+                onChange={(e) => setOrderNumberFilter(e.target.value)}
+                className="bg-background"
+              />
             </div>
           </div>
         </CardHeader>
@@ -773,7 +822,7 @@ export default function ResumoAcertosPage() {
                   Projeções e Média (Histórico Completo)
                 </CardTitle>
                 <Badge variant="secondary">
-                  {projectionsData.length} Registros Avaliados
+                  {filteredProjections.length} Registros Avaliados
                 </Badge>
               </div>
               <p className="text-sm text-muted-foreground mt-2">
@@ -815,7 +864,7 @@ export default function ResumoAcertosPage() {
                           Calculando projeções e médias...
                         </TableCell>
                       </TableRow>
-                    ) : projectionsData.length === 0 ? (
+                    ) : filteredProjections.length === 0 ? (
                       <TableRow>
                         <TableCell
                           colSpan={8}
@@ -826,7 +875,7 @@ export default function ResumoAcertosPage() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      projectionsData.map((row) => (
+                      filteredProjections.map((row) => (
                         <TableRow key={row.id} className="hover:bg-muted/30">
                           <TableCell className="font-mono font-medium text-blue-600">
                             {row.orderId < 0 ? 'Saldo Ini.' : `#${row.orderId}`}
