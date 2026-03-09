@@ -34,6 +34,7 @@ export function ProductCombobox({
   const lastKeyTime = React.useRef(Date.now())
   const keyPressCount = React.useRef(0)
   const previousTermLength = React.useRef(0)
+  const isNavigating = React.useRef(false)
 
   // Sync selected product to input display
   React.useEffect(() => {
@@ -113,6 +114,7 @@ export function ProductCombobox({
     onSelect(product)
     setOpen(false)
     keyPressCount.current = 0
+    isNavigating.current = false
   }
 
   const handleClear = () => {
@@ -120,6 +122,7 @@ export function ProductCombobox({
     setSearchTerm('')
     setProducts([])
     keyPressCount.current = 0
+    isNavigating.current = false
     setTimeout(() => {
       inputRef.current?.focus()
     }, 0)
@@ -127,8 +130,15 @@ export function ProductCombobox({
 
   // Priority Matching for Barcode Scanners (Detect Enter & Speed)
   const handleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
-    // If a product is already selected, let normal key events bubble up (e.g. form submit)
-    if (selectedProduct) return
+    // If a product is already selected, let normal key events bubble up
+    if (selectedProduct) {
+      return
+    }
+
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      isNavigating.current = true
+      return
+    }
 
     const now = Date.now()
     const diff = now - lastKeyTime.current
@@ -143,8 +153,15 @@ export function ProductCombobox({
     lastKeyTime.current = now
 
     if (e.key === 'Enter') {
+      e.preventDefault() // Always prevent form submission on Enter in search box
+
       const term = searchTerm.trim()
       if (!term) return
+
+      // If user has actively navigated the list with arrows, let cmdk handle the Enter key
+      if (isNavigating.current) {
+        return
+      }
 
       // Consider it a fast scan if typed fast OR pasted (length jump handled in onChange)
       const isFastScan = keyPressCount.current >= 3
@@ -156,10 +173,9 @@ export function ProductCombobox({
           p.CODIGO?.toString() === term,
       )
 
-      // Only intercept if we know it's a scanner OR we have an exact code match
+      // Only intercept if we know it's a scanner OR we have an exact code match WITHOUT user navigating
       if (isFastScan || exactMatchInState) {
-        e.preventDefault()
-        e.stopPropagation()
+        e.stopPropagation() // Prevent cmdk from selecting highlighted item incorrectly
 
         if (exactMatchInState) {
           handleSelect(exactMatchInState)
@@ -231,6 +247,7 @@ export function ProductCombobox({
             ref={inputRef}
             value={searchTerm}
             onValueChange={(val) => {
+              isNavigating.current = false // Reset navigation state when typing
               // Detect sudden jumps in length (Pasting barcode)
               const lengthDiff = Math.abs(
                 val.length - previousTermLength.current,
@@ -247,6 +264,7 @@ export function ProductCombobox({
             }}
             onKeyDown={handleKeyDown}
             onFocus={() => {
+              isNavigating.current = false
               if (searchTerm && !selectedProduct && products.length > 0) {
                 setOpen(true)
               }
