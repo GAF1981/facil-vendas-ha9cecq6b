@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -16,11 +16,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Barcode, Search } from 'lucide-react'
 import { formatCurrency, parseCurrency } from '@/lib/formatters'
 import { suppliersService, Supplier } from '@/services/suppliersService'
 import { employeesService } from '@/services/employeesService'
 import { inventoryGeneralService } from '@/services/inventoryGeneralService'
+import { productsService } from '@/services/productsService'
 import { ProductRow } from '@/types/product'
 import { Employee } from '@/types/employee'
 import { InventoryMovementType } from '@/types/inventory_general'
@@ -68,13 +69,15 @@ export function InventoryActionDialog({
   const [selectedProduct, setSelectedProduct] = useState<ProductRow | null>(
     null,
   )
+  const [barcode, setBarcode] = useState<string>('')
   const [selectedSupplier, setSelectedSupplier] = useState<string>('')
   const [selectedEmployee, setSelectedEmployee] = useState<string>('')
   const [quantity, setQuantity] = useState<string>('')
   const [costValue, setCostValue] = useState<string>('')
   const [reason, setReason] = useState<string>('')
 
-  const quantityRef = React.useRef<HTMLInputElement>(null)
+  const quantityRef = useRef<HTMLInputElement>(null)
+  const barcodeRef = useRef<HTMLInputElement>(null)
 
   const getTitle = () => {
     switch (type) {
@@ -93,6 +96,29 @@ export function InventoryActionDialog({
     }
   }
 
+  // F2 Shortcut for Toggling Focus
+  useEffect(() => {
+    if (!open) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F2') {
+        e.preventDefault()
+        const barcodeEl = barcodeRef.current
+        const comboEl = document.getElementById('manual-search-input')
+
+        if (document.activeElement === barcodeEl && comboEl) {
+          comboEl.focus()
+        } else if (barcodeEl) {
+          barcodeEl.focus()
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [open])
+
+  // Initial Data and Focus
   useEffect(() => {
     if (open) {
       setLoading(true)
@@ -108,6 +134,10 @@ export function InventoryActionDialog({
         setSelectedProduct(prod)
       } else {
         setSelectedProduct(null)
+        // Focus barcode input after dialog opens
+        setTimeout(() => {
+          barcodeRef.current?.focus()
+        }, 150)
       }
 
       if (type === 'COMPRA') {
@@ -131,6 +161,7 @@ export function InventoryActionDialog({
       setQuantity('')
       setCostValue('')
       setReason('')
+      setBarcode('')
 
       if (type === 'COMPRA' && persistedSupplierId) {
         setSelectedSupplier(persistedSupplierId)
@@ -157,6 +188,58 @@ export function InventoryActionDialog({
       setTimeout(() => {
         quantityRef.current?.focus()
       }, 50)
+    }
+  }
+
+  const handleBarcodeScan = async (
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      const code = barcode.trim()
+      if (!code) return
+
+      setLoading(true)
+      try {
+        const { data } = await productsService.getProducts(
+          1,
+          10,
+          code,
+          null,
+          null,
+          'PRODUTO',
+          true,
+          false,
+        )
+
+        const exactMatch = data.find(
+          (p) =>
+            p['CÓDIGO BARRAS'] === code ||
+            p.codigo_interno === code ||
+            p.CODIGO?.toString() === code,
+        )
+
+        if (exactMatch) {
+          handleProductSelect(exactMatch)
+          setBarcode('') // Clear it for visual cleanliness
+        } else {
+          toast({
+            title: 'Não encontrado',
+            description: `Nenhum produto com código ${code}.`,
+            variant: 'destructive',
+          })
+          barcodeRef.current?.select()
+        }
+      } catch (err: any) {
+        console.error(err)
+        toast({
+          title: 'Erro',
+          description: 'Erro ao buscar produto.',
+          variant: 'destructive',
+        })
+      } finally {
+        setLoading(false)
+      }
     }
   }
 
@@ -250,7 +333,12 @@ export function InventoryActionDialog({
       if (!preselectedProduct) {
         setSelectedProduct(null)
         setQuantity('')
+        setBarcode('')
         if (type === 'COMPRA') setCostValue('')
+
+        setTimeout(() => {
+          barcodeRef.current?.focus()
+        }, 100)
       } else {
         onOpenChange(false)
       }
@@ -268,23 +356,56 @@ export function InventoryActionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg overflow-visible">
+      <DialogContent className="max-w-xl overflow-visible">
         <DialogHeader>
           <DialogTitle>{getTitle()}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label>
-              Produto <span className="text-red-500">*</span>
-            </Label>
-            <ProductCombobox
-              selectedProduct={selectedProduct}
-              onSelect={handleProductSelect}
-              disabled={loading || submitting || !!preselectedProduct}
-              autoFocus={!preselectedProduct}
-            />
-          </div>
+          {!preselectedProduct ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/20 rounded-lg border border-border shadow-sm">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-primary font-semibold">
+                  <Barcode className="w-4 h-4" />
+                  Scanner (F2)
+                </Label>
+                <Input
+                  ref={barcodeRef}
+                  value={barcode}
+                  onChange={(e) => setBarcode(e.target.value)}
+                  onKeyDown={handleBarcodeScan}
+                  placeholder="Bipe o código..."
+                  disabled={loading || submitting}
+                  className="bg-background focus-visible:ring-primary"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-muted-foreground font-semibold">
+                  <Search className="w-4 h-4" />
+                  Busca Manual (F2)
+                </Label>
+                <ProductCombobox
+                  inputId="manual-search-input"
+                  selectedProduct={selectedProduct}
+                  onSelect={handleProductSelect}
+                  disabled={loading || submitting}
+                  autoFocus={false}
+                  disableScanner={true} // Clean separation of concerns
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label>
+                Produto Pré-selecionado <span className="text-red-500">*</span>
+              </Label>
+              <ProductCombobox
+                selectedProduct={selectedProduct}
+                onSelect={handleProductSelect}
+                disabled={true}
+              />
+            </div>
+          )}
 
           {type === 'COMPRA' && (
             <div className="space-y-2">

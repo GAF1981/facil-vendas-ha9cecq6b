@@ -13,6 +13,8 @@ interface ProductComboboxProps {
   className?: string
   excludeInternalCode?: boolean
   autoFocus?: boolean
+  disableScanner?: boolean
+  inputId?: string
 }
 
 export function ProductCombobox({
@@ -22,6 +24,8 @@ export function ProductCombobox({
   className,
   excludeInternalCode = false,
   autoFocus = false,
+  disableScanner = false,
+  inputId,
 }: ProductComboboxProps) {
   const [open, setOpen] = React.useState(false)
   const [searchTerm, setSearchTerm] = React.useState('')
@@ -132,6 +136,15 @@ export function ProductCombobox({
   const handleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     // If a product is already selected, let normal key events bubble up
     if (selectedProduct) {
+      return
+    }
+
+    if (disableScanner) {
+      if (e.key === 'Enter') {
+        if (!open || products.length === 0) {
+          e.preventDefault()
+        }
+      }
       return
     }
 
@@ -256,6 +269,7 @@ export function ProductCombobox({
             )}
           />
           <CommandPrimitive.Input
+            id={inputId}
             ref={inputRef}
             value={searchTerm}
             onValueChange={(val) => {
