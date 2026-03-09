@@ -7,77 +7,131 @@ export const employeesService = {
     pageSize: number = 20,
     search: string = '',
   ) {
-    let query = supabase.from('FUNCIONARIOS').select('*', { count: 'exact' })
+    try {
+      let query = supabase.from('FUNCIONARIOS').select('*', { count: 'exact' })
 
-    if (search) {
-      query = query.ilike('nome_completo', `%${search}%`)
-    }
+      if (search) {
+        query = query.ilike('nome_completo', `%${search}%`)
+      }
 
-    const from = (page - 1) * pageSize
-    const to = from + pageSize - 1
+      const from = (page - 1) * pageSize
+      const to = from + pageSize - 1
 
-    const { data, error, count } = await query
-      .order('id', { ascending: false })
-      .range(from, to)
+      const { data, error, count } = await query
+        .order('id', { ascending: false })
+        .range(from, to)
 
-    if (error) throw error
+      if (error) {
+        console.error('Supabase error fetching employees:', error)
+        throw error
+      }
 
-    return {
-      data: data as Employee[],
-      count: count || 0,
+      return {
+        data: (data || []) as Employee[],
+        count: count || 0,
+      }
+    } catch (err) {
+      console.error('Service error fetching employees:', err)
+      throw err
     }
   },
 
   async getById(id: number) {
-    const { data, error } = await supabase
-      .from('FUNCIONARIOS')
-      .select('*')
-      .eq('id', id)
-      .single()
+    try {
+      const { data, error } = await supabase
+        .from('FUNCIONARIOS')
+        .select('*')
+        .eq('id', id)
+        .single()
 
-    if (error) throw error
-    return data as Employee
+      if (error) {
+        console.error(`Supabase error fetching employee with id ${id}:`, error)
+        throw error
+      }
+      return data as Employee
+    } catch (err) {
+      console.error(`Service error fetching employee by id ${id}:`, err)
+      throw err
+    }
   },
 
   async getByEmail(email: string) {
-    const { data, error } = await supabase
-      .from('FUNCIONARIOS')
-      .select('*')
-      .eq('email', email)
-      .single()
+    try {
+      const { data, error } = await supabase
+        .from('FUNCIONARIOS')
+        .select('*')
+        .eq('email', email)
+        .single()
 
-    if (error) throw error
-    return data as Employee
+      if (error) {
+        console.error(
+          `Supabase error fetching employee with email ${email}:`,
+          error,
+        )
+        throw error
+      }
+      return data as Employee
+    } catch (err) {
+      console.error(`Service error fetching employee by email ${email}:`, err)
+      throw err
+    }
   },
 
   async create(employee: EmployeeInsert) {
-    // Cast to any to avoid type errors with outdated generated Supabase types
-    const { data, error } = await supabase
-      .from('FUNCIONARIOS')
-      .insert(employee as any)
-      .select()
-      .single()
+    try {
+      // Cast to any to avoid type errors with outdated generated Supabase types
+      const { data, error } = await supabase
+        .from('FUNCIONARIOS')
+        .insert(employee as any)
+        .select()
+        .single()
 
-    if (error) throw error
-    return data as Employee
+      if (error) {
+        console.error('Supabase error creating employee:', error)
+        throw error
+      }
+      return data as Employee
+    } catch (err) {
+      console.error('Service error creating employee:', err)
+      throw err
+    }
   },
 
   async update(id: number, employee: EmployeeUpdate) {
-    // Cast to any to avoid type errors with outdated generated Supabase types
-    const { data, error } = await supabase
-      .from('FUNCIONARIOS')
-      .update(employee as any)
-      .eq('id', id)
-      .select()
-      .single()
+    try {
+      // Cast to any to avoid type errors with outdated generated Supabase types
+      const { data, error } = await supabase
+        .from('FUNCIONARIOS')
+        .update(employee as any)
+        .eq('id', id)
+        .select()
+        .single()
 
-    if (error) throw error
-    return data as Employee
+      if (error) {
+        console.error(`Supabase error updating employee with id ${id}:`, error)
+        throw error
+      }
+      return data as Employee
+    } catch (err) {
+      console.error(`Service error updating employee by id ${id}:`, err)
+      throw err
+    }
   },
 
   async delete(id: number) {
-    const { error } = await supabase.from('FUNCIONARIOS').delete().eq('id', id)
+    try {
+      const { error } = await supabase
+        .from('FUNCIONARIOS')
+        .delete()
+        .eq('id', id)
 
-    if (error) throw error
+      if (error) {
+        console.error(`Supabase error deleting employee with id ${id}:`, error)
+        throw error
+      }
+    } catch (err) {
+      console.error(`Service error deleting employee by id ${id}:`, err)
+      throw err
+    }
   },
 }

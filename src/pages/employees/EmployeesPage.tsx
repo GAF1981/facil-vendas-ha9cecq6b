@@ -46,12 +46,16 @@ const EmployeesPage = () => {
         pageSize,
         debouncedSearch,
       )
-      setEmployees(data)
-      setTotalCount(count)
+      setEmployees(data || [])
+      setTotalCount(count || 0)
     } catch (error) {
+      console.error('Failed to fetch employees:', error)
+      setEmployees([])
+      setTotalCount(0)
       toast({
-        title: 'Erro ao carregar funcionários',
-        description: 'Verifique sua conexão e tente novamente.',
+        title: 'Erro de conexão',
+        description:
+          'Não foi possível carregar os funcionários. Verifique sua rede e tente novamente.',
         variant: 'destructive',
       })
     } finally {
