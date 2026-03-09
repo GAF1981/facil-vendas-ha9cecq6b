@@ -23,6 +23,7 @@ import {
   Printer,
   Banknote,
   Trash2,
+  Unlock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -35,6 +36,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
@@ -82,6 +84,51 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
         title: 'Erro',
         description: 'Falha ao atualizar aprovação.',
         variant: 'destructive',
+      })
+    }
+  }
+
+  const handleReopen = async (item: FechamentoCaixa) => {
+    const isGedeon = item.funcionario?.nome_completo
+      ?.toLowerCase()
+      .includes('gedeon')
+
+    if (item.rota_id !== 48 || !isGedeon) {
+      toast({
+        title: 'Ação não permitida',
+        description:
+          'A reabertura de caixa está restrita apenas para a Rota 48 e funcionário Gedeon para evitar modificações acidentais.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setLoadingIds((prev) => new Set(prev).add(item.id))
+    try {
+      await fechamentoService.reopenClosing(
+        item.id,
+        item.rota_id,
+        item.funcionario?.nome_completo || '',
+      )
+      toast({
+        title: 'Caixa Reaberto',
+        description: `O caixa de ${item.funcionario?.nome_completo} para a rota ${item.rota_id} foi reaberto com sucesso.`,
+        className: 'bg-green-600 text-white',
+      })
+      onRefresh()
+    } catch (error: any) {
+      console.error(error)
+      toast({
+        title: 'Ação não permitida',
+        description: error.message || 'Falha ao reabrir o caixa.',
+        variant: 'destructive',
+      })
+      onRefresh()
+    } finally {
+      setLoadingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(item.id)
+        return next
       })
     }
   }
@@ -496,6 +543,19 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
                             <Printer className="mr-2 h-4 w-4" />
                             Relatório Térmico (80mm)
                           </DropdownMenuItem>
+                          {isClosed && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => handleReopen(item)}
+                                className="text-red-600 focus:text-red-700 focus:bg-red-50"
+                                disabled={isLoading || isGeneratingPdf}
+                              >
+                                <Unlock className="mr-2 h-4 w-4" />
+                                Reabrir Caixa
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
 

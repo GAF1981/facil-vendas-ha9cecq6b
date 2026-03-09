@@ -145,6 +145,33 @@ export const fechamentoService = {
     if (error) throw error
   },
 
+  async reopenClosing(id: number, rotaId: number, funcionarioNome: string) {
+    const isGedeon = funcionarioNome.toLowerCase().includes('gedeon')
+
+    if (rotaId !== 48 || !isGedeon) {
+      throw new Error(
+        'A reabertura de caixa está restrita apenas para a Rota 48 e funcionário Gedeon para evitar modificações acidentais.',
+      )
+    }
+
+    const { error } = await supabase
+      .from('fechamento_caixa')
+      .update({
+        status: 'Aberto',
+        recolhido_at: null,
+        recolhido_por_id: null,
+        saldo_acerto_aprovado: false,
+        despesas_aprovadas: false,
+        dinheiro_aprovado: false,
+        pix_aprovado: false,
+        cheque_aprovado: false,
+        boleto_aprovado: false,
+      })
+      .eq('id', id)
+
+    if (error) throw error
+  },
+
   async cancelClosing(id: number) {
     const { error } = await supabase
       .from('fechamento_caixa')
