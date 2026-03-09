@@ -20,6 +20,8 @@ import {
   ArrowDown,
   MessageCircle,
   CircleAlert,
+  Send,
+  Printer,
 } from 'lucide-react'
 import { ClientDebt, PaymentHistoryDetail } from '@/types/cobranca'
 import { Boleto } from '@/types/boleto'
@@ -27,6 +29,7 @@ import { formatCurrency, safeFormatDate } from '@/lib/formatters'
 import { format, parseISO } from 'date-fns'
 import { DebtDetailsDialog } from './DebtDetailsDialog'
 import { CollectionActionsSheet } from './CollectionActionsSheet'
+import { CollectionMessageDialog } from './CollectionMessageDialog'
 import {
   Select,
   SelectContent,
@@ -67,6 +70,7 @@ interface FlatRow {
   clientId: number
   clientName: string
   clientType: string
+  employeeName: string | null
   address: string | null
   neighborhood: string | null
   city: string | null
@@ -117,7 +121,10 @@ export function DebtTable({
 }: DebtTableProps) {
   const [selectedClient, setSelectedClient] = useState<ClientDebt | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [sortConfig, setSortConfig] = useState<SortConfig>(null)
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
+    key: 'vencimento',
+    direction: 'asc',
+  })
 
   const [selectedOrderForActions, setSelectedOrderForActions] = useState<{
     orderId: string
@@ -128,6 +135,8 @@ export function DebtTable({
       formaPagamento: string | null
     }
   } | null>(null)
+
+  const [messageData, setMessageData] = useState<FlatRow | null>(null)
 
   const { toast } = useToast()
 
@@ -199,6 +208,24 @@ export function DebtTable({
     }
   }
 
+  const handleGeneratePdf = async (orderId: number) => {
+    try {
+      const blob = await cobrancaService.generateOrderReceipt(
+        orderId,
+        'settlement',
+      )
+      const url = window.URL.createObjectURL(blob)
+      window.open(url, '_blank')
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: 'Erro',
+        description: 'Falha ao gerar o PDF do pedido.',
+        variant: 'destructive',
+      })
+    }
+  }
+
   const flattenedData: FlatRow[] = useMemo(() => {
     const rows = data.flatMap((client) =>
       client.orders.flatMap((order) => {
@@ -243,6 +270,7 @@ export function DebtTable({
             clientId: client.clientId,
             clientName: client.clientName,
             clientType: client.clientType,
+            employeeName: order.employeeName,
             address: client.address,
             neighborhood: client.neighborhood,
             city: client.city,
@@ -317,8 +345,12 @@ export function DebtTable({
 
     if (sortConfig) {
       filtered.sort((a, b) => {
-        const aValue = a[sortConfig.key] ?? ''
-        const bValue = b[sortConfig.key] ?? ''
+        const aValue = a[sortConfig.key]
+        const bValue = b[sortConfig.key]
+
+        if (aValue === bValue) return 0
+        if (aValue === null || aValue === undefined) return 1
+        if (bValue === null || bValue === undefined) return -1
 
         if (aValue < bValue) {
           return sortConfig.direction === 'asc' ? -1 : 1
@@ -440,6 +472,9 @@ export function DebtTable({
         <Table containerRef={tableContainerRef} onScroll={handleScrollTable}>
           <TableHeader className="bg-background sticky top-0 z-10 shadow-sm">
             <TableRow>
+              <TableHead className="min-w-[120px] bg-background">
+                Funcionário
+              </TableHead>
               <TableHead className="w-[70px] bg-background">Código</TableHead>
               {!isCobrancaMode && !isSimplified && (
                 <TableHead className="w-[90px] bg-background">Tipo</TableHead>
@@ -471,6 +506,17 @@ export function DebtTable({
                   <div className="flex items-center gap-1">
                     Município
                     {getSortIcon('city')}
+                  </div>
+                </TableHead>
+              )}
+              {!isSimplified && (
+                <TableHead
+                  className="min-w-[100px] cursor-pointer hover:bg-muted bg-background"
+                  onClick={() => requestSort('cep')}
+                >
+                  <div className="flex items-center gap-1">
+                    CEP
+                    {getSortIcon('cep')}
                   </div>
                 </TableHead>
               )}
@@ -541,7 +587,7 @@ export function DebtTable({
             {flattenedData.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={isCobrancaMode ? 19 : 23}
+                  colSpan={26}
                   className="h-24 text-center text-muted-foreground"
                 >
                   {showOnlySelected
@@ -560,6 +606,12 @@ export function DebtTable({
                       isSelected && 'bg-secondary/50 hover:bg-secondary/60',
                     )}
                   >
+                    <TableCell
+                      className="text-xs text-muted-foreground truncate max-w-[120px]"
+                      title={row.employeeName || ''}
+                    >
+                      {row.employeeName || '-'}
+                    </TableCell>
                     <TableCell className="font-mono text-xs font-medium">
                       {row.clientId}
                     </TableCell>
@@ -595,6 +647,14 @@ export function DebtTable({
                         {row.city || '-'}
                       </TableCell>
                     )}
+                    {!isSimplified && (
+                      <TableCell
+                        className="text-xs text-muted-foreground truncate max-w-[100px]"
+                        title={row.cep || ''}
+                      >
+                        {row.cep || '-'}
+                      </TableCell>
+                    )}
 
                     <TableCell className="text-center font-mono text-xs text-muted-foreground">
                       <Badge
@@ -611,7 +671,21 @@ export function DebtTable({
 
                     {!isCobrancaMode && (
                       <TableCell className="font-mono text-xs">
-                        {row.orderId}
+                        <div className="flex items-center gap-1">
+                          {row.orderId}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 p-0 text-muted-foreground hover:text-primary"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleGeneratePdf(row.orderId)
+                            }}
+                            title="Gerar PDF do Pedido"
+                          >
+                            <Printer className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </TableCell>
                     )}
                     <TableCell className="text-xs">
@@ -865,29 +939,42 @@ export function DebtTable({
                       </Select>
                     </TableCell>
                     <TableCell className="text-xs">
-                      {row.telefoneCobranca ? (
-                        <div className="flex items-center gap-1">
-                          <span
-                            className="truncate max-w-[100px]"
-                            title={row.telefoneCobranca}
-                          >
-                            {row.telefoneCobranca}
+                      <div className="flex items-center gap-1">
+                        {row.telefoneCobranca ? (
+                          <>
+                            <span
+                              className="truncate max-w-[100px]"
+                              title={row.telefoneCobranca}
+                            >
+                              {row.telefoneCobranca}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full"
+                              onClick={() =>
+                                handleWhatsApp(row.telefoneCobranca!)
+                              }
+                              title="Abrir WhatsApp"
+                            >
+                              <MessageCircle className="h-3 w-3" />
+                            </Button>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground w-[100px] inline-block">
+                            -
                           </span>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full"
-                            onClick={() =>
-                              handleWhatsApp(row.telefoneCobranca!)
-                            }
-                            title="Abrir WhatsApp"
-                          >
-                            <MessageCircle className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full"
+                          onClick={() => setMessageData(row)}
+                          title="Mensagem de Cobrança"
+                        >
+                          <Send className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </TableCell>
                     <TableCell
                       className="text-xs truncate max-w-[120px]"
@@ -993,6 +1080,12 @@ export function DebtTable({
           installment={selectedOrderForActions.installment}
         />
       )}
+
+      <CollectionMessageDialog
+        isOpen={!!messageData}
+        onClose={() => setMessageData(null)}
+        data={messageData}
+      />
     </>
   )
 }

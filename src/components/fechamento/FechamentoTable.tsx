@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Table,
   TableBody,
@@ -12,7 +12,6 @@ import { Button } from '@/components/ui/button'
 import { FechamentoCaixa } from '@/types/fechamento'
 import { formatCurrency, safeFormatDate } from '@/lib/formatters'
 import { fechamentoService } from '@/services/fechamentoService'
-import { pixService } from '@/services/pixService'
 import { useToast } from '@/hooks/use-toast'
 import { useUserStore } from '@/stores/useUserStore'
 import {
@@ -62,33 +61,6 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
   const [generatingPdfIds, setGeneratingPdfIds] = useState<Set<number>>(
     new Set(),
   )
-  const [pixStatusMap, setPixStatusMap] = useState<Map<number, boolean>>(
-    new Map(),
-  )
-
-  useEffect(() => {
-    const checkPixStatus = async () => {
-      const statusMap = new Map<number, boolean>()
-      for (const item of data) {
-        if (item.status !== 'Fechado') {
-          try {
-            const allConfirmed = await pixService.areAllPixConfirmedForEmployee(
-              item.rota_id,
-              item.funcionario_id,
-            )
-            statusMap.set(item.id, allConfirmed)
-          } catch (e) {
-            console.error('Failed to check pix status', e)
-          }
-        }
-      }
-      setPixStatusMap(statusMap)
-    }
-
-    if (data.length > 0) {
-      checkPixStatus()
-    }
-  }, [data])
 
   const handleToggleApproval = async (
     item: FechamentoCaixa,
@@ -300,19 +272,11 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
           ) : (
             data.map((item) => {
               const isClosed = item.status === 'Fechado'
-              const allPixConfirmed = pixStatusMap.get(item.id) || false
-
-              // Automated PIX Logic: Checked if approved manually OR all items confirmed
-              const isPixCheckboxChecked = isClosed
-                ? item.pix_aprovado
-                : allPixConfirmed || item.pix_aprovado
-
-              const isPixCheckboxDisabled = isClosed || allPixConfirmed
 
               // Validation Logic: Stricter - REQUIRE ALL CHECKBOXES including Saldo Acerto
               const canConfirm =
                 item.dinheiro_aprovado &&
-                (isPixCheckboxChecked || item.pix_aprovado) &&
+                item.pix_aprovado &&
                 item.cheque_aprovado &&
                 item.despesas_aprovadas &&
                 item.saldo_acerto_aprovado && // NEW Mandatory Check
@@ -382,16 +346,14 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
                         R$ {formatCurrency(item.valor_pix)}
                       </span>
                       <Checkbox
-                        checked={isPixCheckboxChecked}
-                        disabled={isPixCheckboxDisabled}
+                        checked={item.pix_aprovado}
+                        disabled={isClosed}
                         onCheckedChange={(c) => {
-                          if (!isPixCheckboxDisabled) {
-                            handleToggleApproval(
-                              item,
-                              'pix_aprovado',
-                              c as boolean,
-                            )
-                          }
+                          handleToggleApproval(
+                            item,
+                            'pix_aprovado',
+                            c as boolean,
+                          )
                         }}
                         className="data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-600 disabled:opacity-70"
                       />
@@ -594,16 +556,7 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
 
                           <Button
                             size="sm"
-                            onClick={() => {
-                              // If auto-checked due to Pix Conference, update the DB state before confirming
-                              if (allPixConfirmed && !item.pix_aprovado) {
-                                fechamentoService
-                                  .updateApproval(item.id, 'pix_aprovado', true)
-                                  .then(() => handleConfirm(item))
-                              } else {
-                                handleConfirm(item)
-                              }
-                            }}
+                            onClick={() => handleConfirm(item)}
                             disabled={!canConfirm || isLoading}
                             className={cn(
                               'w-[110px]',
