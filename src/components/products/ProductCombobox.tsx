@@ -135,92 +135,104 @@ export function ProductCombobox({
       return
     }
 
-    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-      isNavigating.current = true
-      return
-    }
-
     const now = Date.now()
     const diff = now - lastKeyTime.current
 
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      isNavigating.current = true
+      keyPressCount.current = 0 // User is manually interacting, cancel scan logic
+      return
+    }
+
     // A scanner usually sends keystrokes < 30ms apart
-    if (diff < 50 && e.key !== 'Enter') {
-      keyPressCount.current += 1
-    } else if (diff > 200 && e.key !== 'Enter') {
-      keyPressCount.current = 0
+    if (e.key !== 'Enter') {
+      if (diff < 50) {
+        keyPressCount.current += 1
+      } else if (diff > 200) {
+        // Only reset if we haven't crossed the scanner threshold yet
+        // If we pasted a barcode, keyPressCount is large, we want to keep it
+        if (keyPressCount.current < 3) {
+          keyPressCount.current = 0
+        }
+      }
+      lastKeyTime.current = now
+      return
     }
 
     lastKeyTime.current = now
 
-    if (e.key === 'Enter') {
-      e.preventDefault() // Always prevent form submission on Enter in search box
+    const term = searchTerm.trim()
+    if (!term) {
+      e.preventDefault() // Always prevent form submission on empty Enter
+      return
+    }
 
-      const term = searchTerm.trim()
-      if (!term) return
+    // If user has actively navigated the list with arrows, let cmdk handle the Enter key
+    if (isNavigating.current && keyPressCount.current < 3) {
+      return
+    }
 
-      // If user has actively navigated the list with arrows, let cmdk handle the Enter key
-      if (isNavigating.current) {
+    // Consider it a fast scan if typed fast OR pasted (length jump handled in onChange)
+    const isFastScan = keyPressCount.current >= 3
+
+    const exactMatchInState = products.find(
+      (p) =>
+        p['CÓDIGO BARRAS'] === term ||
+        (!excludeInternalCode && p.codigo_interno === term) ||
+        p.CODIGO?.toString() === term,
+    )
+
+    // Only intercept if we know it's a scanner OR we have an exact code match WITHOUT user navigating
+    if (isFastScan || exactMatchInState) {
+      e.preventDefault()
+      e.stopPropagation() // Prevent cmdk from selecting highlighted item incorrectly
+
+      if (exactMatchInState) {
+        handleSelect(exactMatchInState)
         return
       }
 
-      // Consider it a fast scan if typed fast OR pasted (length jump handled in onChange)
-      const isFastScan = keyPressCount.current >= 3
+      // Force a direct DB query to ensure priority matching for fast scans
+      setLoading(true)
+      try {
+        const { data } = await productsService.getProducts(
+          1,
+          5,
+          term,
+          null,
+          null,
+          'PRODUTO',
+          true,
+          excludeInternalCode,
+        )
 
-      const exactMatchInState = products.find(
-        (p) =>
-          p['CÓDIGO BARRAS'] === term ||
-          (!excludeInternalCode && p.codigo_interno === term) ||
-          p.CODIGO?.toString() === term,
-      )
+        const exactMatch = data.find(
+          (p) =>
+            p['CÓDIGO BARRAS'] === term ||
+            (!excludeInternalCode && p.codigo_interno === term) ||
+            p.CODIGO?.toString() === term,
+        )
 
-      // Only intercept if we know it's a scanner OR we have an exact code match WITHOUT user navigating
-      if (isFastScan || exactMatchInState) {
-        e.stopPropagation() // Prevent cmdk from selecting highlighted item incorrectly
-
-        if (exactMatchInState) {
-          handleSelect(exactMatchInState)
-          return
+        if (exactMatch) {
+          handleSelect(exactMatch)
+        } else if (data.length === 1) {
+          handleSelect(data[0])
+        } else {
+          setProducts(data)
+          setOpen(true)
         }
-
-        // Force a direct DB query to ensure priority matching for fast scans
-        setLoading(true)
-        try {
-          const { data } = await productsService.getProducts(
-            1,
-            5,
-            term,
-            null,
-            null,
-            'PRODUTO',
-            true,
-            excludeInternalCode,
-          )
-
-          const exactMatch = data.find(
-            (p) =>
-              p['CÓDIGO BARRAS'] === term ||
-              (!excludeInternalCode && p.codigo_interno === term) ||
-              p.CODIGO?.toString() === term,
-          )
-
-          if (exactMatch) {
-            handleSelect(exactMatch)
-          } else if (data.length === 1) {
-            handleSelect(data[0])
-          } else {
-            setProducts(data)
-            setOpen(true)
-          }
-        } catch (err) {
-          console.error(err)
-        } finally {
-          setLoading(false)
-          keyPressCount.current = 0
-        }
-      } else {
-        // Let normal Enter event through so cmdk can select the actively highlighted item
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setLoading(false)
         keyPressCount.current = 0
       }
+    } else {
+      // Let normal Enter event through so cmdk can select the actively highlighted item
+      if (!open || products.length === 0) {
+        e.preventDefault()
+      }
+      keyPressCount.current = 0
     }
   }
 
@@ -302,7 +314,7 @@ export function ProductCombobox({
                     key={product.ID}
                     value={product.ID.toString()}
                     onSelect={() => handleSelect(product)}
-                    className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-2 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                    className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-2 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
                   >
                     <div className="flex flex-col overflow-hidden w-full">
                       <div className="flex justify-between items-center w-full">
