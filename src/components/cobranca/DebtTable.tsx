@@ -47,6 +47,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { DateRange } from 'react-day-picker'
 
 interface DebtTableProps {
   data: ClientDebt[]
@@ -62,6 +63,7 @@ interface DebtTableProps {
   orderFilter?: string
   showOnlySelected?: boolean
   formaPagamentoFilter?: string
+  dataCombinadaRange?: DateRange
 }
 
 interface FlatRow {
@@ -118,6 +120,7 @@ export function DebtTable({
   orderFilter = '',
   showOnlySelected = false,
   formaPagamentoFilter = 'todos',
+  dataCombinadaRange,
 }: DebtTableProps) {
   const [selectedClient, setSelectedClient] = useState<ClientDebt | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -343,6 +346,18 @@ export function DebtTable({
       })
     }
 
+    if (dataCombinadaRange?.from) {
+      const fromStr = format(dataCombinadaRange.from, 'yyyy-MM-dd')
+      const toStr = dataCombinadaRange.to
+        ? format(dataCombinadaRange.to, 'yyyy-MM-dd')
+        : fromStr
+
+      filtered = filtered.filter((r) => {
+        if (!r.dataCombinada) return false
+        return r.dataCombinada >= fromStr && r.dataCombinada <= toStr
+      })
+    }
+
     if (sortConfig) {
       filtered.sort((a, b) => {
         const aValue = a[sortConfig.key]
@@ -374,6 +389,7 @@ export function DebtTable({
     showOnlySelected,
     selectedItems,
     formaPagamentoFilter,
+    dataCombinadaRange,
   ])
 
   const requestSort = (key: keyof FlatRow) => {
@@ -558,8 +574,14 @@ export function DebtTable({
               <TableHead className="min-w-[150px] bg-background">
                 Forma Cobrança
               </TableHead>
-              <TableHead className="min-w-[150px] bg-background">
-                Data Combinada
+              <TableHead
+                className="min-w-[150px] bg-background cursor-pointer hover:bg-muted"
+                onClick={() => requestSort('dataCombinada')}
+              >
+                <div className="flex items-center gap-1">
+                  Data Combinada
+                  {getSortIcon('dataCombinada')}
+                </div>
               </TableHead>
               <TableHead className="min-w-[150px] bg-background">
                 Motivo

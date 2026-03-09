@@ -35,6 +35,9 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { supabase } from '@/lib/supabase/client'
 import { MultiSelect } from '@/components/common/MultiSelect'
+import { DateRangePicker } from '@/components/common/DateRangePicker'
+import { DateRange } from 'react-day-picker'
+import { format } from 'date-fns'
 
 export default function CobrancaPage() {
   const [loading, setLoading] = useState(true)
@@ -55,6 +58,9 @@ export default function CobrancaPage() {
   ])
   const [cityFilter, setCityFilter] = useState<string>('todos')
   const [motoqueiroFilter, setMotoqueiroFilter] = useState<string>('todos')
+  const [dataCombinadaRange, setDataCombinadaRange] = useState<
+    DateRange | undefined
+  >()
 
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [isSimplified, setIsSimplified] = useState(false)
@@ -131,7 +137,6 @@ export default function CobrancaPage() {
       result = result.filter((d) => d.city === cityFilter)
     }
 
-    // Filter by Client Type (Status)
     if (clientTypeFilter !== 'all') {
       result = result.filter((d) => d.clientType === clientTypeFilter)
     }
@@ -140,8 +145,16 @@ export default function CobrancaPage() {
 
     if (
       statusFilter.length > 0 ||
-      (!shouldIgnoreMotoqueiroFilter && motoqueiroFilter !== 'todos')
+      (!shouldIgnoreMotoqueiroFilter && motoqueiroFilter !== 'todos') ||
+      dataCombinadaRange?.from
     ) {
+      const fromStr = dataCombinadaRange?.from
+        ? format(dataCombinadaRange.from, 'yyyy-MM-dd')
+        : null
+      const toStr = dataCombinadaRange?.to
+        ? format(dataCombinadaRange.to, 'yyyy-MM-dd')
+        : fromStr
+
       result = result.filter((client) => {
         return client.orders.some((order) =>
           order.installments.some((inst) => {
@@ -162,6 +175,16 @@ export default function CobrancaPage() {
               )
                 matches = false
             }
+
+            if (fromStr) {
+              if (!inst.dataCombinada) matches = false
+              else if (
+                inst.dataCombinada < fromStr ||
+                inst.dataCombinada > toStr!
+              )
+                matches = false
+            }
+
             return matches
           }),
         )
@@ -178,6 +201,7 @@ export default function CobrancaPage() {
     motoqueiroFilter,
     activeTab,
     clientTypeFilter,
+    dataCombinadaRange,
   ])
 
   const handleToggleItem = (id: string) => {
@@ -215,6 +239,12 @@ export default function CobrancaPage() {
     let debt = 0
 
     const shouldIgnoreMotoqueiroFilter = activeTab === 'motoqueiro'
+    const fromStr = dataCombinadaRange?.from
+      ? format(dataCombinadaRange.from, 'yyyy-MM-dd')
+      : null
+    const toStr = dataCombinadaRange?.to
+      ? format(dataCombinadaRange.to, 'yyyy-MM-dd')
+      : fromStr
 
     filteredDebts.forEach((client) => {
       client.orders.forEach((order) => {
@@ -240,6 +270,15 @@ export default function CobrancaPage() {
               matches = false
           }
 
+          if (fromStr) {
+            if (!inst.dataCombinada) matches = false
+            else if (
+              inst.dataCombinada < fromStr ||
+              inst.dataCombinada > toStr!
+            )
+              matches = false
+          }
+
           if (matches) {
             const currentDebt = Math.max(
               0,
@@ -258,7 +297,14 @@ export default function CobrancaPage() {
       totalValorPago: paid,
       totalDebito: debt,
     }
-  }, [filteredDebts, orderFilter, statusFilter, motoqueiroFilter, activeTab])
+  }, [
+    filteredDebts,
+    orderFilter,
+    statusFilter,
+    motoqueiroFilter,
+    activeTab,
+    dataCombinadaRange,
+  ])
 
   const handleBulkClearMotoqueiro = async () => {
     if (selectedItems.size === 0) return
@@ -341,6 +387,7 @@ export default function CobrancaPage() {
     setMotoqueiroFilter('todos')
     setClientTypeFilter('ATIVO')
     setFormaPagamentoFilter('todos')
+    setDataCombinadaRange(undefined)
   }
 
   return (
@@ -494,6 +541,15 @@ export default function CobrancaPage() {
                 className="w-full"
               />
             </div>
+
+            <div className="w-full md:w-[250px]">
+              <DateRangePicker
+                date={dataCombinadaRange}
+                setDate={setDataCombinadaRange}
+                placeholder="Filtro Data Combinada"
+              />
+            </div>
+
             <div className="w-full md:w-[150px]">
               <Select
                 value={motoqueiroFilter}
@@ -606,6 +662,7 @@ export default function CobrancaPage() {
                 orderFilter={orderFilter}
                 showOnlySelected={false}
                 formaPagamentoFilter={formaPagamentoFilter}
+                dataCombinadaRange={dataCombinadaRange}
               />
             </TabsContent>
 
@@ -644,6 +701,7 @@ export default function CobrancaPage() {
                 orderFilter={orderFilter}
                 showOnlySelected={true}
                 formaPagamentoFilter={formaPagamentoFilter}
+                dataCombinadaRange={dataCombinadaRange}
               />
             </TabsContent>
           </Tabs>
