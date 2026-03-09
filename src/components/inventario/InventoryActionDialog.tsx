@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, Barcode, Search } from 'lucide-react'
+import { Loader2, Barcode, Search, X } from 'lucide-react'
 import { formatCurrency, parseCurrency } from '@/lib/formatters'
 import { suppliersService, Supplier } from '@/services/suppliersService'
 import { employeesService } from '@/services/employeesService'
@@ -28,6 +28,7 @@ import { InventoryMovementType } from '@/types/inventory_general'
 import { useToast } from '@/hooks/use-toast'
 import { Textarea } from '@/components/ui/textarea'
 import { ProductCombobox } from '@/components/products/ProductCombobox'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 
 interface InventoryActionDialogProps {
   open: boolean
@@ -66,6 +67,7 @@ export function InventoryActionDialog({
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
 
+  const [inputMode, setInputMode] = useState<'barcode' | 'manual'>('barcode')
   const [selectedProduct, setSelectedProduct] = useState<ProductRow | null>(
     null,
   )
@@ -98,25 +100,31 @@ export function InventoryActionDialog({
 
   // F2 Shortcut for Toggling Focus
   useEffect(() => {
-    if (!open) return
+    if (!open || preselectedProduct) return
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'F2') {
         e.preventDefault()
-        const barcodeEl = barcodeRef.current
-        const comboEl = document.getElementById('manual-search-input')
-
-        if (document.activeElement === barcodeEl && comboEl) {
-          comboEl.focus()
-        } else if (barcodeEl) {
-          barcodeEl.focus()
-        }
+        setInputMode((prev) => (prev === 'barcode' ? 'manual' : 'barcode'))
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [open])
+  }, [open, preselectedProduct])
+
+  useEffect(() => {
+    if (open && !preselectedProduct) {
+      if (inputMode === 'barcode') {
+        setTimeout(() => barcodeRef.current?.focus(), 50)
+      } else {
+        setTimeout(
+          () => document.getElementById('manual-search-input')?.focus(),
+          50,
+        )
+      }
+    }
+  }, [inputMode, open, preselectedProduct])
 
   // Initial Data and Focus
   useEffect(() => {
@@ -134,7 +142,8 @@ export function InventoryActionDialog({
         setSelectedProduct(prod)
       } else {
         setSelectedProduct(null)
-        // Focus barcode input after dialog opens
+        setBarcode('')
+        setInputMode('barcode')
         setTimeout(() => {
           barcodeRef.current?.focus()
         }, 150)
@@ -161,7 +170,6 @@ export function InventoryActionDialog({
       setQuantity('')
       setCostValue('')
       setReason('')
-      setBarcode('')
 
       if (type === 'COMPRA' && persistedSupplierId) {
         setSelectedSupplier(persistedSupplierId)
@@ -337,7 +345,11 @@ export function InventoryActionDialog({
         if (type === 'COMPRA') setCostValue('')
 
         setTimeout(() => {
-          barcodeRef.current?.focus()
+          if (inputMode === 'barcode') {
+            barcodeRef.current?.focus()
+          } else {
+            document.getElementById('manual-search-input')?.focus()
+          }
         }, 100)
       } else {
         onOpenChange(false)
@@ -363,36 +375,84 @@ export function InventoryActionDialog({
 
         <div className="space-y-4 py-4">
           {!preselectedProduct ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/20 rounded-lg border border-border shadow-sm">
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2 text-primary font-semibold">
-                  <Barcode className="w-4 h-4" />
-                  Scanner (F2)
-                </Label>
-                <Input
-                  ref={barcodeRef}
-                  value={barcode}
-                  onChange={(e) => setBarcode(e.target.value)}
-                  onKeyDown={handleBarcodeScan}
-                  placeholder="Bipe o código..."
-                  disabled={loading || submitting}
-                  className="bg-background focus-visible:ring-primary"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2 text-muted-foreground font-semibold">
-                  <Search className="w-4 h-4" />
-                  Busca Manual (F2)
-                </Label>
-                <ProductCombobox
-                  inputId="manual-search-input"
-                  selectedProduct={selectedProduct}
-                  onSelect={handleProductSelect}
-                  disabled={loading || submitting}
-                  autoFocus={false}
-                  disableScanner={true} // Clean separation of concerns
-                />
-              </div>
+            <div className="space-y-4 p-4 bg-muted/20 rounded-lg border border-border shadow-sm">
+              <RadioGroup
+                value={inputMode}
+                onValueChange={(val) =>
+                  setInputMode(val as 'barcode' | 'manual')
+                }
+                className="flex items-center space-x-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="barcode" id="ia-barcode" />
+                  <Label htmlFor="ia-barcode" className="cursor-pointer">
+                    Código de Barras (F2)
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="manual" id="ia-manual" />
+                  <Label htmlFor="ia-manual" className="cursor-pointer">
+                    Busca Manual (F2)
+                  </Label>
+                </div>
+              </RadioGroup>
+
+              {inputMode === 'barcode' ? (
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 text-primary font-semibold">
+                    <Barcode className="w-4 h-4" />
+                    Scanner
+                  </Label>
+                  {selectedProduct ? (
+                    <div className="flex items-center justify-between border rounded-md px-3 py-3 bg-primary/5 border-primary">
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-primary text-sm truncate">
+                          {selectedProduct.PRODUTO}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          Cod: {selectedProduct.CODIGO} | Bar:{' '}
+                          {selectedProduct['CÓDIGO BARRAS'] || '-'}
+                        </span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setSelectedProduct(null)
+                          setTimeout(() => barcodeRef.current?.focus(), 50)
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <Input
+                      ref={barcodeRef}
+                      value={barcode}
+                      onChange={(e) => setBarcode(e.target.value)}
+                      onKeyDown={handleBarcodeScan}
+                      placeholder="Bipe o código..."
+                      disabled={loading || submitting}
+                      className="bg-background focus-visible:ring-primary"
+                    />
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 text-muted-foreground font-semibold">
+                    <Search className="w-4 h-4" />
+                    Busca Manual
+                  </Label>
+                  <ProductCombobox
+                    inputId="manual-search-input"
+                    selectedProduct={selectedProduct}
+                    onSelect={handleProductSelect}
+                    disabled={loading || submitting}
+                    autoFocus={true}
+                    disableScanner={true}
+                  />
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-2">
