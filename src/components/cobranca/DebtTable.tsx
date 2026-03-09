@@ -481,6 +481,15 @@ export function DebtTable({
                 <TableHead className="w-[80px] bg-background">Pedido</TableHead>
               )}
               <TableHead
+                className="bg-background cursor-pointer hover:bg-muted min-w-[100px]"
+                onClick={() => requestSort('orderDate')}
+              >
+                <div className="flex items-center gap-1">
+                  Data Acerto
+                  {getSortIcon('orderDate')}
+                </div>
+              </TableHead>
+              <TableHead
                 className="bg-background cursor-pointer hover:bg-muted"
                 onClick={() => requestSort('vencimento')}
               >
@@ -532,7 +541,7 @@ export function DebtTable({
             {flattenedData.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={isCobrancaMode ? 18 : 22}
+                  colSpan={isCobrancaMode ? 19 : 23}
                   className="h-24 text-center text-muted-foreground"
                 >
                   {showOnlySelected
@@ -605,6 +614,11 @@ export function DebtTable({
                         {row.orderId}
                       </TableCell>
                     )}
+                    <TableCell className="text-xs">
+                      {row.orderDate
+                        ? safeFormatDate(row.orderDate, 'dd/MM/yyyy')
+                        : '-'}
+                    </TableCell>
                     <TableCell className="text-xs">
                       {row.vencimento
                         ? format(parseISO(row.vencimento), 'dd/MM/yyyy')
