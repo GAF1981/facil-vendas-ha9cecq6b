@@ -9,19 +9,11 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { brindeSchema, BrindeFormData } from '@/types/brinde'
 import { brindeService } from '@/services/brindeService'
 import { clientsService } from '@/services/clientsService'
-import { productsService } from '@/services/productsService'
 import { ClientRow } from '@/types/client'
 import { ProductRow } from '@/types/product'
 import { useToast } from '@/hooks/use-toast'
@@ -43,6 +35,7 @@ import {
 } from '@/components/ui/command'
 import { cn } from '@/lib/utils'
 import { Check, ChevronsUpDown } from 'lucide-react'
+import { ProductCombobox } from '@/components/products/ProductCombobox'
 
 interface Props {
   open: boolean
@@ -59,9 +52,10 @@ export function BrindeDialog({
 }: Props) {
   const [loading, setLoading] = useState(false)
   const [clients, setClients] = useState<ClientRow[]>([])
-  const [products, setProducts] = useState<ProductRow[]>([])
   const [clientOpen, setClientOpen] = useState(false)
-  const [productOpen, setProductOpen] = useState(false)
+  const [selectedProduct, setSelectedProduct] = useState<ProductRow | null>(
+    null,
+  )
   const { toast } = useToast()
   const { employee } = useUserStore()
 
@@ -78,23 +72,21 @@ export function BrindeDialog({
   useEffect(() => {
     if (open) {
       setLoading(true)
-      Promise.all([
-        clientsService.getAll(), // Fetch all or implement search if heavy
-        productsService.getProducts(1, 10000), // Get all products
-      ])
-        .then(([clientsList, productsRes]) => {
+      clientsService
+        .getAll() // Fetch all or implement search if heavy
+        .then((clientsList) => {
           setClients(clientsList)
-          setProducts(productsRes.data || [])
         })
         .finally(() => setLoading(false))
 
-      // Reset form
+      // Reset form and state
       form.reset({
         data: format(new Date(), 'yyyy-MM-dd'),
         quantidade: 1,
         funcionario_id: employee?.id || 0,
         funcionario_nome: employee?.nome_completo || '',
       })
+      setSelectedProduct(null)
     }
   }, [open, employee, form])
 
@@ -132,7 +124,7 @@ export function BrindeDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md overflow-visible">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Gift className="h-5 w-5 text-purple-600" />
@@ -201,56 +193,27 @@ export function BrindeDialog({
 
           <div className="grid gap-2">
             <Label>Produto</Label>
-            <Popover open={productOpen} onOpenChange={setProductOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={productOpen}
-                  className="w-full justify-between"
-                >
-                  {form.watch('produto_nome')
-                    ? form.watch('produto_nome')
-                    : 'Selecione o produto...'}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[300px] p-0">
-                <Command>
-                  <CommandInput placeholder="Buscar produto..." />
-                  <CommandList>
-                    <CommandEmpty>Produto não encontrado.</CommandEmpty>
-                    <CommandGroup className="max-h-[200px] overflow-auto">
-                      {products.map((product) => (
-                        <CommandItem
-                          key={product.ID}
-                          value={
-                            (product.PRODUTO || '') +
-                            ' ' +
-                            (product.CODIGO || '')
-                          }
-                          onSelect={() => {
-                            form.setValue('produto_codigo', product.CODIGO || 0)
-                            form.setValue('produto_nome', product.PRODUTO || '')
-                            setProductOpen(false)
-                          }}
-                        >
-                          <Check
-                            className={cn(
-                              'mr-2 h-4 w-4',
-                              form.watch('produto_codigo') === product.CODIGO
-                                ? 'opacity-100'
-                                : 'opacity-0',
-                            )}
-                          />
-                          {product.PRODUTO}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+            <ProductCombobox
+              selectedProduct={selectedProduct}
+              onSelect={(p) => {
+                setSelectedProduct(p)
+                if (p) {
+                  form.setValue('produto_codigo', p.CODIGO || p.ID || 0, {
+                    shouldValidate: true,
+                  })
+                  form.setValue('produto_nome', p.PRODUTO || '', {
+                    shouldValidate: true,
+                  })
+                } else {
+                  form.setValue('produto_codigo', undefined as any, {
+                    shouldValidate: true,
+                  })
+                  form.setValue('produto_nome', '', { shouldValidate: true })
+                }
+              }}
+              excludeInternalCode={true}
+              className="w-full"
+            />
             {form.formState.errors.produto_codigo && (
               <span className="text-xs text-red-500">
                 {form.formState.errors.produto_codigo.message}

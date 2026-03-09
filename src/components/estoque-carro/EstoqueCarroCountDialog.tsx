@@ -121,6 +121,7 @@ export function EstoqueCarroCountDialog({
                 selectedProduct={selectedProduct}
                 onSelect={handleProductSelect}
                 className="w-full"
+                excludeInternalCode={true}
               />
               <p className="text-xs text-muted-foreground">
                 Busque por nome ou escaneie o código de barras.

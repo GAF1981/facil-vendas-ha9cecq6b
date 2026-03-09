@@ -31,6 +31,7 @@ export const productsService = {
     frequentes: string | null = null,
     orderBy: 'ID' | 'PRODUTO' = 'ID',
     ascending: boolean = false,
+    excludeInternalCode: boolean = false,
   ) {
     let query = supabase.from('PRODUTOS').select('*', { count: 'exact' })
 
@@ -41,9 +42,13 @@ export const productsService = {
       // Sanitize search term to prevent PostgREST syntax errors
       const sanitizedSearch = searchTerm.replace(/[,()]/g, '_')
 
-      // Always search text fields with ilike
-      // PRODUTO (Name) and CÓDIGO BARRAS (Barcode) are key requirements
-      let orQuery = `PRODUTO.ilike.%${sanitizedSearch}%,codigo_interno.ilike.%${sanitizedSearch}%,"CÓDIGO BARRAS".ilike.%${sanitizedSearch}%`
+      // Search fields conditionally based on excludeInternalCode flag
+      let orQuery = ''
+      if (excludeInternalCode) {
+        orQuery = `PRODUTO.ilike.%${sanitizedSearch}%,"CÓDIGO BARRAS".ilike.%${sanitizedSearch}%`
+      } else {
+        orQuery = `PRODUTO.ilike.%${sanitizedSearch}%,codigo_interno.ilike.%${sanitizedSearch}%,"CÓDIGO BARRAS".ilike.%${sanitizedSearch}%`
+      }
 
       // If it looks like a number, also search numeric IDs
       if (isNumber) {

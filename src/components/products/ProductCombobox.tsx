@@ -32,6 +32,7 @@ interface ProductComboboxProps {
   onSelect: (product: ProductRow | null) => void
   disabled?: boolean
   className?: string
+  excludeInternalCode?: boolean
 }
 
 export function ProductCombobox({
@@ -39,6 +40,7 @@ export function ProductCombobox({
   onSelect,
   disabled,
   className,
+  excludeInternalCode = false,
 }: ProductComboboxProps) {
   const [open, setOpen] = React.useState(false)
   const [searchTerm, setSearchTerm] = React.useState('')
@@ -65,6 +67,7 @@ export function ProductCombobox({
         null,
         'PRODUTO',
         true,
+        excludeInternalCode,
       )
       setProducts(data)
     } catch (error) {
@@ -123,7 +126,11 @@ export function ProductCombobox({
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
         <Command shouldFilter={false}>
           <CommandInput
-            placeholder="Buscar por nome, código interno ou barras..."
+            placeholder={
+              excludeInternalCode
+                ? 'Buscar por nome ou código de barras...'
+                : 'Buscar por nome, código interno ou barras...'
+            }
             value={searchTerm}
             onValueChange={setSearchTerm}
             className="h-10"
