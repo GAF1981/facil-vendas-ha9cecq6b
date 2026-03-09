@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -62,11 +62,9 @@ export function InventoryActionDialog({
   const [submitting, setSubmitting] = useState(false)
   const { toast } = useToast()
 
-  // Data Sources
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
 
-  // Form State
   const [selectedProduct, setSelectedProduct] = useState<ProductRow | null>(
     null,
   )
@@ -76,7 +74,8 @@ export function InventoryActionDialog({
   const [costValue, setCostValue] = useState<string>('')
   const [reason, setReason] = useState<string>('')
 
-  // Title Mapping
+  const quantityRef = React.useRef<HTMLInputElement>(null)
+
   const getTitle = () => {
     switch (type) {
       case 'COMPRA':
@@ -99,9 +98,7 @@ export function InventoryActionDialog({
       setLoading(true)
       const promises = []
 
-      // 1. Handle Preselected Product
       if (preselectedProduct) {
-        // Construct a partial ProductRow for initial display
         const prod = {
           ID: preselectedProduct.ID,
           CODIGO: preselectedProduct.CODIGO,
@@ -113,16 +110,13 @@ export function InventoryActionDialog({
         setSelectedProduct(null)
       }
 
-      // 2. Load Suppliers (Only for Purchase)
       if (type === 'COMPRA') {
         promises.push(suppliersService.getAll().then(setSuppliers))
       }
 
-      // 3. Load Employees (Only for Stock Transfers)
       if (type === 'CARRO_PARA_ESTOQUE' || type === 'ESTOQUE_PARA_CARRO') {
         promises.push(
           employeesService.getEmployees(1, 1000).then(({ data }) => {
-            // Filter by Role/Sector
             const allowedSectors = ['vendedor', 'administrador', 'gerente']
             const filtered = data.filter((e) =>
               e.setor?.some((s) => allowedSectors.includes(s.toLowerCase())),
@@ -134,12 +128,10 @@ export function InventoryActionDialog({
 
       Promise.all(promises).finally(() => setLoading(false))
 
-      // Reset Form (Preserving persisted values)
       setQuantity('')
       setCostValue('')
       setReason('')
 
-      // Restore persisted values
       if (type === 'COMPRA' && persistedSupplierId) {
         setSelectedSupplier(persistedSupplierId)
       }
@@ -155,16 +147,20 @@ export function InventoryActionDialog({
   const handleProductSelect = (prod: ProductRow | null) => {
     setSelectedProduct(prod)
 
-    // Auto-calculate cost for purchases: 30% of Sale Price
-    if (type === 'COMPRA' && prod && prod.PREÇO) {
-      const salePrice = parseCurrency(prod.PREÇO)
-      const calculatedCost = salePrice * 0.3
-      setCostValue(formatCurrency(calculatedCost))
+    if (prod) {
+      if (type === 'COMPRA' && prod.PREÇO) {
+        const salePrice = parseCurrency(prod.PREÇO)
+        const calculatedCost = salePrice * 0.3
+        setCostValue(formatCurrency(calculatedCost))
+      }
+      // Auto focus quantity input when product is picked
+      setTimeout(() => {
+        quantityRef.current?.focus()
+      }, 50)
     }
   }
 
   const handleSubmit = async () => {
-    // Validation
     if (!selectedProduct) {
       toast({
         title: 'Erro',
@@ -174,12 +170,11 @@ export function InventoryActionDialog({
       return
     }
 
-    // For CONTAGEM, quantity can be 0. For others, must be > 0.
     const qty = Number(quantity)
     if (type !== 'CONTAGEM' && (!quantity || qty <= 0)) {
       toast({
         title: 'Erro',
-        description: 'Informe uma quantidade válida (maior que zero).',
+        description: 'Informe uma quantidade válida.',
         variant: 'destructive',
       })
       return
@@ -199,7 +194,7 @@ export function InventoryActionDialog({
       if (!selectedSupplier) {
         toast({
           title: 'Erro',
-          description: 'Fornecedor é obrigatório para compras.',
+          description: 'Fornecedor é obrigatório.',
           variant: 'destructive',
         })
         return
@@ -214,8 +209,6 @@ export function InventoryActionDialog({
       }
       extra.fornecedorId = parseInt(selectedSupplier)
       extra.valorUnitario = parseCurrency(costValue)
-
-      // Persist Supplier
       setPersistedSupplierId(selectedSupplier)
     }
 
@@ -235,35 +228,37 @@ export function InventoryActionDialog({
       if (!selectedEmployee) {
         toast({
           title: 'Erro',
-          description: 'Funcionário é obrigatório para esta movimentação.',
+          description: 'Funcionário é obrigatório.',
           variant: 'destructive',
         })
         return
       }
       extra.funcionarioId = parseInt(selectedEmployee)
-
-      // Persist Employee
       setPersistedEmployeeId(selectedEmployee)
     }
 
     setSubmitting(true)
     try {
       await inventoryGeneralService.registerMovement(sessionId, type!, [
-        {
-          productId: selectedProduct.ID,
-          quantity: qty,
-          extra,
-        },
+        { productId: selectedProduct.ID, quantity: qty, extra },
       ])
 
       toast({ title: 'Sucesso', description: 'Movimentação registrada.' })
       onSuccess()
-      onOpenChange(false)
+
+      // Preserve dialog open for rapid continuous scanning if no preselected product
+      if (!preselectedProduct) {
+        setSelectedProduct(null)
+        setQuantity('')
+        if (type === 'COMPRA') setCostValue('')
+      } else {
+        onOpenChange(false)
+      }
     } catch (error: any) {
       console.error(error)
       toast({
         title: 'Erro',
-        description: error.message || 'Falha ao salvar movimentação.',
+        description: error.message || 'Falha ao salvar.',
         variant: 'destructive',
       })
     } finally {
@@ -279,7 +274,6 @@ export function InventoryActionDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {/* Product Selection */}
           <div className="space-y-2">
             <Label>
               Produto <span className="text-red-500">*</span>
@@ -288,10 +282,10 @@ export function InventoryActionDialog({
               selectedProduct={selectedProduct}
               onSelect={handleProductSelect}
               disabled={loading || submitting || !!preselectedProduct}
+              autoFocus={!preselectedProduct}
             />
           </div>
 
-          {/* Type Specific Fields - BEFORE Quantity */}
           {type === 'COMPRA' && (
             <div className="space-y-2">
               <Label>
@@ -338,25 +332,27 @@ export function InventoryActionDialog({
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-[10px] text-muted-foreground">
-                Exibindo apenas Vendedores, Administradores e Gerentes.
-              </p>
             </div>
           )}
 
-          {/* Common Fields */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>
                 Quantidade <span className="text-red-500">*</span>
               </Label>
               <Input
+                ref={quantityRef}
                 type="number"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && type !== 'COMPRA') {
+                    e.preventDefault()
+                    handleSubmit()
+                  }
+                }}
                 placeholder="0"
                 disabled={submitting}
-                autoFocus={!!preselectedProduct}
               />
             </div>
 
@@ -368,6 +364,12 @@ export function InventoryActionDialog({
                 <Input
                   value={costValue}
                   onChange={(e) => setCostValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      handleSubmit()
+                    }
+                  }}
                   placeholder="0,00"
                   disabled={submitting}
                 />
@@ -383,7 +385,7 @@ export function InventoryActionDialog({
               <Textarea
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="Descreva o motivo (ex: validade, avaria...)"
+                placeholder="Descreva o motivo..."
                 disabled={submitting}
               />
             </div>

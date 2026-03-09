@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,7 @@ import { ClientRow } from '@/types/client'
 import { ProductRow } from '@/types/product'
 import { useToast } from '@/hooks/use-toast'
 import { useUserStore } from '@/stores/useUserStore'
-import { Loader2, Gift } from 'lucide-react'
+import { Loader2, Gift, Check, ChevronsUpDown } from 'lucide-react'
 import { format } from 'date-fns'
 import {
   Popover,
@@ -34,7 +34,6 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { cn } from '@/lib/utils'
-import { Check, ChevronsUpDown } from 'lucide-react'
 import { ProductCombobox } from '@/components/products/ProductCombobox'
 
 interface Props {
@@ -56,6 +55,9 @@ export function BrindeDialog({
   const [selectedProduct, setSelectedProduct] = useState<ProductRow | null>(
     null,
   )
+
+  const quantityRef = React.useRef<HTMLInputElement | null>(null)
+
   const { toast } = useToast()
   const { employee } = useUserStore()
 
@@ -69,17 +71,18 @@ export function BrindeDialog({
     },
   })
 
+  const { ref: qtyRegisterRef, ...qtyRest } = form.register('quantidade')
+
   useEffect(() => {
     if (open) {
       setLoading(true)
       clientsService
-        .getAll() // Fetch all or implement search if heavy
+        .getAll()
         .then((clientsList) => {
           setClients(clientsList)
         })
         .finally(() => setLoading(false))
 
-      // Reset form and state
       form.reset({
         data: format(new Date(), 'yyyy-MM-dd'),
         quantidade: 1,
@@ -109,7 +112,12 @@ export function BrindeDialog({
         className: 'bg-green-600 text-white',
       })
       onSuccess()
-      onOpenChange(false)
+
+      // Preserve dialog open, clear product to allow continuous scanning
+      setSelectedProduct(null)
+      form.setValue('produto_codigo', undefined as any)
+      form.setValue('produto_nome', '')
+      form.setValue('quantidade', 1)
     } catch (error) {
       console.error(error)
       toast({
@@ -204,6 +212,7 @@ export function BrindeDialog({
                   form.setValue('produto_nome', p.PRODUTO || '', {
                     shouldValidate: true,
                   })
+                  setTimeout(() => quantityRef.current?.focus(), 50)
                 } else {
                   form.setValue('produto_codigo', undefined as any, {
                     shouldValidate: true,
@@ -213,6 +222,7 @@ export function BrindeDialog({
               }}
               excludeInternalCode={true}
               className="w-full"
+              autoFocus={true}
             />
             {form.formState.errors.produto_codigo && (
               <span className="text-xs text-red-500">
@@ -228,7 +238,15 @@ export function BrindeDialog({
             </div>
             <div className="grid gap-2">
               <Label>Quantidade</Label>
-              <Input type="number" min="1" {...form.register('quantidade')} />
+              <Input
+                type="number"
+                min="1"
+                {...qtyRest}
+                ref={(e) => {
+                  qtyRegisterRef(e)
+                  quantityRef.current = e
+                }}
+              />
             </div>
           </div>
 

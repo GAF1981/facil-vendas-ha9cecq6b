@@ -46,7 +46,6 @@ export function EstoqueCarroCountDialog({
   useEffect(() => {
     if (open) {
       if (preselectedProduct) {
-        // Adapt preselected simple object to ProductRow structure for local state
         setSelectedProduct({
           ID: preselectedProduct.id,
           CODIGO: preselectedProduct.codigo,
@@ -84,12 +83,10 @@ export function EstoqueCarroCountDialog({
 
       if (onSuccess) onSuccess()
 
-      // Reset for next count
+      // Reset for next count for continuous scanning efficiency
       if (preselectedProduct) {
-        // If we opened for a specific product, close after save
         onOpenChange(false)
       } else {
-        // If manual flow, reset to step 1
         setStep(1)
         setQuantity('')
         setSelectedProduct(null)
@@ -122,6 +119,7 @@ export function EstoqueCarroCountDialog({
                 onSelect={handleProductSelect}
                 className="w-full"
                 excludeInternalCode={true}
+                autoFocus={true}
               />
               <p className="text-xs text-muted-foreground">
                 Busque por nome ou escaneie o código de barras.
@@ -147,6 +145,12 @@ export function EstoqueCarroCountDialog({
                 type="number"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleSave()
+                  }
+                }}
                 autoFocus
                 placeholder="0"
               />
@@ -166,7 +170,7 @@ export function EstoqueCarroCountDialog({
                 {preselectedProduct ? 'Cancelar' : 'Voltar'}
               </Button>
               <Button onClick={handleSave} disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{' '}
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Salvar
               </Button>
             </DialogFooter>
