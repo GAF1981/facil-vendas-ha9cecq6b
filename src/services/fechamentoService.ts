@@ -28,10 +28,8 @@ export const fechamentoService = {
     funcionarioId: number,
     responsavelId?: number,
   ) {
-    // 1. Calculate Financial Totals
     const settlements = await resumoAcertosService.getSettlements({ rota })
 
-    // Filter settlements for this employee
     const employeeSettlements = settlements.filter(
       (s) => s.employeeId === funcionarioId,
     )
@@ -49,10 +47,8 @@ export const fechamentoService = {
       0,
     )
 
-    // 2. Calculate Payment Totals (Cash, Pix, Cheque)
     const receipts = await caixaService.getEmployeeReceipts(funcionarioId, rota)
 
-    // Filter out 'Boleto' for specific Cash/Pix/Cheque fields, BUT track Boleto separately
     const validReceipts = receipts.filter((r) => r.forma !== 'Boleto')
     const boletoReceipts = receipts.filter((r) => r.forma === 'Boleto')
 
@@ -70,7 +66,6 @@ export const fechamentoService = {
 
     const valorBoleto = boletoReceipts.reduce((acc, r) => acc + r.valor, 0)
 
-    // 3. Calculate Expense Totals
     const allExpenses = await caixaService.getEmployeeExpenses(
       funcionarioId,
       rota,
@@ -79,14 +74,8 @@ export const fechamentoService = {
       .filter((e) => e.saiuDoCaixa)
       .reduce((acc, e) => acc + e.valor, 0)
 
-    // 4. Calculate Saldo do Acerto
-    // Saldo = (Dinheiro + Cheque) - Despesas. Pix is usually separate or considered already "in bank"
-    // Based on CaixaPage logic: Saldo De Acerto = (Total Saldo - Total Pix)
-    // Where Total Saldo = (Din + Pix + Cheque + Boleto) - Despesas - Boleto (removed from balance)
-    // Effectively: Saldo De Acerto = Din + Cheque - Despesas
     const saldoAcerto = valorDinheiro + valorCheque - valorDespesas
 
-    // 5. Insert Record
     const payload: FechamentoInsert = {
       rota_id: rota.id,
       funcionario_id: funcionarioId,
@@ -106,7 +95,7 @@ export const fechamentoService = {
     const { data, error } = await supabase
       .from('fechamento_caixa')
       .upsert(payload, { onConflict: 'rota_id, funcionario_id' })
-      .select(`*, funcionario:FUNCIONARIOS!funcionario_id ( nome_completo )`) // Fetch joined data for PDF
+      .select(`*, funcionario:FUNCIONARIOS!funcionario_id ( nome_completo )`)
       .single()
 
     if (error) throw error
@@ -138,7 +127,7 @@ export const fechamentoService = {
       .update({
         status: 'Fechado',
         responsavel_id: responsavelId,
-        created_at: new Date().toISOString(), // Update timestamp to confirmation time
+        created_at: new Date().toISOString(),
       })
       .eq('id', id)
 
@@ -146,14 +135,6 @@ export const fechamentoService = {
   },
 
   async reopenClosing(id: number, rotaId: number, funcionarioNome: string) {
-    const isGedeon = funcionarioNome.toLowerCase().includes('gedeon')
-
-    if (rotaId !== 48 || !isGedeon) {
-      throw new Error(
-        'A reabertura de caixa está restrita apenas para a Rota 48 e funcionário Gedeon para evitar modificações acidentais.',
-      )
-    }
-
     const { error } = await supabase
       .from('fechamento_caixa')
       .update({
@@ -166,6 +147,7 @@ export const fechamentoService = {
         pix_aprovado: false,
         cheque_aprovado: false,
         boleto_aprovado: false,
+        responsavel_id: null,
       })
       .eq('id', id)
 
@@ -177,7 +159,7 @@ export const fechamentoService = {
       .from('fechamento_caixa')
       .delete()
       .eq('id', id)
-      .eq('status', 'Aberto') // Safety check to prevent deleting finalized closures
+      .eq('status', 'Aberto')
 
     if (error) throw error
   },
@@ -222,30 +204,25 @@ export const fechamentoService = {
     fechamento: FechamentoCaixa,
     format: 'A4' | '80mm' = 'A4',
   ) {
-    // 1. Fetch Route to get dates for receipts/expenses
     const rota = await resumoAcertosService.getRouteById(fechamento.rota_id)
     if (!rota) throw new Error('Rota não encontrada para gerar o PDF')
 
-    // 2. Fetch Receipts (Detailed)
     const receipts = await caixaService.getEmployeeReceipts(
       fechamento.funcionario_id,
       rota,
     )
 
-    // 3. Fetch Expenses (Detailed)
     const allExpenses = await caixaService.getEmployeeExpenses(
       fechamento.funcionario_id,
       rota,
     )
     const expenses = allExpenses.filter((e) => e.saiuDoCaixa)
 
-    // 4. Fetch Settlements (Detailed Table Data)
     const allSettlements = await resumoAcertosService.getSettlements({ rota })
     const settlements = allSettlements.filter(
       (s) => s.employeeId === fechamento.funcionario_id,
     )
 
-    // 5. Invoke Edge Function with Full Payload
     const { data: blob, error } = await supabase.functions.invoke(
       'generate-pdf',
       {
@@ -254,7 +231,7 @@ export const fechamentoService = {
           fechamento,
           receipts,
           expenses,
-          settlements, // New Data for Table
+          settlements,
           format,
           date: new Date().toISOString(),
         },
@@ -264,7 +241,6 @@ export const fechamentoService = {
 
     if (error) throw error
 
-    // Create download link
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url

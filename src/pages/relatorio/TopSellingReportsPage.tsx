@@ -25,7 +25,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { reportsService, TopSellingItemV5 } from '@/services/reportsService'
-import { formatCurrency } from '@/lib/formatters'
+import { formatCurrency, parseCurrency } from '@/lib/formatters'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 import {
   Search,
@@ -45,6 +45,7 @@ export default function TopSellingReportsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [selectedGrupo, setSelectedGrupo] = useState<string>('todos')
+  const [manualCosts, setManualCosts] = useState<Record<number, string>>({})
 
   const [startDate, setStartDate] = useState(
     format(startOfMonth(new Date()), 'yyyy-MM-dd'),
@@ -110,15 +111,36 @@ export default function TopSellingReportsPage() {
     return filtered
   }, [data, debouncedSearch])
 
-  const totalValue = filteredData.reduce(
-    (acc, item) => acc + item.valor_total,
-    0,
-  )
-  const totalQuantity = filteredData.reduce(
-    (acc, item) => acc + item.quantidade_total,
-    0,
-  )
-  const totalItems = filteredData.length
+  const { totalValue, totalQuantity, totalCost, totalItems } = useMemo(() => {
+    let tVal = 0
+    let tQty = 0
+    let tCost = 0
+
+    filteredData.forEach((item) => {
+      tVal += item.valor_total
+      tQty += item.quantidade_total
+
+      const unitPrice =
+        item.quantidade_total > 0 ? item.valor_total / item.quantidade_total : 0
+      const defaultUnitCost = unitPrice * 0.3
+      const manualCostStr = manualCosts[item.produto_codigo]
+      const currentUnitCost =
+        manualCostStr !== undefined
+          ? parseCurrency(manualCostStr)
+          : defaultUnitCost
+
+      tCost += currentUnitCost * item.quantidade_total
+    })
+
+    return {
+      totalValue: tVal,
+      totalQuantity: tQty,
+      totalCost: tCost,
+      totalItems: filteredData.length,
+    }
+  }, [filteredData, manualCosts])
+
+  const percentCost = totalValue > 0 ? (totalCost / totalValue) * 100 : 0
 
   return (
     <div className="space-y-6 animate-fade-in p-4 sm:p-6 pb-20">
@@ -133,7 +155,7 @@ export default function TopSellingReportsPage() {
             Itens Mais Vendidos
           </h1>
           <p className="text-muted-foreground">
-            Relatório de vendas por produto agrupado por período.
+            Relatório de vendas por produto agrupado por período e custos.
           </p>
         </div>
       </div>
@@ -222,30 +244,35 @@ export default function TopSellingReportsPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-5">
         <MetricCard
-          title="Venda Total do Período"
+          title="Venda Total"
           value={`R$ ${formatCurrency(totalValue)}`}
           icon={DollarSign}
-          description="Soma do valor total vendido (filtrado)"
         />
         <MetricCard
-          title="Quantidade de Itens"
+          title="Custo Total"
+          value={`R$ ${formatCurrency(totalCost)}`}
+          icon={DollarSign}
+          className="border-red-200 bg-red-50/30"
+          iconClassName="text-red-600"
+        />
+        <MetricCard
+          title="% Custo Total"
+          value={`${percentCost.toFixed(2).replace('.', ',')}%`}
+          icon={DollarSign}
+        />
+        <MetricCard
+          title="Qtd. de Itens"
           value={totalQuantity.toLocaleString('pt-BR')}
           icon={Package}
-          description="Soma da quantidade de produtos (filtrado)"
         />
-        <MetricCard
-          title="Produtos Diferentes"
-          value={totalItems}
-          icon={ShoppingCart}
-          description="Contagem de SKUs exibidos"
-        />
+        <MetricCard title="SKUs" value={totalItems} icon={ShoppingCart} />
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Ranking de Vendas</CardTitle>
+          <CardTitle>Ranking de Vendas e Custos</CardTitle>
           <CardDescription>
             Período: {format(new Date(startDate), 'dd/MM/yyyy')} até{' '}
             {format(new Date(endDate), 'dd/MM/yyyy')}
@@ -256,18 +283,22 @@ export default function TopSellingReportsPage() {
             <Table>
               <TableHeader className="bg-muted/50">
                 <TableRow>
-                  <TableHead className="w-[80px]">Rank</TableHead>
-                  <TableHead className="w-[100px]">Código</TableHead>
+                  <TableHead className="w-[60px]">Rank</TableHead>
+                  <TableHead className="w-[80px]">Código</TableHead>
                   <TableHead>Produto</TableHead>
                   <TableHead>Grupo</TableHead>
                   <TableHead className="text-right">Qtd. Vendida</TableHead>
                   <TableHead className="text-right">Valor Total</TableHead>
+                  <TableHead className="text-right w-[140px]">
+                    Custo Unitário
+                  </TableHead>
+                  <TableHead className="text-right">Custo Total</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-32 text-center">
+                    <TableCell colSpan={8} className="h-32 text-center">
                       <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
                       <span className="text-muted-foreground mt-2 block">
                         Calculando...
@@ -277,7 +308,7 @@ export default function TopSellingReportsPage() {
                 ) : data.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={6}
+                      colSpan={8}
                       className="h-24 text-center text-muted-foreground"
                     >
                       Nenhum dado encontrado para o período selecionado.
@@ -286,7 +317,7 @@ export default function TopSellingReportsPage() {
                 ) : filteredData.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={6}
+                      colSpan={8}
                       className="h-24 text-center text-muted-foreground"
                     >
                       Nenhum registro encontrado para a busca ou filtro
@@ -294,31 +325,67 @@ export default function TopSellingReportsPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredData.map((item, index) => (
-                    <TableRow
-                      key={`${item.produto_codigo}-${index}`}
-                      className="hover:bg-muted/30"
-                    >
-                      <TableCell className="font-medium text-muted-foreground">
-                        {index + 1}º
-                      </TableCell>
-                      <TableCell className="font-mono">
-                        {item.produto_codigo}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {item.produto_nome}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {item.grupo || '-'}
-                      </TableCell>
-                      <TableCell className="text-right font-bold text-blue-600">
-                        {item.quantidade_total.toFixed(2).replace('.', ',')}
-                      </TableCell>
-                      <TableCell className="text-right font-mono">
-                        R$ {formatCurrency(item.valor_total)}
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  filteredData.map((item, index) => {
+                    const unitPrice =
+                      item.quantidade_total > 0
+                        ? item.valor_total / item.quantidade_total
+                        : 0
+                    const defaultUnitCost = unitPrice * 0.3
+
+                    const manualCostStr = manualCosts[item.produto_codigo]
+                    const currentUnitCost =
+                      manualCostStr !== undefined
+                        ? parseCurrency(manualCostStr)
+                        : defaultUnitCost
+
+                    const currentTotalCost =
+                      currentUnitCost * item.quantidade_total
+
+                    return (
+                      <TableRow
+                        key={`${item.produto_codigo}-${index}`}
+                        className="hover:bg-muted/30"
+                      >
+                        <TableCell className="font-medium text-muted-foreground">
+                          {index + 1}º
+                        </TableCell>
+                        <TableCell className="font-mono">
+                          {item.produto_codigo}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {item.produto_nome}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {item.grupo || '-'}
+                        </TableCell>
+                        <TableCell className="text-right font-bold text-blue-600">
+                          {item.quantidade_total.toFixed(2).replace('.', ',')}
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                          R$ {formatCurrency(item.valor_total)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Input
+                            className="h-8 text-right font-mono text-xs w-[100px] ml-auto"
+                            value={
+                              manualCostStr !== undefined
+                                ? manualCostStr
+                                : formatCurrency(defaultUnitCost)
+                            }
+                            onChange={(e) =>
+                              setManualCosts((prev) => ({
+                                ...prev,
+                                [item.produto_codigo]: e.target.value,
+                              }))
+                            }
+                          />
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-bold text-red-600">
+                          R$ {formatCurrency(currentTotalCost)}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
                 )}
               </TableBody>
             </Table>

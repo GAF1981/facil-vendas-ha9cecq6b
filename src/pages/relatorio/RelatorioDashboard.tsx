@@ -21,6 +21,7 @@ import {
   Mail,
   Loader2,
   Target,
+  Receipt,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useUserStore } from '@/stores/useUserStore'
@@ -49,7 +50,6 @@ const RelatorioDashboard = () => {
   const [sendingEmail, setSendingEmail] = useState(false)
   const { toast } = useToast()
 
-  // Check if admin for Import Card visibility
   const userSectors = Array.isArray(employee?.setor)
     ? employee.setor
     : [employee?.setor]
@@ -165,6 +165,14 @@ const RelatorioDashboard = () => {
       bg: 'bg-orange-100',
     },
     {
+      title: 'Despesas',
+      description: 'Relatório detalhado de despesas por período.',
+      icon: Receipt,
+      to: '/relatorio/despesas',
+      color: 'text-red-500',
+      bg: 'bg-red-100',
+    },
+    {
       title: 'Relatório de Débitos',
       description: 'Acompanhamento histórico de dívidas e pagamentos.',
       icon: CreditCard,
@@ -227,7 +235,6 @@ const RelatorioDashboard = () => {
     },
   ]
 
-  // Add Import card only if Admin
   if (isAdmin) {
     reports.push({
       title: 'Importação de Saldo Inicial',

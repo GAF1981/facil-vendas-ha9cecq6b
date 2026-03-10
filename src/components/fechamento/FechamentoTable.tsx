@@ -24,6 +24,7 @@ import {
   Banknote,
   Trash2,
   Unlock,
+  RotateCcw,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -89,20 +90,6 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
   }
 
   const handleReopen = async (item: FechamentoCaixa) => {
-    const isGedeon = item.funcionario?.nome_completo
-      ?.toLowerCase()
-      .includes('gedeon')
-
-    if (item.rota_id !== 48 || !isGedeon) {
-      toast({
-        title: 'Ação não permitida',
-        description:
-          'A reabertura de caixa está restrita apenas para a Rota 48 e funcionário Gedeon para evitar modificações acidentais.',
-        variant: 'destructive',
-      })
-      return
-    }
-
     setLoadingIds((prev) => new Set(prev).add(item.id))
     try {
       await fechamentoService.reopenClosing(
@@ -119,7 +106,7 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
     } catch (error: any) {
       console.error(error)
       toast({
-        title: 'Ação não permitida',
+        title: 'Erro ao reverter',
         description: error.message || 'Falha ao reabrir o caixa.',
         variant: 'destructive',
       })
@@ -180,8 +167,6 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
         className: 'bg-green-600 text-white',
       })
 
-      // Pass true for forceClosed to simulate the just-closed state
-      // Defaulting to A4 for automatic generation
       await handleGeneratePdf(item, 'A4', true)
       onRefresh()
     } catch (error) {
@@ -320,13 +305,12 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
             data.map((item) => {
               const isClosed = item.status === 'Fechado'
 
-              // Validation Logic: Stricter - REQUIRE ALL CHECKBOXES including Saldo Acerto
               const canConfirm =
                 item.dinheiro_aprovado &&
                 item.pix_aprovado &&
                 item.cheque_aprovado &&
                 item.despesas_aprovadas &&
-                item.saldo_acerto_aprovado && // NEW Mandatory Check
+                item.saldo_acerto_aprovado &&
                 !isClosed
 
               const isLoading = loadingIds.has(item.id)
@@ -366,7 +350,6 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
                     R$ {formatCurrency(item.valor_a_receber)}
                   </TableCell>
 
-                  {/* Approval Columns */}
                   <TableCell className="border-l bg-green-50/20 text-center p-2">
                     <div className="flex flex-col items-center gap-1">
                       <span className="text-xs font-semibold text-green-700">
@@ -471,7 +454,6 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
                     {item.responsavel?.nome_completo || '-'}
                   </TableCell>
 
-                  {/* Recolhido Column */}
                   <TableCell className="text-center">
                     {isClosed ? (
                       item.recolhido_por_id ? (
@@ -503,7 +485,6 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
                     )}
                   </TableCell>
 
-                  {/* Ação Column */}
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
                       <DropdownMenu>
@@ -543,32 +524,43 @@ export function FechamentoTable({ data, onRefresh }: FechamentoTableProps) {
                             <Printer className="mr-2 h-4 w-4" />
                             Relatório Térmico (80mm)
                           </DropdownMenuItem>
-                          {isClosed && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => handleReopen(item)}
-                                className="text-red-600 focus:text-red-700 focus:bg-red-50"
-                                disabled={isLoading || isGeneratingPdf}
-                              >
-                                <Unlock className="mr-2 h-4 w-4" />
-                                Reabrir Caixa
-                              </DropdownMenuItem>
-                            </>
-                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
 
                       {isClosed ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled
-                          className="text-green-600 font-bold opacity-100"
-                        >
-                          <CheckCheck className="mr-2 h-4 w-4" />
-                          Confirmado
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled
+                            className="text-green-600 font-bold opacity-100"
+                          >
+                            <CheckCheck className="mr-2 h-4 w-4" />
+                            Confirmado
+                          </Button>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-8 w-8 text-orange-600 hover:text-orange-700 hover:bg-orange-50 border-orange-200"
+                                  onClick={() => handleReopen(item)}
+                                  disabled={isLoading || isGeneratingPdf}
+                                >
+                                  {isLoading ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <RotateCcw className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Reverter Fechamento</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                       ) : (
                         <>
                           <AlertDialog>
