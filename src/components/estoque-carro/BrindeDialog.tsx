@@ -198,12 +198,17 @@ export function BrindeDialog({
       form.setValue('produto_nome', p.PRODUTO || '', {
         shouldValidate: true,
       })
-      setTimeout(() => quantityRef.current?.focus(), 50)
+      form.setValue('quantidade', 1, { shouldValidate: true })
+      setTimeout(() => {
+        quantityRef.current?.focus()
+        quantityRef.current?.select()
+      }, 50)
     } else {
       form.setValue('produto_codigo', undefined as any, {
         shouldValidate: true,
       })
       form.setValue('produto_nome', '', { shouldValidate: true })
+      form.setValue('quantidade', 1)
     }
   }
 

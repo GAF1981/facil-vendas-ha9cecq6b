@@ -135,10 +135,16 @@ export function InventoryActionDialog({
           PREÇO: preselectedProduct.PREÇO,
         } as ProductRow
         setSelectedProduct(prod)
+        setQuantity('1')
+        setTimeout(() => {
+          quantityRef.current?.focus()
+          quantityRef.current?.select()
+        }, 150)
       } else {
         setSelectedProduct(null)
         setBarcode('')
         setInputMode('barcode')
+        setQuantity('')
         setTimeout(() => {
           barcodeRef.current?.focus()
         }, 150)
@@ -162,7 +168,6 @@ export function InventoryActionDialog({
 
       Promise.all(promises).finally(() => setLoading(false))
 
-      setQuantity('')
       setCostValue('')
       setReason('')
 
@@ -182,6 +187,7 @@ export function InventoryActionDialog({
     setSelectedProduct(prod)
 
     if (prod) {
+      setQuantity('1')
       if (type === 'COMPRA' && prod.PREÇO) {
         const salePrice = parseCurrency(prod.PREÇO)
         const calculatedCost = salePrice * 0.3
@@ -190,7 +196,10 @@ export function InventoryActionDialog({
       // Auto focus quantity input when product is picked
       setTimeout(() => {
         quantityRef.current?.focus()
+        quantityRef.current?.select()
       }, 50)
+    } else {
+      setQuantity('')
     }
   }
 
@@ -411,7 +420,7 @@ export function InventoryActionDialog({
                         variant="ghost"
                         size="icon"
                         onClick={() => {
-                          setSelectedProduct(null)
+                          handleProductSelect(null)
                           setTimeout(() => barcodeRef.current?.focus(), 50)
                         }}
                       >

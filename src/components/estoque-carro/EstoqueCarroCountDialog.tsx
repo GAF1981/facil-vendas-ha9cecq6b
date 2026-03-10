@@ -46,6 +46,7 @@ export function EstoqueCarroCountDialog({
   const [quantity, setQuantity] = useState('')
   const [loading, setLoading] = useState(false)
   const barcodeRef = useRef<HTMLInputElement>(null)
+  const quantityRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
   const { employee } = useUserStore()
 
@@ -58,7 +59,11 @@ export function EstoqueCarroCountDialog({
           PRODUTO: preselectedProduct.produto,
         } as ProductRow)
         setStep(2)
-        setQuantity('')
+        setQuantity('1')
+        setTimeout(() => {
+          quantityRef.current?.focus()
+          quantityRef.current?.select()
+        }, 150)
       } else {
         setStep(1)
         setSelectedProduct(null)
@@ -95,6 +100,11 @@ export function EstoqueCarroCountDialog({
     if (p) {
       setSelectedProduct(p)
       setStep(2)
+      setQuantity('1')
+      setTimeout(() => {
+        quantityRef.current?.focus()
+        quantityRef.current?.select()
+      }, 50)
     }
   }
 
@@ -269,6 +279,7 @@ export function EstoqueCarroCountDialog({
             <div className="space-y-2">
               <label className="text-sm font-medium">Quantidade Contada</label>
               <Input
+                ref={quantityRef}
                 type="number"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
@@ -278,7 +289,6 @@ export function EstoqueCarroCountDialog({
                     handleSave()
                   }
                 }}
-                autoFocus
                 placeholder="0"
                 disabled={loading}
               />
