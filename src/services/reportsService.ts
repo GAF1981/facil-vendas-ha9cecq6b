@@ -41,6 +41,15 @@ export interface TopSellingItemV4 {
   tipo: string | null
 }
 
+export interface TopSellingItemV5 {
+  produto_nome: string
+  produto_codigo: number
+  quantidade_total: number
+  valor_total: number
+  estoque_inicial_total: number
+  grupo: string | null
+}
+
 export interface AdjustmentReportRow {
   id: number
   numero_pedido: number | null
@@ -362,12 +371,40 @@ export const reportsService = {
     return data as TopSellingItemV4[]
   },
 
+  async getTopSellingItemsV5(
+    startDate: string,
+    endDate: string,
+    funcionarioId?: number,
+    grupo?: string,
+  ): Promise<TopSellingItemV5[]> {
+    const { data, error } = await supabase.rpc(
+      'get_top_selling_items_v5' as any,
+      {
+        start_date: startDate,
+        end_date: endDate,
+        p_funcionario_id: funcionarioId,
+        p_grupo: grupo,
+      },
+    )
+
+    if (error) throw error
+    return data as TopSellingItemV5[]
+  },
+
   async getUniqueProductTypes(): Promise<string[]> {
     const { data, error } = await supabase.rpc(
       'get_unique_product_types' as any,
     )
     if (error) throw error
     return (data || []).map((d: any) => d.tipo)
+  },
+
+  async getUniqueProductGroups(): Promise<string[]> {
+    const { data, error } = await supabase.rpc(
+      'get_unique_product_groups' as any,
+    )
+    if (error) throw error
+    return (data || []).map((d: any) => d.grupo)
   },
 
   async getInitialBalanceAdjustments(filters?: {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   Card,
   CardContent,
@@ -24,7 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { reportsService, TopSellingItemV4 } from '@/services/reportsService'
+import { reportsService, TopSellingItemV5 } from '@/services/reportsService'
 import { formatCurrency } from '@/lib/formatters'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 import {
@@ -40,11 +40,11 @@ import { MetricCard } from '@/components/dashboard/MetricCard'
 
 export default function TopSellingReportsPage() {
   const [loading, setLoading] = useState(false)
-  const [data, setData] = useState<TopSellingItemV4[]>([])
-  const [tipos, setTipos] = useState<string[]>([])
+  const [data, setData] = useState<TopSellingItemV5[]>([])
+  const [grupos, setGrupos] = useState<string[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [selectedTipo, setSelectedTipo] = useState<string>('todos')
+  const [selectedGrupo, setSelectedGrupo] = useState<string>('todos')
 
   const [startDate, setStartDate] = useState(
     format(startOfMonth(new Date()), 'yyyy-MM-dd'),
@@ -54,7 +54,7 @@ export default function TopSellingReportsPage() {
   )
 
   useEffect(() => {
-    reportsService.getUniqueProductTypes().then(setTipos).catch(console.error)
+    reportsService.getUniqueProductGroups().then(setGrupos).catch(console.error)
   }, [])
 
   useEffect(() => {
@@ -64,12 +64,14 @@ export default function TopSellingReportsPage() {
     return () => clearTimeout(handler)
   }, [searchTerm])
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const result = await reportsService.getTopSellingItemsV4(
+      const result = await reportsService.getTopSellingItemsV5(
         startDate,
         endDate,
+        undefined,
+        selectedGrupo !== 'todos' ? selectedGrupo : undefined,
       )
       setData(result)
     } catch (error) {
@@ -77,7 +79,7 @@ export default function TopSellingReportsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [startDate, endDate, selectedGrupo])
 
   const handleMonthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value
@@ -90,14 +92,10 @@ export default function TopSellingReportsPage() {
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [fetchData])
 
   const filteredData = useMemo(() => {
     let filtered = data
-
-    if (selectedTipo && selectedTipo !== 'todos') {
-      filtered = filtered.filter((item) => item.tipo === selectedTipo)
-    }
 
     if (debouncedSearch) {
       const lower = debouncedSearch.toLowerCase()
@@ -110,7 +108,7 @@ export default function TopSellingReportsPage() {
     }
 
     return filtered
-  }, [data, debouncedSearch, selectedTipo])
+  }, [data, debouncedSearch])
 
   const totalValue = filteredData.reduce(
     (acc, item) => acc + item.valor_total,
@@ -144,7 +142,7 @@ export default function TopSellingReportsPage() {
         <CardHeader>
           <CardTitle>Filtros</CardTitle>
           <CardDescription>
-            Selecione o mês, tipo de produto ou busque itens específicos.
+            Selecione o mês, grupo de produto ou busque itens específicos.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -160,16 +158,16 @@ export default function TopSellingReportsPage() {
                 />
               </div>
               <div className="w-full sm:w-[200px] space-y-2">
-                <Label>Tipo de Produto</Label>
-                <Select value={selectedTipo} onValueChange={setSelectedTipo}>
+                <Label>Grupo de Produto</Label>
+                <Select value={selectedGrupo} onValueChange={setSelectedGrupo}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Todos os tipos" />
+                    <SelectValue placeholder="Todos os grupos" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="todos">Todos</SelectItem>
-                    {tipos.map((tipo) => (
-                      <SelectItem key={tipo} value={tipo}>
-                        {tipo}
+                    {grupos.map((grupo) => (
+                      <SelectItem key={grupo} value={grupo}>
+                        {grupo}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -261,7 +259,7 @@ export default function TopSellingReportsPage() {
                   <TableHead className="w-[80px]">Rank</TableHead>
                   <TableHead className="w-[100px]">Código</TableHead>
                   <TableHead>Produto</TableHead>
-                  <TableHead>Tipo</TableHead>
+                  <TableHead>Grupo</TableHead>
                   <TableHead className="text-right">Qtd. Vendida</TableHead>
                   <TableHead className="text-right">Valor Total</TableHead>
                 </TableRow>
@@ -311,7 +309,7 @@ export default function TopSellingReportsPage() {
                         {item.produto_nome}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {item.tipo || '-'}
+                        {item.grupo || '-'}
                       </TableCell>
                       <TableCell className="text-right font-bold text-blue-600">
                         {item.quantidade_total.toFixed(2).replace('.', ',')}
