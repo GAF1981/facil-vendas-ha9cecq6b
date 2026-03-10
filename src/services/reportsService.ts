@@ -663,9 +663,17 @@ export const reportsService = {
     if (error) throw error
 
     return (data || []).map((exp: any) => {
+      const saiuDoCaixa = exp.saiu_do_caixa !== false
       let computedStatus = exp.status || 'A confirmar'
-      if (exp.saiu_do_caixa === false) {
+
+      if (saiuDoCaixa) {
         computedStatus = 'Confirmado'
+      } else {
+        if (exp.status === 'Confirmado' && exp.banco_pagamento) {
+          computedStatus = 'Confirmado'
+        } else {
+          computedStatus = 'A confirmar'
+        }
       }
 
       return {
@@ -675,7 +683,7 @@ export const reportsService = {
         grupo: exp['Grupo de Despesas'],
         funcionario_id: exp.funcionario_id,
         funcionario_nome: exp.FUNCIONARIOS?.nome_completo || 'N/D',
-        saiu_do_caixa: exp.saiu_do_caixa,
+        saiu_do_caixa: saiuDoCaixa,
         valor: Number(exp.Valor),
         status: computedStatus,
         banco_pagamento: exp.banco_pagamento,

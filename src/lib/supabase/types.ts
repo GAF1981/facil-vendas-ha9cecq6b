@@ -3966,6 +3966,20 @@ export const Constants = {
 //     USING: true
 
 // --- DATABASE FUNCTIONS ---
+// FUNCTION auto_confirm_despesa()
+//   CREATE OR REPLACE FUNCTION public.auto_confirm_despesa()
+//    RETURNS trigger
+//    LANGUAGE plpgsql
+//    SECURITY DEFINER
+//   AS $function$
+//   BEGIN
+//     IF NEW.saiu_do_caixa = false THEN
+//       NEW.status := 'Confirmado';
+//     END IF;
+//     RETURN NEW;
+//   END;
+//   $function$
+//   
 // FUNCTION auto_finalize_overdue_routes()
 //   CREATE OR REPLACE FUNCTION public.auto_finalize_overdue_routes()
 //    RETURNS jsonb
@@ -4007,15 +4021,6 @@ export const Constants = {
 //   END;
 //   $function$
 //   
-// FUNCTION btrim(date)
-//   CREATE OR REPLACE FUNCTION public.btrim(d date)
-//    RETURNS text
-//    LANGUAGE sql
-//    IMMUTABLE
-//   AS $function$
-//     SELECT btrim(d::text);
-//   $function$
-//   
 // FUNCTION btrim(time without time zone)
 //   CREATE OR REPLACE FUNCTION public.btrim(t time without time zone)
 //    RETURNS text
@@ -4023,6 +4028,15 @@ export const Constants = {
 //    IMMUTABLE
 //   AS $function$
 //     SELECT btrim(t::text);
+//   $function$
+//   
+// FUNCTION btrim(date)
+//   CREATE OR REPLACE FUNCTION public.btrim(d date)
+//    RETURNS text
+//    LANGUAGE sql
+//    IMMUTABLE
+//   AS $function$
+//     SELECT btrim(d::text);
 //   $function$
 //   
 // FUNCTION bulk_update_product_codes(json)
@@ -5457,6 +5471,8 @@ export const Constants = {
 // Table: BANCO_DE_DADOS
 //   trg_reset_x_na_rota_bd: CREATE TRIGGER trg_reset_x_na_rota_bd AFTER INSERT ON public."BANCO_DE_DADOS" FOR EACH ROW EXECUTE FUNCTION reset_x_na_rota_on_activity()
 //   trg_update_debito_historico_sales: CREATE TRIGGER trg_update_debito_historico_sales AFTER INSERT OR UPDATE ON public."BANCO_DE_DADOS" FOR EACH ROW EXECUTE FUNCTION trigger_update_debito_historico_sales()
+// Table: DESPESAS
+//   on_despesa_auto_confirm: CREATE TRIGGER on_despesa_auto_confirm BEFORE INSERT OR UPDATE OF saiu_do_caixa, status ON public."DESPESAS" FOR EACH ROW EXECUTE FUNCTION auto_confirm_despesa()
 // Table: RECEBIMENTOS
 //   trg_reset_x_na_rota_rec: CREATE TRIGGER trg_reset_x_na_rota_rec AFTER INSERT ON public."RECEBIMENTOS" FOR EACH ROW EXECUTE FUNCTION reset_x_na_rota_on_activity()
 //   trg_sync_pix_receipt: CREATE TRIGGER trg_sync_pix_receipt AFTER INSERT OR UPDATE OF forma_pagamento ON public."RECEBIMENTOS" FOR EACH ROW EXECUTE FUNCTION sync_pix_receipt_on_insert()
