@@ -139,11 +139,16 @@ export function ProductCombobox({
       return
     }
 
+    // Always prevent form submission on Enter inside this combobox input
+    // We do NOT call stopPropagation so cmdk can still process the Enter key to select the item internally
+    if (e.key === 'Enter') {
+      e.preventDefault()
+    }
+
+    // If manual mode is active, we bypass all scanner intercept logic and let cmdk handle selection completely
     if (disableScanner) {
-      if (e.key === 'Enter') {
-        if (!open || products.length === 0) {
-          e.preventDefault()
-        }
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        isNavigating.current = true
       }
       return
     }
@@ -176,7 +181,6 @@ export function ProductCombobox({
 
     const term = searchTerm.trim()
     if (!term) {
-      e.preventDefault() // Always prevent form submission on empty Enter
       return
     }
 
@@ -197,7 +201,6 @@ export function ProductCombobox({
 
     // Only intercept if we know it's a scanner OR we have an exact code match WITHOUT user navigating
     if (isFastScan || exactMatchInState) {
-      e.preventDefault()
       e.stopPropagation() // Prevent cmdk from selecting highlighted item incorrectly
 
       if (exactMatchInState) {
@@ -241,10 +244,7 @@ export function ProductCombobox({
         keyPressCount.current = 0
       }
     } else {
-      // Let normal Enter event through so cmdk can select the actively highlighted item
-      if (!open || products.length === 0) {
-        e.preventDefault()
-      }
+      // Allow cmdk to handle normal selection naturally
       keyPressCount.current = 0
     }
   }
@@ -328,9 +328,17 @@ export function ProductCombobox({
                     key={product.ID}
                     value={product.ID.toString()}
                     onSelect={() => handleSelect(product)}
-                    className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-2 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                    onMouseDown={(e) => {
+                      // Prevent input blur which could close the popover prematurely
+                      e.preventDefault()
+                    }}
+                    onClick={() => {
+                      // Explicitly handle click to ensure absolute manual selection priority
+                      handleSelect(product)
+                    }}
+                    className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground aria-selected:bg-accent aria-selected:text-accent-foreground data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
                   >
-                    <div className="flex flex-col overflow-hidden w-full">
+                    <div className="flex flex-col overflow-hidden w-full pointer-events-none">
                       <div className="flex justify-between items-center w-full">
                         <span className="truncate font-medium">
                           {product.PRODUTO}
