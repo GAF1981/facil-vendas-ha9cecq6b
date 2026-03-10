@@ -90,8 +90,13 @@ export interface ExpenseReportRow {
   detalhamento: string
   grupo: string
   funcionario_nome: string
+  funcionario_id?: number
   saiu_do_caixa: boolean
   valor: number
+  status: string
+  banco_pagamento: string | null
+  banco_outro: string | null
+  data_lancamento: string | null
 }
 
 export const reportsService = {
@@ -620,8 +625,10 @@ export const reportsService = {
   async getExpensesReport(
     startDate: string,
     endDate: string,
+    grupo?: string,
+    funcionarioId?: string,
   ): Promise<ExpenseReportRow[]> {
-    const { data, error } = await supabase
+    let query = supabase
       .from('DESPESAS')
       .select(
         `
@@ -631,12 +638,27 @@ export const reportsService = {
         "Grupo de Despesas",
         Valor,
         saiu_do_caixa,
+        funcionario_id,
+        status,
+        banco_pagamento,
+        banco_outro,
+        data_lancamento,
         FUNCIONARIOS ( nome_completo )
       `,
       )
       .gte('Data', startDate)
       .lte('Data', endDate + 'T23:59:59')
       .order('Data', { ascending: false })
+
+    if (grupo && grupo !== 'todos') {
+      query = query.eq('Grupo de Despesas', grupo)
+    }
+
+    if (funcionarioId && funcionarioId !== 'todos') {
+      query = query.eq('funcionario_id', parseInt(funcionarioId))
+    }
+
+    const { data, error } = await query
 
     if (error) throw error
 
@@ -645,9 +667,36 @@ export const reportsService = {
       data: exp.Data || '',
       detalhamento: exp.Detalhamento,
       grupo: exp['Grupo de Despesas'],
+      funcionario_id: exp.funcionario_id,
       funcionario_nome: exp.FUNCIONARIOS?.nome_completo || 'N/D',
       saiu_do_caixa: exp.saiu_do_caixa,
       valor: Number(exp.Valor),
+      status: exp.status || 'A confirmar',
+      banco_pagamento: exp.banco_pagamento,
+      banco_outro: exp.banco_outro,
+      data_lancamento: exp.data_lancamento,
     }))
+  },
+
+  async updateExpenseConfirmation(
+    id: number,
+    data: {
+      status: string
+      banco_pagamento?: string | null
+      banco_outro?: string | null
+      data_lancamento?: string | null
+    },
+  ) {
+    const { error } = await supabase
+      .from('DESPESAS')
+      .update({
+        status: data.status,
+        banco_pagamento: data.banco_pagamento,
+        banco_outro: data.banco_outro,
+        data_lancamento: data.data_lancamento,
+      })
+      .eq('id', id)
+
+    if (error) throw error
   },
 }
