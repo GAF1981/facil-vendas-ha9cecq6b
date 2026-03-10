@@ -12,6 +12,7 @@ import { parseISO, isBefore, isAfter, isValid } from 'date-fns'
 import { usePermissions } from '@/hooks/use-permissions'
 import { useUserStore } from '@/stores/useUserStore'
 import { BulkFillNextSellerDialog } from '@/components/rota/BulkFillNextSellerDialog'
+import { ParametrosDialog } from '@/components/rota/ParametrosDialog'
 
 export default function RotaPage() {
   const [activeRota, setActiveRota] = useState<Rota | null>(null)
@@ -31,8 +32,10 @@ export default function RotaPage() {
   const [isSelectionMode, setIsSelectionMode] = useState(true)
   const [isFiltrosActive, setIsFiltrosActive] = useState(true)
   const [isGerencialActive, setIsGerencialActive] = useState(true)
+  const [isParametrosActive, setIsParametrosActive] = useState(true)
 
   const [isBulkFillOpen, setIsBulkFillOpen] = useState(false)
+  const [isParametrosModalOpen, setIsParametrosModalOpen] = useState(false)
 
   const [filters, setFilters] = useState<RotaFilterState>(() => {
     let initialVendedor: string[] = []
@@ -627,6 +630,9 @@ export default function RotaPage() {
         toggleFiltros={setIsFiltrosActive}
         isGerencialActive={isGerencialActive}
         toggleGerencial={setIsGerencialActive}
+        isParametrosActive={isParametrosActive}
+        toggleParametros={setIsParametrosActive}
+        onOpenParametrosModal={() => setIsParametrosModalOpen(true)}
         activeRotaId={activeRota?.id}
         onDataChange={loadData}
       />
@@ -651,6 +657,14 @@ export default function RotaPage() {
         onConfirm={handleBulkFillConfirm}
         sellers={sellers}
         rowCount={sortedRows.length}
+      />
+
+      <ParametrosDialog
+        open={isParametrosModalOpen}
+        onOpenChange={setIsParametrosModalOpen}
+        rows={sortedRows}
+        activeRotaId={activeRota?.id}
+        onComplete={loadData}
       />
     </div>
   )

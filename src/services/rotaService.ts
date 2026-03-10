@@ -262,6 +262,56 @@ export const rotaService = {
     await Promise.all(promises)
   },
 
+  async bulkUpdateNextSellersVariable(
+    rotaId: number,
+    assignments: { clientId: number; sellerId: number | null }[],
+  ) {
+    if (assignments.length === 0) return
+
+    const clientIds = assignments.map((a) => a.clientId)
+    const { data: existingItems, error: fetchError } = await supabase
+      .from('ROTA_ITEMS')
+      .select(
+        'id, cliente_id, vendedor_id, x_na_rota, boleto, agregado, tarefas',
+      )
+      .eq('rota_id', rotaId)
+      .in('cliente_id', clientIds)
+
+    if (fetchError) throw fetchError
+
+    const itemMap = new Map((existingItems || []).map((i) => [i.cliente_id, i]))
+    const rowsToUpsert = []
+
+    for (const a of assignments) {
+      const item = itemMap.get(a.clientId)
+      if (item) {
+        rowsToUpsert.push({
+          ...item,
+          vendedor_proximo_id: a.sellerId,
+        })
+      } else {
+        rowsToUpsert.push({
+          rota_id: rotaId,
+          cliente_id: a.clientId,
+          vendedor_proximo_id: a.sellerId,
+          x_na_rota: 0,
+          boleto: false,
+          agregado: false,
+        })
+      }
+    }
+
+    if (rowsToUpsert.length > 0) {
+      const chunkSize = 1000
+      for (let i = 0; i < rowsToUpsert.length; i += chunkSize) {
+        const { error } = await supabase
+          .from('ROTA_ITEMS')
+          .upsert(rowsToUpsert.slice(i, i + chunkSize))
+        if (error) throw error
+      }
+    }
+  },
+
   async bulkClearNextSellers(rotaId: number) {
     const { error } = await supabase
       .from('ROTA_ITEMS')

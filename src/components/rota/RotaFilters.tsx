@@ -40,6 +40,9 @@ interface RotaFiltersProps {
   toggleFiltros: (value: boolean) => void
   isGerencialActive: boolean
   toggleGerencial: (value: boolean) => void
+  isParametrosActive?: boolean
+  toggleParametros?: (value: boolean) => void
+  onOpenParametrosModal?: () => void
   activeRotaId?: number
   onDataChange?: () => void
 }
@@ -56,6 +59,9 @@ export function RotaFilters({
   toggleFiltros,
   isGerencialActive,
   toggleGerencial,
+  isParametrosActive,
+  toggleParametros,
+  onOpenParametrosModal,
 }: RotaFiltersProps) {
   const handleChange = (key: keyof RotaFilterState, value: any) => {
     setFilters({ ...filters, [key]: value })
@@ -149,6 +155,33 @@ export function RotaFilters({
                 Gerencial
               </Label>
             </div>
+
+            {toggleParametros && (
+              <div className="flex items-center space-x-2 border-l pl-4">
+                <Switch
+                  id="parametros-mode"
+                  checked={isParametrosActive}
+                  onCheckedChange={toggleParametros}
+                  className="scale-75"
+                />
+                <Label
+                  htmlFor="parametros-mode"
+                  className="text-xs cursor-pointer flex items-center"
+                >
+                  Parâmetros
+                </Label>
+                {isParametrosActive && onOpenParametrosModal && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onOpenParametrosModal}
+                    className="h-6 text-[10px] px-2 ml-2 border-blue-300 text-blue-700 hover:bg-blue-50"
+                  >
+                    Configurar
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Filters Row */}

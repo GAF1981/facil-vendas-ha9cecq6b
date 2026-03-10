@@ -14,7 +14,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { RotateCcw, Loader2, Filter } from 'lucide-react'
+import {
+  RotateCcw,
+  Loader2,
+  Filter,
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+} from 'lucide-react'
 import { reportsService, AdjustmentReportRow } from '@/services/reportsService'
 import { employeesService } from '@/services/employeesService'
 import { format, parseISO } from 'date-fns'
@@ -30,6 +37,7 @@ import {
 } from '@/components/ui/select'
 import { Employee } from '@/types/employee'
 import { Button } from '@/components/ui/button'
+import { MetricCard } from '@/components/dashboard/MetricCard'
 
 export default function AdjustmentReportsPage() {
   const [data, setData] = useState<AdjustmentReportRow[]>([])
@@ -77,6 +85,19 @@ export default function AdjustmentReportsPage() {
     fetchData()
   }
 
+  const totalAjuste = data.reduce(
+    (acc, row) => acc + (row.valor_ajuste || 0),
+    0,
+  )
+  const positivoAjuste = data.reduce(
+    (acc, row) => acc + ((row.valor_ajuste || 0) > 0 ? row.valor_ajuste! : 0),
+    0,
+  )
+  const negativoAjuste = data.reduce(
+    (acc, row) => acc + ((row.valor_ajuste || 0) < 0 ? row.valor_ajuste! : 0),
+    0,
+  )
+
   return (
     <div className="space-y-6 animate-fade-in pb-20 md:pb-0">
       <div>
@@ -87,6 +108,27 @@ export default function AdjustmentReportsPage() {
         <p className="text-muted-foreground">
           Relatório de auditoria de alterações manuais no saldo inicial.
         </p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <MetricCard
+          title="Ajuste Total de Saldo Inicial"
+          value={`R$ ${formatCurrency(totalAjuste)}`}
+          icon={DollarSign}
+          iconClassName="text-primary"
+        />
+        <MetricCard
+          title="Ajuste Positivo de Saldo Inicial"
+          value={`R$ ${formatCurrency(positivoAjuste)}`}
+          icon={TrendingUp}
+          iconClassName="text-green-500"
+        />
+        <MetricCard
+          title="Ajuste Negativo de Saldo Inicial"
+          value={`R$ ${formatCurrency(Math.abs(negativoAjuste))}`}
+          icon={TrendingDown}
+          iconClassName="text-red-500"
+        />
       </div>
 
       <div className="flex flex-col sm:flex-row items-end sm:items-center gap-4 bg-muted/20 p-4 rounded-lg border">
@@ -122,7 +164,8 @@ export default function AdjustmentReportsPage() {
         <CardHeader>
           <CardTitle>Histórico de Ajustes</CardTitle>
           <CardDescription>
-            Exibindo os últimos 5000 ajustes realizados (filtrados).
+            Exibindo os últimos {data.length > 0 ? data.length : 5000} ajustes
+            realizados (filtrados).
           </CardDescription>
         </CardHeader>
         <CardContent>
