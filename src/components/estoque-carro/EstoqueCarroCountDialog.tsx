@@ -14,7 +14,7 @@ import { ProductRow } from '@/types/product'
 import { Loader2, Barcode, Search } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useUserStore } from '@/stores/useUserStore'
-import { ProductCombobox } from '@/components/products/ProductCombobox'
+import { ManualProductSelect } from '@/components/products/ManualProductSelect'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 
@@ -73,11 +73,6 @@ export function EstoqueCarroCountDialog({
     if (open && step === 1 && !preselectedProduct) {
       if (inputMode === 'barcode') {
         setTimeout(() => barcodeRef.current?.focus(), 50)
-      } else {
-        setTimeout(
-          () => document.getElementById('manual-search-input')?.focus(),
-          50,
-        )
       }
     }
   }, [inputMode, open, step, preselectedProduct])
@@ -180,8 +175,6 @@ export function EstoqueCarroCountDialog({
         setTimeout(() => {
           if (inputMode === 'barcode') {
             barcodeRef.current?.focus()
-          } else {
-            document.getElementById('manual-search-input')?.focus()
           }
         }, 100)
       }
@@ -250,14 +243,11 @@ export function EstoqueCarroCountDialog({
                     <Search className="w-4 h-4" />
                     Busca Manual
                   </Label>
-                  <ProductCombobox
-                    inputId="manual-search-input"
+                  <ManualProductSelect
                     selectedProduct={selectedProduct}
                     onSelect={handleProductSelect}
-                    className="w-full"
-                    excludeInternalCode={true}
+                    disabled={loading}
                     autoFocus={true}
-                    disableScanner={true}
                   />
                 </div>
               )}
@@ -306,8 +296,6 @@ export function EstoqueCarroCountDialog({
                     setTimeout(() => {
                       if (inputMode === 'barcode') {
                         barcodeRef.current?.focus()
-                      } else {
-                        document.getElementById('manual-search-input')?.focus()
                       }
                     }, 50)
                   }

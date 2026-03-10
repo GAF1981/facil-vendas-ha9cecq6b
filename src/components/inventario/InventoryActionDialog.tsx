@@ -27,7 +27,7 @@ import { Employee } from '@/types/employee'
 import { InventoryMovementType } from '@/types/inventory_general'
 import { useToast } from '@/hooks/use-toast'
 import { Textarea } from '@/components/ui/textarea'
-import { ProductCombobox } from '@/components/products/ProductCombobox'
+import { ManualProductSelect } from '@/components/products/ManualProductSelect'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 
 interface InventoryActionDialogProps {
@@ -117,11 +117,6 @@ export function InventoryActionDialog({
     if (open && !preselectedProduct) {
       if (inputMode === 'barcode') {
         setTimeout(() => barcodeRef.current?.focus(), 50)
-      } else {
-        setTimeout(
-          () => document.getElementById('manual-search-input')?.focus(),
-          50,
-        )
       }
     }
   }, [inputMode, open, preselectedProduct])
@@ -347,8 +342,6 @@ export function InventoryActionDialog({
         setTimeout(() => {
           if (inputMode === 'barcode') {
             barcodeRef.current?.focus()
-          } else {
-            document.getElementById('manual-search-input')?.focus()
           }
         }, 100)
       } else {
@@ -443,13 +436,11 @@ export function InventoryActionDialog({
                     <Search className="w-4 h-4" />
                     Busca Manual
                   </Label>
-                  <ProductCombobox
-                    inputId="manual-search-input"
+                  <ManualProductSelect
                     selectedProduct={selectedProduct}
                     onSelect={handleProductSelect}
                     disabled={loading || submitting}
                     autoFocus={true}
-                    disableScanner={true}
                   />
                 </div>
               )}
@@ -459,7 +450,7 @@ export function InventoryActionDialog({
               <Label>
                 Produto Pré-selecionado <span className="text-red-500">*</span>
               </Label>
-              <ProductCombobox
+              <ManualProductSelect
                 selectedProduct={selectedProduct}
                 onSelect={handleProductSelect}
                 disabled={true}
