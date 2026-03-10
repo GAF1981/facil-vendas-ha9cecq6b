@@ -617,7 +617,10 @@ export type Database = {
       }
       DESPESAS: {
         Row: {
+          banco_outro: string | null
+          banco_pagamento: string | null
           Data: string | null
+          data_lancamento: string | null
           Detalhamento: string
           funcionario_id: number
           "Grupo de Despesas": string
@@ -626,13 +629,17 @@ export type Database = {
           prestador_servico: string | null
           rota_id: number | null
           saiu_do_caixa: boolean | null
+          status: string | null
           tipo_combustivel: string | null
           tipo_servico: string | null
           Valor: number
           veiculo_id: number | null
         }
         Insert: {
+          banco_outro?: string | null
+          banco_pagamento?: string | null
           Data?: string | null
+          data_lancamento?: string | null
           Detalhamento: string
           funcionario_id: number
           "Grupo de Despesas": string
@@ -641,13 +648,17 @@ export type Database = {
           prestador_servico?: string | null
           rota_id?: number | null
           saiu_do_caixa?: boolean | null
+          status?: string | null
           tipo_combustivel?: string | null
           tipo_servico?: string | null
           Valor: number
           veiculo_id?: number | null
         }
         Update: {
+          banco_outro?: string | null
+          banco_pagamento?: string | null
           Data?: string | null
+          data_lancamento?: string | null
           Detalhamento?: string
           funcionario_id?: number
           "Grupo de Despesas"?: string
@@ -656,6 +667,7 @@ export type Database = {
           prestador_servico?: string | null
           rota_id?: number | null
           saiu_do_caixa?: boolean | null
+          status?: string | null
           tipo_combustivel?: string | null
           tipo_servico?: string | null
           Valor?: number
@@ -3127,6 +3139,10 @@ export const Constants = {
 //   tipo_servico: text (nullable)
 //   tipo_combustivel: text (nullable, default: 'alcool'::text)
 //   rota_id: bigint (nullable)
+//   status: text (nullable, default: 'A confirmar'::text)
+//   banco_pagamento: text (nullable)
+//   banco_outro: text (nullable)
+//   data_lancamento: date (nullable)
 // Table: ESTOQUE CARRO AJUSTES
 //   id: bigint (not null)
 //   id_estoque_carro: bigint (not null)

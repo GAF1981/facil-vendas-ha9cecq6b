@@ -662,20 +662,27 @@ export const reportsService = {
 
     if (error) throw error
 
-    return (data || []).map((exp: any) => ({
-      id: exp.id,
-      data: exp.Data || '',
-      detalhamento: exp.Detalhamento,
-      grupo: exp['Grupo de Despesas'],
-      funcionario_id: exp.funcionario_id,
-      funcionario_nome: exp.FUNCIONARIOS?.nome_completo || 'N/D',
-      saiu_do_caixa: exp.saiu_do_caixa,
-      valor: Number(exp.Valor),
-      status: exp.status || 'A confirmar',
-      banco_pagamento: exp.banco_pagamento,
-      banco_outro: exp.banco_outro,
-      data_lancamento: exp.data_lancamento,
-    }))
+    return (data || []).map((exp: any) => {
+      let computedStatus = exp.status || 'A confirmar'
+      if (exp.saiu_do_caixa === false) {
+        computedStatus = 'Confirmado'
+      }
+
+      return {
+        id: exp.id,
+        data: exp.Data || '',
+        detalhamento: exp.Detalhamento,
+        grupo: exp['Grupo de Despesas'],
+        funcionario_id: exp.funcionario_id,
+        funcionario_nome: exp.FUNCIONARIOS?.nome_completo || 'N/D',
+        saiu_do_caixa: exp.saiu_do_caixa,
+        valor: Number(exp.Valor),
+        status: computedStatus,
+        banco_pagamento: exp.banco_pagamento,
+        banco_outro: exp.banco_outro,
+        data_lancamento: exp.data_lancamento,
+      }
+    })
   },
 
   async updateExpenseConfirmation(
