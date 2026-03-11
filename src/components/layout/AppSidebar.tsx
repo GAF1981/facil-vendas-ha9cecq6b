@@ -23,6 +23,7 @@ import {
   ClipboardList,
   Map,
   BarChart3,
+  BarChart4,
   AlertCircle,
   Package,
   Database,
@@ -71,6 +72,12 @@ export function AppSidebar() {
       url: '/recebimento',
       icon: ArrowDownCircle,
       module: 'Recebimento',
+    },
+    {
+      title: 'DRE',
+      url: '/dre',
+      icon: BarChart4,
+      module: 'DRE',
     },
     {
       title: 'Caixa',

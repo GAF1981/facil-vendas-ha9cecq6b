@@ -28,7 +28,6 @@ import RelatorioDashboard from '@/pages/relatorio/RelatorioDashboard'
 import ProjectionsPage from '@/pages/relatorio/ProjectionsPage'
 import SalesReportsPage from '@/pages/relatorio/SalesReportsPage'
 import StockReportsPage from '@/pages/relatorio/StockReportsPage'
-import TopSellingReportsPage from '@/pages/relatorio/TopSellingReportsPage'
 import AdjustmentReportsPage from '@/pages/relatorio/AdjustmentReportsPage'
 import DebitosReportPage from '@/pages/relatorio/DebitosReportPage'
 import GeneralInventoryReportPage from '@/pages/relatorio/GeneralInventoryReportPage'
@@ -36,7 +35,6 @@ import FuelReportPage from '@/pages/relatorio/FuelReportPage'
 import ImportSaldoPage from '@/pages/relatorio/ImportSaldoPage'
 import BrindeReportPage from '@/pages/relatorio/BrindeReportPage'
 import MetasReportPage from '@/pages/relatorio/MetasReportPage'
-import ExpensesReportPage from '@/pages/relatorio/ExpensesReportPage'
 import CaixaPage from '@/pages/caixa/CaixaPage'
 import FechamentosPage from '@/pages/fechamento/FechamentosPage'
 import PagamentosPage from '@/pages/pagamentos/PagamentosPage'
@@ -51,6 +49,7 @@ import VehiclesPage from '@/pages/vehicles/VehiclesPage'
 import RotaMotoqueiroPage from '@/pages/rota-motoqueiro/RotaMotoqueiroPage'
 import EmailSeguroPage from '@/pages/email-seguro/EmailSeguroPage'
 import BoletosPage from '@/pages/boletos/BoletosPage'
+import DREPage from '@/pages/dre/DREPage'
 import { AuthProvider } from '@/hooks/use-auth'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { PermissionsProvider } from '@/hooks/use-permissions'
@@ -119,10 +118,6 @@ const App = () => (
                   path="/pix"
                   element={<Navigate to="/fechamentos" replace />}
                 />
-                <Route
-                  path="/relatorio/clientes-inativos"
-                  element={<Navigate to="/fechamentos" replace />}
-                />
 
                 <Route element={<PermissionGuard module="Fechamentos" />}>
                   <Route path="/fechamentos" element={<FechamentosPage />} />
@@ -166,6 +161,10 @@ const App = () => (
                   />
                 </Route>
 
+                <Route element={<PermissionGuard module="DRE" />}>
+                  <Route path="/dre" element={<DREPage />} />
+                </Route>
+
                 <Route element={<PermissionGuard module="Backup" />}>
                   <Route path="/backup" element={<BackupPage />} />
                 </Route>
@@ -192,9 +191,15 @@ const App = () => (
                     path="/relatorio/debitos"
                     element={<DebitosReportPage />}
                   />
+
+                  {/* Legacy Redirects to DRE */}
                   <Route
                     path="/relatorio/despesas"
-                    element={<ExpensesReportPage />}
+                    element={<Navigate to="/dre" replace />}
+                  />
+                  <Route
+                    path="/relatorio/itens-mais-vendidos"
+                    element={<Navigate to="/dre" replace />}
                   />
 
                   <Route element={<PermissionGuard module="Relatório Meta" />}>
@@ -204,10 +209,6 @@ const App = () => (
                     />
                   </Route>
 
-                  <Route
-                    path="/relatorio/itens-mais-vendidos"
-                    element={<TopSellingReportsPage />}
-                  />
                   <Route
                     path="/relatorio/ajustes-saldo"
                     element={<AdjustmentReportsPage />}
@@ -223,6 +224,10 @@ const App = () => (
                   <Route
                     path="/relatorio/inativar-clientes"
                     element={<InativarClientesPage />}
+                  />
+                  <Route
+                    path="/relatorio/clientes-inativos"
+                    element={<Navigate to="/fechamentos" replace />}
                   />
                   <Route
                     path="/relatorio/brinde"

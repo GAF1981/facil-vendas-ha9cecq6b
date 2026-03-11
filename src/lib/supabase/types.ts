@@ -3973,8 +3973,12 @@ export const Constants = {
 //    SECURITY DEFINER
 //   AS $function$
 //   BEGIN
-//     IF NEW.saiu_do_caixa = false THEN
+//     IF NEW.saiu_do_caixa = true OR NEW.saiu_do_caixa IS NULL THEN
 //       NEW.status := 'Confirmado';
+//     ELSE
+//       IF NEW.status IS NULL OR (NEW.status = 'Confirmado' AND NEW.banco_pagamento IS NULL) THEN
+//         NEW.status := 'A confirmar';
+//       END IF;
 //     END IF;
 //     RETURN NEW;
 //   END;
