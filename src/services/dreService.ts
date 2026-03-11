@@ -48,14 +48,22 @@ export const dreService = {
     return data
   },
 
-  async addCategoria(nome: string, tipo: string) {
+  async addCategoria(nome: string, tipo: string, recorrente: boolean = false) {
     const { data, error } = await supabase
       .from('dre_categorias')
-      .insert({ nome, tipo })
+      .insert({ nome, tipo, recorrente })
       .select()
       .single()
     if (error) throw error
     return data
+  },
+
+  async updateCategoriaRecorrente(nome: string, recorrente: boolean) {
+    const { error } = await supabase
+      .from('dre_categorias')
+      .update({ recorrente })
+      .eq('nome', nome)
+    if (error) throw error
   },
 
   async getCMV(mesReferencia: string) {

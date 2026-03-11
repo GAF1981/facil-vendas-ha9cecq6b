@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { format, startOfMonth, endOfMonth, parse } from 'date-fns'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -9,8 +9,11 @@ import { DREVendas } from '@/components/dre/DREVendas'
 import { DREDespesas } from '@/components/dre/DREDespesas'
 import { DRECustosFixos } from '@/components/dre/DRECustosFixos'
 import { LayoutDashboard } from 'lucide-react'
+import { DreProvider } from '@/stores/useDreStore'
+import useDreStore from '@/stores/useDreStore'
+import { reportsService } from '@/services/reportsService'
 
-export default function DREPage() {
+function DREPageContent() {
   const [mesReferencia, setMesReferencia] = useState(
     format(new Date(), 'yyyy-MM'),
   )
@@ -20,6 +23,41 @@ export default function DREPage() {
   const [endDate, setEndDate] = useState(
     format(endOfMonth(new Date()), 'yyyy-MM-dd'),
   )
+
+  const { costsPeriod, setCostsPeriod, setAllCustomCosts, setCmvTotal } =
+    useDreStore()
+
+  useEffect(() => {
+    const periodKey = `${startDate}-${endDate}`
+    if (costsPeriod !== periodKey) {
+      reportsService.getTopSellingItemsV5(startDate, endDate).then((result) => {
+        let total = 0
+        const newCosts: Record<string, string> = {}
+        result.forEach((item, index) => {
+          const id = item.produto_codigo
+            ? String(item.produto_codigo)
+            : `idx_${index}`
+          const precoMedio =
+            item.quantidade_total > 0
+              ? item.valor_total / item.quantidade_total
+              : 0
+          const custo = precoMedio * 0.3
+          newCosts[id] = custo.toFixed(2)
+          total += custo * item.quantidade_total
+        })
+        setAllCustomCosts(newCosts)
+        setCmvTotal(total)
+        setCostsPeriod(periodKey)
+      })
+    }
+  }, [
+    startDate,
+    endDate,
+    costsPeriod,
+    setAllCustomCosts,
+    setCmvTotal,
+    setCostsPeriod,
+  ])
 
   const handleMesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value
@@ -123,5 +161,13 @@ export default function DREPage() {
         </TabsContent>
       </Tabs>
     </div>
+  )
+}
+
+export default function DREPage() {
+  return (
+    <DreProvider>
+      <DREPageContent />
+    </DreProvider>
   )
 }

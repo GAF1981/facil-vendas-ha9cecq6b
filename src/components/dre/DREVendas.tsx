@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Table,
   TableBody,
@@ -31,6 +31,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { supabase } from '@/lib/supabase/client'
 import { useToast } from '@/hooks/use-toast'
+import useDreStore from '@/stores/useDreStore'
 
 interface DREVendasProps {
   startDate: string
@@ -39,6 +40,7 @@ interface DREVendasProps {
 
 export function DREVendas({ startDate, endDate }: DREVendasProps) {
   const { toast } = useToast()
+  const { customCosts, setCustomCost, setCmvTotal } = useDreStore()
   const [data, setData] = useState<TopSellingItemV5[]>([])
   const [loading, setLoading] = useState(false)
   const [grupoFiltro, setGrupoFiltro] = useState('todos')
@@ -48,8 +50,6 @@ export function DREVendas({ startDate, endDate }: DREVendasProps) {
   const [funcionarios, setFuncionarios] = useState<
     { id: number; nome: string }[]
   >([])
-
-  const [customCosts, setCustomCosts] = useState<Record<string, string>>({})
 
   useEffect(() => {
     supabase
@@ -81,20 +81,6 @@ export function DREVendas({ startDate, endDate }: DREVendasProps) {
         funcId,
         grupo,
       )
-
-      const newCosts: Record<string, string> = {}
-      result.forEach((item, index) => {
-        const id = item.produto_codigo
-          ? String(item.produto_codigo)
-          : `idx_${index}`
-        const precoMedio =
-          item.quantidade_total > 0
-            ? item.valor_total / item.quantidade_total
-            : 0
-        newCosts[id] = (precoMedio * 0.3).toFixed(2)
-      })
-      setCustomCosts(newCosts)
-
       setData(result)
     } catch (error) {
       console.error(error)
@@ -111,13 +97,20 @@ export function DREVendas({ startDate, endDate }: DREVendasProps) {
   const totalQtd = data.reduce((acc, row) => acc + row.quantidade_total, 0)
   const totalVal = data.reduce((acc, row) => acc + row.valor_total, 0)
 
-  const totalCMV = data.reduce((acc, item, index) => {
-    const id = item.produto_codigo
-      ? String(item.produto_codigo)
-      : `idx_${index}`
-    const custo = parseFloat(customCosts[id] || '0')
-    return acc + custo * item.quantidade_total
-  }, 0)
+  const totalCMV = useMemo(() => {
+    return data.reduce((acc, item, index) => {
+      const id = item.produto_codigo
+        ? String(item.produto_codigo)
+        : `idx_${index}`
+      const custo = parseFloat(customCosts[id] || '0')
+      return acc + custo * item.quantidade_total
+    }, 0)
+  }, [data, customCosts])
+
+  // Sync CMV back to global store when calculated
+  useEffect(() => {
+    setCmvTotal(totalCMV)
+  }, [totalCMV, setCmvTotal])
 
   const percentCusto = totalVal > 0 ? (totalCMV / totalVal) * 100 : 0
 
@@ -273,12 +266,7 @@ export function DREVendas({ startDate, endDate }: DREVendasProps) {
                           min="0"
                           className="w-24 ml-auto text-right h-8"
                           value={customCosts[id] ?? ''}
-                          onChange={(e) => {
-                            setCustomCosts((prev) => ({
-                              ...prev,
-                              [id]: e.target.value,
-                            }))
-                          }}
+                          onChange={(e) => setCustomCost(id, e.target.value)}
                         />
                       </TableCell>
                       <TableCell className="text-right font-mono font-medium text-rose-600">
