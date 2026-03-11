@@ -697,6 +697,57 @@ export type Database = {
           },
         ]
       }
+      dre_categorias: {
+        Row: {
+          created_at: string
+          id: number
+          nome: string
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          nome: string
+          tipo: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          nome?: string
+          tipo?: string
+        }
+        Relationships: []
+      }
+      dre_lancamentos: {
+        Row: {
+          categoria: string | null
+          created_at: string
+          data_lancamento: string
+          id: number
+          mes_referencia: string
+          tipo: string
+          valor: number
+        }
+        Insert: {
+          categoria?: string | null
+          created_at?: string
+          data_lancamento: string
+          id?: number
+          mes_referencia: string
+          tipo: string
+          valor?: number
+        }
+        Update: {
+          categoria?: string | null
+          created_at?: string
+          data_lancamento?: string
+          id?: number
+          mes_referencia?: string
+          tipo?: string
+          valor?: number
+        }
+        Relationships: []
+      }
       "ESTOQUE CARRO AJUSTES": {
         Row: {
           ajuste_manual: number | null
@@ -3508,6 +3559,19 @@ export const Constants = {
 //   rota: text (nullable)
 //   hora_acerto: text (nullable)
 //   desconto: numeric (nullable, default: 0)
+// Table: dre_categorias
+//   id: bigint (not null)
+//   nome: text (not null)
+//   tipo: text (not null)
+//   created_at: timestamp with time zone (not null, default: now())
+// Table: dre_lancamentos
+//   id: bigint (not null)
+//   mes_referencia: text (not null)
+//   data_lancamento: date (not null)
+//   tipo: text (not null)
+//   categoria: text (nullable)
+//   valor: numeric (not null, default: 0)
+//   created_at: timestamp with time zone (not null, default: now())
 // Table: fechamento_caixa
 //   id: bigint (not null)
 //   rota_id: bigint (not null)
@@ -3793,6 +3857,11 @@ export const Constants = {
 //   PRIMARY KEY configuracoes_pkey: PRIMARY KEY (id)
 // Table: debitos_historico
 //   PRIMARY KEY debitos_historico_pkey: PRIMARY KEY (id)
+// Table: dre_categorias
+//   UNIQUE dre_categorias_nome_key: UNIQUE (nome)
+//   PRIMARY KEY dre_categorias_pkey: PRIMARY KEY (id)
+// Table: dre_lancamentos
+//   PRIMARY KEY dre_lancamentos_pkey: PRIMARY KEY (id)
 // Table: fechamento_caixa
 //   FOREIGN KEY fechamento_caixa_funcionario_id_fkey: FOREIGN KEY (funcionario_id) REFERENCES "FUNCIONARIOS"(id)
 //   PRIMARY KEY fechamento_caixa_pkey: PRIMARY KEY (id)
@@ -3935,6 +4004,14 @@ export const Constants = {
 //     WITH CHECK: true
 //   Policy "Allow read access for authenticated users" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: true
+// Table: dre_categorias
+//   Policy "Enable all for authenticated users on dre_categorias" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: dre_lancamentos
+//   Policy "Enable all for authenticated users on dre_lancamentos" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
 // Table: fechamento_caixa
 //   Policy "Enable all access for all users" (ALL, PERMISSIVE) roles={public}
 //     USING: true
@@ -5536,6 +5613,8 @@ export const Constants = {
 // Table: debitos_historico
 //   CREATE INDEX idx_debitos_historico_cliente_codigo ON public.debitos_historico USING btree (cliente_codigo)
 //   CREATE UNIQUE INDEX idx_debitos_historico_pedido_id ON public.debitos_historico USING btree (pedido_id)
+// Table: dre_categorias
+//   CREATE UNIQUE INDEX dre_categorias_nome_key ON public.dre_categorias USING btree (nome)
 // Table: fechamento_caixa
 //   CREATE UNIQUE INDEX fechamento_caixa_rota_id_funcionario_id_key ON public.fechamento_caixa USING btree (rota_id, funcionario_id)
 //   CREATE INDEX idx_fechamento_caixa_funcionario_id ON public.fechamento_caixa USING btree (funcionario_id)

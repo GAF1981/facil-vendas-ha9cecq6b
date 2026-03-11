@@ -38,10 +38,10 @@ export function DREMensalGallery({
     async function load() {
       setLoading(true)
       try {
-        // Fetch Vendas
+        // Fetch Vendas - explicitly quoting column name with spaces to avoid PostgREST parsing errors
         const { data: vendas } = await supabase
           .from('BANCO_DE_DADOS')
-          .select('VALOR VENDIDO')
+          .select('"VALOR VENDIDO"')
           .gte('DATA DO ACERTO', startDate)
           .lte('DATA DO ACERTO', endDate)
 
