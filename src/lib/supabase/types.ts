@@ -4005,7 +4005,13 @@ export const Constants = {
 //   Policy "Allow read access for authenticated users" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: true
 // Table: dre_categorias
-//   Policy "Enable all for authenticated users on dre_categorias" (ALL, PERMISSIVE) roles={authenticated}
+//   Policy "Enable delete for authenticated users on dre_categorias" (DELETE, PERMISSIVE) roles={authenticated}
+//     USING: true
+//   Policy "Enable insert for authenticated users on dre_categorias" (INSERT, PERMISSIVE) roles={authenticated}
+//     WITH CHECK: true
+//   Policy "Enable select for authenticated users on dre_categorias" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
+//   Policy "Enable update for authenticated users on dre_categorias" (UPDATE, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
 // Table: dre_lancamentos

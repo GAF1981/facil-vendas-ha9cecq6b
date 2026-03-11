@@ -11,7 +11,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { MetricCard } from '@/components/dashboard/MetricCard'
 import { reportsService, TopSellingItemV5 } from '@/services/reportsService'
 import { formatCurrency } from '@/lib/formatters'
-import { Package, DollarSign, Loader2, Search } from 'lucide-react'
+import {
+  Package,
+  DollarSign,
+  Loader2,
+  Search,
+  TrendingDown,
+  Percent,
+} from 'lucide-react'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -21,6 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { supabase } from '@/lib/supabase/client'
 import { useToast } from '@/hooks/use-toast'
 
@@ -40,6 +48,8 @@ export function DREVendas({ startDate, endDate }: DREVendasProps) {
   const [funcionarios, setFuncionarios] = useState<
     { id: number; nome: string }[]
   >([])
+
+  const [customCosts, setCustomCosts] = useState<Record<string, string>>({})
 
   useEffect(() => {
     supabase
@@ -71,6 +81,20 @@ export function DREVendas({ startDate, endDate }: DREVendasProps) {
         funcId,
         grupo,
       )
+
+      const newCosts: Record<string, string> = {}
+      result.forEach((item, index) => {
+        const id = item.produto_codigo
+          ? String(item.produto_codigo)
+          : `idx_${index}`
+        const precoMedio =
+          item.quantidade_total > 0
+            ? item.valor_total / item.quantidade_total
+            : 0
+        newCosts[id] = (precoMedio * 0.3).toFixed(2)
+      })
+      setCustomCosts(newCosts)
+
       setData(result)
     } catch (error) {
       console.error(error)
@@ -86,6 +110,16 @@ export function DREVendas({ startDate, endDate }: DREVendasProps) {
 
   const totalQtd = data.reduce((acc, row) => acc + row.quantidade_total, 0)
   const totalVal = data.reduce((acc, row) => acc + row.valor_total, 0)
+
+  const totalCMV = data.reduce((acc, item, index) => {
+    const id = item.produto_codigo
+      ? String(item.produto_codigo)
+      : `idx_${index}`
+    const custo = parseFloat(customCosts[id] || '0')
+    return acc + custo * item.quantidade_total
+  }, 0)
+
+  const percentCusto = totalVal > 0 ? (totalCMV / totalVal) * 100 : 0
 
   return (
     <div className="space-y-6 animate-fade-in-up">
@@ -146,7 +180,7 @@ export function DREVendas({ startDate, endDate }: DREVendasProps) {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title="Quantidade Total Vendida"
           value={totalQtd}
@@ -159,6 +193,20 @@ export function DREVendas({ startDate, endDate }: DREVendasProps) {
           className="border-emerald-200 bg-emerald-50/20"
           iconClassName="text-emerald-500"
         />
+        <MetricCard
+          title="CMV Total"
+          value={`R$ ${formatCurrency(totalCMV)}`}
+          icon={TrendingDown}
+          className="border-rose-200 bg-rose-50/20"
+          iconClassName="text-rose-500"
+        />
+        <MetricCard
+          title="% Custo Total"
+          value={`${formatCurrency(percentCusto)}%`}
+          icon={Percent}
+          className="border-blue-200 bg-blue-50/20"
+          iconClassName="text-blue-500"
+        />
       </div>
 
       <Card>
@@ -169,45 +217,76 @@ export function DREVendas({ startDate, endDate }: DREVendasProps) {
           <Table>
             <TableHeader className="bg-muted/50">
               <TableRow>
-                <TableHead className="w-[100px]">Cód.</TableHead>
+                <TableHead className="w-[80px]">Cód.</TableHead>
                 <TableHead>Produto</TableHead>
                 <TableHead>Grupo</TableHead>
                 <TableHead className="text-right">Qtd. Vendida</TableHead>
                 <TableHead className="text-right">Valor Total</TableHead>
+                <TableHead className="text-right w-[150px]">
+                  Custo Unitário (R$)
+                </TableHead>
+                <TableHead className="text-right">CMV</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center">
+                  <TableCell colSpan={7} className="h-32 text-center">
                     <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
                   </TableCell>
                 </TableRow>
               ) : data.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={5}
+                    colSpan={7}
                     className="h-24 text-center text-muted-foreground"
                   >
                     Nenhum item vendido neste período.
                   </TableCell>
                 </TableRow>
               ) : (
-                data.map((item) => (
-                  <TableRow key={item.produto_codigo}>
-                    <TableCell className="font-medium text-muted-foreground">
-                      {item.produto_codigo}
-                    </TableCell>
-                    <TableCell>{item.produto_nome}</TableCell>
-                    <TableCell>{item.grupo || '-'}</TableCell>
-                    <TableCell className="text-right font-mono">
-                      {item.quantidade_total}
-                    </TableCell>
-                    <TableCell className="text-right font-mono font-medium text-emerald-600">
-                      R$ {formatCurrency(item.valor_total)}
-                    </TableCell>
-                  </TableRow>
-                ))
+                data.map((item, index) => {
+                  const id = item.produto_codigo
+                    ? String(item.produto_codigo)
+                    : `idx_${index}`
+                  const custoStr = customCosts[id] || '0'
+                  const custoNum = parseFloat(custoStr) || 0
+                  const cmv = custoNum * item.quantidade_total
+
+                  return (
+                    <TableRow key={id}>
+                      <TableCell className="font-medium text-muted-foreground">
+                        {item.produto_codigo || '-'}
+                      </TableCell>
+                      <TableCell>{item.produto_nome}</TableCell>
+                      <TableCell>{item.grupo || '-'}</TableCell>
+                      <TableCell className="text-right font-mono">
+                        {item.quantidade_total}
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-medium text-emerald-600">
+                        R$ {formatCurrency(item.valor_total)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          className="w-24 ml-auto text-right h-8"
+                          value={customCosts[id] ?? ''}
+                          onChange={(e) => {
+                            setCustomCosts((prev) => ({
+                              ...prev,
+                              [id]: e.target.value,
+                            }))
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-medium text-rose-600">
+                        R$ {formatCurrency(cmv)}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
               )}
             </TableBody>
           </Table>
