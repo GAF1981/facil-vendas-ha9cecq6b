@@ -40,7 +40,8 @@ interface DREVendasProps {
 
 export function DREVendas({ startDate, endDate }: DREVendasProps) {
   const { toast } = useToast()
-  const { customCosts, setCustomCost, setCmvTotal } = useDreStore()
+  const { customCosts, setCustomCost, setCmvTotal, setVendaTotal } =
+    useDreStore()
   const [data, setData] = useState<TopSellingItemV5[]>([])
   const [loading, setLoading] = useState(false)
   const [grupoFiltro, setGrupoFiltro] = useState('todos')
@@ -96,6 +97,11 @@ export function DREVendas({ startDate, endDate }: DREVendasProps) {
 
   const totalQtd = data.reduce((acc, row) => acc + row.quantidade_total, 0)
   const totalVal = data.reduce((acc, row) => acc + row.valor_total, 0)
+
+  // Sync Venda Total back to global store when calculated
+  useEffect(() => {
+    setVendaTotal(totalVal)
+  }, [totalVal, setVendaTotal])
 
   const totalCMV = useMemo(() => {
     return data.reduce((acc, item, index) => {

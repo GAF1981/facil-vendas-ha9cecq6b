@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { dreService } from '@/services/dreService'
-import { parseCurrency, formatCurrency } from '@/lib/formatters'
+import { formatCurrency } from '@/lib/formatters'
 import { MetricCard } from '@/components/dashboard/MetricCard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -28,8 +28,7 @@ export function DREMensalGallery({
   endDate,
 }: DREMensalGalleryProps) {
   const { toast } = useToast()
-  const { cmvTotal } = useDreStore()
-  const [vendaTotal, setVendaTotal] = useState(0)
+  const { cmvTotal, vendaTotal } = useDreStore()
   const [custoFixo, setCustoFixo] = useState(0)
   const [despesaOp, setDespesaOp] = useState(0)
   const [descontoPercent, setDescontoPercent] = useState<string>('0')
@@ -41,18 +40,6 @@ export function DREMensalGallery({
       try {
         const percent = await dreService.getDescontoClientePercentual()
         setDescontoPercent(String(percent))
-
-        const { data: vendas } = await supabase
-          .from('BANCO_DE_DADOS')
-          .select('"VALOR VENDIDO"')
-          .gte('DATA DO ACERTO', startDate)
-          .lte('DATA DO ACERTO', endDate)
-
-        let sumVendas = 0
-        vendas?.forEach((v) => {
-          sumVendas += parseCurrency(v['VALOR VENDIDO'])
-        })
-        setVendaTotal(sumVendas)
 
         const { data: despesas } = await supabase
           .from('DESPESAS')

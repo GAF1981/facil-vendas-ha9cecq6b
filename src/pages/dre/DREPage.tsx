@@ -24,14 +24,20 @@ function DREPageContent() {
     format(endOfMonth(new Date()), 'yyyy-MM-dd'),
   )
 
-  const { costsPeriod, setCostsPeriod, setAllCustomCosts, setCmvTotal } =
-    useDreStore()
+  const {
+    costsPeriod,
+    setCostsPeriod,
+    setAllCustomCosts,
+    setCmvTotal,
+    setVendaTotal,
+  } = useDreStore()
 
   useEffect(() => {
     const periodKey = `${startDate}-${endDate}`
     if (costsPeriod !== periodKey) {
       reportsService.getTopSellingItemsV5(startDate, endDate).then((result) => {
-        let total = 0
+        let totalCmv = 0
+        let totalVenda = 0
         const newCosts: Record<string, string> = {}
         result.forEach((item, index) => {
           const id = item.produto_codigo
@@ -43,10 +49,12 @@ function DREPageContent() {
               : 0
           const custo = precoMedio * 0.3
           newCosts[id] = custo.toFixed(2)
-          total += custo * item.quantidade_total
+          totalCmv += custo * item.quantidade_total
+          totalVenda += item.valor_total
         })
         setAllCustomCosts(newCosts)
-        setCmvTotal(total)
+        setCmvTotal(totalCmv)
+        setVendaTotal(totalVenda)
         setCostsPeriod(periodKey)
       })
     }
@@ -56,6 +64,7 @@ function DREPageContent() {
     costsPeriod,
     setAllCustomCosts,
     setCmvTotal,
+    setVendaTotal,
     setCostsPeriod,
   ])
 

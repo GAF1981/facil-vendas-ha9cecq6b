@@ -24,98 +24,12 @@ import { Trash2, Plus, DollarSign, Loader2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Badge } from '@/components/ui/badge'
-
-interface DisplayItem extends DRELancamento {
-  isPlaceholder?: boolean
-  recorrente?: boolean
-}
+import { parse, subMonths, format } from 'date-fns'
 
 interface DRECustosFixosProps {
   mesReferencia: string
   startDate: string
   endDate: string
-}
-
-function PlaceholderRow({
-  item,
-  onSave,
-  onToggle,
-}: {
-  item: DisplayItem
-  onSave: (cat: string, data: string, val: number) => Promise<void>
-  onToggle: (cat: string, val: boolean) => Promise<void>
-}) {
-  const [data, setData] = useState(item.data_lancamento)
-  const [valor, setValor] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  const handleSave = async () => {
-    if (!valor || Number(valor) <= 0 || !item.categoria) return
-    setLoading(true)
-    await onSave(item.categoria, data, Number(valor))
-    setLoading(false)
-  }
-
-  return (
-    <TableRow className="bg-muted/10 border-l-2 border-l-primary">
-      <TableCell className="text-muted-foreground">
-        {item.mes_referencia}
-      </TableCell>
-      <TableCell>
-        <Input
-          type="date"
-          value={data}
-          onChange={(e) => setData(e.target.value)}
-          className="h-8 w-[130px]"
-        />
-      </TableCell>
-      <TableCell>
-        <span className="font-medium text-primary/80">{item.categoria}</span>
-        <Badge variant="outline" className="ml-2 text-[10px]">
-          Pendente
-        </Badge>
-      </TableCell>
-      <TableCell className="text-right">
-        <Input
-          type="number"
-          step="0.01"
-          value={valor}
-          onChange={(e) => setValor(e.target.value)}
-          placeholder="0,00"
-          className="h-8 w-24 ml-auto text-right"
-        />
-      </TableCell>
-      <TableCell className="text-right flex items-center justify-end gap-4">
-        <div className="flex items-center gap-1.5">
-          <Checkbox
-            checked={item.recorrente}
-            onCheckedChange={(val) => onToggle(item.categoria!, !!val)}
-            id={`rec-ph-${item.categoria}`}
-          />
-          <Label
-            htmlFor={`rec-ph-${item.categoria}`}
-            className="text-xs text-muted-foreground cursor-pointer"
-          >
-            Recorrente
-          </Label>
-        </div>
-        <Button
-          size="sm"
-          onClick={handleSave}
-          disabled={loading || !valor}
-          className="h-8"
-        >
-          {loading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Plus className="h-4 w-4 mr-1" />
-          )}
-          Salvar
-        </Button>
-      </TableCell>
-    </TableRow>
-  )
 }
 
 export function DRECustosFixos({
@@ -124,7 +38,7 @@ export function DRECustosFixos({
   endDate,
 }: DRECustosFixosProps) {
   const { toast } = useToast()
-  const [lancamentos, setLancamentos] = useState<DisplayItem[]>([])
+  const [lancamentos, setLancamentos] = useState<DRELancamento[]>([])
   const [categorias, setCategorias] = useState<any[]>([])
 
   const [categoria, setCategoria] = useState('')
@@ -133,47 +47,31 @@ export function DRECustosFixos({
   const [dataLancamento, setDataLancamento] = useState(
     new Date().toISOString().split('T')[0],
   )
+  const [isRecorrente, setIsRecorrente] = useState(false)
   const [loading, setLoading] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
 
   const loadData = useCallback(async () => {
+    setInitialLoading(true)
     try {
+      const prevMonthDate = subMonths(
+        parse(mesReferencia, 'yyyy-MM', new Date()),
+        1,
+      )
+      const prevMonthStr = format(prevMonthDate, 'yyyy-MM')
+
+      await dreService.duplicateRecurringCosts(
+        prevMonthStr,
+        mesReferencia,
+        startDate,
+      )
+
       const [lan, cats] = await Promise.all([
         dreService.getCustosFixos(startDate, endDate),
         dreService.getCategorias(),
       ])
 
-      const displayItems: DisplayItem[] = lan.map((l) => {
-        const cat = cats.find((c) => c.nome === l.categoria)
-        return { ...l, recorrente: cat?.recorrente || false }
-      })
-
-      const currentMonthCatNames = new Set(lan.map((l) => l.categoria))
-
-      cats.forEach((c) => {
-        if (
-          c.tipo === 'CUSTO_FIXO' &&
-          c.recorrente &&
-          !currentMonthCatNames.has(c.nome)
-        ) {
-          displayItems.push({
-            id: -c.id, // placeholder ID
-            isPlaceholder: true,
-            categoria: c.nome,
-            valor: 0,
-            data_lancamento: new Date().toISOString().split('T')[0],
-            mes_referencia: mesReferencia,
-            tipo: 'CUSTO_FIXO',
-            recorrente: true,
-          })
-        }
-      })
-
-      displayItems.sort((a, b) =>
-        b.data_lancamento.localeCompare(a.data_lancamento),
-      )
-
-      setLancamentos(displayItems)
+      setLancamentos(lan)
       setCategorias(cats)
     } catch (e) {
       console.error(e)
@@ -214,12 +112,14 @@ export function DRECustosFixos({
         categoria: catNome,
         valor: Number(valor),
         tipo: 'CUSTO_FIXO',
+        recorrente: isRecorrente,
       })
 
       toast({ title: 'Custo adicionado!' })
       setCategoria('')
       setNovaCategoria('')
       setValor('')
+      setIsRecorrente(false)
       loadData()
     } catch (e) {
       toast({ title: 'Erro ao adicionar custo', variant: 'destructive' })
@@ -239,36 +139,15 @@ export function DRECustosFixos({
     }
   }
 
-  const handleToggleRecorrente = async (cat: string | null, val: boolean) => {
-    if (!cat) return
+  const handleToggleRecorrente = async (id: number, val: boolean) => {
     try {
-      await dreService.updateCategoriaRecorrente(cat, val)
+      await dreService.updateLancamentoRecorrente(id, val)
       toast({
         title: val ? 'Marcado como recorrente' : 'Removido de recorrentes',
       })
       loadData()
     } catch (e) {
       toast({ title: 'Erro ao atualizar', variant: 'destructive' })
-    }
-  }
-
-  const handleSavePlaceholder = async (
-    cat: string,
-    dataStr: string,
-    val: number,
-  ) => {
-    try {
-      await dreService.addLancamento({
-        mes_referencia: mesReferencia,
-        data_lancamento: dataStr,
-        categoria: cat,
-        valor: val,
-        tipo: 'CUSTO_FIXO',
-      })
-      toast({ title: 'Custo registrado!' })
-      loadData()
-    } catch (e) {
-      toast({ title: 'Erro ao registrar', variant: 'destructive' })
     }
   }
 
@@ -290,8 +169,8 @@ export function DRECustosFixos({
         <CardHeader>
           <CardTitle>Adicionar Custo Fixo</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col sm:flex-row gap-4 items-end">
-          <div className="space-y-2 w-full sm:flex-1">
+        <CardContent className="flex flex-col sm:flex-row gap-4 items-end flex-wrap">
+          <div className="space-y-2 w-full sm:w-auto flex-1 min-w-[150px]">
             <Label>Data do Custo</Label>
             <Input
               type="date"
@@ -299,7 +178,7 @@ export function DRECustosFixos({
               onChange={(e) => setDataLancamento(e.target.value)}
             />
           </div>
-          <div className="space-y-2 w-full sm:flex-1">
+          <div className="space-y-2 w-full sm:w-auto flex-1 min-w-[150px]">
             <Label>Categoria</Label>
             <Select value={categoria} onValueChange={setCategoria}>
               <SelectTrigger>
@@ -318,7 +197,7 @@ export function DRECustosFixos({
             </Select>
           </div>
           {categoria === 'NOVA' && (
-            <div className="space-y-2 w-full sm:flex-1 animate-fade-in">
+            <div className="space-y-2 w-full sm:w-auto flex-1 min-w-[150px] animate-fade-in">
               <Label>Nome da Nova Categoria</Label>
               <Input
                 placeholder="Ex: Manutenção"
@@ -327,7 +206,7 @@ export function DRECustosFixos({
               />
             </div>
           )}
-          <div className="space-y-2 w-full sm:flex-1">
+          <div className="space-y-2 w-full sm:w-auto flex-1 min-w-[120px]">
             <Label>Valor (R$)</Label>
             <Input
               type="number"
@@ -336,6 +215,16 @@ export function DRECustosFixos({
               value={valor}
               onChange={(e) => setValor(e.target.value)}
             />
+          </div>
+          <div className="flex items-center space-x-2 w-full sm:w-auto pb-3">
+            <Checkbox
+              id="recorrente-new"
+              checked={isRecorrente}
+              onCheckedChange={(checked) => setIsRecorrente(!!checked)}
+            />
+            <Label htmlFor="recorrente-new" className="text-sm cursor-pointer">
+              Recorrente
+            </Label>
           </div>
           <Button
             onClick={handleAdd}
@@ -364,7 +253,7 @@ export function DRECustosFixos({
                 <TableHead>Data</TableHead>
                 <TableHead>Custo (Categoria)</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
-                <TableHead className="w-[200px]"></TableHead>
+                <TableHead className="w-[200px] text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -384,52 +273,43 @@ export function DRECustosFixos({
                   </TableCell>
                 </TableRow>
               ) : (
-                lancamentos.map((l) =>
-                  l.isPlaceholder ? (
-                    <PlaceholderRow
-                      key={`ph-${l.id}`}
-                      item={l}
-                      onSave={handleSavePlaceholder}
-                      onToggle={handleToggleRecorrente}
-                    />
-                  ) : (
-                    <TableRow key={l.id}>
-                      <TableCell>{l.mes_referencia}</TableCell>
-                      <TableCell>
-                        {safeFormatDate(l.data_lancamento, 'dd/MM/yyyy')}
-                      </TableCell>
-                      <TableCell>{l.categoria}</TableCell>
-                      <TableCell className="text-right font-medium text-red-600 font-mono">
-                        R$ {formatCurrency(l.valor)}
-                      </TableCell>
-                      <TableCell className="text-right flex items-center justify-end gap-4">
-                        <div className="flex items-center gap-1.5">
-                          <Checkbox
-                            checked={l.recorrente}
-                            onCheckedChange={(val) =>
-                              handleToggleRecorrente(l.categoria, !!val)
-                            }
-                            id={`rec-${l.id}`}
-                          />
-                          <Label
-                            htmlFor={`rec-${l.id}`}
-                            className="text-xs text-muted-foreground cursor-pointer"
-                          >
-                            Recorrente
-                          </Label>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => handleDelete(l.id)}
+                lancamentos.map((l) => (
+                  <TableRow key={l.id}>
+                    <TableCell>{l.mes_referencia}</TableCell>
+                    <TableCell>
+                      {safeFormatDate(l.data_lancamento, 'dd/MM/yyyy')}
+                    </TableCell>
+                    <TableCell>{l.categoria}</TableCell>
+                    <TableCell className="text-right font-medium text-red-600 font-mono">
+                      R$ {formatCurrency(l.valor)}
+                    </TableCell>
+                    <TableCell className="text-right flex items-center justify-end gap-4">
+                      <div className="flex items-center gap-1.5">
+                        <Checkbox
+                          checked={!!l.recorrente}
+                          onCheckedChange={(val) =>
+                            handleToggleRecorrente(l.id, !!val)
+                          }
+                          id={`rec-${l.id}`}
+                        />
+                        <Label
+                          htmlFor={`rec-${l.id}`}
+                          className="text-xs text-muted-foreground cursor-pointer"
                         >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ),
-                )
+                          Recorrente
+                        </Label>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8"
+                        onClick={() => handleDelete(l.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
               )}
             </TableBody>
           </Table>

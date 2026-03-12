@@ -3,6 +3,8 @@ import React, { useState, useMemo, useContext } from 'react'
 interface DreState {
   cmvTotal: number
   setCmvTotal: (v: number) => void
+  vendaTotal: number
+  setVendaTotal: (v: number) => void
   customCosts: Record<string, string>
   setCustomCost: (id: string, val: string) => void
   setAllCustomCosts: (v: Record<string, string>) => void
@@ -14,6 +16,7 @@ const DreContext = React.createContext<DreState | null>(null)
 
 export function DreProvider({ children }: { children: React.ReactNode }) {
   const [cmvTotal, setCmvTotal] = useState(0)
+  const [vendaTotal, setVendaTotal] = useState(0)
   const [customCosts, setCustomCosts] = useState<Record<string, string>>({})
   const [costsPeriod, setCostsPeriod] = useState('')
 
@@ -25,13 +28,15 @@ export function DreProvider({ children }: { children: React.ReactNode }) {
     () => ({
       cmvTotal,
       setCmvTotal,
+      vendaTotal,
+      setVendaTotal,
       customCosts,
       setCustomCost,
       setAllCustomCosts: setCustomCosts,
       costsPeriod,
       setCostsPeriod,
     }),
-    [cmvTotal, customCosts, costsPeriod],
+    [cmvTotal, vendaTotal, customCosts, costsPeriod],
   )
 
   return React.createElement(DreContext.Provider, { value }, children)

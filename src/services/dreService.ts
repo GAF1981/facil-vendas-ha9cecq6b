@@ -7,6 +7,7 @@ export interface DRELancamento {
   tipo: string
   categoria: string | null
   valor: number
+  recorrente?: boolean
 }
 
 export const dreService = {
@@ -29,6 +30,54 @@ export const dreService = {
   async addLancamento(payload: Partial<DRELancamento>) {
     const { error } = await supabase.from('dre_lancamentos').insert(payload)
     if (error) throw error
+  },
+
+  async updateLancamentoRecorrente(id: number, recorrente: boolean) {
+    const { error } = await supabase
+      .from('dre_lancamentos')
+      .update({ recorrente })
+      .eq('id', id)
+    if (error) throw error
+  },
+
+  async duplicateRecurringCosts(prevMonth: string, currentMonth: string, currentMonthStartDate: string) {
+    const { data: currentMonthData, error: currErr } = await supabase
+      .from('dre_lancamentos')
+      .select('categoria')
+      .eq('mes_referencia', currentMonth)
+      .eq('tipo', 'CUSTO_FIXO')
+      .eq('recorrente', true)
+
+    if (currErr) throw currErr
+    
+    const existingCats = new Set((currentMonthData || []).map(c => c.categoria))
+
+    const { data: prevMonthData, error: prevErr } = await supabase
+      .from('dre_lancamentos')
+      .select('*')
+      .eq('mes_referencia', prevMonth)
+      .eq('tipo', 'CUSTO_FIXO')
+      .eq('recorrente', true)
+      
+    if (prevErr) throw prevErr
+
+    const toInsert = (prevMonthData || [])
+      .filter(l => !existingCats.has(l.categoria))
+      .map(l => ({
+        mes_referencia: currentMonth,
+        data_lancamento: currentMonthStartDate,
+        tipo: l.tipo,
+        categoria: l.categoria,
+        valor: l.valor,
+        recorrente: true
+      }))
+
+    if (toInsert.length > 0) {
+      const { error: insErr } = await supabase
+        .from('dre_lancamentos')
+        .insert(toInsert)
+      if (insErr) throw insErr
+    }
   },
 
   async deleteLancamento(id: number) {
@@ -56,14 +105,6 @@ export const dreService = {
       .single()
     if (error) throw error
     return data
-  },
-
-  async updateCategoriaRecorrente(nome: string, recorrente: boolean) {
-    const { error } = await supabase
-      .from('dre_categorias')
-      .update({ recorrente })
-      .eq('nome', nome)
-    if (error) throw error
   },
 
   async getCMV(mesReferencia: string) {
