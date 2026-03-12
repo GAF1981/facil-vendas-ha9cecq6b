@@ -40,7 +40,11 @@ export const dreService = {
     if (error) throw error
   },
 
-  async duplicateRecurringCosts(prevMonth: string, currentMonth: string, currentMonthStartDate: string) {
+  async duplicateRecurringCosts(
+    prevMonth: string,
+    currentMonth: string,
+    currentMonthStartDate: string,
+  ) {
     const { data: currentMonthData, error: currErr } = await supabase
       .from('dre_lancamentos')
       .select('categoria')
@@ -49,8 +53,10 @@ export const dreService = {
       .eq('recorrente', true)
 
     if (currErr) throw currErr
-    
-    const existingCats = new Set((currentMonthData || []).map(c => c.categoria))
+
+    const existingCats = new Set(
+      (currentMonthData || []).map((c) => c.categoria),
+    )
 
     const { data: prevMonthData, error: prevErr } = await supabase
       .from('dre_lancamentos')
@@ -58,18 +64,18 @@ export const dreService = {
       .eq('mes_referencia', prevMonth)
       .eq('tipo', 'CUSTO_FIXO')
       .eq('recorrente', true)
-      
+
     if (prevErr) throw prevErr
 
     const toInsert = (prevMonthData || [])
-      .filter(l => !existingCats.has(l.categoria))
-      .map(l => ({
+      .filter((l) => !existingCats.has(l.categoria))
+      .map((l) => ({
         mes_referencia: currentMonth,
         data_lancamento: currentMonthStartDate,
         tipo: l.tipo,
         categoria: l.categoria,
         valor: l.valor,
-        recorrente: true
+        recorrente: true,
       }))
 
     if (toInsert.length > 0) {
