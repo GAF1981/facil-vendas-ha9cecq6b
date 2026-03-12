@@ -702,18 +702,21 @@ export type Database = {
           created_at: string
           id: number
           nome: string
+          recorrente: boolean
           tipo: string
         }
         Insert: {
           created_at?: string
           id?: number
           nome: string
+          recorrente?: boolean
           tipo: string
         }
         Update: {
           created_at?: string
           id?: number
           nome?: string
+          recorrente?: boolean
           tipo?: string
         }
         Relationships: []
@@ -3564,6 +3567,7 @@ export const Constants = {
 //   nome: text (not null)
 //   tipo: text (not null)
 //   created_at: timestamp with time zone (not null, default: now())
+//   recorrente: boolean (not null, default: false)
 // Table: dre_lancamentos
 //   id: bigint (not null)
 //   mes_referencia: text (not null)

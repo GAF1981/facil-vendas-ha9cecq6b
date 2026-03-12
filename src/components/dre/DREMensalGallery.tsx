@@ -13,6 +13,8 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import useDreStore from '@/stores/useDreStore'
+import { Input } from '@/components/ui/input'
+import { useToast } from '@/hooks/use-toast'
 
 interface DREMensalGalleryProps {
   mesReferencia: string
@@ -25,17 +27,21 @@ export function DREMensalGallery({
   startDate,
   endDate,
 }: DREMensalGalleryProps) {
+  const { toast } = useToast()
   const { cmvTotal } = useDreStore()
   const [vendaTotal, setVendaTotal] = useState(0)
   const [custoFixo, setCustoFixo] = useState(0)
   const [despesaOp, setDespesaOp] = useState(0)
+  const [descontoPercent, setDescontoPercent] = useState<string>('0')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
       setLoading(true)
       try {
-        // Fetch Vendas - explicitly quoting column name with spaces to avoid PostgREST parsing errors
+        const percent = await dreService.getDescontoClientePercentual()
+        setDescontoPercent(String(percent))
+
         const { data: vendas } = await supabase
           .from('BANCO_DE_DADOS')
           .select('"VALOR VENDIDO"')
@@ -48,7 +54,6 @@ export function DREMensalGallery({
         })
         setVendaTotal(sumVendas)
 
-        // Fetch Despesas
         const { data: despesas } = await supabase
           .from('DESPESAS')
           .select('Valor')
@@ -61,7 +66,6 @@ export function DREMensalGallery({
         })
         setDespesaOp(sumDespesas)
 
-        // Fetch Custos Fixos
         const custos = await dreService.getCustosFixos(startDate, endDate)
         let sumCustos = 0
         custos?.forEach((c) => {
@@ -77,6 +81,19 @@ export function DREMensalGallery({
     load()
   }, [mesReferencia, startDate, endDate])
 
+  const handleSaveDesconto = async () => {
+    try {
+      const val = parseFloat(descontoPercent) || 0
+      await dreService.saveDescontoClientePercentual(val)
+      toast({
+        title: 'Configuração salva',
+        description: 'Percentual de desconto atualizado com sucesso.',
+      })
+    } catch (e) {
+      toast({ title: 'Erro ao salvar', variant: 'destructive' })
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-40">
@@ -85,11 +102,13 @@ export function DREMensalGallery({
     )
   }
 
-  const resultadoBruto = vendaTotal - cmvTotal
+  const percentNum = parseFloat(descontoPercent) || 0
+  const descontoValor = vendaTotal * (percentNum / 100)
+  const resultadoBruto = vendaTotal - cmvTotal - descontoValor
   const lucroLiquido = resultadoBruto - custoFixo - despesaOp
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 animate-fade-in-up">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 animate-fade-in-up">
       <MetricCard
         title="Venda Total"
         value={`R$ ${formatCurrency(vendaTotal)}`}
@@ -97,6 +116,37 @@ export function DREMensalGallery({
         iconClassName="text-emerald-500"
         className="border-emerald-200 bg-emerald-50/20"
       />
+
+      <Card className="border-red-200 bg-red-50/20 relative overflow-hidden transition-all hover:shadow-md">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            Desconto Cliente
+          </CardTitle>
+          <TrendingDown className="h-4 w-4 text-red-500" />
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-1 group">
+            <span className="text-2xl font-bold text-red-600">R$</span>
+            <span className="text-2xl font-bold text-red-600">
+              {formatCurrency(descontoValor)}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 mt-2">
+            <Input
+              type="number"
+              min="0"
+              step="0.1"
+              className="w-20 h-7 text-xs bg-white/50 border-red-200 focus-visible:ring-red-400"
+              value={descontoPercent}
+              onChange={(e) => setDescontoPercent(e.target.value)}
+              onBlur={handleSaveDesconto}
+            />
+            <span className="text-xs text-muted-foreground">
+              % sobre vendas
+            </span>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="border-red-200 bg-red-50/20 relative overflow-hidden transition-all hover:shadow-md">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -112,7 +162,7 @@ export function DREMensalGallery({
               {formatCurrency(cmvTotal)}
             </span>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-xs text-muted-foreground mt-2">
             Sincronizado com a aba Vendas
           </p>
         </CardContent>

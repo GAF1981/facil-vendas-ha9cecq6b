@@ -94,4 +94,24 @@ export const dreService = {
       if (error) throw error
     }
   },
+
+  async getDescontoClientePercentual(): Promise<number> {
+    const { data, error } = await supabase
+      .from('configuracoes')
+      .select('valor')
+      .eq('chave', 'dre_desconto_cliente_percentual')
+      .maybeSingle()
+    if (error) throw error
+    return data?.valor ? Number(data.valor) : 0
+  },
+
+  async saveDescontoClientePercentual(valor: number) {
+    const { error } = await supabase
+      .from('configuracoes')
+      .upsert(
+        { chave: 'dre_desconto_cliente_percentual', valor: String(valor) },
+        { onConflict: 'chave' },
+      )
+    if (error) throw error
+  },
 }
