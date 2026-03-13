@@ -109,7 +109,7 @@ export function EditPaymentDialog({
     if (open && order) {
       handleSplit(splitCount)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entradaValue])
 
   const updateInstallment = (index: number, field: string, value: string) => {
@@ -149,14 +149,19 @@ export function EditPaymentDialog({
 
     setLoading(true)
     try {
-      const payload: { method: string; value: number; dueDate: string; paidValue?: number }[] = []
+      const payload: {
+        method: string
+        value: number
+        dueDate: string
+        paidValue?: number
+      }[] = []
 
       if (entrada > 0) {
         payload.push({
           method: entradaMethod,
           value: entrada,
           dueDate: format(new Date(), 'yyyy-MM-dd'),
-          paidValue: entrada
+          paidValue: entrada,
         })
       }
 
@@ -165,16 +170,19 @@ export function EditPaymentDialog({
           method: i.method,
           value: parseFloat(i.value) || 0,
           dueDate: i.dueDate,
-          paidValue: 0
+          paidValue: 0,
         })
       })
 
-      await resumoAcertosService.updateOrderPaymentTerms(order.orderId, payload, loggedInUser?.id)
-      
+      await resumoAcertosService.updateOrderPaymentTerms(
+        order.orderId,
+        payload,
+        loggedInUser?.id,
+      )
+
       toast({
         title: 'Sucesso',
-        description:
-          'Termos de pagamento atualizados com sucesso.',
+        description: 'Termos de pagamento atualizados com sucesso.',
         className: 'bg-green-50 border-green-200 text-green-900',
       })
       onSuccess()
@@ -208,7 +216,9 @@ export function EditPaymentDialog({
 
         <div className="space-y-6 py-4">
           <div className="space-y-4 p-4 border rounded-lg bg-green-50/30">
-            <h4 className="text-sm font-semibold text-green-800">Entrada (Pagamento Imediato)</h4>
+            <h4 className="text-sm font-semibold text-green-800">
+              Entrada (Pagamento Imediato)
+            </h4>
             <div className="flex gap-4">
               <div className="flex-1 space-y-1.5">
                 <Label className="text-xs">Valor da Entrada (R$)</Label>
@@ -228,8 +238,10 @@ export function EditPaymentDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {PAYMENT_METHODS.filter(m => m !== 'Boleto').map((m) => (
-                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    {PAYMENT_METHODS.filter((m) => m !== 'Boleto').map((m) => (
+                      <SelectItem key={m} value={m}>
+                        {m}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -237,7 +249,8 @@ export function EditPaymentDialog({
             </div>
             {entrada > 0 && (
               <p className="text-xs text-green-700">
-                Este valor será registrado como pago no caixa atual e deduzido do saldo a parcelar.
+                Este valor será registrado como pago no caixa atual e deduzido
+                do saldo a parcelar.
               </p>
             )}
           </div>
@@ -261,8 +274,11 @@ export function EditPaymentDialog({
               </Select>
             </div>
             <div className="flex-none pt-6 text-sm text-muted-foreground text-right">
-              Valor a Parcelar:<br/>
-              <strong className="text-foreground">R$ {formatCurrency(remainingNetValue)}</strong>
+              Valor a Parcelar:
+              <br />
+              <strong className="text-foreground">
+                R$ {formatCurrency(remainingNetValue)}
+              </strong>
             </div>
           </div>
 

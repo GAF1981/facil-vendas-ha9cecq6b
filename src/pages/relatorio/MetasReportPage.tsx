@@ -635,7 +635,9 @@ const MetasReportPage = () => {
                 {summary.totalCaptacao > 0 && (
                   <div className="mt-2 text-sm text-muted-foreground border-t pt-2">
                     <span className="block mb-1 font-medium">Captação</span>
-                    <span className="text-xl font-bold text-foreground">{summary.totalCaptacao}</span>
+                    <span className="text-xl font-bold text-foreground">
+                      {summary.totalCaptacao}
+                    </span>
                   </div>
                 )}
               </CardContent>
