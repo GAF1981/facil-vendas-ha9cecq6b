@@ -8,7 +8,6 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -22,12 +21,13 @@ import {
   SettlementSummary,
   resumoAcertosService,
 } from '@/services/resumoAcertosService'
-import { PAYMENT_METHODS } from '@/types/payment'
 import { addDays, format } from 'date-fns'
-import { Loader2, Plus, Trash2, CalendarDays, Wallet } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { useUserStore } from '@/stores/useUserStore'
+import { PaymentEntradasList } from './PaymentEntradasList'
+import { PaymentInstallmentsList } from './PaymentInstallmentsList'
 
 interface EditPaymentDialogProps {
   open: boolean
@@ -117,58 +117,13 @@ export function EditPaymentDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entradas])
 
-  const updateInstallment = (index: number, field: string, value: string) => {
-    const newInsts = [...installments]
-    newInsts[index] = { ...newInsts[index], [field]: value }
-    setInstallments(newInsts)
-  }
-
-  const addInstallment = () => {
-    setInstallments([
-      ...installments,
-      {
-        id: Math.random().toString(),
-        method: 'Boleto',
-        value: '0.00',
-        dueDate: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
-      },
-    ])
-  }
-
-  const removeInstallment = (index: number) => {
-    const newInsts = [...installments]
-    newInsts.splice(index, 1)
-    setInstallments(newInsts)
-  }
-
-  const addEntrada = () => {
-    setEntradas([
-      ...entradas,
-      {
-        id: Math.random().toString(),
-        method: 'Dinheiro',
-        value: '',
-      },
-    ])
-  }
-
-  const updateEntrada = (id: string, field: string, value: string) => {
-    setEntradas(
-      entradas.map((e) => (e.id === id ? { ...e, [field]: value } : e)),
-    )
-  }
-
-  const removeEntrada = (id: string) => {
-    setEntradas(entradas.filter((e) => e.id !== id))
-  }
-
   const handleSave = async () => {
     if (!order) return
 
     if (entradaTotal > netValue) {
       toast({
         title: 'Valor inválido',
-        description: `O valor das entradas (R$ ${formatCurrency(entradaTotal)}) não pode exceder o valor do pedido (R$ ${formatCurrency(netValue)}).`,
+        description: `O valor das entradas não pode exceder o valor do pedido.`,
         variant: 'destructive',
       })
       return
@@ -177,7 +132,7 @@ export function EditPaymentDialog({
     if (Math.abs(diff) > 0.05) {
       toast({
         title: 'Valores não conferem',
-        description: `A soma das parcelas (R$ ${formatCurrency(currentTotal)}) deve ser igual ao valor restante a parcelar (R$ ${formatCurrency(remainingNetValue)}).`,
+        description: `A soma das parcelas deve ser igual ao valor restante.`,
         variant: 'destructive',
       })
       return
@@ -254,112 +209,27 @@ export function EditPaymentDialog({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          <div className="space-y-4 p-4 border rounded-lg bg-green-50/30">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-semibold text-green-800 flex items-center gap-2">
-                <Wallet className="h-4 w-4" />
-                Detalhamento de Entrada
-              </h4>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={addEntrada}
-                className="h-8 text-xs border-green-200 text-green-700 hover:bg-green-100"
-              >
-                <Plus className="h-3 w-3 mr-1" />
-                Adicionar Entrada
-              </Button>
-            </div>
-
-            {entradas.length === 0 ? (
-              <p className="text-xs text-muted-foreground italic">
-                Nenhuma entrada imediata registrada.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {entradas.map((entrada, idx) => (
-                  <div
-                    key={entrada.id}
-                    className="flex flex-col gap-3 bg-white p-3 rounded border border-green-100 shadow-sm relative"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-green-800">
-                        Entrada (Pagamento Imediato) {idx + 1}
-                      </span>
-                    </div>
-                    <div className="flex gap-4 items-end">
-                      <div className="flex-1 space-y-1.5">
-                        <Label className="text-xs">Valor da Entrada (R$)</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={entrada.value}
-                          onChange={(e) =>
-                            updateEntrada(entrada.id, 'value', e.target.value)
-                          }
-                          className="h-9 font-medium"
-                          placeholder="0.00"
-                        />
-                      </div>
-                      <div className="flex-1 space-y-1.5">
-                        <Label className="text-xs">Forma de Pagamento</Label>
-                        <Select
-                          value={entrada.method}
-                          onValueChange={(val) =>
-                            updateEntrada(entrada.id, 'method', val)
-                          }
-                        >
-                          <SelectTrigger className="h-9 bg-white">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {PAYMENT_METHODS.filter((m) => m !== 'Boleto').map(
-                              (m) => (
-                                <SelectItem key={m} value={m}>
-                                  {m}
-                                </SelectItem>
-                              ),
-                            )}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeEntrada(entrada.id)}
-                        className="h-9 w-9 text-muted-foreground hover:text-red-600"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {entradaTotal > 0 && (
-              <div className="flex justify-between items-center pt-2 border-t border-green-200/50">
-                <span className="text-xs text-green-700 font-medium">
-                  Total de Entradas:
-                </span>
-                <span
-                  className={cn(
-                    'text-sm font-bold',
-                    !hasValidAmount ? 'text-red-600' : 'text-green-800',
-                  )}
-                >
-                  R$ {formatCurrency(entradaTotal)}
-                </span>
-              </div>
-            )}
-
-            {!hasValidAmount && (
-              <div className="text-xs text-red-600 font-medium">
-                O valor total das entradas não pode ser maior que o valor devido
-                do pedido.
-              </div>
-            )}
-          </div>
+          <PaymentEntradasList
+            entradas={entradas}
+            addEntrada={() =>
+              setEntradas([
+                ...entradas,
+                { id: Math.random().toString(), method: 'Dinheiro', value: '' },
+              ])
+            }
+            updateEntrada={(id, field, value) =>
+              setEntradas(
+                entradas.map((e) =>
+                  e.id === id ? { ...e, [field]: value } : e,
+                ),
+              )
+            }
+            removeEntrada={(id) =>
+              setEntradas(entradas.filter((e) => e.id !== id))
+            }
+            entradaTotal={entradaTotal}
+            hasValidAmount={hasValidAmount}
+          />
 
           <div className="flex items-center gap-4 border p-4 rounded-lg bg-muted/30">
             <div className="flex-1">
@@ -388,87 +258,30 @@ export function EditPaymentDialog({
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-semibold flex items-center gap-2">
-                <CalendarDays className="h-4 w-4 text-blue-600" />
-                Detalhamento das Parcelas
-              </h4>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={addInstallment}
-                className="h-8 text-xs"
-              >
-                <Plus className="h-3 w-3 mr-1" />
-                Adicionar Parcela
-              </Button>
-            </div>
-
-            {installments.map((inst, idx) => (
-              <div
-                key={inst.id}
-                className="flex items-end gap-3 p-3 rounded-md border bg-card relative"
-              >
-                <div className="absolute -left-2 -top-2 bg-primary text-primary-foreground text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold">
-                  {idx + 1}
-                </div>
-                <div className="flex-1 space-y-1.5">
-                  <Label className="text-xs">Forma</Label>
-                  <Select
-                    value={inst.method}
-                    onValueChange={(val) =>
-                      updateInstallment(idx, 'method', val)
-                    }
-                  >
-                    <SelectTrigger className="h-8">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PAYMENT_METHODS.map((m) => (
-                        <SelectItem key={m} value={m}>
-                          {m}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex-1 space-y-1.5">
-                  <Label className="text-xs">Vencimento</Label>
-                  <Input
-                    type="date"
-                    value={inst.dueDate}
-                    onChange={(e) =>
-                      updateInstallment(idx, 'dueDate', e.target.value)
-                    }
-                    className="h-8"
-                  />
-                </div>
-                <div className="flex-1 space-y-1.5">
-                  <Label className="text-xs">Valor (R$)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={inst.value}
-                    onChange={(e) =>
-                      updateInstallment(idx, 'value', e.target.value)
-                    }
-                    className="h-8 text-right font-medium"
-                    placeholder="0.00"
-                  />
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => removeInstallment(idx)}
-                  className="h-8 w-8 text-muted-foreground hover:text-red-600 mb-[1px]"
-                  disabled={installments.length === 1}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-          </div>
+          <PaymentInstallmentsList
+            installments={installments}
+            addInstallment={() =>
+              setInstallments([
+                ...installments,
+                {
+                  id: Math.random().toString(),
+                  method: 'Boleto',
+                  value: '0.00',
+                  dueDate: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
+                },
+              ])
+            }
+            updateInstallment={(index, field, value) => {
+              const newInsts = [...installments]
+              newInsts[index] = { ...newInsts[index], [field]: value }
+              setInstallments(newInsts)
+            }}
+            removeInstallment={(index) => {
+              const newInsts = [...installments]
+              newInsts.splice(index, 1)
+              setInstallments(newInsts)
+            }}
+          />
 
           <div
             className={cn(
