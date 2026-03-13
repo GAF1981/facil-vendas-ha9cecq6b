@@ -74,11 +74,13 @@ const MetasReportPage = () => {
   const [dailyAcertos, setDailyAcertos] = useState<Map<string, number>>(
     new Map(),
   )
+  const [dailyCaptacao, setDailyCaptacao] = useState<Map<string, number>>(
+    new Map(),
+  )
   const [currentMetaDiaria, setCurrentMetaDiaria] = useState<number>(0)
   const [periodGoals, setPeriodGoals] = useState<MetaPeriodo[]>([])
   const [exceptionDates, setExceptionDates] = useState<any[]>([])
 
-  // Dialog State
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [dialogEmployeeId, setDialogEmployeeId] = useState<string>('')
   const [dialogMetaValue, setDialogMetaValue] = useState<string>('')
@@ -154,7 +156,8 @@ const MetasReportPage = () => {
       setPeriodGoals(periodos)
 
       const acertos = await metasService.getAcertos(funcId, startStr, endStr)
-      setDailyAcertos(acertos)
+      setDailyAcertos(acertos.regular)
+      setDailyCaptacao(acertos.captacao)
     } catch (error: any) {
       console.error(error)
       toast({
@@ -308,12 +311,14 @@ const MetasReportPage = () => {
 
       const metaForDay = isNonWorkingDay ? 0 : effectiveMeta
       const acertos = dailyAcertos.get(dateStr) || 0
+      const captacao = dailyCaptacao.get(dateStr) || 0
       const apuracao = isFutureDate ? 0 : acertos - metaForDay
 
       return {
         date: day,
         dateStr,
         acertos,
+        captacao,
         metaForDay,
         apuracao,
         isException,
@@ -324,6 +329,7 @@ const MetasReportPage = () => {
   }, [
     dateRange,
     dailyAcertos,
+    dailyCaptacao,
     currentMetaDiaria,
     periodGoals,
     checkIsException,
@@ -332,6 +338,7 @@ const MetasReportPage = () => {
 
   const summary = useMemo(() => {
     let totalAcertos = 0
+    let totalCaptacao = 0
     let totalMetas = 0
     let totalApuracao = 0
 
@@ -340,6 +347,7 @@ const MetasReportPage = () => {
     reportData.forEach((row) => {
       if (!isAfter(row.date, today)) {
         totalAcertos += row.acertos
+        totalCaptacao += row.captacao
         totalMetas += row.metaForDay
         totalApuracao += row.apuracao
       }
@@ -349,6 +357,7 @@ const MetasReportPage = () => {
 
     return {
       totalAcertos,
+      totalCaptacao,
       totalMetas: parseFloat(totalMetas.toFixed(2)),
       totalApuracao: parseFloat(totalApuracao.toFixed(2)),
       atingimento: parseFloat(atingimento.toFixed(2)),
@@ -623,6 +632,11 @@ const MetasReportPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{summary.totalAcertos}</div>
+                {summary.totalCaptacao > 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    + {summary.totalCaptacao} captações
+                  </p>
+                )}
               </CardContent>
             </Card>
             <Card>
@@ -668,6 +682,7 @@ const MetasReportPage = () => {
                   <TableRow>
                     <TableHead>Data</TableHead>
                     <TableHead className="text-right">Acertos</TableHead>
+                    <TableHead className="text-right">Captações</TableHead>
                     <TableHead className="text-right">
                       Meta de Acertos
                     </TableHead>
@@ -706,6 +721,9 @@ const MetasReportPage = () => {
                         {row.acertos}
                       </TableCell>
                       <TableCell className="text-right text-muted-foreground">
+                        {row.captacao > 0 ? row.captacao : '-'}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
                         {row.metaForDay}
                       </TableCell>
                       <TableCell
@@ -718,7 +736,7 @@ const MetasReportPage = () => {
                   ))}
                   {reportData.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-4">
+                      <TableCell colSpan={5} className="text-center py-4">
                         Nenhum dado encontrado para o período.
                       </TableCell>
                     </TableRow>

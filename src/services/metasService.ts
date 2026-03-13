@@ -63,7 +63,7 @@ export const metasService = {
   async getAcertos(funcionarioId: number, startDate: string, endDate: string) {
     const { data, error } = await supabase
       .from('BANCO_DE_DADOS')
-      .select('"DATA DO ACERTO", "NÚMERO DO PEDIDO"')
+      .select('"DATA DO ACERTO", "NÚMERO DO PEDIDO", "TIPO"')
       .eq('CODIGO FUNCIONARIO', funcionarioId)
       .gte('DATA DO ACERTO', startDate)
       .lte('DATA DO ACERTO', endDate)
@@ -72,28 +72,42 @@ export const metasService = {
     if (error) throw error
 
     const uniqueOrdersPerDay = new Map<string, Set<number>>()
+    const uniqueCaptacaoPerDay = new Map<string, Set<number>>()
 
     data?.forEach((row) => {
       const date = row['DATA DO ACERTO']
       const orderId = row['NÚMERO DO PEDIDO']
+      const tipo = row['TIPO']
       if (!date || !orderId) return
 
       const dateStr = date.includes('T')
         ? date.split('T')[0]
         : date.split(' ')[0]
 
-      if (!uniqueOrdersPerDay.has(dateStr)) {
-        uniqueOrdersPerDay.set(dateStr, new Set())
+      if (tipo && tipo.toLowerCase() === 'captação') {
+        if (!uniqueCaptacaoPerDay.has(dateStr)) {
+          uniqueCaptacaoPerDay.set(dateStr, new Set())
+        }
+        uniqueCaptacaoPerDay.get(dateStr)!.add(orderId as number)
+      } else {
+        if (!uniqueOrdersPerDay.has(dateStr)) {
+          uniqueOrdersPerDay.set(dateStr, new Set())
+        }
+        uniqueOrdersPerDay.get(dateStr)!.add(orderId as number)
       }
-      uniqueOrdersPerDay.get(dateStr)!.add(orderId as number)
     })
 
-    const result = new Map<string, number>()
+    const regularMap = new Map<string, number>()
     uniqueOrdersPerDay.forEach((orders, date) => {
-      result.set(date, orders.size)
+      regularMap.set(date, orders.size)
     })
 
-    return result
+    const captacaoMap = new Map<string, number>()
+    uniqueCaptacaoPerDay.forEach((orders, date) => {
+      captacaoMap.set(date, orders.size)
+    })
+
+    return { regular: regularMap, captacao: captacaoMap }
   },
 
   async getExceptionDays() {

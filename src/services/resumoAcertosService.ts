@@ -68,6 +68,42 @@ export const resumoAcertosService = {
     return data as Rota
   },
 
+  async getRouteIdForOrder(orderId: number): Promise<number | null> {
+    const { data: orderData, error: orderError } = await supabase
+      .from('BANCO_DE_DADOS')
+      .select('"DATA DO ACERTO", "DATA E HORA"')
+      .eq('NÚMERO DO PEDIDO', orderId)
+      .limit(1)
+      .maybeSingle()
+
+    if (orderError || !orderData) return null
+
+    let dateStr = orderData['DATA DO ACERTO']
+    if (!dateStr && orderData['DATA E HORA']) {
+      dateStr = orderData['DATA E HORA'].split('T')[0]
+    }
+    if (!dateStr) return null
+
+    const dateToCompare = new Date(`${dateStr}T12:00:00`).toISOString()
+
+    const { data: routeData, error: routeError } = await supabase
+      .from('ROTA')
+      .select('id, data_inicio, data_fim')
+      .lte('data_inicio', dateToCompare)
+      .order('data_inicio', { ascending: false })
+
+    if (routeError || !routeData) return null
+
+    const route = routeData.find(
+      (r) => !r.data_fim || r.data_fim >= dateToCompare,
+    )
+    if (route) return route.id
+
+    if (routeData.length > 0) return routeData[0].id
+
+    return null
+  },
+
   async finishAndStartNewRoute(currentRouteId: number) {
     const now = new Date().toISOString()
 
@@ -219,7 +255,6 @@ export const resumoAcertosService = {
       let dateStr = row['DATA DO ACERTO']
       let timeStr = row['HORA DO ACERTO'] || '00:00:00'
 
-      // Safe fallback to DATA E HORA if DATA DO ACERTO is somehow missing still
       if (!dateStr && row['DATA E HORA']) {
         const iso = row['DATA E HORA'].split('T')
         dateStr = iso[0]

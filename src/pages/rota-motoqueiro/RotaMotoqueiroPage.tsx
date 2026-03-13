@@ -44,7 +44,6 @@ export default function RotaMotoqueiroPage() {
   const { toast } = useToast()
   const { employee } = useUserStore()
 
-  // State for Action Sheet (Negotiation)
   const [actionSheet, setActionSheet] = useState<{
     open: boolean
     orderId: string
@@ -59,7 +58,6 @@ export default function RotaMotoqueiroPage() {
     showForm: false,
   })
 
-  // State for Receipt Dialog
   const [receiptDialog, setReceiptDialog] = useState<{
     open: boolean
     orderId: string
@@ -86,7 +84,6 @@ export default function RotaMotoqueiroPage() {
             const fc = inst.formaCobranca?.toUpperCase()
             const debito = Math.max(0, inst.valorRegistrado - inst.valorPago)
 
-            // Only add if assigned to Motoqueiro AND debt > 0.05
             if (fc === 'MOTOQUEIRO' && debito > 0.05) {
               const uniqueId = `${client.clientId}-${order.orderId}-${inst.id || idx}`
               motoqueiroItems.push({
@@ -116,7 +113,6 @@ export default function RotaMotoqueiroPage() {
         })
       })
 
-      // Sort by Data Combinada (asc) then Vencimento (asc)
       motoqueiroItems.sort((a, b) => {
         const dateA = a.dataCombinada || a.vencimento || '9999-99-99'
         const dateB = b.dataCombinada || b.vencimento || '9999-99-99'
@@ -172,6 +168,37 @@ export default function RotaMotoqueiroPage() {
     })
   }
 
+  const handleUnmark = async (item: MotoqueiroItem) => {
+    if (
+      !confirm(
+        `Deseja retirar o pedido #${item.orderId} da rota do motoqueiro?`,
+      )
+    ) {
+      return
+    }
+
+    try {
+      await cobrancaService.updateReceivableField(
+        item.receivableId,
+        item.orderId,
+        'forma_cobranca',
+        null,
+      )
+      toast({
+        title: 'Removido',
+        description: 'Pedido retirado da rota com sucesso.',
+      })
+      await fetchData()
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: 'Erro',
+        description: 'Falha ao retirar o pedido da rota.',
+        variant: 'destructive',
+      })
+    }
+  }
+
   const handleConfirmReceipt = async (
     amount: number,
     method: string,
@@ -203,7 +230,6 @@ export default function RotaMotoqueiroPage() {
         className: 'bg-green-600 text-white',
       })
 
-      // Immediately refresh data to reflect debt change
       await fetchData()
     } catch (error) {
       console.error(error)
@@ -286,12 +312,12 @@ export default function RotaMotoqueiroPage() {
               onConsult={() => handleAction(item, false)}
               onRegisterAction={() => handleAction(item, true)}
               onRegisterReceipt={() => handleRegisterReceipt(item)}
+              onUnmark={() => handleUnmark(item)}
             />
           ))}
         </div>
       )}
 
-      {/* KM Management Section - Integrated at the bottom */}
       <KmManagementSection />
 
       <CollectionActionsSheet

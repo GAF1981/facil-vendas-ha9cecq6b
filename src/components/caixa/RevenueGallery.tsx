@@ -21,12 +21,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Button } from '@/components/ui/button'
+import { useNavigate } from 'react-router-dom'
 
 interface RevenueGalleryProps {
   items: ReceiptDetail[]
 }
 
 export function RevenueGallery({ items }: RevenueGalleryProps) {
+  const navigate = useNavigate()
+
   const pixItems = useMemo(
     () => items.filter((i) => i.forma === 'Pix'),
     [items],
@@ -102,8 +106,25 @@ export function RevenueGallery({ items }: RevenueGalleryProps) {
                         {item.forma}
                       </span>
                     </TableCell>
-                    <TableCell className="text-right font-semibold text-green-700 whitespace-nowrap">
-                      R$ {formatCurrency(item.valor)}
+                    <TableCell className="text-right font-semibold text-green-700 whitespace-nowrap px-2">
+                      <div className="flex items-center justify-end gap-2">
+                        <span>R$ {formatCurrency(item.valor)}</span>
+                        {item.orderId && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 shrink-0 text-muted-foreground hover:text-blue-600 hover:bg-blue-50"
+                            onClick={() =>
+                              navigate(
+                                `/resumo-acertos?locateOrder=${item.orderId}&editPayment=true`,
+                              )
+                            }
+                            title="Editar Pagamento do Pedido"
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

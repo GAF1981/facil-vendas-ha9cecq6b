@@ -87,6 +87,9 @@ export default function ResumoAcertosPage() {
   const [reprintingId, setReprintingId] = useState<number | null>(null)
   const [editingPaymentOrder, setEditingPaymentOrder] =
     useState<SettlementSummary | null>(null)
+  const [pendingEditOrderId, setPendingEditOrderId] = useState<number | null>(
+    null,
+  )
 
   const { toast } = useToast()
   const navigate = useNavigate()
@@ -252,6 +255,76 @@ export default function ResumoAcertosPage() {
     }
     fetchProjections()
   }, [data])
+
+  const handleLocateOrder = async () => {
+    if (!orderNumberFilter) {
+      toast({
+        title: 'Atenção',
+        description: 'Digite um número de pedido',
+        variant: 'destructive',
+      })
+      return
+    }
+    const orderId = parseInt(orderNumberFilter, 10)
+    if (isNaN(orderId)) return
+
+    try {
+      const routeId = await resumoAcertosService.getRouteIdForOrder(orderId)
+      if (routeId) {
+        setFilterMode('rota')
+        setSelectedRouteId(routeId.toString())
+        toast({
+          title: 'Pedido localizado',
+          description: `Pedido encontrado na Rota #${routeId}`,
+        })
+      } else {
+        toast({
+          title: 'Não encontrado',
+          description: 'Não foi possível localizar a rota deste pedido',
+          variant: 'destructive',
+        })
+      }
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const locateOrderId = params.get('locateOrder')
+    const shouldEditPayment = params.get('editPayment') === 'true'
+
+    if (locateOrderId) {
+      setOrderNumberFilter(locateOrderId)
+      resumoAcertosService
+        .getRouteIdForOrder(parseInt(locateOrderId, 10))
+        .then((routeId) => {
+          if (routeId) {
+            setFilterMode('rota')
+            setSelectedRouteId(routeId.toString())
+            if (shouldEditPayment) {
+              setPendingEditOrderId(parseInt(locateOrderId, 10))
+            }
+            const newUrl =
+              window.location.protocol +
+              '//' +
+              window.location.host +
+              window.location.pathname
+            window.history.replaceState({ path: newUrl }, '', newUrl)
+          }
+        })
+    }
+  }, [])
+
+  useEffect(() => {
+    if (pendingEditOrderId && data.length > 0) {
+      const order = data.find((d) => d.orderId === pendingEditOrderId)
+      if (order) {
+        setEditingPaymentOrder(order)
+        setPendingEditOrderId(null)
+      }
+    }
+  }, [data, pendingEditOrderId])
 
   const handleReprint = async (orderId: number) => {
     setReprintingId(orderId)
@@ -515,12 +588,22 @@ export default function ResumoAcertosPage() {
                 <Hash className="h-4 w-4 text-blue-600" />
                 Filtrar por Pedido
               </div>
-              <Input
-                placeholder="Número do pedido..."
-                value={orderNumberFilter}
-                onChange={(e) => setOrderNumberFilter(e.target.value)}
-                className="bg-background"
-              />
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Número..."
+                  value={orderNumberFilter}
+                  onChange={(e) => setOrderNumberFilter(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleLocateOrder()}
+                  className="bg-background w-full"
+                />
+                <Button
+                  onClick={handleLocateOrder}
+                  variant="secondary"
+                  title="Localizar Rota"
+                >
+                  Localizar
+                </Button>
+              </div>
             </div>
           </div>
         </CardHeader>

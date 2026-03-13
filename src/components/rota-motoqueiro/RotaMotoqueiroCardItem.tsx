@@ -19,6 +19,7 @@ import {
   Mail,
   Info,
   AlertCircle,
+  X,
 } from 'lucide-react'
 import { formatCurrency, safeFormatDate } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
@@ -60,12 +61,15 @@ interface RotaMotoqueiroCardItemProps {
   onConsult: () => void
   onRegisterAction: () => void
   onRegisterReceipt: () => void
+  onUnmark: () => void
 }
 
 export function RotaMotoqueiroCardItem({
   item,
   onConsult,
   onRegisterAction,
+  onRegisterReceipt,
+  onUnmark,
 }: RotaMotoqueiroCardItemProps) {
   const isOverdue = item.status === 'VENCIDO'
   const isPaid = item.status === 'PAGO'
@@ -105,8 +109,6 @@ export function RotaMotoqueiroCardItem({
   }
 
   const handleGoToReceipts = () => {
-    // Navigate to RecebimentoPage with pre-filled filters
-    // This ensures that clicking "Recebimento" takes the user to the correct tab with context
     navigate(
       `/recebimento?search=${encodeURIComponent(item.clientName)}&orderId=${item.orderId}`,
     )
@@ -141,20 +143,31 @@ export function RotaMotoqueiroCardItem({
               </div>
             </div>
             <div className="flex flex-col gap-1 items-end">
-              <Badge
-                variant={
-                  isOverdue ? 'destructive' : isPaid ? 'default' : 'outline'
-                }
-                className={cn(
-                  'text-[10px] px-2 py-0.5 uppercase shrink-0',
-                  isPaid && 'bg-green-100 text-green-800 hover:bg-green-200',
-                  !isOverdue &&
-                    !isPaid &&
-                    'text-blue-600 border-blue-200 bg-blue-50',
-                )}
-              >
-                {item.status}
-              </Badge>
+              <div className="flex items-center gap-1">
+                <Badge
+                  variant={
+                    isOverdue ? 'destructive' : isPaid ? 'default' : 'outline'
+                  }
+                  className={cn(
+                    'text-[10px] px-2 py-0.5 uppercase shrink-0',
+                    isPaid && 'bg-green-100 text-green-800 hover:bg-green-200',
+                    !isOverdue &&
+                      !isPaid &&
+                      'text-blue-600 border-blue-200 bg-blue-50',
+                  )}
+                >
+                  {item.status}
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5 rounded-full text-muted-foreground hover:bg-red-100 hover:text-red-600 shrink-0"
+                  onClick={onUnmark}
+                  title="Retirar da Rota Motoqueiro"
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
               {item.clientStatus && (
                 <Badge variant="secondary" className="text-[9px]">
                   {item.clientStatus}
