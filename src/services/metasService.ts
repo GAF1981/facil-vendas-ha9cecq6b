@@ -143,4 +143,3 @@ export const metasService = {
     if (error) throw error
   },
 }
-

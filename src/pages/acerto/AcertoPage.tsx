@@ -63,12 +63,10 @@ export default function AcertoPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
-  // Ensure modal only triggers on standard acerto initiation (not edit mode)
   const [showSummaryModal, setShowSummaryModal] = useState(
     () => !searchParams.get('editOrderId'),
   )
 
-  // State
   const [client, setClient] = useState<ClientRow | null>(null)
   const [employees, setEmployees] = useState<Employee[]>([])
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('')
@@ -82,11 +80,9 @@ export default function AcertoPage() {
   const [collectionDialogOpen, setCollectionDialogOpen] = useState(false)
   const [isVendaMercadoria, setIsVendaMercadoria] = useState(false)
 
-  // Visibility Controls State
   const [hideContagem, setHideContagem] = useState(false)
   const [hideSaldoFinal, setHideSaldoFinal] = useState(false)
 
-  // Edit Mode States
   const [isEditMode, setIsEditMode] = useState(false)
   const [editOrderId, setEditOrderId] = useState<number | null>(null)
   const [originalOrderDate, setOriginalOrderDate] = useState<string | null>(
@@ -96,20 +92,16 @@ export default function AcertoPage() {
     null,
   )
 
-  // Default to 80mm as per user story requirement for thermal printer optimization
   const [pdfFormat, setPdfFormat] = useState<'A4' | '80mm'>('80mm')
 
-  // Pending Stock Adjustments Queue
   const [pendingAdjustments, setPendingAdjustments] = useState<
     PendingStockAdjustment[]
   >([])
 
-  // Loading States
   const [loadingAcerto, setLoadingAcerto] = useState(false)
   const [saving, setSaving] = useState(false)
   const [generatingPdf, setGeneratingPdf] = useState(false)
 
-  // Context Data
   const [lastAcerto, setLastAcerto] = useState<{
     date: string
     time: string
@@ -117,7 +109,6 @@ export default function AcertoPage() {
   const [monthlyAverage, setMonthlyAverage] = useState(0)
   const [nextOrderNumber, setNextOrderNumber] = useState<number | null>(null)
 
-  // Initialization
   useEffect(() => {
     employeesService
       .getEmployees(1, 100)
@@ -128,7 +119,6 @@ export default function AcertoPage() {
       .catch((err) => console.error('Failed to fetch employees', err))
   }, [])
 
-  // Auto-select logged in employee and handle role-based permission
   const canEditEmployee =
     loggedInUser &&
     (Array.isArray(loggedInUser.setor)
@@ -137,14 +127,12 @@ export default function AcertoPage() {
 
   useEffect(() => {
     if (loggedInUser) {
-      // Always auto-select current user initially if not set
       if (!selectedEmployeeId) {
         setSelectedEmployeeId(loggedInUser.id.toString())
       }
     }
   }, [loggedInUser, selectedEmployeeId])
 
-  // Smart Redirect Logic: Handle URL Params for Auto-Selection and Edit Mode
   useEffect(() => {
     const eid = searchParams.get('editOrderId')
     const cid = searchParams.get('clientId')
@@ -244,16 +232,14 @@ export default function AcertoPage() {
     toast,
   ])
 
-  // Client Selection Effect
   useEffect(() => {
     if (client) {
       if (isEditMode) {
-        return // Skip normal fetching if in edit mode
+        return
       }
 
       setLoadingAcerto(true)
 
-      // 0. Check for History (Captação Logic)
       bancoDeDadosService
         .checkClientHasOrders(client.CODIGO)
         .then((hasOrders) => {
@@ -261,12 +247,10 @@ export default function AcertoPage() {
         })
         .catch((e) => console.error('History check error', e))
 
-      // 1. Get Last Acerto Info
       bancoDeDadosService
         .getLastAcerto(client.CODIGO)
         .then((data) => {
           setLastAcerto(data)
-          // 2. If we have last acerto, fetch items as new transaction
           if (data && data.date && data.time) {
             return bancoDeDadosService.getAcertoItemsAsNewTransaction(
               client.CODIGO,
@@ -290,26 +274,22 @@ export default function AcertoPage() {
         })
         .finally(() => setLoadingAcerto(false))
 
-      // 3. Get Monthly Average
       bancoDeDadosService
         .getMonthlyAverage(client.CODIGO)
         .then(setMonthlyAverage)
         .catch((e) => console.error('Avg error', e))
 
-      // 4. Get Next Order Number (Preview)
       bancoDeDadosService
         .getNextNumeroPedido()
         .then(setNextOrderNumber)
         .catch((e) => console.error('Next order error', e))
 
-      // 5. NF Logic: If 'Nota Fiscal Cadastro' is NO or 0, set Venda to NO automatically
       if (client['NOTA FISCAL'] === 'NÃO' || client['NOTA FISCAL'] === '0') {
         setNotaFiscal('NÃO')
       } else {
-        setNotaFiscal('') // Reset if SIM or other
+        setNotaFiscal('')
       }
 
-      // 6. Sale Type Logic
       if (client.tipo_venda === 'venda de mercadorias') {
         setIsVendaMercadoria(true)
       } else {
@@ -333,7 +313,6 @@ export default function AcertoPage() {
     }
   }, [client, isEditMode, toast])
 
-  // Calculations
   const totalSalesValue = items.reduce(
     (acc, item) => acc + item.valorVendido,
     0,
@@ -421,7 +400,6 @@ export default function AcertoPage() {
       idVendaItens: null,
     }))
 
-    // Sort items alphabetically after adding
     setItems((prev) => {
       const combined = [...prev, ...newItems]
       return combined.sort((a, b) => a.produtoNome.localeCompare(b.produtoNome))
@@ -514,7 +492,6 @@ export default function AcertoPage() {
 
     setGeneratingPdf(true)
     try {
-      // Fetch history from 'debitos_historico' view for PDF consistency
       const history = await bancoDeDadosService.getHistoryForPdf(client.CODIGO)
 
       const detailedPayments = payments
@@ -563,7 +540,6 @@ export default function AcertoPage() {
           ]
         })
 
-      // Calculate Metrics for Summary
       const totalItemsSold = items.reduce(
         (acc, i) => acc + (i.quantVendida > 0 ? 1 : 0),
         0,
@@ -573,12 +549,10 @@ export default function AcertoPage() {
         0,
       )
 
-      // Ensure items are sorted alphabetically for PDF
       const sortedItemsForPdf = [...items].sort((a, b) =>
         a.produtoNome.localeCompare(b.produtoNome),
       )
 
-      // Include current order in the history for the PDF
       const previewHistoryEntry = {
         id: nextOrderNumber || 0,
         data: new Date().toISOString(),
@@ -601,8 +575,6 @@ export default function AcertoPage() {
           employee: emp,
           items: sortedItemsForPdf,
           date: new Date().toISOString(),
-          // Ensure we use 'thermal-history' layout when 80mm is selected, or 'acerto' which logic inside generate-pdf handles similarly.
-          // User story implies vertical thermal receipt.
           acertoTipo: isCaptacao ? 'Captação' : 'Acerto',
           totalVendido: totalSalesValue,
           valorDesconto: discountAmount,
@@ -615,11 +587,11 @@ export default function AcertoPage() {
           payments,
           detailedPayments,
           pendingInstallments,
-          installments: pendingInstallments, // Pass mapped installments
+          installments: pendingInstallments,
           monthlyAverage,
           orderNumber: nextOrderNumber,
           issuerName: loggedInUser?.nome_completo,
-          history: combinedHistory, // Passing calculated history
+          history: combinedHistory,
           totalItemsSold,
           totalQuantitySold,
         },
@@ -641,7 +613,6 @@ export default function AcertoPage() {
   }
 
   const handlePreSaveValidation = async () => {
-    // Reset visibility logic to protect report generation as per acceptance criteria
     setHideContagem(false)
     setHideSaldoFinal(false)
 
@@ -792,8 +763,6 @@ export default function AcertoPage() {
     setSaving(true)
     try {
       const now = new Date()
-      // Items are already sorted in state if user used UI controls properly, but DB saves order of insert.
-      // Retrieval handles sort.
 
       let finalOrderNumber: number
       const orderDate =
@@ -869,7 +838,6 @@ export default function AcertoPage() {
         })
       }
 
-      // Retrieve history for PDF - Include the current order as per User Story
       const history = await bancoDeDadosService.getHistoryForPdf(client.CODIGO)
       const filteredHistory = history.slice(0, 10)
 
@@ -919,7 +887,6 @@ export default function AcertoPage() {
           ]
         })
 
-      // Calculate Metrics for Summary
       const totalItemsSold = items.reduce(
         (acc, i) => acc + (i.quantVendida > 0 ? 1 : 0),
         0,
@@ -929,7 +896,6 @@ export default function AcertoPage() {
         0,
       )
 
-      // Ensure items are sorted alphabetically for PDF
       const sortedItemsForPdf = [...items].sort((a, b) =>
         a.produtoNome.localeCompare(b.produtoNome),
       )
@@ -952,7 +918,7 @@ export default function AcertoPage() {
           payments,
           detailedPayments,
           pendingInstallments,
-          installments: pendingInstallments, // Pass mapped installments
+          installments: pendingInstallments,
           monthlyAverage,
           orderNumber: finalOrderNumber,
           issuerName: loggedInUser?.nome_completo,
@@ -967,7 +933,6 @@ export default function AcertoPage() {
 
       const a = document.createElement('a')
       a.href = url
-      // Update Filename pattern as per User Story: [NOME CLIENTE] - [CODIGO CLIENTE] - [NÚMERO DO PEDIDO].pdf
       a.download = `${client['NOME CLIENTE']} - ${client.CODIGO} - ${finalOrderNumber}.pdf`
       document.body.appendChild(a)
       a.click()

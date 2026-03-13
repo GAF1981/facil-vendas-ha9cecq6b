@@ -168,7 +168,6 @@ export function RotaMotoqueiroCardItem({
           </div>
         </CardHeader>
         <CardContent className="p-4 pt-3 space-y-3 flex-1">
-          {/* Address Section */}
           <div className="text-xs text-muted-foreground bg-muted/20 p-2 rounded border border-dashed flex gap-2 items-start">
             <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0" />
             <div className="line-clamp-2">
