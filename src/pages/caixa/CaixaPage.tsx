@@ -14,6 +14,15 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Root as VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { resumoAcertosService } from '@/services/resumoAcertosService'
 import {
   caixaService,
@@ -95,6 +104,16 @@ export default function CaixaPage() {
     empId: number | null
     empName: string
   }>({ open: false, empId: null, empName: '' })
+
+  const [alertState, setAlertState] = useState<{
+    open: boolean
+    title: string
+    message: string
+  }>({
+    open: false,
+    title: 'Atenção',
+    message: '',
+  })
 
   const [generatingPdf, setGeneratingPdf] = useState(false)
   const [printFormat, setPrintFormat] = useState<'A4' | '80mm'>('80mm')
@@ -261,11 +280,10 @@ export default function CaixaPage() {
       )
 
       if (closureStatus === 'Fechado' || closureStatus === 'Aberto') {
-        // 'Aberto' here means "Closing process initiated" in fechamento_caixa table
-        toast({
+        setAlertState({
+          open: true,
           title: 'Ação Bloqueada',
-          description: `O Caixa de ${targetEmpName} já está em processo de fechamento ou fechado. Não é possível lançar novas despesas.`,
-          variant: 'destructive',
+          message: `O Caixa de ${targetEmpName} já está em processo de fechamento ou fechado. Não é possível lançar novas despesas.`,
         })
         return
       }
@@ -282,10 +300,10 @@ export default function CaixaPage() {
         empId,
       )
       if (closureStatus === 'Fechado' || closureStatus === 'Aberto') {
-        toast({
-          title: 'Bloqueado',
-          description: 'Caixa em fechamento ou fechado.',
-          variant: 'destructive',
+        setAlertState({
+          open: true,
+          title: 'Ação Bloqueada',
+          message: 'Caixa em fechamento ou fechado.',
         })
         return
       }
@@ -833,6 +851,25 @@ export default function CaixaPage() {
             : undefined
         }
       />
+
+      <AlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState((p) => ({ ...p, open }))}
+      >
+        <AlertDialogContent>
+          <VisuallyHidden>
+            <AlertDialogTitle>{alertState.title}</AlertDialogTitle>
+          </VisuallyHidden>
+          <div className="py-4 text-center">
+            <AlertDialogDescription className="text-base font-medium text-foreground">
+              {alertState.message}
+            </AlertDialogDescription>
+          </div>
+          <AlertDialogFooter className="sm:justify-center">
+            <AlertDialogAction>Entendi</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
