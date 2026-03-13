@@ -276,7 +276,8 @@ export function ExpenseFormDialog({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 hidden">
+              {/* Keeping the logic but hiding the input as required to strictly use exact moment */}
               <FormField
                 control={form.control}
                 name="data"

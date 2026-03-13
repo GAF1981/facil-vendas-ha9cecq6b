@@ -365,7 +365,7 @@ const MetasReportPage = () => {
   }, [reportData])
 
   return (
-    <div className="space-y-6 animate-fade-in pb-20">
+    <div className="space-y-6 animate-fade-in pb-20 p-2 sm:p-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
@@ -633,9 +633,12 @@ const MetasReportPage = () => {
               <CardContent>
                 <div className="text-2xl font-bold">{summary.totalAcertos}</div>
                 {summary.totalCaptacao > 0 && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    + {summary.totalCaptacao} captações
-                  </p>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1 font-medium bg-muted/50 w-fit px-2 py-0.5 rounded">
+                    <span>Captação:</span>
+                    <span className="text-foreground">
+                      {summary.totalCaptacao}
+                    </span>
+                  </div>
                 )}
               </CardContent>
             </Card>

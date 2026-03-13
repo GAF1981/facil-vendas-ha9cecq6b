@@ -63,7 +63,7 @@ export const metasService = {
   async getAcertos(funcionarioId: number, startDate: string, endDate: string) {
     const { data, error } = await supabase
       .from('BANCO_DE_DADOS')
-      .select('"DATA DO ACERTO", "NÚMERO DO PEDIDO", "TIPO"')
+      .select('"DATA DO ACERTO", "NÚMERO DO PEDIDO", "FORMA"')
       .eq('CODIGO FUNCIONARIO', funcionarioId)
       .gte('DATA DO ACERTO', startDate)
       .lte('DATA DO ACERTO', endDate)
@@ -77,14 +77,14 @@ export const metasService = {
     data?.forEach((row) => {
       const date = row['DATA DO ACERTO']
       const orderId = row['NÚMERO DO PEDIDO']
-      const tipo = row['TIPO']
+      const forma = row['FORMA']
       if (!date || !orderId) return
 
       const dateStr = date.includes('T')
         ? date.split('T')[0]
         : date.split(' ')[0]
 
-      if (tipo && tipo.toLowerCase() === 'captação') {
+      if (forma && forma.toLowerCase().includes('captação')) {
         if (!uniqueCaptacaoPerDay.has(dateStr)) {
           uniqueCaptacaoPerDay.set(dateStr, new Set())
         }
@@ -143,3 +143,4 @@ export const metasService = {
     if (error) throw error
   },
 }
+

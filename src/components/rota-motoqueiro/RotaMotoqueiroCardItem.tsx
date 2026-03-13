@@ -19,7 +19,7 @@ import {
   Mail,
   Info,
   AlertCircle,
-  X,
+  LogOut,
 } from 'lucide-react'
 import { formatCurrency, safeFormatDate } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
@@ -158,15 +158,6 @@ export function RotaMotoqueiroCardItem({
                 >
                   {item.status}
                 </Badge>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-5 w-5 rounded-full text-muted-foreground hover:bg-red-100 hover:text-red-600 shrink-0"
-                  onClick={onUnmark}
-                  title="Retirar da Rota Motoqueiro"
-                >
-                  <X className="h-3 w-3" />
-                </Button>
               </div>
               {item.clientStatus && (
                 <Badge variant="secondary" className="text-[9px]">
@@ -347,7 +338,7 @@ export function RotaMotoqueiroCardItem({
             </div>
           )}
 
-          <div className="flex w-full gap-2">
+          <div className="flex w-full gap-2 mb-1">
             <Button
               variant="ghost"
               size="sm"
@@ -392,6 +383,17 @@ export function RotaMotoqueiroCardItem({
               Ação
             </Button>
           </div>
+
+          <Button
+            variant="default"
+            size="sm"
+            className="w-full text-xs h-9 bg-black hover:bg-zinc-800 text-white"
+            onClick={onUnmark}
+            title="Sair da Rota"
+          >
+            <LogOut className="w-4 h-4 mr-1.5" />
+            Sair da Rota
+          </Button>
         </CardFooter>
       </Card>
 

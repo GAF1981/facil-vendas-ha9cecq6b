@@ -15,7 +15,8 @@ import {
 } from '@/components/ui/table'
 import { caixaService, ExpenseDetail } from '@/services/caixaService'
 import { Rota } from '@/types/rota'
-import { formatCurrency, safeFormatDate } from '@/lib/formatters'
+import { formatCurrency } from '@/lib/formatters'
+import { formatDateTimeBR } from '@/lib/dateUtils'
 import { Loader2 } from 'lucide-react'
 
 interface ExpensesDetailDialogProps {
@@ -72,7 +73,7 @@ export function ExpensesDetailDialog({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Data</TableHead>
+                <TableHead>Data/Hora</TableHead>
                 <TableHead>Grupo</TableHead>
                 <TableHead>Detalhamento</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
@@ -91,9 +92,7 @@ export function ExpensesDetailDialog({
               ) : (
                 data.map((row) => (
                   <TableRow key={row.id}>
-                    <TableCell>
-                      {safeFormatDate(row.data, 'dd/MM/yyyy')}
-                    </TableCell>
+                    <TableCell>{formatDateTimeBR(row.data)}</TableCell>
                     <TableCell>{row.grupo}</TableCell>
                     <TableCell>{row.detalhamento}</TableCell>
                     <TableCell className="text-right text-red-700 font-medium">

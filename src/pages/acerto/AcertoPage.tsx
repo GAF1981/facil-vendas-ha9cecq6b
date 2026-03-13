@@ -308,6 +308,13 @@ export default function AcertoPage() {
       } else {
         setNotaFiscal('') // Reset if SIM or other
       }
+
+      // 6. Sale Type Logic
+      if (client.tipo_venda === 'venda de mercadorias') {
+        setIsVendaMercadoria(true)
+      } else {
+        setIsVendaMercadoria(false)
+      }
     } else {
       setItems([])
       setLastAcerto(null)

@@ -12,6 +12,7 @@ interface AdditionalFields {
   situacao?: string | null
   telefone_cobranca?: string | null
   email_cobranca?: string | null
+  tipo_venda?: string | null
 }
 
 export type ClientRow = Database['public']['Tables']['CLIENTES']['Row'] &
@@ -76,6 +77,8 @@ export const clientSchema = z.object({
   situacao: z.string().optional().nullable(),
   telefone_cobranca: z.string().optional().nullable(),
   email_cobranca: z.string().optional().nullable(),
+  tipo_venda: z.enum(['consignado', 'venda de mercadorias']).optional().nullable().default('consignado'),
 })
 
 export type ClientFormData = z.infer<typeof clientSchema>
+

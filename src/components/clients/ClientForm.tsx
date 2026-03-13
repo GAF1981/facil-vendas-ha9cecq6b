@@ -106,6 +106,7 @@ export function ClientForm({
           telefone_cobranca:
             initialData.telefone_cobranca || initialData['FONE 1'],
           email_cobranca: initialData.email_cobranca || initialData.EMAIL,
+          tipo_venda: (initialData.tipo_venda as any) || 'consignado',
         }
       : {
           CODIGO: 0,
@@ -138,6 +139,7 @@ export function ClientForm({
           'ALTERAÇÃO CLIENTE': '',
           telefone_cobranca: '',
           email_cobranca: '',
+          tipo_venda: 'consignado',
         },
     mode: 'onChange',
   })
@@ -833,6 +835,35 @@ export function ClientForm({
               <div className="md:col-span-4">
                 <FormField
                   control={form.control}
+                  name="tipo_venda"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tipo de Venda Padrão</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value || 'consignado'}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="consignado">Consignado</SelectItem>
+                          <SelectItem value="venda de mercadorias">
+                            Venda de Mercadorias
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="md:col-span-4">
+                <FormField
+                  control={form.control}
                   name="EXPOSITOR"
                   render={({ field }) => (
                     <FormItem>
@@ -908,7 +939,7 @@ export function ClientForm({
                 />
               </div>
 
-              <div className="md:col-span-6">
+              <div className="md:col-span-8">
                 <div className="flex items-end gap-2">
                   <div className="flex-1">
                     <FormField

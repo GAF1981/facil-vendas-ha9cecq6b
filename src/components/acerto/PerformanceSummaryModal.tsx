@@ -41,6 +41,7 @@ export function PerformanceSummaryModal({
   const [metrics, setMetrics] = useState({
     totalMetas: 0,
     totalAcertos: 0,
+    totalCaptacao: 0,
     apuracao: 0,
     atingimento: 0,
   })
@@ -92,6 +93,7 @@ export function PerformanceSummaryModal({
         }
 
         let totalAcertos = 0
+        let totalCaptacao = 0
         let totalMetas = 0
         let totalApuracao = 0
         const today = startOfDay(new Date())
@@ -111,11 +113,11 @@ export function PerformanceSummaryModal({
               : fixedMeta?.meta_diaria || 0
 
             const metaForDay = isNonWorkingDay ? 0 : effectiveMeta
-            const acertos =
-              (acertosData?.regular?.get(dStr) || 0) +
-              (acertosData?.captacao?.get(dStr) || 0)
+            const acertos = acertosData?.regular?.get(dStr) || 0
+            const captacao = acertosData?.captacao?.get(dStr) || 0
 
             totalAcertos += acertos
+            totalCaptacao += captacao
             totalMetas += metaForDay
             totalApuracao += acertos - metaForDay
           }
@@ -127,6 +129,7 @@ export function PerformanceSummaryModal({
         setMetrics({
           totalMetas: Number(totalMetas.toFixed(2)),
           totalAcertos,
+          totalCaptacao,
           apuracao: Number(totalApuracao.toFixed(2)),
           atingimento: Number(atingimento.toFixed(2)),
         })
@@ -206,7 +209,7 @@ export function PerformanceSummaryModal({
                 </span>
                 <span className="text-2xl font-bold">{metrics.totalMetas}</span>
               </div>
-              <div className="flex flex-col items-center p-3 bg-muted/30 rounded-lg border">
+              <div className="flex flex-col items-center justify-center p-3 bg-muted/30 rounded-lg border relative">
                 <CheckCircle className="w-5 h-5 text-blue-500 mb-1" />
                 <span className="text-xs text-muted-foreground font-medium uppercase text-center">
                   Total Acertos
@@ -214,6 +217,13 @@ export function PerformanceSummaryModal({
                 <span className="text-2xl font-bold">
                   {metrics.totalAcertos}
                 </span>
+                {metrics.totalCaptacao > 0 && (
+                  <div className="absolute bottom-1 left-0 right-0 flex justify-center">
+                    <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-sm">
+                      Captação: {metrics.totalCaptacao}
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="flex flex-col items-center p-3 bg-muted/30 rounded-lg border">
                 <TrendingUp className="w-5 h-5 text-purple-500 mb-1" />

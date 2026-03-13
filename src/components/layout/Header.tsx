@@ -73,6 +73,10 @@ export function Header() {
         return 'Estoque'
       case 'fechamentos':
         return 'Fechamentos'
+      case 'dre':
+        return 'DRE'
+      case 'email-seguro':
+        return 'e-mail seguro'
       default:
         return path
     }

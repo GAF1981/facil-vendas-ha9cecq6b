@@ -158,7 +158,7 @@ export function AppSidebar() {
       module: 'Relatório',
     },
     {
-      title: 'E-mail Seguro',
+      title: 'e-mail seguro',
       url: '/email-seguro',
       icon: Mail,
       module: 'Email Seguro',

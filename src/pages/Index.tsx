@@ -1,4 +1,5 @@
-import { MobileNavCard } from '@/components/home/MobileNavCard'
+import { Link } from 'react-router-dom'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Users,
   Briefcase,
@@ -10,6 +11,7 @@ import {
   ClipboardList,
   Map,
   BarChart3,
+  BarChart4,
   AlertCircle,
   Package,
   Database,
@@ -20,226 +22,289 @@ import {
   Car,
   UserX,
   Bike,
-  ShieldCheck,
+  Mail,
   Barcode,
 } from 'lucide-react'
 import { usePermissions } from '@/hooks/use-permissions'
-import { DashboardStats } from '@/components/dashboard/DashboardStats'
+import { useUserStore } from '@/stores/useUserStore'
 
 export default function Index() {
   const { canAccess } = usePermissions()
+  const { employee } = useUserStore()
 
-  const modules = [
+  const mainModules = [
     {
       title: 'Acerto',
       icon: Scale,
+      color: 'text-indigo-500',
+      bg: 'bg-indigo-50',
       to: '/acerto',
-      description: 'Realizar acertos e captações de vendas',
-      color: 'text-green-600',
       module: 'Acerto',
     },
     {
       title: 'Rota',
       icon: Map,
+      color: 'text-blue-500',
+      bg: 'bg-blue-50',
       to: '/rota',
-      description: 'Planejamento e gestão de rotas',
-      color: 'text-fuchsia-600',
       module: 'Rota',
     },
     {
       title: 'Recebimento',
       icon: ArrowDownCircle,
+      color: 'text-emerald-500',
+      bg: 'bg-emerald-50',
       to: '/recebimento',
-      description: 'Registrar recebimentos de valores',
-      color: 'text-emerald-600',
       module: 'Recebimento',
     },
     {
       title: 'Caixa',
       icon: Wallet,
+      color: 'text-teal-500',
+      bg: 'bg-teal-50',
       to: '/caixa',
-      description: 'Fluxo de caixa e movimentações',
-      color: 'text-cyan-600',
       module: 'Caixa',
     },
     {
-      title: 'Rota Motoqueiro',
-      icon: Bike,
-      to: '/rota-motoqueiro',
-      description: 'Gestão de cobranças via motoqueiro',
-      color: 'text-orange-500',
-      module: 'Rota Motoqueiro',
+      title: 'DRE',
+      icon: BarChart4,
+      color: 'text-purple-600',
+      bg: 'bg-purple-50',
+      to: '/dre',
+      module: 'DRE',
     },
     {
       title: 'Estoque Carro',
       icon: Car,
+      color: 'text-orange-500',
+      bg: 'bg-orange-50',
       to: '/estoque-carro',
-      description: 'Controle de estoque por veículo',
-      color: 'text-blue-500',
       module: 'Inventário',
-    },
-    {
-      title: 'Veículos',
-      icon: Car,
-      to: '/veiculos',
-      description: 'Gestão da frota de veículos',
-      color: 'text-blue-700',
-      module: 'Veículos',
     },
     {
       title: 'Resumo Acertos',
       icon: FileBarChart,
+      color: 'text-cyan-500',
+      bg: 'bg-cyan-50',
       to: '/resumo-acertos',
-      description: 'Monitoramento consolidado de acertos',
-      color: 'text-indigo-600',
       module: 'Resumo Acertos',
     },
     {
-      title: 'Cobrança',
-      icon: CreditCard,
-      to: '/cobranca',
-      description: 'Gestão de cobranças e inadimplência',
-      color: 'text-red-600',
-      module: 'Cobrança',
+      title: 'Rota Motoqueiro',
+      icon: Bike,
+      color: 'text-fuchsia-500',
+      bg: 'bg-fuchsia-50',
+      to: '/rota-motoqueiro',
+      module: 'Rota Motoqueiro',
     },
     {
       title: 'Boletos',
       icon: Barcode,
+      color: 'text-blue-600',
+      bg: 'bg-blue-50',
       to: '/boletos',
-      description: 'Gestão e conferência de boletos gerados',
-      color: 'text-slate-800',
       module: 'Boletos',
+    },
+    {
+      title: 'Cobrança',
+      icon: CreditCard,
+      color: 'text-red-500',
+      bg: 'bg-red-50',
+      to: '/cobranca',
+      module: 'Cobrança',
     },
     {
       title: 'Nota Fiscal',
       icon: FileText,
+      color: 'text-violet-500',
+      bg: 'bg-violet-50',
       to: '/nota-fiscal',
-      description: 'Controle de emissão de notas fiscais',
-      color: 'text-orange-600',
       module: 'Nota Fiscal',
     },
     {
       title: 'Fechamentos',
       icon: Lock,
+      color: 'text-slate-500',
+      bg: 'bg-slate-100',
       to: '/fechamentos',
-      description: 'Caixa, Conferência Pix e Inativos',
-      color: 'text-purple-600',
       module: 'Fechamentos',
     },
     {
       title: 'INATIVAR CLIENTES',
       icon: UserX,
+      color: 'text-rose-500',
+      bg: 'bg-rose-50',
       to: '/inativar-clientes',
-      description: 'Gestão de clientes para inativação',
-      color: 'text-red-700',
       module: 'Inativar Clientes',
     },
     {
       title: 'Pendências',
       icon: AlertCircle,
+      color: 'text-amber-500',
+      bg: 'bg-amber-50',
       to: '/pendencias',
-      description: 'Acompanhamento de pendências',
-      color: 'text-yellow-600',
       module: 'Pendências',
     },
     {
       title: 'Inventário',
       icon: ClipboardList,
+      color: 'text-lime-500',
+      bg: 'bg-lime-50',
       to: '/inventario',
-      description: 'Controle de estoque e inventário geral',
-      color: 'text-violet-600',
       module: 'Inventário',
     },
     {
       title: 'Relatório',
       icon: BarChart3,
+      color: 'text-sky-500',
+      bg: 'bg-sky-50',
       to: '/relatorio',
-      description: 'Relatórios gerenciais e estatísticas',
-      color: 'text-rose-600',
       module: 'Relatório',
     },
     {
-      title: 'E-mail Seguro',
-      icon: ShieldCheck,
+      title: 'e-mail seguro',
+      icon: Mail,
+      color: 'text-green-600',
+      bg: 'bg-green-50',
       to: '/email-seguro',
-      description: 'Envio seguro de relatórios consolidados',
-      color: 'text-blue-700',
-      module: 'E-mail Seguro',
+      module: 'Email Seguro',
     },
     {
       title: 'Permissões',
       icon: Settings,
+      color: 'text-zinc-600',
+      bg: 'bg-zinc-100',
       to: '/permissoes',
-      description: 'Configuração de acessos',
-      color: 'text-gray-600',
       module: 'Permissões',
+    },
+    {
+      title: 'Veículos',
+      icon: Car,
+      color: 'text-gray-500',
+      bg: 'bg-gray-100',
+      to: '/veiculos',
+      module: 'Veículos',
     },
     {
       title: 'Backup',
       icon: Database,
+      color: 'text-stone-500',
+      bg: 'bg-stone-100',
       to: '/backup',
-      description: 'Exportação e backup de dados',
-      color: 'text-slate-600',
       module: 'Backup',
     },
+  ]
+
+  const registrationModules = [
     {
       title: 'Clientes',
       icon: Users,
+      color: 'text-blue-500',
+      bg: 'bg-blue-50',
       to: '/clientes',
-      description: 'Gerenciar cadastro e histórico de clientes',
-      color: 'text-blue-600',
       module: 'Clientes',
     },
     {
       title: 'Fornecedores',
       icon: Truck,
+      color: 'text-orange-500',
+      bg: 'bg-orange-50',
       to: '/fornecedores',
-      description: 'Gestão de fornecedores',
-      color: 'text-orange-700',
       module: 'Produtos',
     },
     {
       title: 'Funcionários',
       icon: Briefcase,
+      color: 'text-indigo-500',
+      bg: 'bg-indigo-50',
       to: '/funcionarios',
-      description: 'Gestão da equipe de vendas',
-      color: 'text-indigo-600',
       module: 'Funcionários',
     },
     {
       title: 'Produtos',
       icon: Package,
+      color: 'text-emerald-500',
+      bg: 'bg-emerald-50',
       to: '/produtos',
-      description: 'Catálogo de produtos e preços',
-      color: 'text-amber-600',
       module: 'Produtos',
     },
   ]
 
-  const visibleModules = modules.filter((m) => canAccess(m.module))
+  const visibleMainModules = mainModules.filter((m) => {
+    if (m.module === 'Permissões') {
+      if (Array.isArray(employee?.setor)) {
+        return employee?.setor.includes('Administrador')
+      }
+      return employee?.setor === 'Administrador'
+    }
+    if (m.module === 'Email Seguro') return true
+    return canAccess(m.module)
+  })
+
+  const visibleRegistrationModules = registrationModules.filter((m) =>
+    canAccess(m.module),
+  )
 
   return (
-    <div className="space-y-6 animate-fade-in p-4 pb-20">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight">Menu Principal</h1>
-        <p className="text-muted-foreground">
-          Bem-vindo ao sistema Fácil Vendas. Confira o resumo do dia e selecione
-          um módulo.
+    <div className="space-y-8 animate-fade-in p-2 sm:p-6 pb-20">
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+          Menu Principal
+        </h1>
+        <p className="text-sm sm:text-base text-muted-foreground mt-1">
+          Acesse os módulos do sistema.
         </p>
       </div>
 
-      <DashboardStats />
-
-      {/* Modules Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {visibleModules.map((module) => (
-          <MobileNavCard
-            key={module.title}
-            {...module}
-            iconColor={module.color}
-          />
-        ))}
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold border-b pb-2">Módulos</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+          {visibleMainModules.map((module) => (
+            <Link key={module.to} to={module.to} className="block group">
+              <Card className="h-full transition-all duration-200 hover:shadow-md hover:border-primary/50 group-hover:-translate-y-1">
+                <CardContent className="p-4 sm:p-6 flex flex-col items-center justify-center text-center space-y-3 h-full">
+                  <div
+                    className={`${module.bg} p-3 sm:p-4 rounded-full transition-colors group-hover:bg-primary/10`}
+                  >
+                    <module.icon
+                      className={`w-6 h-6 sm:w-8 sm:h-8 ${module.color}`}
+                    />
+                  </div>
+                  <h3 className="font-medium text-xs sm:text-sm uppercase tracking-wide">
+                    {module.title}
+                  </h3>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
       </div>
+
+      {visibleRegistrationModules.length > 0 && (
+        <div className="space-y-4 pt-4">
+          <h2 className="text-xl font-semibold border-b pb-2">Cadastros</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+            {visibleRegistrationModules.map((module) => (
+              <Link key={module.to} to={module.to} className="block group">
+                <Card className="h-full transition-all duration-200 hover:shadow-md hover:border-primary/50 group-hover:-translate-y-1">
+                  <CardContent className="p-4 sm:p-6 flex flex-col items-center justify-center text-center space-y-3 h-full">
+                    <div
+                      className={`${module.bg} p-3 sm:p-4 rounded-full transition-colors group-hover:bg-primary/10`}
+                    >
+                      <module.icon
+                        className={`w-6 h-6 sm:w-8 sm:h-8 ${module.color}`}
+                      />
+                    </div>
+                    <h3 className="font-medium text-xs sm:text-sm uppercase tracking-wide">
+                      {module.title}
+                    </h3>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

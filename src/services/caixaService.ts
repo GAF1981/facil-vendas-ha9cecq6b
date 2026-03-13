@@ -55,14 +55,8 @@ export interface FuelReportRow {
 
 export const caixaService = {
   async saveDespesa(despesa: DespesaInsert) {
-    let dataToSave: string
-
-    if (despesa.Data) {
-      dataToSave = new Date(`${despesa.Data}T12:00:00`).toISOString()
-    } else {
-      const brazilDate = getBrazilDateString()
-      dataToSave = new Date(`${brazilDate}T12:00:00`).toISOString()
-    }
+    // Explicitly enforce exact moment capture
+    const dataToSave = new Date().toISOString()
 
     const { error } = await supabase.from('DESPESAS').insert({
       'Grupo de Despesas': despesa['Grupo de Despesas'],

@@ -43,7 +43,7 @@ export function ExpenseGallery({ items }: ExpenseGalleryProps) {
             <Table>
               <TableHeader className="bg-muted/50 sticky top-0 z-10">
                 <TableRow>
-                  <TableHead className="w-[100px]">Data</TableHead>
+                  <TableHead className="w-[140px]">Data/Hora</TableHead>
                   <TableHead>Detalhamento</TableHead>
                   <TableHead>Funcionário</TableHead>
                   <TableHead className="text-center">Saiu do Caixa?</TableHead>
