@@ -14,6 +14,7 @@ import { ProductSelector } from '@/components/acerto/ProductSelector'
 import { ZeroStockAlert } from '@/components/acerto/ZeroStockAlert'
 import { KitSelectorDialog } from '@/components/acerto/KitSelectorDialog'
 import { ClientDebtSelectorDialog } from '@/components/acerto/ClientDebtSelectorDialog'
+import { PerformanceSummaryModal } from '@/components/acerto/PerformanceSummaryModal'
 import { ClientRow } from '@/types/client'
 import { Employee } from '@/types/employee'
 import { AcertoItem, PendingStockAdjustment } from '@/types/acerto'
@@ -61,6 +62,11 @@ export default function AcertoPage() {
   const { toast } = useToast()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+
+  // Ensure modal only triggers on standard acerto initiation (not edit mode)
+  const [showSummaryModal, setShowSummaryModal] = useState(
+    () => !searchParams.get('editOrderId'),
+  )
 
   // State
   const [client, setClient] = useState<ClientRow | null>(null)
@@ -1310,6 +1316,10 @@ export default function AcertoPage() {
           clientId={client.CODIGO}
           clientName={client['NOME CLIENTE'] || ''}
         />
+      )}
+
+      {showSummaryModal && (
+        <PerformanceSummaryModal onClose={() => setShowSummaryModal(false)} />
       )}
     </div>
   )

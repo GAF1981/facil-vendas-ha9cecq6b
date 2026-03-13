@@ -728,6 +728,7 @@ export type Database = {
           data_lancamento: string
           id: number
           mes_referencia: string
+          recorrente: boolean
           tipo: string
           valor: number
         }
@@ -737,6 +738,7 @@ export type Database = {
           data_lancamento: string
           id?: number
           mes_referencia: string
+          recorrente?: boolean
           tipo: string
           valor?: number
         }
@@ -746,6 +748,7 @@ export type Database = {
           data_lancamento?: string
           id?: number
           mes_referencia?: string
+          recorrente?: boolean
           tipo?: string
           valor?: number
         }
@@ -3576,6 +3579,7 @@ export const Constants = {
 //   categoria: text (nullable)
 //   valor: numeric (not null, default: 0)
 //   created_at: timestamp with time zone (not null, default: now())
+//   recorrente: boolean (not null, default: false)
 // Table: fechamento_caixa
 //   id: bigint (not null)
 //   rota_id: bigint (not null)
