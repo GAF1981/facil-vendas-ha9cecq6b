@@ -66,7 +66,7 @@ export function PerformanceSummaryModal({
         const startStr = format(start, 'yyyy-MM-dd')
         const endStr = format(end, 'yyyy-MM-dd')
 
-        const [exceptions, fixedMeta, periodMetas, acertosMap] =
+        const [exceptions, fixedMeta, periodMetas, acertosData] =
           await Promise.all([
             metasService.getExceptionDays(),
             metasService.getMeta(employee.id),
@@ -111,7 +111,9 @@ export function PerformanceSummaryModal({
               : fixedMeta?.meta_diaria || 0
 
             const metaForDay = isNonWorkingDay ? 0 : effectiveMeta
-            const acertos = acertosMap.get(dStr) || 0
+            const acertos =
+              (acertosData?.regular?.get(dStr) || 0) +
+              (acertosData?.captacao?.get(dStr) || 0)
 
             totalAcertos += acertos
             totalMetas += metaForDay
