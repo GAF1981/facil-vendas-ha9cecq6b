@@ -71,7 +71,6 @@ export default function RotaPage() {
     }
   })
 
-  // Sync to ensure loggedInUser is applied if store hydration takes a cycle
   useEffect(() => {
     if (!hasSetDefaultSeller && loggedInUser) {
       if (filters.vendedor.length === 0 && selectedEmployeeIds.length === 0) {
@@ -428,9 +427,86 @@ export default function RotaPage() {
   }
 
   const handleExport = () => {
+    const rowsToExport = sortedRows.slice(0, 150)
+
+    const headers = [
+      '#',
+      'Cliente Cod',
+      'Cliente Nome',
+      'Município',
+      'Valor a Pagar',
+      'Projeção',
+      'Vendedor',
+      'Próxima',
+      'Rota/Grupo',
+      'Consignado',
+      'Endereço',
+      'Telefone 1',
+      'Contato 1',
+      'xRota',
+      'Pedido',
+      'Data Acerto',
+      'Status',
+      'Boleto',
+      'Agregado',
+      'CEP',
+      'Tarefas',
+    ]
+
+    const sellersMap = new Map(sellers.map((s) => [s.id, s.nome_completo]))
+
+    const csvLines = [headers.join(';')]
+
+    rowsToExport.forEach((row) => {
+      const vVendedor = row.vendedor_id
+        ? sellersMap.get(row.vendedor_id) || ''
+        : ''
+      const vProximo = row.proximo_vendedor_id
+        ? sellersMap.get(row.proximo_vendedor_id) || ''
+        : ''
+
+      const line = [
+        row.rowNumber,
+        row.client.CODIGO,
+        `"${(row.client['NOME CLIENTE'] || '').replace(/"/g, '""')}"`,
+        `"${(row.client.MUNICÍPIO || '').replace(/"/g, '""')}"`,
+        row.debito,
+        row.projecao || 0,
+        `"${vVendedor}"`,
+        `"${vProximo}"`,
+        `"${(row.client['GRUPO ROTA'] || '').replace(/"/g, '""')}"`,
+        row.valor_consignado || 0,
+        `"${(row.client.ENDEREÇO || '').replace(/"/g, '""')}"`,
+        row.client['FONE 1'] || '',
+        row.client['CONTATO 1'] || '',
+        row.x_na_rota,
+        row.numero_pedido || '',
+        row.data_acerto || '',
+        row.vencimento_status,
+        row.boleto ? 'Sim' : 'Não',
+        row.agregado ? 'Sim' : 'Não',
+        row.client['CEP OFICIO'] || '',
+        `"${(row.tarefas || '').replace(/"/g, '""')}"`,
+      ]
+      csvLines.push(line.join(';'))
+    })
+
+    const csvContent = csvLines.join('\n')
+    const blob = new Blob(['\uFEFF' + csvContent], {
+      type: 'text/csv;charset=utf-8;',
+    })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `rota_${activeRota?.id || 'export'}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+
     toast({
-      title: 'Exportando...',
-      description: 'O download iniciará em breve.',
+      title: 'Exportação Concluída',
+      description: `Arquivo baixado com ${rowsToExport.length} registros (limite de 150 linhas).`,
     })
   }
 

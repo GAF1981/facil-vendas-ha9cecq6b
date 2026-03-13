@@ -432,6 +432,7 @@ export type Database = {
           telefone_cobranca: string | null
           TIPO: string | null
           "TIPO DE CLIENTE": string
+          tipo_venda: string | null
         }
         Insert: {
           "ALTERAÇÃO CLIENTE"?: string | null
@@ -465,6 +466,7 @@ export type Database = {
           telefone_cobranca?: string | null
           TIPO?: string | null
           "TIPO DE CLIENTE"?: string
+          tipo_venda?: string | null
         }
         Update: {
           "ALTERAÇÃO CLIENTE"?: string | null
@@ -498,6 +500,7 @@ export type Database = {
           telefone_cobranca?: string | null
           TIPO?: string | null
           "TIPO DE CLIENTE"?: string
+          tipo_venda?: string | null
         }
         Relationships: []
       }
@@ -3173,6 +3176,7 @@ export const Constants = {
 //   situacao: text (nullable, default: 'ATIVO'::text)
 //   telefone_cobranca: text (nullable)
 //   email_cobranca: text (nullable)
+//   tipo_venda: text (nullable, default: 'consignado'::text)
 // Table: CRIAR_NOVA_ROTA
 //   id: bigint (not null)
 //   nome_rota: text (not null)

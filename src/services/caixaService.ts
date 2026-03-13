@@ -55,7 +55,6 @@ export interface FuelReportRow {
 
 export const caixaService = {
   async saveDespesa(despesa: DespesaInsert) {
-    // Explicitly enforce exact moment capture
     const dataToSave = new Date().toISOString()
 
     const { error } = await supabase.from('DESPESAS').insert({
@@ -70,21 +69,24 @@ export const caixaService = {
       prestador_servico: despesa.prestador_servico,
       tipo_servico: despesa.tipo_servico,
       tipo_combustivel: despesa.tipo_combustivel,
-      rota_id: despesa.rota_id, // Save rota_id
+      rota_id: despesa.rota_id,
     })
 
     if (error) throw error
   },
 
+  async deleteReceipt(id: number) {
+    const { error } = await supabase.from('RECEBIMENTOS').delete().eq('id', id)
+    if (error) throw error
+  },
+
   async getFinancialSummary(rota: Rota): Promise<CaixaSummaryRow[]> {
-    // 1. Fetch Employees
     const { data: employees, error: empError } = await supabase
       .from('FUNCIONARIOS')
       .select('id, nome_completo')
 
     if (empError) throw empError
 
-    // 2. Fetch Closure Statuses for this Route
     const { data: closures, error: closureError } = await supabase
       .from('fechamento_caixa')
       .select('funcionario_id, status')
@@ -116,7 +118,6 @@ export const caixaService = {
       })
     })
 
-    // 3. Receipts - Filter by Rota ID
     const { data: receipts, error: recError } = await supabase
       .from('RECEBIMENTOS')
       .select('funcionario_id, valor_pago, forma_pagamento, rota_id')
@@ -136,7 +137,6 @@ export const caixaService = {
       }
     })
 
-    // 4. Expenses - Filter by Rota ID
     const { data: expenses, error: expError } = await supabase
       .from('DESPESAS')
       .select('funcionario_id, Valor, saiu_do_caixa, rota_id')
@@ -157,7 +157,6 @@ export const caixaService = {
     const result = Array.from(summaryMap.values())
       .map((row) => ({
         ...row,
-        // Saldo reflects CASH balance, so remove Boletos
         saldo: row.totalRecebido - row.totalDespesas - row.totalBoleto,
       }))
       .filter(

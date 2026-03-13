@@ -273,6 +273,7 @@ export default function ResumoAcertosPage() {
       if (routeId) {
         setFilterMode('rota')
         setSelectedRouteId(routeId.toString())
+        setSelectedEmployeeId('todos') // Auto reset employee filter
         toast({
           title: 'Pedido localizado',
           description: `Pedido encontrado na Rota #${routeId}`,
@@ -302,6 +303,7 @@ export default function ResumoAcertosPage() {
           if (routeId) {
             setFilterMode('rota')
             setSelectedRouteId(routeId.toString())
+            setSelectedEmployeeId('todos') // Auto reset employee filter
             if (shouldEditPayment) {
               setPendingEditOrderId(parseInt(locateOrderId, 10))
             }

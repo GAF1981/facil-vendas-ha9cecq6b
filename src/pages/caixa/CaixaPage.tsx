@@ -206,11 +206,8 @@ export default function CaixaPage() {
 
   const selectedRoute = routes.find((r) => r.id.toString() === selectedRouteId)
 
-  // Ensure individual receipts are properly filtered by employee ID if selected
   const filteredReceipts = useMemo(() => {
-    // If "All" selected, show all receipts associated with the route
     if (!selectedEmployeeId || selectedEmployeeId === 'all') return allReceipts
-    // Otherwise filter by selected employee
     return allReceipts.filter(
       (r) => r.funcionarioId?.toString() === selectedEmployeeId,
     )
@@ -255,11 +252,8 @@ export default function CaixaPage() {
     .filter((r) => r.forma === 'Boleto')
     .reduce((acc, r) => acc + r.valor, 0)
 
-  // Saldo reflects CASH balance, so subtract Boletos from totalRecebido (or sum only liquid)
   const totalSaldo = totalRecebido - totalDespesas - totalBoleto
 
-  // Saldo de Acerto is (Dinheiro + Cheque - Despesas). Pix is excluded from comparison target usually.
-  // Using formula: Saldo em Caixa (Liquid) - Pix
   const saldoDeAcerto = totalSaldo - totalPix
 
   const handleOpenGeneralExpense = async () => {
@@ -273,7 +267,6 @@ export default function CaixaPage() {
       activeEmployees.find((e) => e.id === targetEmpId)?.nome_completo || ''
 
     if (selectedRouteId) {
-      // Strict Control: Fetch closure status directly from DB
       const closureStatus = await fechamentoService.getClosureStatus(
         parseInt(selectedRouteId),
         targetEmpId,
@@ -319,6 +312,27 @@ export default function CaixaPage() {
 
   const handleViewExpenses = (empId: number, empName: string) => {
     setViewExpenses({ open: true, empId, empName })
+  }
+
+  const handleDeleteReceipt = async (id: number) => {
+    try {
+      await caixaService.deleteReceipt(id)
+      toast({
+        title: 'Sucesso',
+        description: 'Pagamento excluído com sucesso.',
+        className: 'bg-green-600 text-white',
+      })
+      if (selectedRouteId) {
+        fetchData(selectedRouteId)
+      }
+    } catch (error) {
+      console.error('Failed to delete receipt', error)
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível excluir o pagamento.',
+        variant: 'destructive',
+      })
+    }
   }
 
   const handleGeneratePdf = async (
@@ -442,7 +456,7 @@ export default function CaixaPage() {
                 ? { nome_completo: employeeData.name }
                 : null,
             },
-            settlements: settlements, // Pass detailed settlements
+            settlements: settlements,
           },
         },
       )
@@ -789,7 +803,10 @@ export default function CaixaPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <RevenueGallery items={filteredReceipts} />
+        <RevenueGallery
+          items={filteredReceipts}
+          onDelete={handleDeleteReceipt}
+        />
         <ExpenseGallery items={filteredExpenses} />
       </div>
 
@@ -819,9 +836,7 @@ export default function CaixaPage() {
         onOpenChange={setIsExpenseDialogOpen}
         onSuccess={() => fetchData(selectedRouteId)}
         preselectedEmployee={preselectedEmployee}
-        activeRouteId={
-          selectedRoute ? selectedRoute.id : undefined // Pass route ID
-        }
+        activeRouteId={selectedRoute ? selectedRoute.id : undefined}
       />
 
       <ReceiptsDetailDialog
@@ -830,6 +845,7 @@ export default function CaixaPage() {
         employeeId={viewReceipts.empId}
         employeeName={viewReceipts.empName}
         route={selectedRoute}
+        onDeleteReceipt={handleDeleteReceipt}
       />
 
       <ExpensesDetailDialog

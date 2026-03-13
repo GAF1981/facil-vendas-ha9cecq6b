@@ -10,9 +10,10 @@ import {
   Landmark,
   Layers,
   FileText,
+  Trash2,
 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Table,
   TableBody,
@@ -23,13 +24,34 @@ import {
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { useNavigate } from 'react-router-dom'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 interface RevenueGalleryProps {
   items: ReceiptDetail[]
+  onDelete?: (id: number) => void
 }
 
-export function RevenueGallery({ items }: RevenueGalleryProps) {
+export function RevenueGallery({ items, onDelete }: RevenueGalleryProps) {
   const navigate = useNavigate()
+  const [receiptToDelete, setReceiptToDelete] = useState<ReceiptDetail | null>(
+    null,
+  )
+
+  const handleConfirmDelete = () => {
+    if (receiptToDelete && onDelete) {
+      onDelete(receiptToDelete.id)
+    }
+    setReceiptToDelete(null)
+  }
 
   const pixItems = useMemo(
     () => items.filter((i) => i.forma === 'Pix'),
@@ -124,6 +146,17 @@ export function RevenueGallery({ items }: RevenueGalleryProps) {
                             <FileText className="h-3.5 w-3.5" />
                           </Button>
                         )}
+                        {onDelete && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 shrink-0 text-muted-foreground hover:text-red-600 hover:bg-red-50"
+                            onClick={() => setReceiptToDelete(item)}
+                            title="Excluir Pagamento"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -204,6 +237,32 @@ export function RevenueGallery({ items }: RevenueGalleryProps) {
           </TabsContent>
         </Tabs>
       </CardContent>
+
+      <AlertDialog
+        open={!!receiptToDelete}
+        onOpenChange={(open) => !open && setReceiptToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Pagamento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o pagamento de R${' '}
+              {receiptToDelete ? formatCurrency(receiptToDelete.valor) : '0,00'}{' '}
+              de {receiptToDelete?.clienteNome}? Esta ação não pode ser
+              desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   )
 }
