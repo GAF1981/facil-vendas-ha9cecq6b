@@ -58,7 +58,11 @@ export default function CobrancaPage() {
   ])
   const [cityFilter, setCityFilter] = useState<string>('todos')
   const [motoqueiroFilter, setMotoqueiroFilter] = useState<string>('todos')
+
   const [dataCombinadaRange, setDataCombinadaRange] = useState<
+    DateRange | undefined
+  >()
+  const [vencimentoRange, setVencimentoRange] = useState<
     DateRange | undefined
   >()
 
@@ -146,7 +150,8 @@ export default function CobrancaPage() {
     if (
       statusFilter.length > 0 ||
       (!shouldIgnoreMotoqueiroFilter && motoqueiroFilter !== 'todos') ||
-      dataCombinadaRange?.from
+      dataCombinadaRange?.from ||
+      vencimentoRange?.from
     ) {
       const fromStr = dataCombinadaRange?.from
         ? format(dataCombinadaRange.from, 'yyyy-MM-dd')
@@ -154,6 +159,13 @@ export default function CobrancaPage() {
       const toStr = dataCombinadaRange?.to
         ? format(dataCombinadaRange.to, 'yyyy-MM-dd')
         : fromStr
+
+      const vFromStr = vencimentoRange?.from
+        ? format(vencimentoRange.from, 'yyyy-MM-dd')
+        : null
+      const vToStr = vencimentoRange?.to
+        ? format(vencimentoRange.to, 'yyyy-MM-dd')
+        : vFromStr
 
       result = result.filter((client) => {
         return client.orders.some((order) =>
@@ -185,6 +197,14 @@ export default function CobrancaPage() {
                 matches = false
             }
 
+            if (vFromStr) {
+              if (!inst.vencimento) matches = false
+              else {
+                const instVenc = inst.vencimento.substring(0, 10)
+                if (instVenc < vFromStr || instVenc > vToStr!) matches = false
+              }
+            }
+
             return matches
           }),
         )
@@ -202,6 +222,7 @@ export default function CobrancaPage() {
     activeTab,
     clientTypeFilter,
     dataCombinadaRange,
+    vencimentoRange,
   ])
 
   const handleToggleItem = (id: string) => {
@@ -246,6 +267,13 @@ export default function CobrancaPage() {
       ? format(dataCombinadaRange.to, 'yyyy-MM-dd')
       : fromStr
 
+    const vFromStr = vencimentoRange?.from
+      ? format(vencimentoRange.from, 'yyyy-MM-dd')
+      : null
+    const vToStr = vencimentoRange?.to
+      ? format(vencimentoRange.to, 'yyyy-MM-dd')
+      : vFromStr
+
     filteredDebts.forEach((client) => {
       client.orders.forEach((order) => {
         if (orderFilter && !order.orderId.toString().includes(orderFilter))
@@ -279,6 +307,14 @@ export default function CobrancaPage() {
               matches = false
           }
 
+          if (vFromStr) {
+            if (!inst.vencimento) matches = false
+            else {
+              const instVenc = inst.vencimento.substring(0, 10)
+              if (instVenc < vFromStr || instVenc > vToStr!) matches = false
+            }
+          }
+
           if (matches) {
             const currentDebt = Math.max(
               0,
@@ -304,6 +340,7 @@ export default function CobrancaPage() {
     motoqueiroFilter,
     activeTab,
     dataCombinadaRange,
+    vencimentoRange,
   ])
 
   const handleBulkClearMotoqueiro = async () => {
@@ -388,6 +425,7 @@ export default function CobrancaPage() {
     setClientTypeFilter('ATIVO')
     setFormaPagamentoFilter('todos')
     setDataCombinadaRange(undefined)
+    setVencimentoRange(undefined)
   }
 
   return (
@@ -544,6 +582,14 @@ export default function CobrancaPage() {
 
             <div className="w-full md:w-[250px]">
               <DateRangePicker
+                date={vencimentoRange}
+                setDate={setVencimentoRange}
+                placeholder="Filtro Vencimento"
+              />
+            </div>
+
+            <div className="w-full md:w-[250px]">
+              <DateRangePicker
                 date={dataCombinadaRange}
                 setDate={setDataCombinadaRange}
                 placeholder="Filtro Data Combinada"
@@ -663,6 +709,7 @@ export default function CobrancaPage() {
                 showOnlySelected={false}
                 formaPagamentoFilter={formaPagamentoFilter}
                 dataCombinadaRange={dataCombinadaRange}
+                vencimentoRange={vencimentoRange}
               />
             </TabsContent>
 
@@ -702,6 +749,7 @@ export default function CobrancaPage() {
                 showOnlySelected={true}
                 formaPagamentoFilter={formaPagamentoFilter}
                 dataCombinadaRange={dataCombinadaRange}
+                vencimentoRange={vencimentoRange}
               />
             </TabsContent>
           </Tabs>

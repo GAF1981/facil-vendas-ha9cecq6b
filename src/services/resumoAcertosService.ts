@@ -147,7 +147,6 @@ export const resumoAcertosService = {
       dueDate: string
       paidValue?: number
     }[],
-    currentUserId?: number,
   ) {
     const { data: orderData, error: orderError } = await supabase
       .from('BANCO_DE_DADOS')
@@ -184,7 +183,7 @@ export const resumoAcertosService = {
       return {
         venda_id: orderId,
         cliente_id: clientId,
-        funcionario_id: isPaid && currentUserId ? currentUserId : employeeId,
+        funcionario_id: employeeId, // Always use the original employee to ensure correct cash flow
         forma_pagamento: inst.method,
         valor_registrado: inst.value,
         valor_pago: inst.paidValue || 0,

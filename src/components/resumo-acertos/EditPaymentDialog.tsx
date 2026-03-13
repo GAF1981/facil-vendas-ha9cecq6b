@@ -25,7 +25,6 @@ import { addDays, format } from 'date-fns'
 import { Loader2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
-import { useUserStore } from '@/stores/useUserStore'
 import { PaymentEntradasList } from './PaymentEntradasList'
 import { PaymentInstallmentsList } from './PaymentInstallmentsList'
 
@@ -43,7 +42,6 @@ export function EditPaymentDialog({
   onSuccess,
 }: EditPaymentDialogProps) {
   const { toast } = useToast()
-  const { employee: loggedInUser } = useUserStore()
   const [loading, setLoading] = useState(false)
   const [installments, setInstallments] = useState<
     { id: string; method: string; value: string; dueDate: string }[]
@@ -168,11 +166,8 @@ export function EditPaymentDialog({
         })
       })
 
-      await resumoAcertosService.updateOrderPaymentTerms(
-        order.orderId,
-        payload,
-        loggedInUser?.id,
-      )
+      // The backend logic respects the original employee assigned to the order.
+      await resumoAcertosService.updateOrderPaymentTerms(order.orderId, payload)
 
       toast({
         title: 'Sucesso',
