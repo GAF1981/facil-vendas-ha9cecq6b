@@ -1,1 +1,7 @@
-src/lib/supabase/types.ts
+node_modules
+dist
+dev-dist
+public
+.git
+coverage
+vite-plugin-react-uid.js
