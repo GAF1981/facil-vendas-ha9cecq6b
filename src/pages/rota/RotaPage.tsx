@@ -455,7 +455,7 @@ export default function RotaPage() {
 
     const sellersMap = new Map(sellers.map((s) => [s.id, s.nome_completo]))
 
-    const csvLines = [headers.join(',')]
+    const csvLines = [headers.join(';')]
 
     rowsToExport.forEach((row) => {
       const vVendedor = row.vendedor_id
@@ -464,14 +464,18 @@ export default function RotaPage() {
       const vProximo = row.proximo_vendedor_id
         ? sellersMap.get(row.proximo_vendedor_id) || ''
         : ''
-        
+
       const escape = (str: any) => {
-        if (str === null || str === undefined) return '""';
-        const stringVal = String(str);
-        if (stringVal.includes(',') || stringVal.includes('"') || stringVal.includes('\n')) {
-            return `"${stringVal.replace(/"/g, '""')}"`;
+        if (str === null || str === undefined) return '""'
+        const stringVal = String(str)
+        if (
+          stringVal.includes(';') ||
+          stringVal.includes('"') ||
+          stringVal.includes('\n')
+        ) {
+          return `"${stringVal.replace(/"/g, '""')}"`
         }
-        return stringVal;
+        return stringVal
       }
 
       const line = [
@@ -497,7 +501,7 @@ export default function RotaPage() {
         escape(row.client['CEP OFICIO']),
         escape(row.tarefas),
       ]
-      csvLines.push(line.join(','))
+      csvLines.push(line.join(';'))
     })
 
     const csvContent = csvLines.join('\n')

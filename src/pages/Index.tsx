@@ -1,29 +1,17 @@
-import { Link } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
+import { Link } from 'react-router-dom'
 import {
   Users,
-  Briefcase,
+  Map,
+  Package,
+  Wallet,
+  FileText,
+  BarChart4,
+  Mail,
   Scale,
   ArrowDownCircle,
-  FileText,
-  Wallet,
   CreditCard,
-  ClipboardList,
-  Map,
-  BarChart3,
-  BarChart4,
-  AlertCircle,
-  Package,
-  Database,
-  FileBarChart,
-  Settings,
   Lock,
-  Truck,
-  Car,
-  UserX,
-  Bike,
-  Mail,
-  Barcode,
 } from 'lucide-react'
 import { usePermissions } from '@/hooks/use-permissions'
 import { useUserStore } from '@/stores/useUserStore'
@@ -32,279 +20,117 @@ export default function Index() {
   const { canAccess } = usePermissions()
   const { employee } = useUserStore()
 
-  const mainModules = [
+  const quickLinks = [
     {
       title: 'Acerto',
       icon: Scale,
-      color: 'text-indigo-500',
-      bg: 'bg-indigo-50',
-      to: '/acerto',
+      href: '/acerto',
       module: 'Acerto',
+      color: 'bg-blue-500',
     },
     {
       title: 'Rota',
       icon: Map,
-      color: 'text-blue-500',
-      bg: 'bg-blue-50',
-      to: '/rota',
+      href: '/rota',
       module: 'Rota',
+      color: 'bg-indigo-500',
     },
     {
       title: 'Recebimento',
       icon: ArrowDownCircle,
-      color: 'text-emerald-500',
-      bg: 'bg-emerald-50',
-      to: '/recebimento',
+      href: '/recebimento',
       module: 'Recebimento',
-    },
-    {
-      title: 'Caixa',
-      icon: Wallet,
-      color: 'text-teal-500',
-      bg: 'bg-teal-50',
-      to: '/caixa',
-      module: 'Caixa',
+      color: 'bg-green-500',
     },
     {
       title: 'DRE',
       icon: BarChart4,
-      color: 'text-purple-600',
-      bg: 'bg-purple-50',
-      to: '/dre',
+      href: '/dre',
       module: 'DRE',
+      color: 'bg-purple-500',
     },
     {
-      title: 'Estoque Carro',
-      icon: Car,
-      color: 'text-orange-500',
-      bg: 'bg-orange-50',
-      to: '/estoque-carro',
-      module: 'Inventário',
+      title: 'Caixa',
+      icon: Wallet,
+      href: '/caixa',
+      module: 'Caixa',
+      color: 'bg-emerald-500',
     },
-    {
-      title: 'Resumo Acertos',
-      icon: FileBarChart,
-      color: 'text-cyan-500',
-      bg: 'bg-cyan-50',
-      to: '/resumo-acertos',
-      module: 'Resumo Acertos',
-    },
-    {
-      title: 'Rota Motoqueiro',
-      icon: Bike,
-      color: 'text-fuchsia-500',
-      bg: 'bg-fuchsia-50',
-      to: '/rota-motoqueiro',
-      module: 'Rota Motoqueiro',
-    },
-    {
-      title: 'Boletos',
-      icon: Barcode,
-      color: 'text-blue-600',
-      bg: 'bg-blue-50',
-      to: '/boletos',
-      module: 'Boletos',
-    },
-    {
-      title: 'Cobrança',
-      icon: CreditCard,
-      color: 'text-red-500',
-      bg: 'bg-red-50',
-      to: '/cobranca',
-      module: 'Cobrança',
-    },
-    {
-      title: 'Nota Fiscal',
-      icon: FileText,
-      color: 'text-violet-500',
-      bg: 'bg-violet-50',
-      to: '/nota-fiscal',
-      module: 'Nota Fiscal',
-    },
-    {
-      title: 'Fechamentos',
-      icon: Lock,
-      color: 'text-slate-500',
-      bg: 'bg-slate-100',
-      to: '/fechamentos',
-      module: 'Fechamentos',
-    },
-    {
-      title: 'INATIVAR CLIENTES',
-      icon: UserX,
-      color: 'text-rose-500',
-      bg: 'bg-rose-50',
-      to: '/inativar-clientes',
-      module: 'Inativar Clientes',
-    },
-    {
-      title: 'Pendências',
-      icon: AlertCircle,
-      color: 'text-amber-500',
-      bg: 'bg-amber-50',
-      to: '/pendencias',
-      module: 'Pendências',
-    },
-    {
-      title: 'Inventário',
-      icon: ClipboardList,
-      color: 'text-lime-500',
-      bg: 'bg-lime-50',
-      to: '/inventario',
-      module: 'Inventário',
-    },
-    {
-      title: 'Relatório',
-      icon: BarChart3,
-      color: 'text-sky-500',
-      bg: 'bg-sky-50',
-      to: '/relatorio',
-      module: 'Relatório',
-    },
-    {
-      title: 'e-mail seguro',
-      icon: Mail,
-      color: 'text-green-600',
-      bg: 'bg-green-50',
-      to: '/email-seguro',
-      module: 'Email Seguro',
-    },
-    {
-      title: 'Permissões',
-      icon: Settings,
-      color: 'text-zinc-600',
-      bg: 'bg-zinc-100',
-      to: '/permissoes',
-      module: 'Permissões',
-    },
-    {
-      title: 'Veículos',
-      icon: Car,
-      color: 'text-gray-500',
-      bg: 'bg-gray-100',
-      to: '/veiculos',
-      module: 'Veículos',
-    },
-    {
-      title: 'Backup',
-      icon: Database,
-      color: 'text-stone-500',
-      bg: 'bg-stone-100',
-      to: '/backup',
-      module: 'Backup',
-    },
-  ]
-
-  const registrationModules = [
     {
       title: 'Clientes',
       icon: Users,
-      color: 'text-blue-500',
-      bg: 'bg-blue-50',
-      to: '/clientes',
+      href: '/clientes',
       module: 'Clientes',
-    },
-    {
-      title: 'Fornecedores',
-      icon: Truck,
-      color: 'text-orange-500',
-      bg: 'bg-orange-50',
-      to: '/fornecedores',
-      module: 'Produtos',
-    },
-    {
-      title: 'Funcionários',
-      icon: Briefcase,
-      color: 'text-indigo-500',
-      bg: 'bg-indigo-50',
-      to: '/funcionarios',
-      module: 'Funcionários',
+      color: 'bg-orange-500',
     },
     {
       title: 'Produtos',
       icon: Package,
-      color: 'text-emerald-500',
-      bg: 'bg-emerald-50',
-      to: '/produtos',
+      href: '/produtos',
       module: 'Produtos',
+      color: 'bg-amber-500',
+    },
+    {
+      title: 'Cobrança',
+      icon: CreditCard,
+      href: '/cobranca',
+      module: 'Cobrança',
+      color: 'bg-rose-500',
+    },
+    {
+      title: 'Nota Fiscal',
+      icon: FileText,
+      href: '/nota-fiscal',
+      module: 'Nota Fiscal',
+      color: 'bg-sky-500',
+    },
+    {
+      title: 'E-mail Seguro',
+      icon: Mail,
+      href: '/email-seguro',
+      module: 'Email Seguro',
+      color: 'bg-zinc-700',
+    },
+    {
+      title: 'Fechamentos',
+      icon: Lock,
+      href: '/fechamentos',
+      module: 'Fechamentos',
+      color: 'bg-slate-800',
     },
   ]
 
-  const visibleMainModules = mainModules.filter((m) => {
-    if (m.module === 'Permissões') {
-      if (Array.isArray(employee?.setor)) {
-        return employee?.setor.includes('Administrador')
-      }
-      return employee?.setor === 'Administrador'
-    }
-    if (m.module === 'Email Seguro') return true
-    return canAccess(m.module)
+  const visibleLinks = quickLinks.filter((link) => {
+    if (link.module === 'Email Seguro') return true
+    return canAccess(link.module)
   })
 
-  const visibleRegistrationModules = registrationModules.filter((m) =>
-    canAccess(m.module),
-  )
-
   return (
-    <div className="space-y-8 animate-fade-in p-2 sm:p-6 pb-20">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-          Menu Principal
-        </h1>
-        <p className="text-sm sm:text-base text-muted-foreground mt-1">
-          Acesse os módulos do sistema.
+    <div className="space-y-6 animate-fade-in p-4 sm:p-8 max-w-7xl mx-auto pb-24">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-3xl font-bold tracking-tight">Menu Principal</h1>
+        <p className="text-muted-foreground">
+          Bem-vindo, {employee?.nome_completo || 'Usuário'}! Selecione uma opção
+          abaixo.
         </p>
       </div>
 
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold border-b pb-2">Módulos</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
-          {visibleMainModules.map((module) => (
-            <Link key={module.to} to={module.to} className="block group">
-              <Card className="h-full transition-all duration-200 hover:shadow-md hover:border-primary/50 group-hover:-translate-y-1">
-                <CardContent className="p-4 sm:p-6 flex flex-col items-center justify-center text-center space-y-3 h-full">
-                  <div
-                    className={`${module.bg} p-3 sm:p-4 rounded-full transition-colors group-hover:bg-primary/10`}
-                  >
-                    <module.icon
-                      className={`w-6 h-6 sm:w-8 sm:h-8 ${module.color}`}
-                    />
-                  </div>
-                  <h3 className="font-medium text-xs sm:text-sm uppercase tracking-wide">
-                    {module.title}
-                  </h3>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        {visibleLinks.map((link) => (
+          <Link key={link.href} to={link.href}>
+            <Card className="hover:bg-muted/50 transition-colors h-full border shadow-sm hover:shadow-md cursor-pointer group">
+              <CardContent className="flex flex-col items-center justify-center p-6 gap-4 text-center h-full">
+                <div
+                  className={`p-3 rounded-full text-white ${link.color} group-hover:scale-110 transition-transform duration-300`}
+                >
+                  <link.icon className="h-6 w-6" />
+                </div>
+                <span className="font-medium text-sm">{link.title}</span>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
       </div>
-
-      {visibleRegistrationModules.length > 0 && (
-        <div className="space-y-4 pt-4">
-          <h2 className="text-xl font-semibold border-b pb-2">Cadastros</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
-            {visibleRegistrationModules.map((module) => (
-              <Link key={module.to} to={module.to} className="block group">
-                <Card className="h-full transition-all duration-200 hover:shadow-md hover:border-primary/50 group-hover:-translate-y-1">
-                  <CardContent className="p-4 sm:p-6 flex flex-col items-center justify-center text-center space-y-3 h-full">
-                    <div
-                      className={`${module.bg} p-3 sm:p-4 rounded-full transition-colors group-hover:bg-primary/10`}
-                    >
-                      <module.icon
-                        className={`w-6 h-6 sm:w-8 sm:h-8 ${module.color}`}
-                      />
-                    </div>
-                    <h3 className="font-medium text-xs sm:text-sm uppercase tracking-wide">
-                      {module.title}
-                    </h3>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

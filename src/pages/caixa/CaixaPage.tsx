@@ -315,6 +315,23 @@ export default function CaixaPage() {
   }
 
   const handleDeleteReceipt = async (id: number) => {
+    const receipt = allReceipts.find((r) => r.id === id)
+    if (receipt && selectedRouteId && receipt.funcionarioId) {
+      const closureStatus = await fechamentoService.getClosureStatus(
+        parseInt(selectedRouteId),
+        receipt.funcionarioId,
+      )
+      if (closureStatus === 'Fechado' || closureStatus === 'Aberto') {
+        toast({
+          title: 'Ação Bloqueada',
+          description:
+            'Não é possível excluir pagamentos de um caixa que está em fechamento ou fechado.',
+          variant: 'destructive',
+        })
+        return
+      }
+    }
+
     try {
       await caixaService.deleteReceipt(id)
       toast({

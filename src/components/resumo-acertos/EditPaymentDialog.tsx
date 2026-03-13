@@ -24,7 +24,7 @@ import {
 } from '@/services/resumoAcertosService'
 import { PAYMENT_METHODS } from '@/types/payment'
 import { addDays, format } from 'date-fns'
-import { Loader2, Plus, Trash2, CalendarDays } from 'lucide-react'
+import { Loader2, Plus, Trash2, CalendarDays, Wallet } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { useUserStore } from '@/stores/useUserStore'
@@ -50,8 +50,9 @@ export function EditPaymentDialog({
   >([])
   const [splitCount, setSplitCount] = useState<string>('1')
 
-  const [entradaValue, setEntradaValue] = useState<string>('')
-  const [entradaMethod, setEntradaMethod] = useState<string>('Dinheiro')
+  const [entradas, setEntradas] = useState<
+    { id: string; method: string; value: string }[]
+  >([])
 
   useEffect(() => {
     if (open && order) {
@@ -65,20 +66,23 @@ export function EditPaymentDialog({
         },
       ])
       setSplitCount('1')
-      setEntradaValue('')
-      setEntradaMethod('Dinheiro')
+      setEntradas([])
     }
   }, [open, order])
 
   const netValue = order ? order.totalSalesValue - order.totalDiscount : 0
-  const entrada = parseFloat(entradaValue) || 0
-  const remainingNetValue = Math.max(0, netValue - entrada)
+  const entradaTotal = entradas.reduce(
+    (acc, curr) => acc + (parseFloat(curr.value) || 0),
+    0,
+  )
+  const remainingNetValue = Math.max(0, netValue - entradaTotal)
 
   const currentTotal = installments.reduce(
     (acc, curr) => acc + (parseFloat(curr.value) || 0),
     0,
   )
   const diff = remainingNetValue - currentTotal
+  const hasValidAmount = entradaTotal <= netValue
 
   const handleSplit = (val: string) => {
     setSplitCount(val)
@@ -105,12 +109,13 @@ export function EditPaymentDialog({
     setInstallments(newInsts)
   }
 
+  // Recalculate installments whenever entradas changes
   useEffect(() => {
     if (open && order) {
       handleSplit(splitCount)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entradaValue])
+  }, [entradas])
 
   const updateInstallment = (index: number, field: string, value: string) => {
     const newInsts = [...installments]
@@ -136,8 +141,39 @@ export function EditPaymentDialog({
     setInstallments(newInsts)
   }
 
+  const addEntrada = () => {
+    setEntradas([
+      ...entradas,
+      {
+        id: Math.random().toString(),
+        method: 'Dinheiro',
+        value: '',
+      },
+    ])
+  }
+
+  const updateEntrada = (id: string, field: string, value: string) => {
+    setEntradas(
+      entradas.map((e) => (e.id === id ? { ...e, [field]: value } : e)),
+    )
+  }
+
+  const removeEntrada = (id: string) => {
+    setEntradas(entradas.filter((e) => e.id !== id))
+  }
+
   const handleSave = async () => {
     if (!order) return
+
+    if (entradaTotal > netValue) {
+      toast({
+        title: 'Valor inválido',
+        description: `O valor das entradas (R$ ${formatCurrency(entradaTotal)}) não pode exceder o valor do pedido (R$ ${formatCurrency(netValue)}).`,
+        variant: 'destructive',
+      })
+      return
+    }
+
     if (Math.abs(diff) > 0.05) {
       toast({
         title: 'Valores não conferem',
@@ -156,14 +192,17 @@ export function EditPaymentDialog({
         paidValue?: number
       }[] = []
 
-      if (entrada > 0) {
-        payload.push({
-          method: entradaMethod,
-          value: entrada,
-          dueDate: format(new Date(), 'yyyy-MM-dd'),
-          paidValue: entrada,
-        })
-      }
+      entradas.forEach((e) => {
+        const val = parseFloat(e.value) || 0
+        if (val > 0) {
+          payload.push({
+            method: e.method,
+            value: val,
+            dueDate: format(new Date(), 'yyyy-MM-dd'),
+            paidValue: val,
+          })
+        }
+      })
 
       installments.forEach((i) => {
         payload.push({
@@ -216,42 +255,109 @@ export function EditPaymentDialog({
 
         <div className="space-y-6 py-4">
           <div className="space-y-4 p-4 border rounded-lg bg-green-50/30">
-            <h4 className="text-sm font-semibold text-green-800">
-              Entrada (Pagamento Imediato)
-            </h4>
-            <div className="flex gap-4">
-              <div className="flex-1 space-y-1.5">
-                <Label className="text-xs">Valor da Entrada (R$)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={entradaValue}
-                  onChange={(e) => setEntradaValue(e.target.value)}
-                  className="h-9 font-medium"
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="flex-1 space-y-1.5">
-                <Label className="text-xs">Forma de Pagamento</Label>
-                <Select value={entradaMethod} onValueChange={setEntradaMethod}>
-                  <SelectTrigger className="h-9 bg-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PAYMENT_METHODS.filter((m) => m !== 'Boleto').map((m) => (
-                      <SelectItem key={m} value={m}>
-                        {m}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-green-800 flex items-center gap-2">
+                <Wallet className="h-4 w-4" />
+                Detalhamento de Entrada
+              </h4>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={addEntrada}
+                className="h-8 text-xs border-green-200 text-green-700 hover:bg-green-100"
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Adicionar Entrada
+              </Button>
             </div>
-            {entrada > 0 && (
-              <p className="text-xs text-green-700">
-                Este valor será registrado como pago no caixa atual e deduzido
-                do saldo a parcelar.
+
+            {entradas.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">
+                Nenhuma entrada imediata registrada.
               </p>
+            ) : (
+              <div className="space-y-3">
+                {entradas.map((entrada, idx) => (
+                  <div
+                    key={entrada.id}
+                    className="flex flex-col gap-3 bg-white p-3 rounded border border-green-100 shadow-sm relative"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-green-800">
+                        Entrada (Pagamento Imediato) {idx + 1}
+                      </span>
+                    </div>
+                    <div className="flex gap-4 items-end">
+                      <div className="flex-1 space-y-1.5">
+                        <Label className="text-xs">Valor da Entrada (R$)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={entrada.value}
+                          onChange={(e) =>
+                            updateEntrada(entrada.id, 'value', e.target.value)
+                          }
+                          className="h-9 font-medium"
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div className="flex-1 space-y-1.5">
+                        <Label className="text-xs">Forma de Pagamento</Label>
+                        <Select
+                          value={entrada.method}
+                          onValueChange={(val) =>
+                            updateEntrada(entrada.id, 'method', val)
+                          }
+                        >
+                          <SelectTrigger className="h-9 bg-white">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PAYMENT_METHODS.filter((m) => m !== 'Boleto').map(
+                              (m) => (
+                                <SelectItem key={m} value={m}>
+                                  {m}
+                                </SelectItem>
+                              ),
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeEntrada(entrada.id)}
+                        className="h-9 w-9 text-muted-foreground hover:text-red-600"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {entradaTotal > 0 && (
+              <div className="flex justify-between items-center pt-2 border-t border-green-200/50">
+                <span className="text-xs text-green-700 font-medium">
+                  Total de Entradas:
+                </span>
+                <span
+                  className={cn(
+                    'text-sm font-bold',
+                    !hasValidAmount ? 'text-red-600' : 'text-green-800',
+                  )}
+                >
+                  R$ {formatCurrency(entradaTotal)}
+                </span>
+              </div>
+            )}
+
+            {!hasValidAmount && (
+              <div className="text-xs text-red-600 font-medium">
+                O valor total das entradas não pode ser maior que o valor devido
+                do pedido.
+              </div>
             )}
           </div>
 
@@ -396,7 +502,7 @@ export function EditPaymentDialog({
           </Button>
           <Button
             onClick={handleSave}
-            disabled={loading || Math.abs(diff) > 0.05}
+            disabled={loading || Math.abs(diff) > 0.05 || !hasValidAmount}
             className="bg-blue-600 hover:bg-blue-700"
           >
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

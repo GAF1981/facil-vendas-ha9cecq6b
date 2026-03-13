@@ -90,6 +90,7 @@ export default function ResumoAcertosPage() {
   const [pendingEditOrderId, setPendingEditOrderId] = useState<number | null>(
     null,
   )
+  const [hasInitializedEmployee, setHasInitializedEmployee] = useState(false)
 
   const { toast } = useToast()
   const navigate = useNavigate()
@@ -212,12 +213,20 @@ export default function ResumoAcertosPage() {
   useEffect(() => {
     if (
       loggedInUser &&
+      !hasInitializedEmployee &&
       selectedEmployeeId === 'todos' &&
       filterMode !== 'cliente'
     ) {
-      setSelectedEmployeeId(loggedInUser.id.toString())
+      const allowedSectors = ['Administrador', 'Gerente']
+      const userSectors = Array.isArray(loggedInUser.setor)
+        ? loggedInUser.setor
+        : [loggedInUser.setor]
+      if (!userSectors.some((s) => allowedSectors.includes(s || ''))) {
+        setSelectedEmployeeId(loggedInUser.id.toString())
+      }
+      setHasInitializedEmployee(true)
     }
-  }, [loggedInUser, filterMode])
+  }, [loggedInUser, filterMode, hasInitializedEmployee, selectedEmployeeId])
 
   useEffect(() => {
     if (filterMode === 'rota' && selectedRouteId && routes.length > 0) {
@@ -274,6 +283,7 @@ export default function ResumoAcertosPage() {
         setFilterMode('rota')
         setSelectedRouteId(routeId.toString())
         setSelectedEmployeeId('todos') // Auto reset employee filter
+        setHasInitializedEmployee(true) // prevent override
         toast({
           title: 'Pedido localizado',
           description: `Pedido encontrado na Rota #${routeId}`,
@@ -304,6 +314,7 @@ export default function ResumoAcertosPage() {
             setFilterMode('rota')
             setSelectedRouteId(routeId.toString())
             setSelectedEmployeeId('todos') // Auto reset employee filter
+            setHasInitializedEmployee(true) // prevent override
             if (shouldEditPayment) {
               setPendingEditOrderId(parseInt(locateOrderId, 10))
             }

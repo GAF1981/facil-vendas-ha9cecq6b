@@ -84,7 +84,8 @@ export const metasService = {
         ? date.split('T')[0]
         : date.split(' ')[0]
 
-      if (forma && forma.toLowerCase().includes('captação')) {
+      const formaStr = forma ? forma.toLowerCase() : ''
+      if (formaStr.includes('captação') || formaStr.includes('captacao')) {
         if (!uniqueCaptacaoPerDay.has(dateStr)) {
           uniqueCaptacaoPerDay.set(dateStr, new Set())
         }

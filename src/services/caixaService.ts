@@ -55,14 +55,17 @@ export interface FuelReportRow {
 
 export const caixaService = {
   async saveDespesa(despesa: DespesaInsert) {
-    const dataToSave = new Date().toISOString()
+    // Force precise timestamp for accurate expense tracking
+    const exactTimestamp = new Date().toISOString()
+    const dataLancamento = exactTimestamp.split('T')[0]
 
     const { error } = await supabase.from('DESPESAS').insert({
       'Grupo de Despesas': despesa['Grupo de Despesas'],
       Detalhamento: despesa.Detalhamento,
       Valor: despesa.Valor,
       funcionario_id: despesa.funcionario_id,
-      Data: dataToSave,
+      Data: exactTimestamp,
+      data_lancamento: dataLancamento,
       saiu_do_caixa: despesa.saiu_do_caixa,
       hodometro: despesa.hodometro,
       veiculo_id: despesa.veiculo_id,

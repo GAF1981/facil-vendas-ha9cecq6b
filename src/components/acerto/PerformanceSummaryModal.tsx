@@ -217,16 +217,14 @@ export function PerformanceSummaryModal({
                 <span className="text-2xl font-bold">
                   {metrics.totalAcertos}
                 </span>
-                {metrics.totalCaptacao > 0 && (
-                  <div className="w-full mt-2 pt-2 border-t flex flex-col items-center">
-                    <span className="text-[10px] text-muted-foreground uppercase font-medium">
-                      Captação
-                    </span>
-                    <span className="text-lg font-bold text-foreground">
-                      {metrics.totalCaptacao}
-                    </span>
-                  </div>
-                )}
+                <div className="w-full mt-2 pt-2 border-t flex flex-col items-center">
+                  <span className="text-[10px] text-muted-foreground uppercase font-medium">
+                    Captação
+                  </span>
+                  <span className="text-lg font-bold text-foreground">
+                    {metrics.totalCaptacao}
+                  </span>
+                </div>
               </div>
               <div className="flex flex-col items-center p-3 bg-muted/30 rounded-lg border">
                 <TrendingUp className="w-5 h-5 text-purple-500 mb-1" />

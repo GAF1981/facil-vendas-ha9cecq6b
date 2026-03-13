@@ -141,8 +141,13 @@ export const resumoAcertosService = {
 
   async updateOrderPaymentTerms(
     orderId: number,
-    newInstallments: { method: string; value: number; dueDate: string; paidValue?: number }[],
-    currentUserId?: number
+    newInstallments: {
+      method: string
+      value: number
+      dueDate: string
+      paidValue?: number
+    }[],
+    currentUserId?: number,
   ) {
     const { data: orderData, error: orderError } = await supabase
       .from('BANCO_DE_DADOS')
@@ -175,7 +180,7 @@ export const resumoAcertosService = {
     const activeRouteId = activeRouteData?.id || null
 
     const inserts = newInstallments.map((inst) => {
-      const isPaid = (inst.paidValue || 0) > 0;
+      const isPaid = (inst.paidValue || 0) > 0
       return {
         venda_id: orderId,
         cliente_id: clientId,
