@@ -633,11 +633,9 @@ const MetasReportPage = () => {
               <CardContent>
                 <div className="text-2xl font-bold">{summary.totalAcertos}</div>
                 {summary.totalCaptacao > 0 && (
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1 font-medium bg-muted/50 w-fit px-2 py-0.5 rounded">
-                    <span>Captação:</span>
-                    <span className="text-foreground">
-                      {summary.totalCaptacao}
-                    </span>
+                  <div className="mt-2 text-sm text-muted-foreground border-t pt-2">
+                    <span className="block mb-1 font-medium">Captação</span>
+                    <span className="text-xl font-bold text-foreground">{summary.totalCaptacao}</span>
                   </div>
                 )}
               </CardContent>

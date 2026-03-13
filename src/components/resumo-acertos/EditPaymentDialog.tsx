@@ -27,6 +27,7 @@ import { addDays, format } from 'date-fns'
 import { Loader2, Plus, Trash2, CalendarDays } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
+import { useUserStore } from '@/stores/useUserStore'
 
 interface EditPaymentDialogProps {
   open: boolean
@@ -42,11 +43,15 @@ export function EditPaymentDialog({
   onSuccess,
 }: EditPaymentDialogProps) {
   const { toast } = useToast()
+  const { employee: loggedInUser } = useUserStore()
   const [loading, setLoading] = useState(false)
   const [installments, setInstallments] = useState<
     { id: string; method: string; value: string; dueDate: string }[]
   >([])
   const [splitCount, setSplitCount] = useState<string>('1')
+
+  const [entradaValue, setEntradaValue] = useState<string>('')
+  const [entradaMethod, setEntradaMethod] = useState<string>('Dinheiro')
 
   useEffect(() => {
     if (open && order) {
@@ -60,22 +65,27 @@ export function EditPaymentDialog({
         },
       ])
       setSplitCount('1')
+      setEntradaValue('')
+      setEntradaMethod('Dinheiro')
     }
   }, [open, order])
 
   const netValue = order ? order.totalSalesValue - order.totalDiscount : 0
+  const entrada = parseFloat(entradaValue) || 0
+  const remainingNetValue = Math.max(0, netValue - entrada)
+
   const currentTotal = installments.reduce(
     (acc, curr) => acc + (parseFloat(curr.value) || 0),
     0,
   )
-  const diff = netValue - currentTotal
+  const diff = remainingNetValue - currentTotal
 
   const handleSplit = (val: string) => {
     setSplitCount(val)
     const count = parseInt(val)
     if (isNaN(count) || count <= 0) return
 
-    const splitValue = netValue / count
+    const splitValue = remainingNetValue / count
     const newInsts = Array.from({ length: count }).map((_, i) => ({
       id: Math.random().toString(),
       method: count > 1 ? 'Boleto' : 'Dinheiro',
@@ -84,16 +94,23 @@ export function EditPaymentDialog({
     }))
 
     const sum = newInsts.reduce((a, b) => a + parseFloat(b.value), 0)
-    if (sum !== netValue && newInsts.length > 0) {
+    if (sum !== remainingNetValue && newInsts.length > 0) {
       const lastVal = parseFloat(newInsts[newInsts.length - 1].value)
       newInsts[newInsts.length - 1].value = (
         lastVal +
-        (netValue - sum)
+        (remainingNetValue - sum)
       ).toFixed(2)
     }
 
     setInstallments(newInsts)
   }
+
+  useEffect(() => {
+    if (open && order) {
+      handleSplit(splitCount)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entradaValue])
 
   const updateInstallment = (index: number, field: string, value: string) => {
     const newInsts = [...installments]
@@ -124,7 +141,7 @@ export function EditPaymentDialog({
     if (Math.abs(diff) > 0.05) {
       toast({
         title: 'Valores não conferem',
-        description: `A soma das parcelas (R$ ${formatCurrency(currentTotal)}) deve ser igual ao valor total devido (R$ ${formatCurrency(netValue)}).`,
+        description: `A soma das parcelas (R$ ${formatCurrency(currentTotal)}) deve ser igual ao valor restante a parcelar (R$ ${formatCurrency(remainingNetValue)}).`,
         variant: 'destructive',
       })
       return
@@ -132,17 +149,32 @@ export function EditPaymentDialog({
 
     setLoading(true)
     try {
-      const payload = installments.map((i) => ({
-        method: i.method,
-        value: parseFloat(i.value) || 0,
-        dueDate: i.dueDate,
-      }))
+      const payload: { method: string; value: number; dueDate: string; paidValue?: number }[] = []
 
-      await resumoAcertosService.updateOrderPaymentTerms(order.orderId, payload)
+      if (entrada > 0) {
+        payload.push({
+          method: entradaMethod,
+          value: entrada,
+          dueDate: format(new Date(), 'yyyy-MM-dd'),
+          paidValue: entrada
+        })
+      }
+
+      installments.forEach((i) => {
+        payload.push({
+          method: i.method,
+          value: parseFloat(i.value) || 0,
+          dueDate: i.dueDate,
+          paidValue: 0
+        })
+      })
+
+      await resumoAcertosService.updateOrderPaymentTerms(order.orderId, payload, loggedInUser?.id)
+      
       toast({
         title: 'Sucesso',
         description:
-          'Termos de pagamento atualizados com sucesso. Tabela de cobrança sincronizada.',
+          'Termos de pagamento atualizados com sucesso.',
         className: 'bg-green-50 border-green-200 text-green-900',
       })
       onSuccess()
@@ -175,11 +207,46 @@ export function EditPaymentDialog({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          <div className="space-y-4 p-4 border rounded-lg bg-green-50/30">
+            <h4 className="text-sm font-semibold text-green-800">Entrada (Pagamento Imediato)</h4>
+            <div className="flex gap-4">
+              <div className="flex-1 space-y-1.5">
+                <Label className="text-xs">Valor da Entrada (R$)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={entradaValue}
+                  onChange={(e) => setEntradaValue(e.target.value)}
+                  className="h-9 font-medium"
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="flex-1 space-y-1.5">
+                <Label className="text-xs">Forma de Pagamento</Label>
+                <Select value={entradaMethod} onValueChange={setEntradaMethod}>
+                  <SelectTrigger className="h-9 bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAYMENT_METHODS.filter(m => m !== 'Boleto').map((m) => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {entrada > 0 && (
+              <p className="text-xs text-green-700">
+                Este valor será registrado como pago no caixa atual e deduzido do saldo a parcelar.
+              </p>
+            )}
+          </div>
+
           <div className="flex items-center gap-4 border p-4 rounded-lg bg-muted/30">
             <div className="flex-1">
-              <Label>Quantidade de Parcelas (Automático)</Label>
+              <Label>Quantidade de Parcelas</Label>
               <Select value={splitCount} onValueChange={handleSplit}>
-                <SelectTrigger className="mt-1.5">
+                <SelectTrigger className="mt-1.5 bg-white">
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -193,8 +260,9 @@ export function EditPaymentDialog({
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex-none pt-6 text-sm text-muted-foreground">
-              Ou edite manualmente abaixo
+            <div className="flex-none pt-6 text-sm text-muted-foreground text-right">
+              Valor a Parcelar:<br/>
+              <strong className="text-foreground">R$ {formatCurrency(remainingNetValue)}</strong>
             </div>
           </div>
 

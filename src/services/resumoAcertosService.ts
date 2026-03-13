@@ -141,7 +141,8 @@ export const resumoAcertosService = {
 
   async updateOrderPaymentTerms(
     orderId: number,
-    newInstallments: { method: string; value: number; dueDate: string }[],
+    newInstallments: { method: string; value: number; dueDate: string; paidValue?: number }[],
+    currentUserId?: number
   ) {
     const { data: orderData, error: orderError } = await supabase
       .from('BANCO_DE_DADOS')
@@ -173,17 +174,21 @@ export const resumoAcertosService = {
 
     const activeRouteId = activeRouteData?.id || null
 
-    const inserts = newInstallments.map((inst) => ({
-      venda_id: orderId,
-      cliente_id: clientId,
-      funcionario_id: employeeId,
-      forma_pagamento: inst.method,
-      valor_registrado: inst.value,
-      valor_pago: 0,
-      vencimento: new Date(`${inst.dueDate}T12:00:00`).toISOString(),
-      ID_da_fêmea: orderId,
-      rota_id: activeRouteId,
-    }))
+    const inserts = newInstallments.map((inst) => {
+      const isPaid = (inst.paidValue || 0) > 0;
+      return {
+        venda_id: orderId,
+        cliente_id: clientId,
+        funcionario_id: isPaid && currentUserId ? currentUserId : employeeId,
+        forma_pagamento: inst.method,
+        valor_registrado: inst.value,
+        valor_pago: inst.paidValue || 0,
+        vencimento: new Date(`${inst.dueDate}T12:00:00`).toISOString(),
+        data_pagamento: isPaid ? new Date().toISOString() : null,
+        ID_da_fêmea: orderId,
+        rota_id: activeRouteId,
+      }
+    })
 
     const { error: insertError } = await supabase
       .from('RECEBIMENTOS')

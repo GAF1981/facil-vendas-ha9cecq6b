@@ -218,10 +218,9 @@ export function PerformanceSummaryModal({
                   {metrics.totalAcertos}
                 </span>
                 {metrics.totalCaptacao > 0 && (
-                  <div className="absolute bottom-1 left-0 right-0 flex justify-center">
-                    <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-sm">
-                      Captação: {metrics.totalCaptacao}
-                    </span>
+                  <div className="w-full mt-2 pt-2 border-t flex flex-col items-center">
+                    <span className="text-[10px] text-muted-foreground uppercase font-medium">Captação</span>
+                    <span className="text-lg font-bold text-foreground">{metrics.totalCaptacao}</span>
                   </div>
                 )}
               </div>

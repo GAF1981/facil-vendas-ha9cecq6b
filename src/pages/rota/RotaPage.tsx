@@ -455,7 +455,7 @@ export default function RotaPage() {
 
     const sellersMap = new Map(sellers.map((s) => [s.id, s.nome_completo]))
 
-    const csvLines = [headers.join(';')]
+    const csvLines = [headers.join(',')]
 
     rowsToExport.forEach((row) => {
       const vVendedor = row.vendedor_id
@@ -464,31 +464,40 @@ export default function RotaPage() {
       const vProximo = row.proximo_vendedor_id
         ? sellersMap.get(row.proximo_vendedor_id) || ''
         : ''
+        
+      const escape = (str: any) => {
+        if (str === null || str === undefined) return '""';
+        const stringVal = String(str);
+        if (stringVal.includes(',') || stringVal.includes('"') || stringVal.includes('\n')) {
+            return `"${stringVal.replace(/"/g, '""')}"`;
+        }
+        return stringVal;
+      }
 
       const line = [
-        row.rowNumber,
-        row.client.CODIGO,
-        `"${(row.client['NOME CLIENTE'] || '').replace(/"/g, '""')}"`,
-        `"${(row.client.MUNICÍPIO || '').replace(/"/g, '""')}"`,
-        row.debito,
-        row.projecao || 0,
-        `"${vVendedor}"`,
-        `"${vProximo}"`,
-        `"${(row.client['GRUPO ROTA'] || '').replace(/"/g, '""')}"`,
-        row.valor_consignado || 0,
-        `"${(row.client.ENDEREÇO || '').replace(/"/g, '""')}"`,
-        row.client['FONE 1'] || '',
-        row.client['CONTATO 1'] || '',
-        row.x_na_rota,
-        row.numero_pedido || '',
-        row.data_acerto || '',
-        row.vencimento_status,
-        row.boleto ? 'Sim' : 'Não',
-        row.agregado ? 'Sim' : 'Não',
-        row.client['CEP OFICIO'] || '',
-        `"${(row.tarefas || '').replace(/"/g, '""')}"`,
+        escape(row.rowNumber),
+        escape(row.client.CODIGO),
+        escape(row.client['NOME CLIENTE']),
+        escape(row.client.MUNICÍPIO),
+        escape(row.debito),
+        escape(row.projecao || 0),
+        escape(vVendedor),
+        escape(vProximo),
+        escape(row.client['GRUPO ROTA']),
+        escape(row.valor_consignado || 0),
+        escape(row.client.ENDEREÇO),
+        escape(row.client['FONE 1']),
+        escape(row.client['CONTATO 1']),
+        escape(row.x_na_rota),
+        escape(row.numero_pedido),
+        escape(row.data_acerto),
+        escape(row.vencimento_status),
+        escape(row.boleto ? 'Sim' : 'Não'),
+        escape(row.agregado ? 'Sim' : 'Não'),
+        escape(row.client['CEP OFICIO']),
+        escape(row.tarefas),
       ]
-      csvLines.push(line.join(';'))
+      csvLines.push(line.join(','))
     })
 
     const csvContent = csvLines.join('\n')
