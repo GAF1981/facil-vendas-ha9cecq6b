@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { cobrancaService } from '@/services/cobrancaService'
 import { boletoService } from '@/services/boletoService'
+import { configService } from '@/services/configService'
 import { ClientDebt } from '@/types/cobranca'
 import { Boleto } from '@/types/boleto'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -25,6 +26,7 @@ import {
   Eraser,
   Trash2,
   CalendarX,
+  AlertTriangle,
 } from 'lucide-react'
 import { DebtTable } from '@/components/cobranca/DebtTable'
 import { useToast } from '@/hooks/use-toast'
@@ -38,6 +40,7 @@ import { MultiSelect } from '@/components/common/MultiSelect'
 import { DateRangePicker } from '@/components/common/DateRangePicker'
 import { DateRange } from 'react-day-picker'
 import { format } from 'date-fns'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
 export default function CobrancaPage() {
   const [loading, setLoading] = useState(true)
@@ -69,17 +72,94 @@ export default function CobrancaPage() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [isSimplified, setIsSimplified] = useState(false)
   const [activeTab, setActiveTab] = useState('geral')
+
+  // Inactivity Alert State
+  const [inactiveThreshold, setInactiveThreshold] = useState(10)
+  const [inactiveClients, setInactiveClients] = useState<
+    { clientId: number; clientName: string; days: number }[]
+  >([])
+
   const { toast } = useToast()
 
   const loadData = async () => {
     setLoading(true)
     try {
-      const [debtsData, boletosData] = await Promise.all([
+      const [debtsData, boletosData, thresholdStr] = await Promise.all([
         cobrancaService.getDebts(),
         boletoService.getAll(),
+        configService.getConfig('dias_sem_acao_cobranca'),
       ])
+
       setDebts(debtsData)
       setBoletos(boletosData)
+
+      const threshold = thresholdStr ? parseInt(thresholdStr, 10) : 10
+      setInactiveThreshold(threshold)
+
+      // Identify inactive clients
+      const clientIds = debtsData
+        .filter((d) => d.totalDebt > 0)
+        .map((d) => d.clientId)
+
+      if (clientIds.length > 0) {
+        const { data: actions } = await supabase
+          .from('acoes_cobranca')
+          .select('cliente_id, data_acao')
+          .in('cliente_id', clientIds)
+
+        const latestActionMap = new Map<number, number>()
+        actions?.forEach((a) => {
+          if (a.data_acao) {
+            const t = new Date(a.data_acao).getTime()
+            if (
+              !latestActionMap.has(a.cliente_id) ||
+              t > latestActionMap.get(a.cliente_id)!
+            ) {
+              latestActionMap.set(a.cliente_id, t)
+            }
+          }
+        })
+
+        const latestBoletoMap = new Map<number, number>()
+        boletosData.forEach((b) => {
+          if (b.vencimento && clientIds.includes(b.cliente_codigo)) {
+            const t = new Date(b.vencimento).getTime()
+            if (
+              !latestBoletoMap.has(b.cliente_codigo) ||
+              t > latestBoletoMap.get(b.cliente_codigo)!
+            ) {
+              latestBoletoMap.set(b.cliente_codigo, t)
+            }
+          }
+        })
+
+        const now = new Date().getTime()
+        const inactiveList: any[] = []
+
+        debtsData.forEach((client) => {
+          if (client.totalDebt <= 0) return
+
+          const lastAction = latestActionMap.get(client.clientId) || 0
+          const lastBoleto = latestBoletoMap.get(client.clientId) || 0
+
+          const refDate = Math.max(lastAction, lastBoleto)
+
+          if (refDate > 0) {
+            const diffDays = Math.floor((now - refDate) / (1000 * 60 * 60 * 24))
+            if (diffDays > threshold) {
+              inactiveList.push({
+                clientId: client.clientId,
+                clientName: client.clientName,
+                days: diffDays,
+              })
+            }
+          }
+        })
+
+        setInactiveClients(inactiveList.sort((a, b) => b.days - a.days))
+      } else {
+        setInactiveClients([])
+      }
     } catch (error) {
       console.error(error)
       toast({
@@ -463,6 +543,36 @@ export default function CobrancaPage() {
           </Button>
         </div>
       </div>
+
+      {inactiveClients.length > 0 && (
+        <Alert className="border-amber-500 bg-amber-50/50">
+          <AlertTriangle className="h-5 w-5 text-amber-600" />
+          <AlertTitle className="text-amber-800 font-bold">
+            Ação Necessária: Clientes sem acompanhamento
+          </AlertTitle>
+          <AlertDescription className="mt-2 text-amber-900">
+            <p className="mb-2">
+              Os clientes abaixo estão sem ação de cobrança a mais de{' '}
+              {inactiveThreshold} dias!
+            </p>
+            <div className="max-h-[120px] overflow-y-auto pr-2 space-y-1">
+              {inactiveClients.map((c) => (
+                <div
+                  key={c.clientId}
+                  className="text-sm bg-white/60 px-2 py-1 rounded border border-amber-200 flex justify-between"
+                >
+                  <span className="font-medium">
+                    {c.clientName} (Cód: {c.clientId})
+                  </span>
+                  <span className="text-amber-700 font-bold">
+                    {c.days} dias
+                  </span>
+                </div>
+              ))}
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>

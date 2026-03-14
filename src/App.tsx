@@ -43,6 +43,7 @@ import InventarioPage from '@/pages/inventario/InventarioPage'
 import ContagemPage from '@/pages/inventario/ContagemPage'
 import ResumoAcertosPage from '@/pages/resumo-acertos/ResumoAcertosPage'
 import PermissionsPage from '@/pages/admin/PermissionsPage'
+import IndicadoresPage from '@/pages/admin/IndicadoresPage'
 import EstoqueCarroPage from '@/pages/estoque-carro/EstoqueCarroPage'
 import InativarClientesPage from '@/pages/inativar-clientes/InativarClientesPage'
 import VehiclesPage from '@/pages/vehicles/VehiclesPage'
@@ -261,6 +262,10 @@ const App = () => (
 
                 <Route element={<PermissionGuard module="Permissões" />}>
                   <Route path="/permissoes" element={<PermissionsPage />} />
+                </Route>
+
+                <Route element={<PermissionGuard module="Indicadores" />}>
+                  <Route path="/indicadores" element={<IndicadoresPage />} />
                 </Route>
 
                 <Route element={<PermissionGuard module="Boletos" />}>

@@ -166,7 +166,7 @@ export function EditPaymentDialog({
         })
       })
 
-      // The backend logic respects the original employee assigned to the order.
+      // The backend logic respects the original employee assigned to the order to maintain cash flow integrity.
       await resumoAcertosService.updateOrderPaymentTerms(order.orderId, payload)
 
       toast({
@@ -194,7 +194,7 @@ export function EditPaymentDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Editar Forma de Pagamento</DialogTitle>
+          <DialogTitle>Detalhamento de Entrada</DialogTitle>
           <DialogDescription>
             Pedido #{order.orderId} • Total Devido:{' '}
             <strong className="text-foreground">

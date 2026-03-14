@@ -25,6 +25,7 @@ import {
   PackageSearch,
   ShieldCheck,
   Database,
+  Activity,
 } from 'lucide-react'
 import { usePermissions } from '@/hooks/use-permissions'
 import { useUserStore } from '@/stores/useUserStore'
@@ -146,7 +147,7 @@ export default function Index() {
           color: 'bg-teal-500',
         },
         {
-          title: 'Inativar Clientes',
+          title: 'INATIVAR CLIENTES',
           icon: UserX,
           href: '/inativar-clientes',
           module: 'Inativar Clientes',
@@ -229,6 +230,13 @@ export default function Index() {
           href: '/backup',
           module: 'Backup',
           color: 'bg-stone-600',
+        },
+        {
+          title: 'Indicadores',
+          icon: Activity,
+          href: '/indicadores',
+          module: 'Indicadores',
+          color: 'bg-blue-500',
         },
       ],
     },
