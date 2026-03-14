@@ -39,7 +39,7 @@ import { supabase } from '@/lib/supabase/client'
 import { MultiSelect } from '@/components/common/MultiSelect'
 import { DateRangePicker } from '@/components/common/DateRangePicker'
 import { DateRange } from 'react-day-picker'
-import { format } from 'date-fns'
+import { format, parseISO, isValid, startOfDay } from 'date-fns'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
 export default function CobrancaPage() {
@@ -104,48 +104,53 @@ export default function CobrancaPage() {
       if (clientIds.length > 0) {
         const { data: actions } = await supabase
           .from('acoes_cobranca')
-          .select('cliente_id, data_acao')
+          .select('cliente_id, data_acao, nova_data_combinada')
           .in('cliente_id', clientIds)
 
-        const latestActionMap = new Map<number, number>()
+        const clientMaxDateMap = new Map<number, number>()
+
+        const safeGetTime = (dStr: string | null | undefined) => {
+          if (!dStr) return 0
+          const d = parseISO(dStr)
+          return isValid(d) ? startOfDay(d).getTime() : 0
+        }
+
         actions?.forEach((a) => {
-          if (a.data_acao) {
-            const t = new Date(a.data_acao).getTime()
-            if (
-              !latestActionMap.has(a.cliente_id) ||
-              t > latestActionMap.get(a.cliente_id)!
-            ) {
-              latestActionMap.set(a.cliente_id, t)
+          const t1 = safeGetTime(a.data_acao)
+          const t2 = safeGetTime(a.nova_data_combinada)
+          const maxT = Math.max(t1, t2)
+
+          if (maxT > 0) {
+            const current = clientMaxDateMap.get(a.cliente_id) || 0
+            if (maxT > current) {
+              clientMaxDateMap.set(a.cliente_id, maxT)
             }
           }
         })
 
-        const latestBoletoMap = new Map<number, number>()
-        boletosData.forEach((b) => {
-          if (b.vencimento && clientIds.includes(b.cliente_codigo)) {
-            const t = new Date(b.vencimento).getTime()
-            if (
-              !latestBoletoMap.has(b.cliente_codigo) ||
-              t > latestBoletoMap.get(b.cliente_codigo)!
-            ) {
-              latestBoletoMap.set(b.cliente_codigo, t)
-            }
-          }
-        })
-
-        const now = new Date().getTime()
+        const now = startOfDay(new Date()).getTime()
         const inactiveList: any[] = []
 
         debtsData.forEach((client) => {
           if (client.totalDebt <= 0) return
 
-          const lastAction = latestActionMap.get(client.clientId) || 0
-          const lastBoleto = latestBoletoMap.get(client.clientId) || 0
+          let maxDateForClient = clientMaxDateMap.get(client.clientId) || 0
 
-          const refDate = Math.max(lastAction, lastBoleto)
+          client.orders.forEach((order) => {
+            order.installments.forEach((inst) => {
+              if (inst.status !== 'PAGO') {
+                const tVenc = safeGetTime(inst.vencimento)
+                const tComb = safeGetTime(inst.dataCombinada)
+                if (tVenc > maxDateForClient) maxDateForClient = tVenc
+                if (tComb > maxDateForClient) maxDateForClient = tComb
+              }
+            })
+          })
 
-          if (refDate > 0) {
-            const diffDays = Math.floor((now - refDate) / (1000 * 60 * 60 * 24))
+          if (maxDateForClient > 0) {
+            const diffDays = Math.floor(
+              (now - maxDateForClient) / (1000 * 60 * 60 * 24),
+            )
             if (diffDays > threshold) {
               inactiveList.push({
                 clientId: client.clientId,
