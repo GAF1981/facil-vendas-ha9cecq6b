@@ -246,10 +246,10 @@ export default function Index() {
     <div className="space-y-8 animate-fade-in p-4 sm:p-8 max-w-7xl mx-auto pb-24">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold tracking-tight">Menu Principal</h1>
-        <p className="text-muted-foreground">
+        <div className="text-muted-foreground">
           Bem-vindo, {employee?.nome_completo || 'Usuário'}! Selecione uma opção
           abaixo.
-        </p>
+        </div>
       </div>
 
       <div className="space-y-8">
