@@ -6,9 +6,9 @@ import {
   Edit,
   Trash2,
   Calendar,
-  FileText,
   CheckCircle,
   XCircle,
+  RefreshCcw,
 } from 'lucide-react'
 import { formatCurrency, safeFormatDate } from '@/lib/formatters'
 
@@ -16,9 +16,15 @@ interface BoletoCardProps {
   boleto: BoletoWithConferido
   onEdit: (boleto: BoletoWithConferido) => void
   onDelete: (id: number) => void
+  onRevert: (id: number) => void
 }
 
-export function BoletoCard({ boleto, onEdit, onDelete }: BoletoCardProps) {
+export function BoletoCard({
+  boleto,
+  onEdit,
+  onDelete,
+  onRevert,
+}: BoletoCardProps) {
   return (
     <Card className="hover:shadow-md transition-shadow relative overflow-hidden group">
       {/* Visual left border for Conferido status */}
@@ -102,21 +108,34 @@ export function BoletoCard({ boleto, onEdit, onDelete }: BoletoCardProps) {
             <span className="text-xs text-muted-foreground mb-0.5">
               Boleto Conferido
             </span>
-            {boleto.conferido === 'SIM' ? (
-              <Badge
-                variant="secondary"
-                className="bg-green-100 text-green-800 hover:bg-green-200 border-transparent gap-1"
-              >
-                <CheckCircle className="h-3 w-3" /> SIM
-              </Badge>
-            ) : (
-              <Badge
-                variant="secondary"
-                className="bg-red-100 text-red-800 hover:bg-red-200 border-transparent gap-1"
-              >
-                <XCircle className="h-3 w-3" /> NÃO
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {boleto.conferido === 'SIM' ? (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground border-dashed"
+                    onClick={() => onRevert(boleto.id)}
+                    title="Reverter para NÃO conferido"
+                  >
+                    <RefreshCcw className="h-3 w-3 mr-1" /> Reverter
+                  </Button>
+                  <Badge
+                    variant="secondary"
+                    className="bg-green-100 text-green-800 hover:bg-green-200 border-transparent gap-1"
+                  >
+                    <CheckCircle className="h-3 w-3" /> SIM
+                  </Badge>
+                </>
+              ) : (
+                <Badge
+                  variant="secondary"
+                  className="bg-red-100 text-red-800 hover:bg-red-200 border-transparent gap-1"
+                >
+                  <XCircle className="h-3 w-3" /> NÃO
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
       </CardContent>

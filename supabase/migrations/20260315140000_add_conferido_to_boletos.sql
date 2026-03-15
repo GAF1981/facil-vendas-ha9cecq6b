@@ -1,0 +1,1 @@
+ALTER TABLE public.boletos ADD COLUMN IF NOT EXISTS conferido BOOLEAN NOT NULL DEFAULT false;

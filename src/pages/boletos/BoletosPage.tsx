@@ -1,11 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -41,7 +35,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { format, parseISO } from 'date-fns'
 
 interface FlatDebt {
   cliente_codigo: number
@@ -56,7 +49,7 @@ export default function BoletosPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [conferidoFilter, setConferidoFilter] = useState<
     'SIM' | 'NÃO' | 'VAZIO'
-  >('NÃO')
+  >('VAZIO')
 
   // Dialogs
   const [isFormOpen, setIsFormOpen] = useState(false)
@@ -72,8 +65,6 @@ export default function BoletosPage() {
         boletoService.getAll(),
         cobrancaService.getDebts(),
       ])
-
-      setBoletos(fetchedBoletos)
 
       // Flatten debts to easily match conditions
       const flattened = allDebts.flatMap((client) =>
@@ -91,7 +82,42 @@ export default function BoletosPage() {
           }),
         ),
       )
+
+      const boletosToUpdate: number[] = []
+
+      const finalBoletos = fetchedBoletos.map((boleto) => {
+        if (!boleto.conferido) {
+          const bDate = boleto.vencimento
+            ? boleto.vencimento.substring(0, 10)
+            : null
+
+          // Automatic Matching Logic
+          const isMatch = flattened.some(
+            (debt) =>
+              debt.cliente_codigo === boleto.cliente_codigo &&
+              debt.vencimento === bDate &&
+              Math.abs(debt.debito - boleto.valor) < 0.01,
+          )
+
+          if (isMatch) {
+            boletosToUpdate.push(boleto.id)
+            return { ...boleto, conferido: true }
+          }
+        }
+        return boleto
+      })
+
+      setBoletos(finalBoletos)
       setFlatDebts(flattened)
+
+      // Persist automatic matches in background
+      if (boletosToUpdate.length > 0) {
+        Promise.all(
+          boletosToUpdate.map((id) =>
+            boletoService.update(id, { conferido: true }),
+          ),
+        ).catch((err) => console.error('Failed to update conferido:', err))
+      }
     } catch (error) {
       console.error('Error fetching boletos data:', error)
       toast({
@@ -108,26 +134,32 @@ export default function BoletosPage() {
     loadData()
   }, [])
 
-  const boletosWithConferido: BoletoWithConferido[] = useMemo(() => {
-    return boletos.map((boleto) => {
-      const bDate = boleto.vencimento
-        ? boleto.vencimento.substring(0, 10)
-        : null
-
-      // Conferido Logic: Match client code, due date, and debt amount
-      const isConferido = flatDebts.some(
-        (debt) =>
-          debt.cliente_codigo === boleto.cliente_codigo &&
-          debt.vencimento === bDate &&
-          Math.abs(debt.debito - boleto.valor) < 0.01,
+  const handleRevert = async (id: number) => {
+    try {
+      await boletoService.update(id, { conferido: false })
+      setBoletos((prev) =>
+        prev.map((b) => (b.id === id ? { ...b, conferido: false } : b)),
       )
+      toast({
+        title: 'Boleto Revertido',
+        description: 'O status foi alterado para NÃO conferido.',
+      })
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Falha ao reverter status do boleto.',
+        variant: 'destructive',
+      })
+    }
+  }
 
-      return {
-        ...boleto,
-        conferido: isConferido ? 'SIM' : 'NÃO',
-      }
-    })
-  }, [boletos, flatDebts])
+  const boletosWithConferido: BoletoWithConferido[] = useMemo(() => {
+    return boletos.map((boleto) => ({
+      ...boleto,
+      conferido: boleto.conferido ? 'SIM' : 'NÃO',
+      originalConferido: boleto.conferido,
+    }))
+  }, [boletos])
 
   const filteredBoletos = useMemo(() => {
     let filtered = boletosWithConferido
@@ -230,14 +262,14 @@ export default function BoletosPage() {
             >
               <SelectTrigger>
                 <div className="flex items-center gap-2 text-muted-foreground">
-                  Boleto Conferido:{' '}
+                  Filtro Conferido:{' '}
                   <span className="font-medium text-foreground">
-                    {conferidoFilter}
+                    {conferidoFilter === 'VAZIO' ? 'Todos' : conferidoFilter}
                   </span>
                 </div>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="VAZIO">VAZIO</SelectItem>
+                <SelectItem value="VAZIO">Todos</SelectItem>
                 <SelectItem value="SIM">SIM</SelectItem>
                 <SelectItem value="NÃO">NÃO</SelectItem>
               </SelectContent>
@@ -276,6 +308,7 @@ export default function BoletosPage() {
               boleto={boleto}
               onEdit={handleEdit}
               onDelete={setDeleteId}
+              onRevert={handleRevert}
             />
           ))}
         </div>

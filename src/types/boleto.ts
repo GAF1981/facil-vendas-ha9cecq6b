@@ -7,11 +7,15 @@ export interface Boleto {
   valor: number
   pedido_id?: number | null
   created_at?: string
+  conferido: boolean
 }
 
-export type BoletoInsert = Omit<Boleto, 'id' | 'created_at'>
+export type BoletoInsert = Omit<Boleto, 'id' | 'created_at' | 'conferido'> & {
+  conferido?: boolean
+}
 export type BoletoUpdate = Partial<BoletoInsert>
 
-export interface BoletoWithConferido extends Boleto {
+export interface BoletoWithConferido extends Omit<Boleto, 'conferido'> {
   conferido: 'SIM' | 'NÃO'
+  originalConferido: boolean
 }
