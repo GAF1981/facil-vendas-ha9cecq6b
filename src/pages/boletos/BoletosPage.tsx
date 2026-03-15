@@ -49,7 +49,7 @@ export default function BoletosPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [conferidoFilter, setConferidoFilter] = useState<
     'SIM' | 'NÃO' | 'VAZIO'
-  >('VAZIO')
+  >('NÃO')
 
   // Dialogs
   const [isFormOpen, setIsFormOpen] = useState(false)

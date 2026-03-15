@@ -682,7 +682,7 @@ export const rotaService = {
         }
       }
 
-      const isCompleted = completedSet.has(cid)
+      const isCompleted = completedSet.has(cid) && rotaItem?.vendedor_id != null
 
       const nextSellerId = rotaItem?.vendedor_proximo_id || null
 

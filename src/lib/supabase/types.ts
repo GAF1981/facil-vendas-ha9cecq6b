@@ -315,6 +315,7 @@ export type Database = {
         Row: {
           cliente_codigo: number
           cliente_nome: string
+          conferido: boolean
           created_at: string
           id: number
           pedido_id: number | null
@@ -325,6 +326,7 @@ export type Database = {
         Insert: {
           cliente_codigo: number
           cliente_nome: string
+          conferido?: boolean
           created_at?: string
           id?: number
           pedido_id?: number | null
@@ -335,6 +337,7 @@ export type Database = {
         Update: {
           cliente_codigo?: number
           cliente_nome?: string
+          conferido?: boolean
           created_at?: string
           id?: number
           pedido_id?: number | null
@@ -3515,6 +3518,7 @@ export const Constants = {
 //   valor: numeric (not null)
 //   pedido_id: bigint (nullable)
 //   created_at: timestamp with time zone (not null, default: now())
+//   conferido: boolean (not null, default: false)
 // Table: brinde
 //   id: bigint (not null)
 //   cliente_codigo: bigint (nullable)

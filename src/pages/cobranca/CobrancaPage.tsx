@@ -70,7 +70,7 @@ export default function CobrancaPage() {
   >()
 
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
-  const [isSimplified, setIsSimplified] = useState(false)
+  const [isSimplified, setIsSimplified] = useState(true)
   const [activeTab, setActiveTab] = useState('geral')
 
   // Inactivity Alert State

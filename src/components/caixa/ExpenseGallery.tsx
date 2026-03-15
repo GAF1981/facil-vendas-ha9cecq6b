@@ -1,9 +1,9 @@
 import { ExpenseDetail } from '@/services/caixaService'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { formatCurrency } from '@/lib/formatters'
 import { formatDateTimeBR } from '@/lib/dateUtils'
-import { ArrowUpCircle, CheckCircle2, XCircle } from 'lucide-react'
+import { ArrowUpCircle, CheckCircle2, XCircle, Trash2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import {
   Table,
   TableBody,
@@ -13,16 +13,57 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
+import { useState } from 'react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { caixaService } from '@/services/caixaService'
+import { useToast } from '@/hooks/use-toast'
 
 interface ExpenseGalleryProps {
   items: ExpenseDetail[]
 }
 
-export function ExpenseGallery({ items }: ExpenseGalleryProps) {
+export function ExpenseGallery({ items: initialItems }: ExpenseGalleryProps) {
+  const [deletedIds, setDeletedIds] = useState<Set<number>>(new Set())
+  const [deleteId, setDeleteId] = useState<number | null>(null)
+  const { toast } = useToast()
+
+  const items = initialItems.filter((item) => !deletedIds.has(item.id))
+
   const total = items.reduce(
     (acc, item) => (item.saiuDoCaixa ? acc + item.valor : acc),
     0,
   )
+
+  const handleDelete = async () => {
+    if (!deleteId) return
+    try {
+      await caixaService.deleteDespesa(deleteId)
+      setDeletedIds((prev) => new Set(prev).add(deleteId))
+      toast({
+        title: 'Sucesso',
+        description: 'Despesa excluída com sucesso.',
+        className: 'bg-green-600 text-white',
+      })
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: 'Erro',
+        description: 'Falha ao excluir despesa.',
+        variant: 'destructive',
+      })
+    } finally {
+      setDeleteId(null)
+    }
+  }
 
   return (
     <Card className="h-full flex flex-col">
@@ -48,13 +89,14 @@ export function ExpenseGallery({ items }: ExpenseGalleryProps) {
                   <TableHead>Funcionário</TableHead>
                   <TableHead className="text-center">Saiu do Caixa?</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={6}
                       className="text-center h-24 text-muted-foreground"
                     >
                       Nenhuma despesa registrada.
@@ -100,6 +142,17 @@ export function ExpenseGallery({ items }: ExpenseGalleryProps) {
                       >
                         R$ {formatCurrency(item.valor)}
                       </TableCell>
+                      <TableCell className="text-center">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-red-600 hover:bg-red-50"
+                          onClick={() => setDeleteId(item.id)}
+                          title="Excluir Despesa"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -118,6 +171,30 @@ export function ExpenseGallery({ items }: ExpenseGalleryProps) {
           </span>
         </div>
       </div>
+
+      <AlertDialog
+        open={deleteId !== null}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Despesa</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja realmente excluir esta despesa? Esta ação não pode ser
+              desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={handleDelete}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   )
 }

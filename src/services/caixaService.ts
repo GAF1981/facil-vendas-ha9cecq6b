@@ -83,6 +83,11 @@ export const caixaService = {
     if (error) throw error
   },
 
+  async deleteDespesa(id: number) {
+    const { error } = await supabase.from('DESPESAS').delete().eq('id', id)
+    if (error) throw error
+  },
+
   async getFinancialSummary(rota: Rota): Promise<CaixaSummaryRow[]> {
     const { data: employees, error: empError } = await supabase
       .from('FUNCIONARIOS')
