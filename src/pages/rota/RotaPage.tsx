@@ -22,12 +22,7 @@ export default function RotaPage() {
   const [sellers, setSellers] = useState<Employee[]>([])
 
   const { employee: loggedInUser } = useUserStore()
-  const {
-    selectedEmployeeIds,
-    setSelectedEmployeeIds,
-    hasSetDefaultSeller,
-    setHasSetDefaultSeller,
-  } = useRotaFilterStore()
+  const { selectedEmployeeIds, setSelectedEmployeeIds } = useRotaFilterStore()
 
   const [isSelectionMode, setIsSelectionMode] = useState(true)
   const [isFiltrosActive, setIsFiltrosActive] = useState(true)
@@ -36,69 +31,39 @@ export default function RotaPage() {
 
   const [isBulkFillOpen, setIsBulkFillOpen] = useState(false)
   const [isParametrosModalOpen, setIsParametrosModalOpen] = useState(false)
+  const [isFirstLoad, setIsFirstLoad] = useState(true)
 
-  const [filters, setFilters] = useState<RotaFilterState>(() => {
-    let initialVendedor: string[] = []
-
-    if (hasSetDefaultSeller) {
-      initialVendedor = selectedEmployeeIds
-    } else {
-      if (selectedEmployeeIds.length > 0) {
-        initialVendedor = selectedEmployeeIds
-      } else if (loggedInUser) {
-        initialVendedor = [loggedInUser.id.toString()]
-      }
-    }
-
-    return {
-      search: '',
-      x_na_rota: 'todos',
-      agregado: 'todos',
-      vendedor: initialVendedor,
-      status_vendedor: 'com_vendedor',
-      proximo_vendedor: 'todos',
-      municipio: 'todos',
-      grupo_rota: 'todos',
-      debito_min: '',
-      debito_max: '',
-      data_acerto_start: '',
-      data_acerto_end: '',
-      projecao_min: '',
-      estoque_min: '',
-      estoque_max: '',
-      vencimento_status: 'todos',
-      pendencias: 'todos',
-    }
-  })
-
-  useEffect(() => {
-    if (!hasSetDefaultSeller && loggedInUser) {
-      if (filters.vendedor.length === 0 && selectedEmployeeIds.length === 0) {
-        setFilters((prev) => ({
-          ...prev,
-          vendedor: [loggedInUser.id.toString()],
-        }))
-        setSelectedEmployeeIds([loggedInUser.id.toString()])
-      }
-      setHasSetDefaultSeller(true)
-    }
-  }, [
-    loggedInUser,
-    hasSetDefaultSeller,
-    filters.vendedor.length,
-    selectedEmployeeIds.length,
-    setSelectedEmployeeIds,
-    setHasSetDefaultSeller,
-  ])
-
-  useEffect(() => {
-    setSelectedEmployeeIds(filters.vendedor)
-  }, [filters.vendedor, setSelectedEmployeeIds])
+  const [filters, setFilters] = useState<RotaFilterState>(() => ({
+    search: '',
+    x_na_rota: 'todos',
+    agregado: 'todos',
+    vendedor: [],
+    status_vendedor: 'todos',
+    proximo_vendedor: 'todos',
+    municipio: 'todos',
+    grupo_rota: 'todos',
+    debito_min: '',
+    debito_max: '',
+    data_acerto_start: '',
+    data_acerto_end: '',
+    projecao_min: '',
+    estoque_min: '',
+    estoque_max: '',
+    vencimento_status: 'todos',
+    pendencias: 'todos',
+  }))
 
   const [sortConfig, setSortConfig] = useState<SortConfig>([
+    { key: 'vendedor_nome', direction: 'asc' },
     { key: 'grupo_rota', direction: 'asc' },
     { key: 'cep', direction: 'asc' },
   ])
+
+  useEffect(() => {
+    if (!isFirstLoad) {
+      setSelectedEmployeeIds(filters.vendedor)
+    }
+  }, [filters.vendedor, setSelectedEmployeeIds, isFirstLoad])
 
   const { toast } = useToast()
   const { canAccess } = usePermissions()
@@ -122,6 +87,24 @@ export default function RotaPage() {
 
       const rotaRows = await rotaService.getFullRotaData(active)
       setRows(rotaRows)
+
+      if (isFirstLoad) {
+        if (loggedInUser) {
+          const isUserInRoute = rotaRows.some(
+            (r) => r.vendedor_id === loggedInUser.id,
+          )
+
+          setFilters((prev) => ({
+            ...prev,
+            vendedor: isUserInRoute ? [loggedInUser.id.toString()] : [],
+            status_vendedor: isUserInRoute ? 'todos' : 'com_vendedor',
+          }))
+          setSelectedEmployeeIds(
+            isUserInRoute ? [loggedInUser.id.toString()] : [],
+          )
+        }
+        setIsFirstLoad(false)
+      }
     } catch (error) {
       console.error(error)
       toast({
