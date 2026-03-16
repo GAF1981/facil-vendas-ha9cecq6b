@@ -2,6 +2,7 @@
   "_versions": {
     "generate-pdf": 119,
     "auto-finalize-rota": 2,
-    "send-route-report": 14
+    "send-route-report": 14,
+    "geocode-address": 1
   }
 }
