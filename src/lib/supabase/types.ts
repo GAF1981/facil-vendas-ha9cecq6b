@@ -4136,15 +4136,6 @@ export const Constants = {
 //   END;
 //   $function$
 //   
-// FUNCTION btrim(time without time zone)
-//   CREATE OR REPLACE FUNCTION public.btrim(t time without time zone)
-//    RETURNS text
-//    LANGUAGE sql
-//    IMMUTABLE
-//   AS $function$
-//     SELECT btrim(t::text);
-//   $function$
-//   
 // FUNCTION btrim(date)
 //   CREATE OR REPLACE FUNCTION public.btrim(d date)
 //    RETURNS text
@@ -4152,6 +4143,15 @@ export const Constants = {
 //    IMMUTABLE
 //   AS $function$
 //     SELECT btrim(d::text);
+//   $function$
+//   
+// FUNCTION btrim(time without time zone)
+//   CREATE OR REPLACE FUNCTION public.btrim(t time without time zone)
+//    RETURNS text
+//    LANGUAGE sql
+//    IMMUTABLE
+//   AS $function$
+//     SELECT btrim(t::text);
 //   $function$
 //   
 // FUNCTION bulk_update_product_codes(json)
@@ -4876,6 +4876,7 @@ export const Constants = {
 //     v_now TIMESTAMP;
 //     v_date_str TEXT;
 //     v_time_str TEXT;
+//     v_cef_id INTEGER;
 //   BEGIN
 //     -- Validate inputs
 //     IF p_session_id IS NULL THEN
@@ -4886,17 +4887,14 @@ export const Constants = {
 //     v_date_str := to_char(v_now, 'YYYY-MM-DD');
 //     v_time_str := to_char(v_now, 'HH24:MI:SS');
 //   
-//     -- 1. Clear existing counts snapshot for this session to ensure we replace with new batch
-//     -- This ensures data integrity and prevents duplicate entries if re-saved
-//     DELETE FROM "CONTAGEM DE ESTOQUE FINAL"
-//     WHERE session_id = p_session_id;
+//     -- REMOVED: DELETE FROM "CONTAGEM DE ESTOQUE FINAL" WHERE session_id = p_session_id;
 //   
 //     -- 2. Loop through items to process
 //     FOR item IN SELECT * FROM jsonb_array_elements(p_items)
 //     LOOP
 //       -- Safe casting with checks
 //       v_prod_id := (item->>'productId')::INTEGER;
-//       
+//   
 //       -- Handle nullable productCode
 //       IF (item->>'productCode') IS NULL OR (item->>'productCode') = 'null' THEN
 //          v_prod_code := NULL;
@@ -4914,12 +4912,21 @@ export const Constants = {
 //       v_price := (item->>'price')::NUMERIC;
 //       v_prod_name := item->>'productName';
 //   
-//       -- Insert into snapshot table
-//       INSERT INTO "CONTAGEM DE ESTOQUE FINAL" (produto_id, quantidade, session_id, valor_unitario_snapshot)
-//       VALUES (v_prod_id, v_qty, p_session_id, v_price);
+//       -- Additive logic for CONTAGEM DE ESTOQUE FINAL
+//       SELECT id INTO v_cef_id FROM "CONTAGEM DE ESTOQUE FINAL" 
+//       WHERE session_id = p_session_id AND produto_id = v_prod_id LIMIT 1;
+//   
+//       IF v_cef_id IS NOT NULL THEN
+//         UPDATE "CONTAGEM DE ESTOQUE FINAL"
+//         SET quantidade = COALESCE(quantidade, 0) + v_qty,
+//             valor_unitario_snapshot = v_price
+//         WHERE id = v_cef_id;
+//       ELSE
+//         INSERT INTO "CONTAGEM DE ESTOQUE FINAL" (produto_id, quantidade, session_id, valor_unitario_snapshot)
+//         VALUES (v_prod_id, v_qty, p_session_id, v_price);
+//       END IF;
 //   
 //       -- Update BANCO_DE_DADOS Ledger if we have a product code
-//       -- This table drives the historical reports and session continuity
 //       IF v_prod_code IS NOT NULL THEN
 //         -- Check for existing record in this session
 //         SELECT "ID VENDA ITENS" INTO v_current_record_id
@@ -4929,20 +4936,18 @@ export const Constants = {
 //         LIMIT 1;
 //   
 //         IF v_current_record_id IS NOT NULL THEN
-//           -- UPDATE EXISTING:
-//           -- Overwrite SALDO FINAL and CONTAGEM with the new verified count.
+//           -- UPDATE EXISTING (ADDITIVE LOGIC)
 //           UPDATE "BANCO_DE_DADOS"
 //           SET
-//             "SALDO FINAL" = v_qty,
-//             "CONTAGEM" = v_qty,
-//             "DATA DO ACERTO" = v_date_str::DATE, -- Explicit Cast to DATE to avoid "type text" errors
+//             "SALDO FINAL" = COALESCE("SALDO FINAL", 0) + v_qty,
+//             "CONTAGEM" = COALESCE("CONTAGEM", 0) + v_qty,
+//             "DATA DO ACERTO" = v_date_str::DATE,
 //             "HORA DO ACERTO" = v_time_str,
 //             "CODIGO FUNCIONARIO" = p_funcionario_id
 //           WHERE "ID VENDA ITENS" = v_current_record_id;
 //         ELSE
-//           -- INSERT NEW:
+//           -- INSERT NEW (v_qty starts as the first addition)
 //           -- Continuity Logic: Find the closing balance from the previous session.
-//           -- We prioritize the session with the highest ID that is NOT the current one.
 //           SELECT "SALDO FINAL" INTO v_prev_balance
 //           FROM "BANCO_DE_DADOS"
 //           WHERE "COD. PRODUTO" = v_prod_code
@@ -4972,13 +4977,13 @@ export const Constants = {
 //           ) VALUES (
 //             v_prod_code,
 //             p_funcionario_id,
-//             v_qty,        -- New Balance becomes Saldo Final
-//             v_qty,        -- Count
-//             v_date_str::DATE, -- Explicit Cast to DATE
+//             v_qty,
+//             v_qty,
+//             v_date_str::DATE,
 //             v_time_str,
 //             v_prod_name,
 //             'CONTAGEM_FINAL',
-//             v_prev_balance, -- Carried over Balance from previous session
+//             v_prev_balance,
 //             p_session_id
 //           );
 //         END IF;

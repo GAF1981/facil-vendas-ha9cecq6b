@@ -21,6 +21,7 @@ import {
   Plus,
   MapPin,
   ArrowRight,
+  Globe,
 } from 'lucide-react'
 import {
   Select,
@@ -81,6 +82,7 @@ export function ClientForm({
   const [newGroupOpen, setNewGroupOpen] = useState(false)
   const [newGroupName, setNewGroupName] = useState('')
   const [capturingLocation, setCapturingLocation] = useState(false)
+  const [isGeocoding, setIsGeocoding] = useState(false)
 
   // Address helper state
   const [addressNumber, setAddressNumber] = useState('')
@@ -217,6 +219,52 @@ export function ClientForm({
     }
   }
 
+  const handleGeocodeAddress = async () => {
+    const endereco = form.getValues('ENDEREÇO')
+    const bairro = form.getValues('BAIRRO')
+    const municipio = form.getValues('MUNICÍPIO')
+
+    if (!endereco || !municipio) {
+      toast({
+        title: 'Dados insuficientes',
+        description:
+          'Preencha o endereço e o município para obter as coordenadas.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setIsGeocoding(true)
+    const fullAddress = `${endereco}, ${bairro ? bairro + ', ' : ''}${municipio}`
+
+    try {
+      const coords = await clientsService.geocodeAddress(fullAddress)
+      if (coords && coords.lat && coords.lon) {
+        form.setValue('latitude', String(coords.lat))
+        form.setValue('longitude', String(coords.lon))
+        toast({
+          title: 'Coordenadas obtidas',
+          description: 'Latitude e longitude preenchidas com sucesso.',
+        })
+      } else {
+        toast({
+          title: 'Não encontrado',
+          description:
+            'Não foi possível encontrar as coordenadas para este endereço.',
+          variant: 'destructive',
+        })
+      }
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Ocorreu um erro ao buscar as coordenadas.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsGeocoding(false)
+    }
+  }
+
   const handleCaptureLocation = () => {
     if (!navigator.geolocation) {
       toast({
@@ -298,6 +346,36 @@ export function ClientForm({
         return
       }
 
+      let finalLat = data.latitude
+      let finalLon = data.longitude
+
+      // Automatic Geocoding on Save if empty
+      if (!finalLat || !finalLon) {
+        const endereco = data.ENDEREÇO
+        const bairro = data.BAIRRO
+        const municipio = data.MUNICÍPIO
+
+        if (endereco && municipio) {
+          const fullAddress = `${endereco}, ${bairro ? bairro + ', ' : ''}${municipio}`
+          try {
+            toast({
+              title: 'Obtendo coordenadas...',
+              description: 'Buscando latitude e longitude automaticamente.',
+            })
+            const coords = await clientsService.geocodeAddress(fullAddress)
+            if (coords && coords.lat && coords.lon) {
+              finalLat = String(coords.lat)
+              finalLon = String(coords.lon)
+              form.setValue('latitude', finalLat)
+              form.setValue('longitude', finalLon)
+            }
+          } catch (err) {
+            console.error('Auto geocode failed', err)
+            // Silently continue without coordinates as per acceptance criteria
+          }
+        }
+      }
+
       const discountVal = data.Desconto
         ? data.Desconto.includes('%')
           ? data.Desconto
@@ -308,8 +386,8 @@ export function ClientForm({
         ...data,
         CODIGO: Number(data.CODIGO),
         Desconto: discountVal,
-        latitude: data.latitude ? Number(data.latitude) : null,
-        longitude: data.longitude ? Number(data.longitude) : null,
+        latitude: finalLat ? Number(finalLat) : null,
+        longitude: finalLon ? Number(finalLon) : null,
       }
 
       if (initialData) {
@@ -852,23 +930,39 @@ export function ClientForm({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-2">
                   <p className="text-sm text-muted-foreground">
                     Você pode inserir as coordenadas manualmente copiando do
-                    Google Maps ou usar o botão para capturar a localização
-                    atual (ideal se estiver no local do cliente).
+                    Google Maps, capturar a localização atual ou obter pelo
+                    endereço.
                   </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleCaptureLocation}
-                    disabled={capturingLocation}
-                    className="shrink-0 h-9"
-                  >
-                    {capturingLocation ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <MapPin className="mr-2 h-4 w-4" />
-                    )}
-                    Capturar Localização Atual
-                  </Button>
+                  <div className="flex flex-wrap gap-2 shrink-0">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleGeocodeAddress}
+                      disabled={isGeocoding || capturingLocation}
+                      className="h-9"
+                    >
+                      {isGeocoding ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Globe className="mr-2 h-4 w-4" />
+                      )}
+                      Obter pelo Endereço
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleCaptureLocation}
+                      disabled={capturingLocation || isGeocoding}
+                      className="h-9"
+                    >
+                      {capturingLocation ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <MapPin className="mr-2 h-4 w-4" />
+                      )}
+                      Capturar Atual
+                    </Button>
+                  </div>
                 </div>
               </div>
               <div className="md:col-span-6">

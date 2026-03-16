@@ -473,4 +473,25 @@ export const clientsService = {
       errors: errorCount,
     }
   },
+
+  async geocodeAddress(
+    address: string,
+  ): Promise<{ lat: number; lon: number } | null> {
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        'geocode-address',
+        {
+          body: { address },
+        },
+      )
+      if (error) throw error
+      if (data && data.lat != null && data.lon != null) {
+        return { lat: data.lat, lon: data.lon }
+      }
+      return null
+    } catch (error) {
+      console.error('Error geocoding address:', error)
+      return null
+    }
+  },
 }
