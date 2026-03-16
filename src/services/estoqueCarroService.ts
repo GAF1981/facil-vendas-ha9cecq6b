@@ -583,15 +583,25 @@ export const estoqueCarroService = {
     employeeId?: number | null,
     employeeName?: string | null,
   ) {
+    // 1. Fetch existing count to perform additive logic
+    const { data: existing } = await supabase
+      .from('ESTOQUE CARRO CONTAGEM')
+      .select('quantidade')
+      .eq('id_estoque_carro', sessionId)
+      .eq('produto_id', productId)
+      .maybeSingle()
+
+    const newQty = Number(existing?.quantidade || 0) + Number(quantity)
+
     const payload = {
       id_estoque_carro: sessionId,
       produto_id: productId,
-      quantidade: quantity,
+      quantidade: newQty,
       funcionario_id: employeeId,
       funcionario_nome: employeeName,
     }
 
-    // Upsert count
+    // 2. Upsert cumulative count into ESTOQUE CARRO CONTAGEM
     const { error } = await supabase
       .from('ESTOQUE CARRO CONTAGEM')
       .upsert(payload, { onConflict: 'id_estoque_carro, produto_id' })
@@ -603,6 +613,28 @@ export const estoqueCarroService = {
         .eq('id_estoque_carro', sessionId)
         .eq('produto_id', productId)
       await supabase.from('ESTOQUE CARRO CONTAGEM').insert(payload)
+    }
+
+    // 3. Update BANCO_DE_DADOS ledger table cumulatively as per Acceptance Criteria
+    const { data: bdRecord } = await supabase
+      .from('BANCO_DE_DADOS')
+      .select('"ID VENDA ITENS", "SALDO FINAL", "CONTAGEM"')
+      .eq('session_id', sessionId)
+      .eq('COD. PRODUTO', productId)
+      .limit(1)
+      .maybeSingle()
+
+    if (bdRecord) {
+      const newSaldoFinal = Number(bdRecord['SALDO FINAL'] || 0) + Number(quantity)
+      const newContagem = Number(bdRecord['CONTAGEM'] || 0) + Number(quantity)
+
+      await supabase
+        .from('BANCO_DE_DADOS')
+        .update({
+          'SALDO FINAL': newSaldoFinal,
+          'CONTAGEM': newContagem,
+        })
+        .eq('ID VENDA ITENS', bdRecord['ID VENDA ITENS'])
     }
   },
 

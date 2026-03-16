@@ -171,7 +171,7 @@ export function EstoqueCarroCountDialog({
         employee?.id,
         employee?.nome_completo,
       )
-      toast({ title: 'Contagem Salva' })
+      toast({ title: 'Contagem Atualizada (Soma Aplicada)' })
 
       if (onSuccess) onSuccess()
 
@@ -277,7 +277,7 @@ export function EstoqueCarroCountDialog({
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Quantidade Contada</label>
+              <label className="text-sm font-medium">Quantidade a Somar</label>
               <Input
                 ref={quantityRef}
                 type="number"
@@ -292,6 +292,9 @@ export function EstoqueCarroCountDialog({
                 placeholder="0"
                 disabled={loading}
               />
+              <p className="text-xs text-muted-foreground">
+                O valor inserido será adicionado ao total já existente.
+              </p>
             </div>
             <DialogFooter>
               <Button
@@ -315,7 +318,7 @@ export function EstoqueCarroCountDialog({
               </Button>
               <Button onClick={handleSave} disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Salvar
+                Salvar Soma
               </Button>
             </DialogFooter>
           </div>

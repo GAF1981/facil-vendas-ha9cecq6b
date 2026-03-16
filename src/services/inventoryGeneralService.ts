@@ -301,21 +301,24 @@ export const inventoryGeneralService = {
         throw repoError
       }
     } else if (type === 'CONTAGEM') {
-      // Upsert logic for CONTAGEM to handle quick count updates
+      // Additive logic for CONTAGEM to handle cumulative quick count updates
       for (const item of items) {
+        // 1. Fetch existing count
         const { data: existing } = await supabase
           .from('ESTOQUE GERAL CONTAGEM')
-          .select('id')
+          .select('id, quantidade')
           .eq('id_inventario', sessionId)
           .eq('produto_id', item.productId)
           .maybeSingle()
 
         if (existing) {
+          const newQty = Number(existing.quantidade || 0) + Number(item.quantity)
+          
           const { error } = await supabase
             .from('ESTOQUE GERAL CONTAGEM')
             .update({
-              quantidade: item.quantity,
-              created_at: new Date().toISOString(), // Ensure timestamp update
+              quantidade: newQty,
+              created_at: new Date().toISOString(),
             })
             .eq('id', existing.id)
 
@@ -330,6 +333,31 @@ export const inventoryGeneralService = {
             })
 
           if (error) throw error
+        }
+
+        // 2. Also update CONTAGEM DE ESTOQUE FINAL cumulatively as per Acceptance Criteria
+        const { data: cefRecord } = await supabase
+          .from('CONTAGEM DE ESTOQUE FINAL' as any)
+          .select('id, quantidade')
+          .eq('session_id', sessionId)
+          .eq('produto_id', item.productId)
+          .maybeSingle()
+
+        if (cefRecord) {
+          await supabase
+            .from('CONTAGEM DE ESTOQUE FINAL' as any)
+            .update({ 
+              quantidade: Number(cefRecord.quantidade || 0) + Number(item.quantity) 
+            })
+            .eq('id', cefRecord.id)
+        } else {
+          await supabase
+            .from('CONTAGEM DE ESTOQUE FINAL' as any)
+            .insert({
+              session_id: sessionId,
+              produto_id: item.productId,
+              quantidade: item.quantity,
+            })
         }
       }
     }

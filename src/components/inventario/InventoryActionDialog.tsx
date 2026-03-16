@@ -338,7 +338,15 @@ export function InventoryActionDialog({
         { productId: selectedProduct.ID, quantity: qty, extra },
       ])
 
-      toast({ title: 'Sucesso', description: 'Movimentação registrada.' })
+      if (type === 'CONTAGEM') {
+        toast({
+          title: 'Sucesso',
+          description: 'Contagem Atualizada (Soma Aplicada).',
+        })
+      } else {
+        toast({ title: 'Sucesso', description: 'Movimentação registrada.' })
+      }
+
       onSuccess()
 
       // Preserve dialog open for rapid continuous scanning if no preselected product
@@ -519,7 +527,13 @@ export function InventoryActionDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>
-                Quantidade <span className="text-red-500">*</span>
+                Quantidade{' '}
+                {type === 'CONTAGEM' && (
+                  <span className="text-xs text-muted-foreground font-normal ml-1">
+                    (Soma ao total)
+                  </span>
+                )}{' '}
+                <span className="text-red-500">*</span>
               </Label>
               <Input
                 ref={quantityRef}
@@ -583,7 +597,7 @@ export function InventoryActionDialog({
           </Button>
           <Button onClick={handleSubmit} disabled={submitting}>
             {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Confirmar
+            {type === 'CONTAGEM' ? 'Salvar Soma' : 'Confirmar'}
           </Button>
         </DialogFooter>
       </DialogContent>
