@@ -80,6 +80,7 @@ export function ClientForm({
   const [searchingCep, setSearchingCep] = useState(false)
   const [newGroupOpen, setNewGroupOpen] = useState(false)
   const [newGroupName, setNewGroupName] = useState('')
+  const [capturingLocation, setCapturingLocation] = useState(false)
 
   // Address helper state
   const [addressNumber, setAddressNumber] = useState('')
@@ -107,6 +108,9 @@ export function ClientForm({
             initialData.telefone_cobranca || initialData['FONE 1'],
           email_cobranca: initialData.email_cobranca || initialData.EMAIL,
           tipo_venda: (initialData.tipo_venda as any) || 'consignado',
+          latitude: initialData.latitude || '',
+          longitude: initialData.longitude || '',
+          favorito: initialData.favorito || false,
         }
       : {
           CODIGO: 0,
@@ -140,6 +144,9 @@ export function ClientForm({
           telefone_cobranca: '',
           email_cobranca: '',
           tipo_venda: 'consignado',
+          latitude: '',
+          longitude: '',
+          favorito: false,
         },
     mode: 'onChange',
   })
@@ -206,6 +213,39 @@ export function ClientForm({
         })
       }
     }
+  }
+
+  const handleCaptureLocation = () => {
+    if (!navigator.geolocation) {
+      toast({
+        title: 'Erro',
+        description: 'Geolocalização não suportada pelo navegador.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setCapturingLocation(true)
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        form.setValue('latitude', position.coords.latitude.toString())
+        form.setValue('longitude', position.coords.longitude.toString())
+        toast({
+          title: 'Sucesso',
+          description: 'Localização atual capturada com sucesso!',
+        })
+        setCapturingLocation(false)
+      },
+      (error) => {
+        toast({
+          title: 'Erro',
+          description: 'Não foi possível capturar a localização atual.',
+          variant: 'destructive',
+        })
+        setCapturingLocation(false)
+      },
+      { enableHighAccuracy: true },
+    )
   }
 
   const checkDuplicate = async (
@@ -788,6 +828,74 @@ export function ClientForm({
                       <FormControl>
                         <Input
                           placeholder="Cidade - UF"
+                          {...field}
+                          value={field.value || ''}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">Geolocalização</h3>
+            <Separator />
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+              <div className="md:col-span-12">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-2">
+                  <p className="text-sm text-muted-foreground">
+                    Você pode inserir as coordenadas manualmente copiando do
+                    Google Maps ou usar o botão para capturar a localização
+                    atual (ideal se estiver no local do cliente).
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCaptureLocation}
+                    disabled={capturingLocation}
+                    className="shrink-0 h-9"
+                  >
+                    {capturingLocation ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <MapPin className="mr-2 h-4 w-4" />
+                    )}
+                    Capturar Localização Atual
+                  </Button>
+                </div>
+              </div>
+              <div className="md:col-span-6">
+                <FormField
+                  control={form.control}
+                  name="latitude"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Latitude</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Ex: -23.550520"
+                          {...field}
+                          value={field.value || ''}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className="md:col-span-6">
+                <FormField
+                  control={form.control}
+                  name="longitude"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Longitude</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Ex: -46.633308"
                           {...field}
                           value={field.value || ''}
                         />

@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { RotaFilterState } from '@/types/rota'
 import { Employee } from '@/types/employee'
 import { Button } from '@/components/ui/button'
-import { Eraser, Search, Check, ChevronsUpDown } from 'lucide-react'
+import { Eraser, Search, Check, ChevronsUpDown, Star } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   Popover,
@@ -86,6 +86,7 @@ export function RotaFilters({
       estoque_max: '',
       vencimento_status: 'todos',
       pendencias: 'todos',
+      prioridade_apenas: false,
     })
   }
 
@@ -153,6 +154,21 @@ export function RotaFilters({
                 className="text-xs cursor-pointer"
               >
                 Gerencial
+              </Label>
+            </div>
+
+            <div className="flex items-center space-x-2 border-l pl-4">
+              <Switch
+                id="priority-mode"
+                checked={filters.prioridade_apenas || false}
+                onCheckedChange={(v) => handleChange('prioridade_apenas', v)}
+                className="scale-75"
+              />
+              <Label
+                htmlFor="priority-mode"
+                className="text-xs cursor-pointer flex items-center gap-1 text-yellow-600"
+              >
+                <Star className="h-3 w-3 fill-current" /> Prioritários
               </Label>
             </div>
 

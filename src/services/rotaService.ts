@@ -692,6 +692,7 @@ export const rotaService = {
         x_na_rota: rotaItem?.x_na_rota || 0,
         boleto: rotaItem?.boleto || false,
         agregado: rotaItem?.agregado || false,
+        favorito: client.favorito || false,
         vendedor_id: rotaItem?.vendedor_id || null,
         proximo_vendedor_id: nextSellerId,
         tarefas: rotaItem?.tarefas || null,

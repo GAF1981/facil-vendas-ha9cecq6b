@@ -13,6 +13,8 @@ import {
   Clock,
   ShieldAlert,
   Info,
+  MapIcon,
+  List,
 } from 'lucide-react'
 import { usePermissions } from '@/hooks/use-permissions'
 import { useUserStore } from '@/stores/useUserStore'
@@ -38,6 +40,9 @@ interface RotaHeaderProps {
   onImportSuccess?: () => void
   isGerencialActive?: boolean
   totalClients?: number
+  isMapView?: boolean
+  onToggleMap?: () => void
+  hasCoordinates?: boolean
 }
 
 export function RotaHeader({
@@ -51,6 +56,9 @@ export function RotaHeader({
   onImportSuccess,
   isGerencialActive = true,
   totalClients,
+  isMapView,
+  onToggleMap,
+  hasCoordinates,
 }: RotaHeaderProps) {
   const displayRota = activeRota || lastRota
   const { canAccess } = usePermissions()
@@ -206,6 +214,27 @@ export function RotaHeader({
                 activeRota={activeRota}
                 onSuccess={onImportSuccess}
               />
+            )}
+
+            {hasCoordinates && onToggleMap && (
+              <Button
+                onClick={onToggleMap}
+                variant="outline"
+                className="w-full sm:w-auto text-blue-600 border-blue-200 hover:bg-blue-50"
+                title="Alternar Visualização"
+              >
+                {isMapView ? (
+                  <>
+                    <List className="mr-2 h-4 w-4" />
+                    Visualizar Lista
+                  </>
+                ) : (
+                  <>
+                    <MapIcon className="mr-2 h-4 w-4" />
+                    Visualizar Mapa
+                  </>
+                )}
+              </Button>
             )}
 
             <Button

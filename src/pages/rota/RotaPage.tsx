@@ -2,13 +2,14 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { RotaHeader } from '@/components/rota/RotaHeader'
 import { RotaFilters } from '@/components/rota/RotaFilters'
 import { RotaTable } from '@/components/rota/RotaTable'
+import { RotaMap } from '@/components/rota/RotaMap'
 import { rotaService } from '@/services/rotaService'
 import { employeesService } from '@/services/employeesService'
+import { clientsService } from '@/services/clientsService'
 import { Rota, RotaFilterState, RotaRow, SortConfig } from '@/types/rota'
 import { Employee } from '@/types/employee'
 import { useToast } from '@/hooks/use-toast'
 import { useRotaFilterStore } from '@/stores/useRotaFilterStore'
-import { parseISO, isBefore, isAfter, isValid } from 'date-fns'
 import { usePermissions } from '@/hooks/use-permissions'
 import { useUserStore } from '@/stores/useUserStore'
 import { BulkFillNextSellerDialog } from '@/components/rota/BulkFillNextSellerDialog'
@@ -28,6 +29,7 @@ export default function RotaPage() {
   const [isFiltrosActive, setIsFiltrosActive] = useState(true)
   const [isGerencialActive, setIsGerencialActive] = useState(true)
   const [isParametrosActive, setIsParametrosActive] = useState(true)
+  const [isMapView, setIsMapView] = useState(false)
 
   const [isBulkFillOpen, setIsBulkFillOpen] = useState(false)
   const [isParametrosModalOpen, setIsParametrosModalOpen] = useState(false)
@@ -51,6 +53,7 @@ export default function RotaPage() {
     estoque_max: '',
     vencimento_status: 'todos',
     pendencias: 'todos',
+    prioridade_apenas: false,
   }))
 
   const [sortConfig, setSortConfig] = useState<SortConfig>([
@@ -137,6 +140,10 @@ export default function RotaPage() {
           row.client['NOME CLIENTE']?.toLowerCase().includes(s) ||
           row.client.CODIGO.toString().includes(s)
         if (!matchesSearch) return false
+      }
+
+      if (filters.prioridade_apenas && !row.favorito) {
+        return false
       }
 
       if (filters.x_na_rota !== 'todos') {
@@ -254,6 +261,11 @@ export default function RotaPage() {
     return sorted
   }, [filteredRows, sortConfig, sellers])
 
+  const hasCoordinates = useMemo(
+    () => sortedRows.some((r) => r.client.latitude && r.client.longitude),
+    [sortedRows],
+  )
+
   const handleSort = (key: string, e: React.MouseEvent) => {
     setSortConfig((current) => {
       const isMulti = e.shiftKey || e.ctrlKey || e.metaKey
@@ -289,8 +301,6 @@ export default function RotaPage() {
 
   const handleUpdateRow = useCallback(
     async (clientId: number, field: string, value: any) => {
-      if (!activeRota) return
-
       setRows((prev) =>
         prev.map((r) => {
           if (r.client.CODIGO === clientId) {
@@ -301,6 +311,13 @@ export default function RotaPage() {
       )
 
       try {
+        if (field === 'favorito') {
+          await clientsService.update(clientId, { favorito: value })
+          return
+        }
+
+        if (!activeRota) return
+
         let result = null
         if (field === 'vendedor_id') {
           result = await rotaService.upsertRotaItem({
@@ -688,6 +705,9 @@ export default function RotaPage() {
         onImportSuccess={loadData}
         isGerencialActive={isGerencialActive}
         totalClients={filteredRows.length}
+        isMapView={isMapView}
+        onToggleMap={() => setIsMapView(!isMapView)}
+        hasCoordinates={hasCoordinates}
       />
 
       <RotaFilters
@@ -709,19 +729,23 @@ export default function RotaPage() {
         onDataChange={loadData}
       />
 
-      <RotaTable
-        rows={sortedRows}
-        sellers={sellers}
-        onUpdateRow={handleUpdateRow}
-        onSort={handleSort}
-        sortConfig={sortConfig}
-        loading={loading}
-        isSelectionMode={isSelectionMode}
-        onBulkTransfer={activeRota ? handleBulkTransfer : undefined}
-        onBulkClear={activeRota ? handleBulkClear : undefined}
-        onBulkFill={activeRota ? () => setIsBulkFillOpen(true) : undefined}
-        onTransferRow={handleTransferRow}
-      />
+      {isMapView ? (
+        <RotaMap rows={sortedRows} />
+      ) : (
+        <RotaTable
+          rows={sortedRows}
+          sellers={sellers}
+          onUpdateRow={handleUpdateRow}
+          onSort={handleSort}
+          sortConfig={sortConfig}
+          loading={loading}
+          isSelectionMode={isSelectionMode}
+          onBulkTransfer={activeRota ? handleBulkTransfer : undefined}
+          onBulkClear={activeRota ? handleBulkClear : undefined}
+          onBulkFill={activeRota ? () => setIsBulkFillOpen(true) : undefined}
+          onTransferRow={handleTransferRow}
+        />
+      )}
 
       <BulkFillNextSellerDialog
         open={isBulkFillOpen}

@@ -26,6 +26,7 @@ export interface RotaRow {
   x_na_rota: number
   boleto: boolean
   agregado: boolean
+  favorito: boolean
   vendedor_id: number | null
   proximo_vendedor_id: number | null // New field for next route pre-selection
   tarefas: string | null
@@ -66,6 +67,7 @@ export interface RotaFilterState {
   estoque_max: string
   vencimento_status: string | 'todos'
   pendencias?: string | 'todos' // Added filter
+  prioridade_apenas?: boolean // Added priority filter
 }
 
 export type SortDirection = 'asc' | 'desc'

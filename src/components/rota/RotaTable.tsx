@@ -33,6 +33,7 @@ import {
   X,
   ArrowRightLeft,
   Users,
+  Star,
 } from 'lucide-react'
 import {
   Tooltip,
@@ -180,7 +181,7 @@ export function RotaTable({
 
   return (
     <>
-      <div className="rounded-md border bg-card overflow-hidden shadow-sm flex flex-col h-full">
+      <div className="rounded-md border bg-card overflow-hidden shadow-sm flex flex-col h-full mt-2">
         <div className="flex-1 overflow-auto">
           <div className="relative w-max min-w-full">
             <table className="w-full caption-bottom text-sm">
@@ -430,6 +431,38 @@ export function RotaTable({
 
                         <TableCell>
                           <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className={cn(
+                                'h-6 w-6 shrink-0 rounded-full',
+                                row.favorito
+                                  ? 'text-yellow-500 hover:text-yellow-600 bg-yellow-50/50 hover:bg-yellow-100/50'
+                                  : row.is_completed || row.x_na_rota > 3
+                                    ? 'text-white/40 hover:text-yellow-400'
+                                    : 'text-muted-foreground/40 hover:text-yellow-500',
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onUpdateRow(
+                                  row.client.CODIGO,
+                                  'favorito',
+                                  !row.favorito,
+                                )
+                              }}
+                              title={
+                                row.favorito
+                                  ? 'Remover dos Favoritos'
+                                  : 'Marcar como Favorito'
+                              }
+                            >
+                              <Star
+                                className={cn(
+                                  'h-4 w-4',
+                                  row.favorito && 'fill-current',
+                                )}
+                              />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="icon"
