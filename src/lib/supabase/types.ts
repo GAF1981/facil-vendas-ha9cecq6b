@@ -420,12 +420,15 @@ export type Database = {
           email_cobranca: string | null
           ENDEREÇO: string | null
           EXPOSITOR: string | null
+          favorito: boolean | null
           "FONE 1": string | null
           "FONE 2": string | null
           "FORMA DE PAGAMENTO": string | null
           GRUPO: string | null
           "GRUPO ROTA": string | null
           IE: string | null
+          latitude: number | null
+          longitude: number | null
           MUNICÍPIO: string | null
           "NOME CLIENTE": string | null
           "NOTA FISCAL": string | null
@@ -454,12 +457,15 @@ export type Database = {
           email_cobranca?: string | null
           ENDEREÇO?: string | null
           EXPOSITOR?: string | null
+          favorito?: boolean | null
           "FONE 1"?: string | null
           "FONE 2"?: string | null
           "FORMA DE PAGAMENTO"?: string | null
           GRUPO?: string | null
           "GRUPO ROTA"?: string | null
           IE?: string | null
+          latitude?: number | null
+          longitude?: number | null
           MUNICÍPIO?: string | null
           "NOME CLIENTE"?: string | null
           "NOTA FISCAL"?: string | null
@@ -488,12 +494,15 @@ export type Database = {
           email_cobranca?: string | null
           ENDEREÇO?: string | null
           EXPOSITOR?: string | null
+          favorito?: boolean | null
           "FONE 1"?: string | null
           "FONE 2"?: string | null
           "FORMA DE PAGAMENTO"?: string | null
           GRUPO?: string | null
           "GRUPO ROTA"?: string | null
           IE?: string | null
+          latitude?: number | null
+          longitude?: number | null
           MUNICÍPIO?: string | null
           "NOME CLIENTE"?: string | null
           "NOTA FISCAL"?: string | null
@@ -3180,6 +3189,9 @@ export const Constants = {
 //   telefone_cobranca: text (nullable)
 //   email_cobranca: text (nullable)
 //   tipo_venda: text (nullable, default: 'consignado'::text)
+//   latitude: numeric (nullable)
+//   longitude: numeric (nullable)
+//   favorito: boolean (nullable, default: false)
 // Table: CRIAR_NOVA_ROTA
 //   id: bigint (not null)
 //   nome_rota: text (not null)

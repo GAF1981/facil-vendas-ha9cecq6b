@@ -108,8 +108,10 @@ export function ClientForm({
             initialData.telefone_cobranca || initialData['FONE 1'],
           email_cobranca: initialData.email_cobranca || initialData.EMAIL,
           tipo_venda: (initialData.tipo_venda as any) || 'consignado',
-          latitude: initialData.latitude || '',
-          longitude: initialData.longitude || '',
+          latitude:
+            initialData.latitude != null ? String(initialData.latitude) : '',
+          longitude:
+            initialData.longitude != null ? String(initialData.longitude) : '',
           favorito: initialData.favorito || false,
         }
       : {
@@ -306,6 +308,8 @@ export function ClientForm({
         ...data,
         CODIGO: Number(data.CODIGO),
         Desconto: discountVal,
+        latitude: data.latitude ? Number(data.latitude) : null,
+        longitude: data.longitude ? Number(data.longitude) : null,
       }
 
       if (initialData) {
@@ -876,6 +880,8 @@ export function ClientForm({
                       <FormLabel>Latitude</FormLabel>
                       <FormControl>
                         <Input
+                          type="number"
+                          step="any"
                           placeholder="Ex: -23.550520"
                           {...field}
                           value={field.value || ''}
@@ -895,6 +901,8 @@ export function ClientForm({
                       <FormLabel>Longitude</FormLabel>
                       <FormControl>
                         <Input
+                          type="number"
+                          step="any"
                           placeholder="Ex: -46.633308"
                           {...field}
                           value={field.value || ''}

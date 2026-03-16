@@ -216,7 +216,7 @@ export function RotaHeader({
               />
             )}
 
-            {hasCoordinates && onToggleMap && (
+            {onToggleMap && (
               <Button
                 onClick={onToggleMap}
                 variant="outline"
