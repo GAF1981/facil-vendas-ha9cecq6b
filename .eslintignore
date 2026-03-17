@@ -3,7 +3,4 @@ dist
 dev-dist
 public
 .git
-coverage
-vite-plugin-react-uid.js
-src/lib/supabase/types.ts
-
+.env
