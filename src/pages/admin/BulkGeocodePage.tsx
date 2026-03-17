@@ -67,7 +67,9 @@ export default function BulkGeocodePage() {
 
     for (let i = 0; i < clients.length; i++) {
       const client = clients[i]
-      const fullAddress = `${client.ENDEREÇO || ''}, ${client.BAIRRO ? client.BAIRRO + ', ' : ''}${client.MUNICÍPIO || ''}`
+      const fullAddress = `${client.ENDEREÇO || ''}, ${
+        client.BAIRRO ? client.BAIRRO + ', ' : ''
+      }${client.MUNICÍPIO || ''}`
 
       if (fullAddress.trim().length > 5) {
         try {
@@ -107,7 +109,7 @@ export default function BulkGeocodePage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-4xl mx-auto pb-20">
+    <div className="mx-auto max-w-4xl animate-fade-in space-y-6 pb-20">
       <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" asChild>
           <Link to="/clientes">
@@ -143,9 +145,9 @@ export default function BulkGeocodePage() {
             </div>
           ) : (
             <div className="space-y-6">
-              <div className="bg-muted/30 p-4 rounded-lg border flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex flex-col items-center justify-between gap-4 rounded-lg border bg-muted/30 p-4 sm:flex-row">
                 <div className="space-y-1 text-center sm:text-left">
-                  <h4 className="font-semibold text-lg">
+                  <h4 className="text-lg font-semibold">
                     {clients.length} Clientes Pendentes
                   </h4>
                   <p className="text-sm text-muted-foreground">
@@ -167,13 +169,13 @@ export default function BulkGeocodePage() {
               </div>
 
               {processing && (
-                <div className="space-y-4 bg-card p-6 rounded-lg border shadow-sm">
-                  <div className="flex justify-between items-center text-sm font-medium">
+                <div className="space-y-4 rounded-lg border bg-card p-6 shadow-sm">
+                  <div className="flex items-center justify-between text-sm font-medium">
                     <span>Processando...</span>
                     <span>{progress}%</span>
                   </div>
                   <Progress value={progress} className="h-2" />
-                  <div className="flex gap-6 justify-center pt-2">
+                  <div className="flex justify-center gap-6 pt-2">
                     <div className="flex items-center gap-2 text-green-600">
                       <CheckCircle2 className="h-4 w-4" />
                       <span className="font-medium">
@@ -189,8 +191,8 @@ export default function BulkGeocodePage() {
               )}
 
               {!processing && clients.length === 0 && !loading && (
-                <div className="text-center p-8 border border-dashed rounded-lg bg-green-50/50 text-green-800">
-                  <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-green-600" />
+                <div className="rounded-lg border border-dashed bg-green-50/50 p-8 text-center text-green-800">
+                  <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-green-600" />
                   <p className="font-medium">
                     Parabéns! Todos os clientes ativos possuem coordenadas.
                   </p>
