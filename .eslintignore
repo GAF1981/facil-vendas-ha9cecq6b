@@ -1,4 +1,4 @@
-node_modules
-dist
-dev-dist
+node_modules/
+dist/
+dev-dist/
 src/lib/supabase/types.ts
