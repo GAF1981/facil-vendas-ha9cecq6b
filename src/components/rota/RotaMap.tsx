@@ -45,8 +45,9 @@ export function RotaMap({ rows }: RotaMapProps) {
           display: inline-block;
           margin-top: 10px;
           padding: 8px 12px;
-          background-color: #2563eb;
+          background-color: #fef2f2;
           color: red;
+          border: 1px solid #fca5a5;
           text-decoration: none;
           border-radius: 4px;
           font-weight: bold;
@@ -57,7 +58,7 @@ export function RotaMap({ rows }: RotaMapProps) {
           transition: background-color 0.2s;
         }
         .popup-nav-btn:hover {
-          background-color: #1d4ed8;
+          background-color: #fee2e2;
         }
       </style>
     </head>

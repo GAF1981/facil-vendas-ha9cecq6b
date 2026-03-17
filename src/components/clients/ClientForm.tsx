@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ClientFormData, clientSchema, ClientRow } from '@/types/client'
@@ -97,6 +97,10 @@ export function ClientForm({
 
   const { toast } = useToast()
 
+  const hasAutoGeocoded = useRef(false)
+  const autoGeocode =
+    new URLSearchParams(window.location.search).get('autoGeocode') === 'true'
+
   const form = useForm<ClientFormData>({
     resolver: zodResolver(clientSchema),
     defaultValues: initialData
@@ -194,31 +198,6 @@ export function ClientForm({
     }
   }, [initialData, form])
 
-  const handleCepBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
-    const cep = e.target.value
-    if (unmask(cep).length === 8) {
-      setSearchingCep(true)
-      const addressData = await clientsService.getAddressByCep(cep)
-      setSearchingCep(false)
-
-      if (addressData) {
-        form.setValue('ENDEREÇO', addressData.logradouro)
-        form.setValue('BAIRRO', addressData.bairro)
-        form.setValue('MUNICÍPIO', addressData.municipio)
-        toast({
-          title: 'Endereço encontrado',
-          description: 'Os campos de endereço foram preenchidos.',
-        })
-      } else {
-        toast({
-          title: 'CEP não encontrado',
-          description: 'Verifique o CEP digitado.',
-          variant: 'destructive',
-        })
-      }
-    }
-  }
-
   const handleGeocodeAddress = async () => {
     const endereco = form.getValues('ENDEREÇO')
     const bairro = form.getValues('BAIRRO')
@@ -262,6 +241,42 @@ export function ClientForm({
       })
     } finally {
       setIsGeocoding(false)
+    }
+  }
+
+  useEffect(() => {
+    if (initialData && autoGeocode && !hasAutoGeocoded.current) {
+      hasAutoGeocoded.current = true
+      const timer = setTimeout(() => {
+        handleGeocodeAddress()
+      }, 800)
+      return () => clearTimeout(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData, autoGeocode])
+
+  const handleCepBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
+    const cep = e.target.value
+    if (unmask(cep).length === 8) {
+      setSearchingCep(true)
+      const addressData = await clientsService.getAddressByCep(cep)
+      setSearchingCep(false)
+
+      if (addressData) {
+        form.setValue('ENDEREÇO', addressData.logradouro)
+        form.setValue('BAIRRO', addressData.bairro)
+        form.setValue('MUNICÍPIO', addressData.municipio)
+        toast({
+          title: 'Endereço encontrado',
+          description: 'Os campos de endereço foram preenchidos.',
+        })
+      } else {
+        toast({
+          title: 'CEP não encontrado',
+          description: 'Verifique o CEP digitado.',
+          variant: 'destructive',
+        })
+      }
     }
   }
 

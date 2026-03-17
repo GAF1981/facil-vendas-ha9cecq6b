@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   TableHeader,
   TableBody,
@@ -35,6 +36,7 @@ import {
   Users,
   Star,
   MapPin,
+  LocateFixed,
 } from 'lucide-react'
 import {
   Tooltip,
@@ -82,6 +84,7 @@ export function RotaTable({
   onBulkFill,
   onTransferRow,
 }: RotaTableProps) {
+  const navigate = useNavigate()
   const [alertDialogOpen, setAlertDialogOpen] = useState(false)
   const [selectedAlertRow, setSelectedAlertRow] = useState<RotaRow | null>(null)
 
@@ -532,6 +535,23 @@ export function RotaTable({
                                 <MapPin className="h-4 w-4" />
                               </Button>
                             )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className={cn(
+                                'h-6 w-6 shrink-0 rounded-full',
+                                row.is_completed || row.x_na_rota > 3
+                                  ? 'text-white/70 hover:text-white hover:bg-white/20'
+                                  : 'text-orange-500 hover:text-orange-600 hover:bg-orange-50',
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigate(`/clientes/${row.client.CODIGO}?autoGeocode=true`)
+                              }}
+                              title="Atualizar Localização"
+                            >
+                              <LocateFixed className="h-4 w-4" />
+                            </Button>
                             <div className="flex flex-col gap-0.5">
                               <span
                                 className="font-semibold text-sm truncate max-w-[160px] block"
