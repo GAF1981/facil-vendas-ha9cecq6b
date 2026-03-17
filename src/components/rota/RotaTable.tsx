@@ -546,7 +546,9 @@ export function RotaTable({
                               )}
                               onClick={(e) => {
                                 e.stopPropagation()
-                                navigate(`/clientes/${row.client.CODIGO}?autoGeocode=true`)
+                                navigate(
+                                  `/clientes/${row.client.CODIGO}?autoGeocode=true`,
+                                )
                               }}
                               title="Atualizar Localização"
                             >

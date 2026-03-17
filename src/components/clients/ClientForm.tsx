@@ -139,7 +139,7 @@ export function ClientForm({
           'CONTATO 2': '',
           'FORMA DE PAGAMENTO': 'BOLETO',
           'NOTA FISCAL': 'NÃO',
-          EXPOSITOR: 'expositor de 46 cm', // Updated Default Value
+          EXPOSITOR: 'expositor de 46 cm',
           Desconto: '30',
           'DESCONTO ACESSORIO CELULAR': '',
           'DESCONTO BRINQUEDO': '',
@@ -1210,7 +1210,7 @@ export function ClientForm({
                                           setOpenGroup(false)
                                         }}
                                       >
-                                        Usar "{searchGroupValue}"
+                                        Usar &quot;{searchGroupValue}&quot;
                                       </Button>
                                     </div>
                                   </CommandEmpty>
@@ -1300,7 +1300,7 @@ export function ClientForm({
                                       setOpenRoute(false)
                                     }}
                                   >
-                                    Usar "{searchValue}"
+                                    Usar &quot;{searchValue}&quot;
                                   </Button>
                                 </div>
                               </CommandEmpty>
