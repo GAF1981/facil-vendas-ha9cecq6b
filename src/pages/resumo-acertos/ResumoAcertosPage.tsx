@@ -132,22 +132,7 @@ export default function ResumoAcertosPage() {
           }
         }
 
-        let finalSettlements = settlements
-
-        if (
-          selectedEmployeeId !== 'todos' &&
-          loggedInUser &&
-          selectedEmployeeId === loggedInUser.id.toString()
-        ) {
-          const hasMine = finalSettlements.some(
-            (s) => s.employeeId === loggedInUser.id,
-          )
-          if (!hasMine) {
-            setSelectedEmployeeId('todos')
-          }
-        }
-
-        setData(finalSettlements)
+        setData(settlements)
       } catch (error) {
         console.error(error)
         toast({
@@ -159,16 +144,7 @@ export default function ResumoAcertosPage() {
         if (!isBackground) setLoading(false)
       }
     },
-    [
-      routes,
-      selectedRouteId,
-      filterMode,
-      dateRange,
-      selectedClientId,
-      toast,
-      selectedEmployeeId,
-      loggedInUser,
-    ],
+    [routes, selectedRouteId, filterMode, dateRange, selectedClientId, toast],
   )
 
   useEffect(() => {
@@ -228,6 +204,24 @@ export default function ResumoAcertosPage() {
       fetchData()
     }
   }, [filterMode, selectedRouteId, dateRange, routes, fetchData])
+
+  useEffect(() => {
+    if (
+      data.length > 0 &&
+      selectedEmployeeId !== 'todos' &&
+      loggedInUser &&
+      selectedEmployeeId === loggedInUser.id.toString()
+    ) {
+      const hasMine = data.some(
+        (s) =>
+          s.employeeId?.toString() === selectedEmployeeId ||
+          s.employee === loggedInUser.nome_completo,
+      )
+      if (!hasMine) {
+        setSelectedEmployeeId('todos')
+      }
+    }
+  }, [data, selectedEmployeeId, loggedInUser])
 
   useEffect(() => {
     const fetchProjections = async () => {
@@ -398,7 +392,11 @@ export default function ResumoAcertosPage() {
     let result = data
     if (selectedEmployeeId !== 'todos') {
       result = result.filter(
-        (item) => item.employeeId?.toString() === selectedEmployeeId,
+        (item) =>
+          item.employeeId?.toString() === selectedEmployeeId ||
+          item.employee ===
+            employees.find((e) => e.id.toString() === selectedEmployeeId)
+              ?.nome_completo,
       )
     }
     if (clientSearchFilter) {
@@ -415,7 +413,13 @@ export default function ResumoAcertosPage() {
       )
     }
     return result
-  }, [data, selectedEmployeeId, clientSearchFilter, orderNumberFilter])
+  }, [
+    data,
+    selectedEmployeeId,
+    clientSearchFilter,
+    orderNumberFilter,
+    employees,
+  ])
 
   const filteredProjections = useMemo(() => {
     const allowedClientIds = new Set(filteredData.map((d) => d.clientCode))

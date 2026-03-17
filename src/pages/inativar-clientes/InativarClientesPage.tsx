@@ -28,7 +28,14 @@ import {
 import { inativarClientesService } from '@/services/inativarClientesService'
 import { InativarCliente } from '@/types/inativar_clientes'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, UserX, ArrowLeft, CheckCircle, Trash2 } from 'lucide-react'
+import {
+  Loader2,
+  UserX,
+  ArrowLeft,
+  CheckCircle,
+  Trash2,
+  Info,
+} from 'lucide-react'
 import { formatCurrency } from '@/lib/formatters'
 import { Link } from 'react-router-dom'
 import {
@@ -244,7 +251,7 @@ export default function InativarClientesPage() {
                     <TableHead className="text-right text-red-600 font-bold">
                       Débito
                     </TableHead>
-                    <TableHead className="text-center w-[100px]">
+                    <TableHead className="text-center w-[120px]">
                       Expositor
                     </TableHead>
                     <TableHead className="text-center w-[120px]">
@@ -284,13 +291,28 @@ export default function InativarClientesPage() {
                           R$ {formatCurrency(row.debito)}
                         </TableCell>
                         <TableCell className="text-center">
-                          <div className="flex justify-center items-center">
+                          <div className="flex justify-center items-center gap-2">
                             <Checkbox
                               checked={row.expositor_retirado}
                               onCheckedChange={(checked) =>
                                 handleExpositorCheck(row, checked === true)
                               }
                             />
+                            {row.expositor_retirado &&
+                              row.observacoes_expositor && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-xs">
+                                      <p className="text-xs">
+                                        {row.observacoes_expositor}
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
                           </div>
                         </TableCell>
                         <TableCell className="text-center">

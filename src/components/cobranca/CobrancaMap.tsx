@@ -4,9 +4,14 @@ import { ClientDebt } from '@/types/cobranca'
 interface CobrancaMapProps {
   data: ClientDebt[]
   selectedItems: Set<string>
+  showAll?: boolean
 }
 
-export function CobrancaMap({ data, selectedItems }: CobrancaMapProps) {
+export function CobrancaMap({
+  data,
+  selectedItems,
+  showAll = false,
+}: CobrancaMapProps) {
   const selectedClientsMap = new Map()
 
   data.forEach((client) => {
@@ -21,6 +26,7 @@ export function CobrancaMap({ data, selectedItems }: CobrancaMapProps) {
       order.installments.forEach((inst, index) => {
         const uniqueId = `${client.clientId || '0'}-${order.orderId || '0'}-${inst.id || '0'}-${index}`
         if (
+          showAll ||
           selectedItems.has(uniqueId) ||
           isMotoRoute ||
           inst.formaCobranca === 'MOTOQUEIRO'
@@ -185,7 +191,7 @@ export function CobrancaMap({ data, selectedItems }: CobrancaMapProps) {
   if (markers.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-[500px] bg-card border rounded-md p-8 text-center text-muted-foreground mt-2">
-        <p>Nenhum cliente com coordenadas registradas na rota de cobrança.</p>
+        <p>Nenhum cliente com coordenadas registradas para a seleção atual.</p>
       </div>
     )
   }

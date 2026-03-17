@@ -105,54 +105,42 @@ Deno.serve(async (req) => {
       }
     } else {
       // 2. Nominatim OpenStreetMap Free Geocoding API Strategy (Fallback)
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`
-
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'FacilVendasApp/1.0 (admin@facilvendas.com)',
-          'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
-        },
-      })
-
-      if (!response.ok) {
-        let errorText = response.statusText
-        try {
-          const text = await response.text()
-          if (text) errorText = text.substring(0, 100)
-        } catch (e) {
-          // ignore
-        }
-
-        return new Response(
-          JSON.stringify({
-            lat: null,
-            lon: null,
-            error: `Nominatim API error: ${response.status} ${errorText}`,
-          }),
-          {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200,
+      const fetchNominatim = async (query: string) => {
+        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`
+        const res = await fetch(url, {
+          headers: {
+            'User-Agent': 'FacilVendasApp/1.0 (admin@facilvendas.com)',
+            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
           },
-        )
+        })
+        if (!res.ok) throw new Error(`Nominatim error: ${res.status}`)
+        const data = await res.json()
+        if (data && Array.isArray(data) && data.length > 0) {
+          return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) }
+        }
+        return null
       }
 
-      const data = await response.json()
-
-      if (data && Array.isArray(data) && data.length > 0) {
-        lat = parseFloat(data[0].lat)
-        lon = parseFloat(data[0].lon)
-      } else {
-        return new Response(
-          JSON.stringify({
-            lat: null,
-            lon: null,
-            error: 'Address not found by Nominatim',
-          }),
-          {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200,
-          },
-        )
+      try {
+        let coords = await fetchNominatim(address)
+        
+        // If not found, try a simplified address (fallback)
+        if (!coords) {
+          const parts = address.split(',')
+          if (parts.length >= 3) {
+             const simplifiedAddress = `${parts[0].trim()}, ${parts[parts.length - 1].trim()}`
+             coords = await fetchNominatim(simplifiedAddress)
+          }
+        }
+        
+        if (coords) {
+          lat = coords.lat
+          lon = coords.lon
+        } else {
+           return new Response(JSON.stringify({ lat: null, lon: null, error: 'Address not found by Nominatim' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+      } catch (e: any) {
+         return new Response(JSON.stringify({ lat: null, lon: null, error: e.message }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
       }
     }
 

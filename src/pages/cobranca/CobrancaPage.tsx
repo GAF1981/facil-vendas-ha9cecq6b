@@ -76,6 +76,7 @@ export default function CobrancaPage() {
   const [isSimplified, setIsSimplified] = useState(true)
   const [activeTab, setActiveTab] = useState('geral')
   const [isMotoqueiroMapOpen, setIsMotoqueiroMapOpen] = useState(false)
+  const [isGeralMapOpen, setIsGeralMapOpen] = useState(false)
 
   // Inactivity Alert State
   const [inactiveThreshold, setInactiveThreshold] = useState(10)
@@ -817,34 +818,46 @@ export default function CobrancaPage() {
                     </Button>
                   </>
                 )}
-                <div className="ml-auto">
+                <div className="ml-auto flex gap-2">
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={handleRefreshCourierRoute}
+                    onClick={() => setIsGeralMapOpen(!isGeralMapOpen)}
                   >
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Atualizar Rota Motoqueiro
+                    {isGeralMapOpen ? (
+                      <List className="mr-2 h-4 w-4" />
+                    ) : (
+                      <MapIcon className="mr-2 h-4 w-4" />
+                    )}
+                    {isGeralMapOpen ? 'Ver Lista' : 'Ver Mapa'}
                   </Button>
                 </div>
               </div>
-              <DebtTable
-                data={filteredDebts}
-                boletos={boletos}
-                onRefresh={loadData}
-                selectedItems={selectedItems}
-                onToggleItem={handleToggleItem}
-                isCobrancaMode={false}
-                onToggleAll={handleToggleAll}
-                isSimplified={isSimplified}
-                statusFilter={statusFilter}
-                motoqueiroFilter={motoqueiroFilter}
-                orderFilter={orderFilter}
-                showOnlySelected={false}
-                formaPagamentoFilter={formaPagamentoFilter}
-                dataCombinadaRange={dataCombinadaRange}
-                vencimentoRange={vencimentoRange}
-              />
+              {isGeralMapOpen ? (
+                <CobrancaMap
+                  data={filteredDebts}
+                  selectedItems={new Set()}
+                  showAll={true}
+                />
+              ) : (
+                <DebtTable
+                  data={filteredDebts}
+                  boletos={boletos}
+                  onRefresh={loadData}
+                  selectedItems={selectedItems}
+                  onToggleItem={handleToggleItem}
+                  isCobrancaMode={false}
+                  onToggleAll={handleToggleAll}
+                  isSimplified={isSimplified}
+                  statusFilter={statusFilter}
+                  motoqueiroFilter={motoqueiroFilter}
+                  orderFilter={orderFilter}
+                  showOnlySelected={false}
+                  formaPagamentoFilter={formaPagamentoFilter}
+                  dataCombinadaRange={dataCombinadaRange}
+                  vencimentoRange={vencimentoRange}
+                />
+              )}
             </TabsContent>
 
             <TabsContent value="motoqueiro" className="mt-4">
