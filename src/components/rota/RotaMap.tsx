@@ -25,7 +25,10 @@ export function RotaMap({ rows }: RotaMapProps) {
         lng: parseFloat(r.client.longitude as string),
         name: r.client['NOME CLIENTE'],
         address: r.client.ENDEREÇO || '',
+        neighborhood: r.client.BAIRRO || '',
+        city: r.client.MUNICÍPIO || '',
         code: r.client.CODIGO,
+        debtValue: r.debito || 0,
         color,
         textColor,
       }
@@ -55,7 +58,10 @@ export function RotaMap({ rows }: RotaMapProps) {
           box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
         .popup-nav-btn {
-          display: inline-block;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
           margin-top: 10px;
           padding: 8px 12px;
           background-color: #fef2f2;
@@ -72,6 +78,11 @@ export function RotaMap({ rows }: RotaMapProps) {
         }
         .popup-nav-btn:hover {
           background-color: #fee2e2;
+        }
+        .popup-nav-btn svg {
+          width: 14px;
+          height: 14px;
+          fill: currentColor;
         }
       </style>
     </head>
@@ -104,10 +115,19 @@ export function RotaMap({ rows }: RotaMapProps) {
             }
           });
 
-          const navUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + m.lat + ',' + m.lng;
+          const navUrl = 'https://www.google.com/maps/search/?api=1&query=' + m.lat + ',' + m.lng;
+          const formattedDebt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(m.debtValue);
+          
+          let addressFull = m.address;
+          if (m.neighborhood) addressFull += ', ' + m.neighborhood;
+          if (m.city) addressFull += ' - ' + m.city;
+
           const popupContent = '<b>#' + m.code + ' - ' + m.name + '</b><br/>' + 
-                               m.address + 
-                               '<br/><a href="' + navUrl + '" target="_blank" class="popup-nav-btn">Iniciar Navegação</a>';
+                               addressFull + '<br/>' +
+                               '<strong style="color:#ef4444; display:block; margin-top:4px;">Débito: ' + formattedDebt + '</strong>' +
+                               '<a href="' + navUrl + '" target="_blank" class="popup-nav-btn">' +
+                               '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--!Font Awesome Free 6.5.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.--><path d="M215.7 499.2C267 435 384 279.4 384 192C384 86 298 0 192 0S0 86 0 192c0 87.4 117 243 168.3 307.2c12.3 15.3 35.1 15.3 47.4 0zM192 128a64 64 0 1 1 0 128 64 64 0 1 1 0-128z"/></svg>' +
+                               'Iniciar Navegação</a>';
                                
           marker.bindPopup(popupContent);
           bounds.push([m.lat, m.lng]);

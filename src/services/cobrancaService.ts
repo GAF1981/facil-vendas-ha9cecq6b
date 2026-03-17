@@ -55,7 +55,7 @@ export const cobrancaService = {
         const { data: clientData, error: clientError } = await supabase
           .from('CLIENTES')
           .select(
-            'CODIGO, "TIPO DE CLIENTE", GRUPO, "GRUPO ROTA", ENDEREÇO, BAIRRO, MUNICÍPIO, situacao, "CEP OFICIO", "FONE 1", "FONE 2", telefone_cobranca, email_cobranca',
+            'CODIGO, "TIPO DE CLIENTE", GRUPO, "GRUPO ROTA", ENDEREÇO, BAIRRO, MUNICÍPIO, situacao, "CEP OFICIO", "FONE 1", "FONE 2", telefone_cobranca, email_cobranca, latitude, longitude',
           )
           .in('CODIGO', chunk)
 
@@ -76,6 +76,8 @@ export const cobrancaService = {
               phone: (c as any)['FONE 1'] || (c as any)['FONE 2'] || null,
               telefone_cobranca: (c as any)['telefone_cobranca'] || null,
               email_cobranca: (c as any)['email_cobranca'] || null,
+              latitude: (c as any)['latitude'] || null,
+              longitude: (c as any)['longitude'] || null,
             })
           })
         }
@@ -549,6 +551,8 @@ export const cobrancaService = {
           phone: cInfo?.phone || null,
           telefone_cobranca: cInfo?.telefone_cobranca || null,
           email_cobranca: cInfo?.email_cobranca || null,
+          latitude: cInfo?.latitude || null,
+          longitude: cInfo?.longitude || null,
         })
       }
 

@@ -113,6 +113,9 @@ export interface ClientDebt {
   phone: string | null
   telefone_cobranca: string | null // New
   email_cobranca: string | null // New
+  // Map fields
+  latitude?: string | null
+  longitude?: string | null
 }
 
 export interface LatestCollectionActionView {

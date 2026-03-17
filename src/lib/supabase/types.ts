@@ -5605,6 +5605,8 @@ export const Constants = {
 //   CREATE INDEX idx_banco_dados_session_id ON public."BANCO_DE_DADOS" USING btree (session_id)
 //   CREATE INDEX idx_banco_de_dados_cliente_data_acerto ON public."BANCO_DE_DADOS" USING btree ("CÓDIGO DO CLIENTE", "DATA DO ACERTO" DESC, "HORA DO ACERTO" DESC)
 //   CREATE INDEX idx_banco_de_dados_data_do_acerto ON public."BANCO_DE_DADOS" USING btree ("DATA DO ACERTO")
+// Table: CLIENTES
+//   CREATE INDEX idx_clientes_lat_lon ON public."CLIENTES" USING btree (latitude, longitude) WHERE ((latitude IS NOT NULL) AND (longitude IS NOT NULL))
 // Table: CRIAR_NOVA_ROTA
 //   CREATE UNIQUE INDEX criar_nova_rota_nome_rota_idx ON public."CRIAR_NOVA_ROTA" USING btree (nome_rota)
 // Table: DATAS DE INVENTÁRIO

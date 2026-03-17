@@ -13,6 +13,7 @@ export function CobrancaMap({ data, selectedItems }: CobrancaMapProps) {
     let hasSelected = false
     let debtValue = 0
     let status = 'SEM DÉBITO'
+    let isMotoqueiro = false
 
     const isMotoRoute = client.routeGroup?.toLowerCase().includes('moto')
 
@@ -25,6 +26,9 @@ export function CobrancaMap({ data, selectedItems }: CobrancaMapProps) {
           inst.formaCobranca === 'MOTOQUEIRO'
         ) {
           hasSelected = true
+          if (inst.formaCobranca === 'MOTOQUEIRO') {
+            isMotoqueiro = true
+          }
           const currentDebt = Math.max(0, inst.valorRegistrado - inst.valorPago)
           debtValue += currentDebt
           if (inst.status === 'VENCIDO') status = 'VENCIDO'
@@ -40,9 +44,12 @@ export function CobrancaMap({ data, selectedItems }: CobrancaMapProps) {
         lng: parseFloat(client.longitude),
         name: client.clientName,
         address: client.address || '',
+        neighborhood: client.neighborhood || '',
+        city: client.city || '',
         debtValue,
         code: client.clientId,
         status,
+        isMotoqueiro,
       })
     }
   })
@@ -50,11 +57,18 @@ export function CobrancaMap({ data, selectedItems }: CobrancaMapProps) {
   const markers = Array.from(selectedClientsMap.values()).map((c) => {
     let color = 'black'
     let textColor = 'white'
-    if (c.status === 'VENCIDO') {
+
+    if (c.isMotoqueiro) {
+      color = 'black'
+      textColor = 'white'
+    } else if (c.status === 'VENCIDO') {
       color = '#ef4444' // Red
+      textColor = 'white'
     } else if (c.status === 'A VENCER') {
       color = '#22c55e' // Green
+      textColor = 'white'
     }
+
     return { ...c, color, textColor }
   })
 
@@ -81,7 +95,10 @@ export function CobrancaMap({ data, selectedItems }: CobrancaMapProps) {
           box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
         .popup-nav-btn {
-          display: inline-block;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
           margin-top: 10px;
           padding: 8px 12px;
           background-color: #fef2f2;
@@ -98,6 +115,11 @@ export function CobrancaMap({ data, selectedItems }: CobrancaMapProps) {
         }
         .popup-nav-btn:hover {
           background-color: #fee2e2;
+        }
+        .popup-nav-btn svg {
+          width: 14px;
+          height: 14px;
+          fill: currentColor;
         }
       </style>
     </head>
@@ -131,12 +153,19 @@ export function CobrancaMap({ data, selectedItems }: CobrancaMapProps) {
             }
           });
 
-          const navUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + m.lat + ',' + m.lng;
+          const navUrl = 'https://www.google.com/maps/search/?api=1&query=' + m.lat + ',' + m.lng;
           const formattedDebt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(m.debtValue);
+          
+          let addressFull = m.address;
+          if (m.neighborhood) addressFull += ', ' + m.neighborhood;
+          if (m.city) addressFull += ' - ' + m.city;
+
           const popupContent = '<b>#' + m.code + ' - ' + m.name + '</b><br/>' + 
-                               m.address + '<br/>' +
-                               '<strong style="color:' + m.color + '">Débito: ' + formattedDebt + '</strong>' +
-                               '<br/><a href="' + navUrl + '" target="_blank" class="popup-nav-btn">Iniciar Navegação</a>';
+                               addressFull + '<br/>' +
+                               '<strong style="color:#ef4444; display:block; margin-top:4px;">Débito: ' + formattedDebt + '</strong>' +
+                               '<a href="' + navUrl + '" target="_blank" class="popup-nav-btn">' +
+                               '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--!Font Awesome Free 6.5.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.--><path d="M215.7 499.2C267 435 384 279.4 384 192C384 86 298 0 192 0S0 86 0 192c0 87.4 117 243 168.3 307.2c12.3 15.3 35.1 15.3 47.4 0zM192 128a64 64 0 1 1 0 128 64 64 0 1 1 0-128z"/></svg>' +
+                               'Iniciar Navegação</a>';
                                
           marker.bindPopup(popupContent);
           bounds.push([m.lat, m.lng]);
@@ -155,7 +184,7 @@ export function CobrancaMap({ data, selectedItems }: CobrancaMapProps) {
   if (markers.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-[500px] bg-card border rounded-md p-8 text-center text-muted-foreground mt-2">
-        <p>Nenhum cliente com coordenadas registradas na rota do motoqueiro.</p>
+        <p>Nenhum cliente com coordenadas registradas na rota de cobrança.</p>
       </div>
     )
   }
