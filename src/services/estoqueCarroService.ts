@@ -179,7 +179,10 @@ export const estoqueCarroService = {
     const countMap = new Map<number, number>()
     const hasCountMap = new Set<number>()
     counts?.forEach((c) => {
-      countMap.set(c.produto_id, (countMap.get(c.produto_id) || 0) + (c.quantidade || 0))
+      countMap.set(
+        c.produto_id,
+        (countMap.get(c.produto_id) || 0) + (c.quantidade || 0),
+      )
       hasCountMap.add(c.produto_id)
     })
 
@@ -234,7 +237,11 @@ export const estoqueCarroService = {
   },
 
   async getMovementDetails(sessionId: number, productId: number) {
-    const fetchTable = async (table: string, type: string, qtyField: string) => {
+    const fetchTable = async (
+      table: string,
+      type: string,
+      qtyField: string,
+    ) => {
       const { data } = await supabase
         .from(table)
         .select('*')
@@ -245,12 +252,20 @@ export const estoqueCarroService = {
         movement_type: type,
         data_horario: d.created_at || d.data_horario || d.timestamp,
         quantidade: d[qtyField] || d.quantidade || 0,
-        pedido: d.pedido || sessionId
+        pedido: d.pedido || sessionId,
       }))
     }
 
-    const clientToCar = await fetchTable('ESTOQUE CARRO: CLIENTE PARA O CARRO', 'ENTRADAS_cliente_carro', 'ENTRADAS_cliente_carro')
-    const carToClient = await fetchTable('ESTOQUE CARRO: CARRO PARA O CLIENTE', 'SAIDAS_carro_cliente', 'SAIDAS_carro_cliente')
+    const clientToCar = await fetchTable(
+      'ESTOQUE CARRO: CLIENTE PARA O CARRO',
+      'ENTRADAS_cliente_carro',
+      'ENTRADAS_cliente_carro',
+    )
+    const carToClient = await fetchTable(
+      'ESTOQUE CARRO: CARRO PARA O CLIENTE',
+      'SAIDAS_carro_cliente',
+      'SAIDAS_carro_cliente',
+    )
 
     const { data: repoData } = await supabase
       .from('REPOSIÇÃO E DEVOLUÇÃO')
@@ -260,20 +275,32 @@ export const estoqueCarroService = {
 
     const inventoryMovements = (repoData || []).map((d) => {
       const isReposicao = d.TIPO === 'REPOSIÇÃO' || d.TIPO === 'REPOSICAO'
-      const typeKey = isReposicao ? 'ENTRADAS_estoque_carro' : 'SAIDAS_carro_estoque'
+      const typeKey = isReposicao
+        ? 'ENTRADAS_estoque_carro'
+        : 'SAIDAS_carro_estoque'
       return {
         id: d.id,
         movement_type: typeKey,
         data_horario: d.created_at,
         quantidade: d.quantidade,
-        pedido: sessionId
+        pedido: sessionId,
       }
     })
 
-    const contagens = await fetchTable('ESTOQUE CARRO CONTAGEM', 'contagem', 'quantidade')
+    const contagens = await fetchTable(
+      'ESTOQUE CARRO CONTAGEM',
+      'contagem',
+      'quantidade',
+    )
 
-    return [...clientToCar, ...carToClient, ...inventoryMovements, ...contagens].sort(
-      (a, b) => new Date(b.data_horario).getTime() - new Date(a.data_horario).getTime(),
+    return [
+      ...clientToCar,
+      ...carToClient,
+      ...inventoryMovements,
+      ...contagens,
+    ].sort(
+      (a, b) =>
+        new Date(b.data_horario).getTime() - new Date(a.data_horario).getTime(),
     )
   },
 
@@ -545,7 +572,9 @@ export const estoqueCarroService = {
       funcionario_nome: employeeName,
     }
 
-    const { error } = await supabase.from('ESTOQUE CARRO CONTAGEM').insert(payload)
+    const { error } = await supabase
+      .from('ESTOQUE CARRO CONTAGEM')
+      .insert(payload)
     if (error) throw error
 
     const { data: bdRecord } = await supabase
@@ -557,7 +586,8 @@ export const estoqueCarroService = {
       .maybeSingle()
 
     if (bdRecord) {
-      const newSaldoFinal = Number(bdRecord['SALDO FINAL'] || 0) + Number(quantity)
+      const newSaldoFinal =
+        Number(bdRecord['SALDO FINAL'] || 0) + Number(quantity)
       const newContagem = Number(bdRecord['CONTAGEM'] || 0) + Number(quantity)
 
       await supabase
@@ -570,14 +600,26 @@ export const estoqueCarroService = {
     }
   },
 
-  async updateCount(countId: number, newQuantity: number, sessionId: number, productId: number) {
-    const { data: existing } = await supabase.from('ESTOQUE CARRO CONTAGEM').select('quantidade').eq('id', countId).single()
+  async updateCount(
+    countId: number,
+    newQuantity: number,
+    sessionId: number,
+    productId: number,
+  ) {
+    const { data: existing } = await supabase
+      .from('ESTOQUE CARRO CONTAGEM')
+      .select('quantidade')
+      .eq('id', countId)
+      .single()
     if (!existing) return
-    
+
     const oldQty = existing.quantidade || 0
     const diff = newQuantity - oldQty
 
-    const { error } = await supabase.from('ESTOQUE CARRO CONTAGEM').update({ quantidade: newQuantity }).eq('id', countId)
+    const { error } = await supabase
+      .from('ESTOQUE CARRO CONTAGEM')
+      .update({ quantidade: newQuantity })
+      .eq('id', countId)
     if (error) throw error
 
     if (diff !== 0) {
@@ -602,12 +644,19 @@ export const estoqueCarroService = {
   },
 
   async deleteCount(countId: number, sessionId: number, productId: number) {
-    const { data: existing } = await supabase.from('ESTOQUE CARRO CONTAGEM').select('quantidade').eq('id', countId).single()
+    const { data: existing } = await supabase
+      .from('ESTOQUE CARRO CONTAGEM')
+      .select('quantidade')
+      .eq('id', countId)
+      .single()
     if (!existing) return
-    
+
     const oldQty = existing.quantidade || 0
 
-    const { error } = await supabase.from('ESTOQUE CARRO CONTAGEM').delete().eq('id', countId)
+    const { error } = await supabase
+      .from('ESTOQUE CARRO CONTAGEM')
+      .delete()
+      .eq('id', countId)
     if (error) throw error
 
     if (oldQty !== 0) {
@@ -747,4 +796,3 @@ export const estoqueCarroService = {
     return (data as DeliveryHistoryRow[]) || []
   },
 }
-

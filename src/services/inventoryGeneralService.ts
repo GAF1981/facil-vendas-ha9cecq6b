@@ -199,21 +199,43 @@ export const inventoryGeneralService = {
   },
 
   async getMovementDetails(sessionId: number, productId: number) {
-    const [compras, carToStock, stockToCar, perdas, contagens] = await Promise.all([
-      supabase.from('ESTOQUE GERAL COMPRAS').select('*').eq('id_inventario', sessionId).eq('produto_id', productId),
-      supabase.from('ESTOQUE GERAL CARRO PARA ESTOQUE').select('*').eq('id_inventario', sessionId).eq('produto_id', productId),
-      supabase.from('ESTOQUE GERAL ESTOQUE PARA CARRO').select('*').eq('id_inventario', sessionId).eq('produto_id', productId),
-      supabase.from('ESTOQUE GERAL SAÍDAS PERDAS').select('*').eq('id_inventario', sessionId).eq('produto_id', productId),
-      supabase.from('ESTOQUE GERAL CONTAGEM').select('*').eq('id_inventario', sessionId).eq('produto_id', productId),
-    ])
+    const [compras, carToStock, stockToCar, perdas, contagens] =
+      await Promise.all([
+        supabase
+          .from('ESTOQUE GERAL COMPRAS')
+          .select('*')
+          .eq('id_inventario', sessionId)
+          .eq('produto_id', productId),
+        supabase
+          .from('ESTOQUE GERAL CARRO PARA ESTOQUE')
+          .select('*')
+          .eq('id_inventario', sessionId)
+          .eq('produto_id', productId),
+        supabase
+          .from('ESTOQUE GERAL ESTOQUE PARA CARRO')
+          .select('*')
+          .eq('id_inventario', sessionId)
+          .eq('produto_id', productId),
+        supabase
+          .from('ESTOQUE GERAL SAÍDAS PERDAS')
+          .select('*')
+          .eq('id_inventario', sessionId)
+          .eq('produto_id', productId),
+        supabase
+          .from('ESTOQUE GERAL CONTAGEM')
+          .select('*')
+          .eq('id_inventario', sessionId)
+          .eq('produto_id', productId),
+      ])
 
-    const format = (data: any[], type: string, qtyField: string) => (data || []).map(d => ({
-      id: d.id,
-      movement_type: type,
-      data_horario: d.created_at,
-      quantidade: d[qtyField] || 0,
-      pedido: sessionId
-    }))
+    const format = (data: any[], type: string, qtyField: string) =>
+      (data || []).map((d) => ({
+        id: d.id,
+        movement_type: type,
+        data_horario: d.created_at,
+        quantidade: d[qtyField] || 0,
+        pedido: sessionId,
+      }))
 
     return [
       ...format(compras.data, 'compra', 'compras_quantidade'),
@@ -221,7 +243,10 @@ export const inventoryGeneralService = {
       ...format(stockToCar.data, 'reposicao_carro', 'quantidade'),
       ...format(perdas.data, 'perda', 'quantidade'),
       ...format(contagens.data, 'contagem', 'quantidade'),
-    ].sort((a, b) => new Date(b.data_horario).getTime() - new Date(a.data_horario).getTime())
+    ].sort(
+      (a, b) =>
+        new Date(b.data_horario).getTime() - new Date(a.data_horario).getTime(),
+    )
   },
 
   async registerMovement(
@@ -340,7 +365,8 @@ export const inventoryGeneralService = {
           await supabase
             .from('CONTAGEM DE ESTOQUE FINAL' as any)
             .update({
-              quantidade: Number(cefRecord.quantidade || 0) + Number(item.quantity),
+              quantidade:
+                Number(cefRecord.quantidade || 0) + Number(item.quantity),
             })
             .eq('id', cefRecord.id)
         } else {
@@ -354,14 +380,26 @@ export const inventoryGeneralService = {
     }
   },
 
-  async updateCount(countId: number, newQuantity: number, sessionId: number, productId: number) {
-    const { data: existing } = await supabase.from('ESTOQUE GERAL CONTAGEM').select('quantidade').eq('id', countId).single()
+  async updateCount(
+    countId: number,
+    newQuantity: number,
+    sessionId: number,
+    productId: number,
+  ) {
+    const { data: existing } = await supabase
+      .from('ESTOQUE GERAL CONTAGEM')
+      .select('quantidade')
+      .eq('id', countId)
+      .single()
     if (!existing) return
-    
+
     const oldQty = existing.quantidade || 0
     const diff = newQuantity - oldQty
 
-    const { error } = await supabase.from('ESTOQUE GERAL CONTAGEM').update({ quantidade: newQuantity }).eq('id', countId)
+    const { error } = await supabase
+      .from('ESTOQUE GERAL CONTAGEM')
+      .update({ quantidade: newQuantity })
+      .eq('id', countId)
     if (error) throw error
 
     if (diff !== 0) {
@@ -384,12 +422,19 @@ export const inventoryGeneralService = {
   },
 
   async deleteCount(countId: number, sessionId: number, productId: number) {
-    const { data: existing } = await supabase.from('ESTOQUE GERAL CONTAGEM').select('quantidade').eq('id', countId).single()
+    const { data: existing } = await supabase
+      .from('ESTOQUE GERAL CONTAGEM')
+      .select('quantidade')
+      .eq('id', countId)
+      .single()
     if (!existing) return
-    
+
     const oldQty = existing.quantidade || 0
 
-    const { error } = await supabase.from('ESTOQUE GERAL CONTAGEM').delete().eq('id', countId)
+    const { error } = await supabase
+      .from('ESTOQUE GERAL CONTAGEM')
+      .delete()
+      .eq('id', countId)
     if (error) throw error
 
     if (oldQty !== 0) {
@@ -552,4 +597,3 @@ export const inventoryGeneralService = {
     }
   },
 }
-
