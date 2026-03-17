@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Search,
+  Eye,
 } from 'lucide-react'
 import { useState, useMemo } from 'react'
 import {
@@ -34,6 +35,7 @@ import {
 } from '@/components/ui/select'
 import { MovementDetailsPopover } from './MovementDetailsPopover'
 import { InventoryActionDialog } from './InventoryActionDialog'
+import { InventoryMovementDetailsDialog } from './InventoryMovementDetailsDialog'
 import { Input } from '@/components/ui/input'
 
 interface Props {
@@ -56,6 +58,11 @@ export function InventoryGeneralTable({
   const [contagemFilter, setContagemFilter] = useState<string>('todos')
   const [diffFilter, setDiffFilter] = useState<string>('todos')
   const [search, setSearch] = useState('')
+
+  // Selected Item for Details
+  const [selectedItem, setSelectedItem] = useState<InventoryGeneralItem | null>(
+    null,
+  )
 
   // Quick Count State
   const [quickCountProduct, setQuickCountProduct] =
@@ -114,6 +121,7 @@ export function InventoryGeneralTable({
           <Table>
             <TableHeader className="bg-muted sticky top-0 z-10">
               <TableRow>
+                <TableHead className="w-[50px] bg-muted sticky left-0 z-20"></TableHead>
                 <TableHead className="min-w-[250px]">Produto</TableHead>
                 <TableHead className="text-right">S. Inicial</TableHead>
                 <TableHead className="text-right text-blue-600">
@@ -214,7 +222,7 @@ export function InventoryGeneralTable({
               {filteredItems.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={11}
+                    colSpan={12}
                     className="h-24 text-center text-muted-foreground"
                   >
                     Nenhum item encontrado.
@@ -229,6 +237,16 @@ export function InventoryGeneralTable({
                       key={item.produto_id}
                       className="hover:bg-muted/30 group"
                     >
+                      <TableCell className="p-2 sticky left-0 bg-background z-10 border-r border-r-transparent group-hover:border-r-muted">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground"
+                          onClick={() => setSelectedItem(item)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
                       <TableCell>
                         <div className="flex flex-col">
                           <div className="flex items-center gap-2">
@@ -342,6 +360,17 @@ export function InventoryGeneralTable({
           </Table>
         </div>
       </div>
+
+      {selectedItem && (
+        <InventoryMovementDetailsDialog
+          open={!!selectedItem}
+          onOpenChange={(o) => !o && setSelectedItem(null)}
+          sessionId={sessionId}
+          productId={selectedItem.produto_id}
+          productName={selectedItem.produto}
+          onRefresh={onSuccess}
+        />
+      )}
 
       {quickCountProduct && (
         <InventoryActionDialog

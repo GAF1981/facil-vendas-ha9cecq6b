@@ -51,10 +51,8 @@ export const estoqueCarroService = {
   },
 
   async startSession(funcionarioId: number) {
-    // 1. Get last session to copy final balance
     const lastSession = await this.getLastSession(funcionarioId)
 
-    // 2. Create new session
     const { data: newSession, error: sessionError } = await supabase
       .from('ID ESTOQUE CARRO')
       .insert({
@@ -66,8 +64,6 @@ export const estoqueCarroService = {
 
     if (sessionError) throw sessionError
 
-    // 3. Populate Initial Balance
-    // If previous session exists, use its final balance. Otherwise 0.
     const { data: products } = await productsService.getProducts(1, 10000)
     const productsList = products || []
 
@@ -108,11 +104,9 @@ export const estoqueCarroService = {
   ): Promise<EstoqueCarroItem[]> {
     const sessionId = session.id
 
-    // 1. Fetch Products
     const { data: products } = await productsService.getProducts(1, 10000)
     if (!products) return []
 
-    // 2. Fetch Initial Balances
     const { data: initialBalances } = await supabase
       .from('ESTOQUE CARRO SALDO INICIAL')
       .select('produto_id, saldo_inicial')
@@ -123,8 +117,6 @@ export const estoqueCarroService = {
       initialMap.set(i.produto_id, i.saldo_inicial),
     )
 
-    // 3. Fetch Movements from the DETAIL TABLES (Client Interactions)
-    // Client -> Car (RECOLHIDO) -> 'ESTOQUE CARRO: CLIENTE PARA O CARRO' -> ENTRADAS_cliente_carro
     const { data: clientToCarData } = await supabase
       .from('ESTOQUE CARRO: CLIENTE PARA O CARRO')
       .select('produto_id, ENTRADAS_cliente_carro')
@@ -140,7 +132,6 @@ export const estoqueCarroService = {
         )
     })
 
-    // Car -> Client (NOVAS CONSIGNAÇÕES) -> 'ESTOQUE CARRO: CARRO PARA O CLIENTE' -> SAIDAS_carro_cliente
     const { data: carToClientData } = await supabase
       .from('ESTOQUE CARRO: CARRO PARA O CLIENTE')
       .select('produto_id, SAIDAS_carro_cliente')
@@ -156,20 +147,17 @@ export const estoqueCarroService = {
         )
     })
 
-    // 4. Fetch Stock Movements from REPOSIÇÃO E DEVOLUÇÃO (Inventory Module Integration)
-    // Use strict linking via id_estoque_carro
     const { data: repoData } = await supabase
       .from('REPOSIÇÃO E DEVOLUÇÃO')
       .select('produto_id, quantidade, TIPO, created_at')
       .eq('id_estoque_carro', sessionId)
 
-    const stockToCarMap = new Map<number, number>() // Ent. Estoque (REPOSIÇÃO)
-    const carToStockMap = new Map<number, number>() // Saída Estoque (DEVOLUÇÃO)
+    const stockToCarMap = new Map<number, number>()
+    const carToStockMap = new Map<number, number>()
 
     repoData?.forEach((row) => {
       if (!row.produto_id) return
 
-      // Support both new (REPOSICAO) and legacy (REPOSIÇÃO) types
       if (row.TIPO === 'REPOSIÇÃO' || row.TIPO === 'REPOSICAO') {
         stockToCarMap.set(
           row.produto_id,
@@ -183,16 +171,15 @@ export const estoqueCarroService = {
       }
     })
 
-    // 5. Fetch Counts and Adjustments
     const { data: counts } = await supabase
       .from('ESTOQUE CARRO CONTAGEM')
       .select('produto_id, quantidade')
       .eq('id_estoque_carro', sessionId)
 
     const countMap = new Map<number, number>()
-    const hasCountMap = new Set<number>() // Track which products have counts
+    const hasCountMap = new Set<number>()
     counts?.forEach((c) => {
-      countMap.set(c.produto_id, c.quantidade)
+      countMap.set(c.produto_id, (countMap.get(c.produto_id) || 0) + (c.quantidade || 0))
       hasCountMap.add(c.produto_id)
     })
 
@@ -206,7 +193,6 @@ export const estoqueCarroService = {
       adjustmentMap.set(a.produto_id, a.ajuste_manual),
     )
 
-    // Build Result
     return products.map((p) => {
       const initial = initialMap.get(p.ID) || 0
       const inClient = clientToCarMap.get(p.ID) || 0
@@ -224,7 +210,7 @@ export const estoqueCarroService = {
       const novoSaldo = contagem + ajuste
 
       return {
-        id_estoque_carro: sessionId, // Added for context
+        id_estoque_carro: sessionId,
         produto_id: p.ID,
         codigo: p.CODIGO,
         barcode: p['CÓDIGO BARRAS'],
@@ -248,27 +234,24 @@ export const estoqueCarroService = {
   },
 
   async getMovementDetails(sessionId: number, productId: number) {
-    // Helper to fetch and normalize
-    const fetchTable = async (table: string, type: string) => {
+    const fetchTable = async (table: string, type: string, qtyField: string) => {
       const { data } = await supabase
         .from(table)
         .select('*')
         .eq('id_estoque_carro', sessionId)
         .eq('produto_id', productId)
-      return (data || []).map((d) => ({ ...d, movement_type: type }))
+      return (data || []).map((d) => ({
+        id: d.id,
+        movement_type: type,
+        data_horario: d.created_at || d.data_horario || d.timestamp,
+        quantidade: d[qtyField] || d.quantidade || 0,
+        pedido: d.pedido || sessionId
+      }))
     }
 
-    // Fetch Client Movements (Static/Transactional tables)
-    const [clientToCar, carToClient] = await Promise.all([
-      fetchTable(
-        'ESTOQUE CARRO: CLIENTE PARA O CARRO',
-        'ENTRADAS_cliente_carro',
-      ),
-      fetchTable('ESTOQUE CARRO: CARRO PARA O CLIENTE', 'SAIDAS_carro_cliente'),
-    ])
+    const clientToCar = await fetchTable('ESTOQUE CARRO: CLIENTE PARA O CARRO', 'ENTRADAS_cliente_carro', 'ENTRADAS_cliente_carro')
+    const carToClient = await fetchTable('ESTOQUE CARRO: CARRO PARA O CLIENTE', 'SAIDAS_carro_cliente', 'SAIDAS_carro_cliente')
 
-    // Fetch Stock Movements (Reposição/Devolução from Inventory Module)
-    // Use strict linking via id_estoque_carro
     const { data: repoData } = await supabase
       .from('REPOSIÇÃO E DEVOLUÇÃO')
       .select('*')
@@ -276,23 +259,21 @@ export const estoqueCarroService = {
       .eq('produto_id', productId)
 
     const inventoryMovements = (repoData || []).map((d) => {
-      // Determine movement type safely handling accents and case
       const isReposicao = d.TIPO === 'REPOSIÇÃO' || d.TIPO === 'REPOSICAO'
-      const typeKey = isReposicao
-        ? 'ENTRADAS_estoque_carro'
-        : 'SAIDAS_carro_estoque'
-
+      const typeKey = isReposicao ? 'ENTRADAS_estoque_carro' : 'SAIDAS_carro_estoque'
       return {
-        ...d,
+        id: d.id,
         movement_type: typeKey,
-        [typeKey]: d.quantidade,
+        data_horario: d.created_at,
+        quantidade: d.quantidade,
+        pedido: sessionId
       }
     })
 
-    return [...clientToCar, ...carToClient, ...inventoryMovements].sort(
-      (a, b) =>
-        new Date(b.created_at || b.data_horario).getTime() -
-        new Date(a.created_at || a.data_horario).getTime(),
+    const contagens = await fetchTable('ESTOQUE CARRO CONTAGEM', 'contagem', 'quantidade')
+
+    return [...clientToCar, ...carToClient, ...inventoryMovements, ...contagens].sort(
+      (a, b) => new Date(b.data_horario).getTime() - new Date(a.data_horario).getTime(),
     )
   },
 
@@ -303,8 +284,6 @@ export const estoqueCarroService = {
     orderId: number,
     items: AcertoItem[],
   ) {
-    // 1. Find Valid Session
-    // Logic: Session Start <= Settlement Date AND (Session End IS NULL OR Session End >= Settlement Date)
     const { data: sessions, error: sessionError } = await supabase
       .from('ID ESTOQUE CARRO')
       .select('*')
@@ -333,7 +312,6 @@ export const estoqueCarroService = {
     const sessionId = validSession.id
     const timestampStr = settlementDate.toISOString()
 
-    // 2. Fetch Product Details (Barcode)
     const productIds = items.map((i) => i.produtoId)
     if (productIds.length === 0) return
 
@@ -373,15 +351,11 @@ export const estoqueCarroService = {
       }
 
       if (diff > 0) {
-        // SaldoFinal > Contagem => Sold/Consigned => Vehicle -> Client
-        // NOVAS CONSIGNAÇÕES
         carToClientInserts.push({
           ...payload,
           SAIDAS_carro_cliente: absDiff,
         })
       } else {
-        // SaldoFinal < Contagem => Recolhido => Client -> Vehicle
-        // RECOLHIDO
         clientToCarInserts.push({
           ...payload,
           ENTRADAS_cliente_carro: absDiff,
@@ -405,7 +379,6 @@ export const estoqueCarroService = {
   },
 
   async updateStockMovements(sessionId: number, employeeId: number) {
-    // 0. Fetch Session and Employee info
     const { data: targetSession, error: sessError } = await supabase
       .from('ID ESTOQUE CARRO')
       .select('*')
@@ -426,8 +399,6 @@ export const estoqueCarroService = {
       .single()
     const employeeName = employeeData?.nome_completo || 'Unknown'
 
-    // 1. Clear existing data for this session to avoid duplicates
-    // NOTE: We only clear Client interaction tables now, as Stock interactions are dynamic
     await Promise.all([
       supabase
         .from('ESTOQUE CARRO: CLIENTE PARA O CARRO')
@@ -439,7 +410,6 @@ export const estoqueCarroService = {
         .eq('id_estoque_carro', sessionId),
     ])
 
-    // 2. Prepare Product Maps for enrichment
     const { data: products } = await productsService.getProducts(1, 10000)
     const productsMap = new Map(products?.map((p) => [p.ID, p]) || [])
     const codeToProductMap = new Map(
@@ -459,11 +429,8 @@ export const estoqueCarroService = {
       }
     }
 
-    // 3. Process BANCO_DE_DADOS (Transactions)
-    // Filter optimization: pre-fetch by date string range using just the date part for inclusivity
     const dateStartStr = targetSession.data_inicio.split('T')[0]
 
-    // Fetch using basic filtering to limit payload
     const { data: bdData } = await supabase
       .from('BANCO_DE_DADOS')
       .select('*')
@@ -474,7 +441,6 @@ export const estoqueCarroService = {
     const carToClientInserts: any[] = []
 
     bdData?.forEach((row: any) => {
-      // Filter 3: Employee Match (Strict Name Check as per AC)
       const rowEmployeeName = row['FUNCIONÁRIO']
       if (
         !rowEmployeeName ||
@@ -484,7 +450,6 @@ export const estoqueCarroService = {
         return
       }
 
-      // Date Parsing: Prefer 'DATA E HORA', fallback to 'DATA DO ACERTO' + 'HORA DO ACERTO'
       let rowDate: Date
       if (row['DATA E HORA']) {
         rowDate = parseISO(row['DATA E HORA'])
@@ -496,15 +461,9 @@ export const estoqueCarroService = {
         rowDate = parseISO(rowDateTimeStr)
       }
 
-      // Filter 1: Start Date (Session Start < Transaction Date)
-      // The record's DATA E HORA must be GREATER THAN data_inicio (Strict >)
       if (!isAfter(rowDate, startDate)) return
-
-      // Filter 2: End Date (Session End > Transaction Date)
-      // The record's DATA E HORA must be LESS THAN data_fim (Strict <)
       if (endDate && !isBefore(rowDate, endDate)) return
 
-      // Data Type Handling: Convert strings to numbers
       const recolhido = parseCurrency(row['RECOLHIDO'])
       const novas = parseCurrency(row['NOVAS CONSIGNAÇÕES'])
       const prodCode = row['COD. PRODUTO']
@@ -512,8 +471,6 @@ export const estoqueCarroService = {
 
       const details = getProductDetails(null, prodCode)
 
-      // Automated 'Ent. Cliente' Calculation: Sums "RECOLHIDO"
-      // Source: BANCO_DE_DADOS RECOLHIDO -> Destination: ESTOQUE CARRO: CLIENTE PARA O CARRO (ENTRADAS_cliente_carro)
       if (recolhido > 0) {
         clientToCarInserts.push({
           id_estoque_carro: sessionId,
@@ -530,8 +487,6 @@ export const estoqueCarroService = {
         })
       }
 
-      // Automated 'Saída Cliente' Calculation: Sums "NOVAS CONSIGNAÇÕES"
-      // Source: BANCO_DE_DADOS NOVAS CONSIGNAÇÕES -> Destination: ESTOQUE CARRO: CARRO PARA O CLIENTE (SAIDAS_carro_cliente)
       if (novas > 0) {
         carToClientInserts.push({
           id_estoque_carro: sessionId,
@@ -549,7 +504,6 @@ export const estoqueCarroService = {
       }
     })
 
-    // 5. Batch Insert
     const insertBatch = async (table: string, items: any[]) => {
       if (items.length === 0) return
       const batchSize = 1000
@@ -583,39 +537,17 @@ export const estoqueCarroService = {
     employeeId?: number | null,
     employeeName?: string | null,
   ) {
-    // 1. Fetch existing count to perform additive logic
-    const { data: existing } = await supabase
-      .from('ESTOQUE CARRO CONTAGEM')
-      .select('quantidade')
-      .eq('id_estoque_carro', sessionId)
-      .eq('produto_id', productId)
-      .maybeSingle()
-
-    const newQty = Number(existing?.quantidade || 0) + Number(quantity)
-
     const payload = {
       id_estoque_carro: sessionId,
       produto_id: productId,
-      quantidade: newQty,
+      quantidade: quantity,
       funcionario_id: employeeId,
       funcionario_nome: employeeName,
     }
 
-    // 2. Upsert cumulative count into ESTOQUE CARRO CONTAGEM
-    const { error } = await supabase
-      .from('ESTOQUE CARRO CONTAGEM')
-      .upsert(payload, { onConflict: 'id_estoque_carro, produto_id' })
+    const { error } = await supabase.from('ESTOQUE CARRO CONTAGEM').insert(payload)
+    if (error) throw error
 
-    if (error) {
-      await supabase
-        .from('ESTOQUE CARRO CONTAGEM')
-        .delete()
-        .eq('id_estoque_carro', sessionId)
-        .eq('produto_id', productId)
-      await supabase.from('ESTOQUE CARRO CONTAGEM').insert(payload)
-    }
-
-    // 3. Update BANCO_DE_DADOS ledger table cumulatively as per Acceptance Criteria
     const { data: bdRecord } = await supabase
       .from('BANCO_DE_DADOS')
       .select('"ID VENDA ITENS", "SALDO FINAL", "CONTAGEM"')
@@ -625,8 +557,7 @@ export const estoqueCarroService = {
       .maybeSingle()
 
     if (bdRecord) {
-      const newSaldoFinal =
-        Number(bdRecord['SALDO FINAL'] || 0) + Number(quantity)
+      const newSaldoFinal = Number(bdRecord['SALDO FINAL'] || 0) + Number(quantity)
       const newContagem = Number(bdRecord['CONTAGEM'] || 0) + Number(quantity)
 
       await supabase
@@ -636,6 +567,67 @@ export const estoqueCarroService = {
           CONTAGEM: newContagem,
         })
         .eq('ID VENDA ITENS', bdRecord['ID VENDA ITENS'])
+    }
+  },
+
+  async updateCount(countId: number, newQuantity: number, sessionId: number, productId: number) {
+    const { data: existing } = await supabase.from('ESTOQUE CARRO CONTAGEM').select('quantidade').eq('id', countId).single()
+    if (!existing) return
+    
+    const oldQty = existing.quantidade || 0
+    const diff = newQuantity - oldQty
+
+    const { error } = await supabase.from('ESTOQUE CARRO CONTAGEM').update({ quantidade: newQuantity }).eq('id', countId)
+    if (error) throw error
+
+    if (diff !== 0) {
+      const { data: bdRecord } = await supabase
+        .from('BANCO_DE_DADOS')
+        .select('"ID VENDA ITENS", "SALDO FINAL", "CONTAGEM"')
+        .eq('session_id', sessionId)
+        .eq('COD. PRODUTO', productId)
+        .limit(1)
+        .maybeSingle()
+
+      if (bdRecord) {
+        await supabase
+          .from('BANCO_DE_DADOS')
+          .update({
+            'SALDO FINAL': Number(bdRecord['SALDO FINAL'] || 0) + diff,
+            CONTAGEM: Number(bdRecord['CONTAGEM'] || 0) + diff,
+          })
+          .eq('ID VENDA ITENS', bdRecord['ID VENDA ITENS'])
+      }
+    }
+  },
+
+  async deleteCount(countId: number, sessionId: number, productId: number) {
+    const { data: existing } = await supabase.from('ESTOQUE CARRO CONTAGEM').select('quantidade').eq('id', countId).single()
+    if (!existing) return
+    
+    const oldQty = existing.quantidade || 0
+
+    const { error } = await supabase.from('ESTOQUE CARRO CONTAGEM').delete().eq('id', countId)
+    if (error) throw error
+
+    if (oldQty !== 0) {
+      const { data: bdRecord } = await supabase
+        .from('BANCO_DE_DADOS')
+        .select('"ID VENDA ITENS", "SALDO FINAL", "CONTAGEM"')
+        .eq('session_id', sessionId)
+        .eq('COD. PRODUTO', productId)
+        .limit(1)
+        .maybeSingle()
+
+      if (bdRecord) {
+        await supabase
+          .from('BANCO_DE_DADOS')
+          .update({
+            'SALDO FINAL': Number(bdRecord['SALDO FINAL'] || 0) - oldQty,
+            CONTAGEM: Number(bdRecord['CONTAGEM'] || 0) - oldQty,
+          })
+          .eq('ID VENDA ITENS', bdRecord['ID VENDA ITENS'])
+      }
     }
   },
 
@@ -653,7 +645,6 @@ export const estoqueCarroService = {
   },
 
   async finishSession(session: EstoqueCarroSession, items: EstoqueCarroItem[]) {
-    // 1. Save Final Balances
     const finalBalances = items.map((item) => ({
       id_estoque_carro: session.id,
       produto_id: item.produto_id,
@@ -670,7 +661,6 @@ export const estoqueCarroService = {
       .eq('id_estoque_carro', session.id)
     await supabase.from('ESTOQUE CARRO SALDO FINAL').insert(finalBalances)
 
-    // 2. Save Differences / Adjustments Snapshot
     const adjustments = items.map((item) => ({
       id_estoque_carro: session.id,
       produto_id: item.produto_id,
@@ -686,13 +676,11 @@ export const estoqueCarroService = {
       .eq('id_estoque_carro', session.id)
     await supabase.from('ESTOQUE CARRO AJUSTES').insert(adjustments)
 
-    // 3. Close Session
     await supabase
       .from('ID ESTOQUE CARRO')
       .update({ data_fim: new Date().toISOString() })
       .eq('id', session.id)
 
-    // 4. Start New Session immediately
     await this.startSession(session.funcionario_id)
   },
 
@@ -701,7 +689,6 @@ export const estoqueCarroService = {
     pageSize: number = 20,
     filters: DeliveryHistoryFilter,
   ) {
-    // Cast to any because the view is created in migration and might not be in types yet
     let query = supabase
       .from('view_delivery_history' as any)
       .select('*', { count: 'exact' })
@@ -711,14 +698,12 @@ export const estoqueCarroService = {
     }
 
     if (filters.endDate) {
-      // Assuming endDate is inclusive for the day, append time to cover the day
       const endDateTime = `${filters.endDate}T23:59:59`
       query = query.lte('data_movimento', endDateTime)
     }
 
     if (filters.search) {
       const s = filters.search
-      // Filter by client name or product name
       query = query.or(`nome_cliente.ilike.%${s}%,produto.ilike.%${s}%`)
     }
 
@@ -762,3 +747,4 @@ export const estoqueCarroService = {
     return (data as DeliveryHistoryRow[]) || []
   },
 }
+

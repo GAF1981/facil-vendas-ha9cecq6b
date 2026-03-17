@@ -303,6 +303,10 @@ export function EstoqueCarroTable({ items, onRefresh }: Props) {
             sessionId={selectedItem.id_estoque_carro}
             productId={selectedItem.produto_id}
             productName={selectedItem.produto}
+            onRefresh={() => {
+              if (onRefresh) onRefresh()
+              else window.location.reload()
+            }}
           />
         )}
 

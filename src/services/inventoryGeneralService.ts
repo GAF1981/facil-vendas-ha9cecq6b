@@ -21,7 +21,6 @@ export const inventoryGeneralService = {
   },
 
   async startNewSession(): Promise<InventoryGeneralSession> {
-    // Use the RPC for atomic and robust transition
     const { data, error } = await supabase.rpc('start_new_inventory_session')
 
     if (error) {
@@ -29,7 +28,6 @@ export const inventoryGeneralService = {
       throw error
     }
 
-    // RPC returns a single object (Json), cast it to the type
     return data as unknown as InventoryGeneralSession
   },
 
@@ -200,6 +198,32 @@ export const inventoryGeneralService = {
     })
   },
 
+  async getMovementDetails(sessionId: number, productId: number) {
+    const [compras, carToStock, stockToCar, perdas, contagens] = await Promise.all([
+      supabase.from('ESTOQUE GERAL COMPRAS').select('*').eq('id_inventario', sessionId).eq('produto_id', productId),
+      supabase.from('ESTOQUE GERAL CARRO PARA ESTOQUE').select('*').eq('id_inventario', sessionId).eq('produto_id', productId),
+      supabase.from('ESTOQUE GERAL ESTOQUE PARA CARRO').select('*').eq('id_inventario', sessionId).eq('produto_id', productId),
+      supabase.from('ESTOQUE GERAL SAÍDAS PERDAS').select('*').eq('id_inventario', sessionId).eq('produto_id', productId),
+      supabase.from('ESTOQUE GERAL CONTAGEM').select('*').eq('id_inventario', sessionId).eq('produto_id', productId),
+    ])
+
+    const format = (data: any[], type: string, qtyField: string) => (data || []).map(d => ({
+      id: d.id,
+      movement_type: type,
+      data_horario: d.created_at,
+      quantidade: d[qtyField] || 0,
+      pedido: sessionId
+    }))
+
+    return [
+      ...format(compras.data, 'compra', 'compras_quantidade'),
+      ...format(carToStock.data, 'devolucao_carro', 'quantidade'),
+      ...format(stockToCar.data, 'reposicao_carro', 'quantidade'),
+      ...format(perdas.data, 'perda', 'quantidade'),
+      ...format(contagens.data, 'contagem', 'quantidade'),
+    ].sort((a, b) => new Date(b.data_horario).getTime() - new Date(a.data_horario).getTime())
+  },
+
   async registerMovement(
     sessionId: number,
     type: InventoryMovementType,
@@ -227,7 +251,6 @@ export const inventoryGeneralService = {
         })),
       )
     } else if (type === 'CARRO_PARA_ESTOQUE' || type === 'ESTOQUE_PARA_CARRO') {
-      // Validate Active Session for the Employee (Blocking)
       const employeeId = items[0]?.extra?.funcionarioId
       if (!employeeId) throw new Error('Funcionário não informado.')
 
@@ -239,7 +262,6 @@ export const inventoryGeneralService = {
         )
       }
 
-      // 1. Insert into existing tables (for Inventory General Consistency)
       if (type === 'CARRO_PARA_ESTOQUE') {
         await supabase.from('ESTOQUE GERAL CARRO PARA ESTOQUE').insert(
           items.map((i) => ({
@@ -260,8 +282,6 @@ export const inventoryGeneralService = {
         )
       }
 
-      // 2. Insert into REPOSIÇÃO E DEVOLUÇÃO (for Car Stock Sync with strict linking)
-      // FIX: Check for active session in "DATAS DE INVENTÁRIO" to comply with FK constraint
       const { data: datasInvData, error: datasInvError } = await supabase
         .from('DATAS DE INVENTÁRIO')
         .select('"ID INVENTÁRIO"')
@@ -284,12 +304,12 @@ export const inventoryGeneralService = {
       const datasInvId = datasInvData['ID INVENTÁRIO']
 
       const repoItems = items.map((i) => ({
-        session_id: datasInvId, // Use the correct FK ID from DATAS DE INVENTÁRIO
+        session_id: datasInvId,
         id_estoque_carro: activeSession.id,
         funcionario_id: i.extra?.funcionarioId,
         produto_id: i.productId,
         quantidade: i.quantity,
-        TIPO: type === 'ESTOQUE_PARA_CARRO' ? 'REPOSICAO' : 'DEVOLUCAO', // Uppercase, no accents
+        TIPO: type === 'ESTOQUE_PARA_CARRO' ? 'REPOSICAO' : 'DEVOLUCAO',
       }))
 
       const { error: repoError } = await supabase
@@ -301,42 +321,14 @@ export const inventoryGeneralService = {
         throw repoError
       }
     } else if (type === 'CONTAGEM') {
-      // Additive logic for CONTAGEM to handle cumulative quick count updates
       for (const item of items) {
-        // 1. Fetch existing count
-        const { data: existing } = await supabase
-          .from('ESTOQUE GERAL CONTAGEM')
-          .select('id, quantidade')
-          .eq('id_inventario', sessionId)
-          .eq('produto_id', item.productId)
-          .maybeSingle()
+        const { error } = await supabase.from('ESTOQUE GERAL CONTAGEM').insert({
+          id_inventario: sessionId,
+          produto_id: item.productId,
+          quantidade: item.quantity,
+        })
+        if (error) throw error
 
-        if (existing) {
-          const newQty =
-            Number(existing.quantidade || 0) + Number(item.quantity)
-
-          const { error } = await supabase
-            .from('ESTOQUE GERAL CONTAGEM')
-            .update({
-              quantidade: newQty,
-              created_at: new Date().toISOString(),
-            })
-            .eq('id', existing.id)
-
-          if (error) throw error
-        } else {
-          const { error } = await supabase
-            .from('ESTOQUE GERAL CONTAGEM')
-            .insert({
-              id_inventario: sessionId,
-              produto_id: item.productId,
-              quantidade: item.quantity,
-            })
-
-          if (error) throw error
-        }
-
-        // 2. Also update CONTAGEM DE ESTOQUE FINAL cumulatively as per Acceptance Criteria
         const { data: cefRecord } = await supabase
           .from('CONTAGEM DE ESTOQUE FINAL' as any)
           .select('id, quantidade')
@@ -348,8 +340,7 @@ export const inventoryGeneralService = {
           await supabase
             .from('CONTAGEM DE ESTOQUE FINAL' as any)
             .update({
-              quantidade:
-                Number(cefRecord.quantidade || 0) + Number(item.quantity),
+              quantidade: Number(cefRecord.quantidade || 0) + Number(item.quantity),
             })
             .eq('id', cefRecord.id)
         } else {
@@ -359,6 +350,63 @@ export const inventoryGeneralService = {
             quantidade: item.quantity,
           })
         }
+      }
+    }
+  },
+
+  async updateCount(countId: number, newQuantity: number, sessionId: number, productId: number) {
+    const { data: existing } = await supabase.from('ESTOQUE GERAL CONTAGEM').select('quantidade').eq('id', countId).single()
+    if (!existing) return
+    
+    const oldQty = existing.quantidade || 0
+    const diff = newQuantity - oldQty
+
+    const { error } = await supabase.from('ESTOQUE GERAL CONTAGEM').update({ quantidade: newQuantity }).eq('id', countId)
+    if (error) throw error
+
+    if (diff !== 0) {
+      const { data: cefRecord } = await supabase
+        .from('CONTAGEM DE ESTOQUE FINAL' as any)
+        .select('id, quantidade')
+        .eq('session_id', sessionId)
+        .eq('produto_id', productId)
+        .maybeSingle()
+
+      if (cefRecord) {
+        await supabase
+          .from('CONTAGEM DE ESTOQUE FINAL' as any)
+          .update({
+            quantidade: Number(cefRecord.quantidade || 0) + diff,
+          })
+          .eq('id', cefRecord.id)
+      }
+    }
+  },
+
+  async deleteCount(countId: number, sessionId: number, productId: number) {
+    const { data: existing } = await supabase.from('ESTOQUE GERAL CONTAGEM').select('quantidade').eq('id', countId).single()
+    if (!existing) return
+    
+    const oldQty = existing.quantidade || 0
+
+    const { error } = await supabase.from('ESTOQUE GERAL CONTAGEM').delete().eq('id', countId)
+    if (error) throw error
+
+    if (oldQty !== 0) {
+      const { data: cefRecord } = await supabase
+        .from('CONTAGEM DE ESTOQUE FINAL' as any)
+        .select('id, quantidade')
+        .eq('session_id', sessionId)
+        .eq('produto_id', productId)
+        .maybeSingle()
+
+      if (cefRecord) {
+        await supabase
+          .from('CONTAGEM DE ESTOQUE FINAL' as any)
+          .update({
+            quantidade: Number(cefRecord.quantidade || 0) - oldQty,
+          })
+          .eq('id', cefRecord.id)
       }
     }
   },
@@ -436,7 +484,6 @@ export const inventoryGeneralService = {
   },
 
   async finalizeAdjustments(sessionId: number, items: InventoryGeneralItem[]) {
-    // 1. Save adjustments to DB before transitioning
     const adjustments = items.map((item) => ({
       id_inventario: sessionId,
       produto_id: item.produto_id,
@@ -459,7 +506,6 @@ export const inventoryGeneralService = {
       if (error) throw error
     }
 
-    // 2. Call RPC to close current and start new session atomically
     await this.startNewSession()
   },
 
@@ -506,3 +552,4 @@ export const inventoryGeneralService = {
     }
   },
 }
+
