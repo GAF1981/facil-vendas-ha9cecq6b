@@ -48,6 +48,7 @@ export default function ContagemPage() {
   const [filteredProducts, setFilteredProducts] = useState<ProductRow[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [initialCounts, setInitialCounts] = useState<Record<number, number>>({})
   const [counts, setCounts] = useState<Record<number, number>>({})
   const { toast } = useToast()
   const [activeSession, setActiveSession] = useState<any>(null)
@@ -70,13 +71,13 @@ export default function ContagemPage() {
         // 2. Load existing counts for this session if available
         if (session) {
           const loadedCounts = await inventarioService.getSessionCounts(
-            session['ID INVENTÁRIO'],
+            session['ID INVENTÁRIO'] || session.id,
           )
+          setInitialCounts(loadedCounts)
           setCounts(loadedCounts)
         }
 
         // 3. Fetch ALL products for client-side filtering and summary
-        // Using a large page size to effectively get all
         const { data } = await productsService.getProducts(1, 10000, '')
         setAllProducts(data)
         setFilteredProducts(data)
@@ -162,24 +163,31 @@ export default function ContagemPage() {
       return
     }
 
-    // Prepare all items that have a count (even 0, if they were modified/loaded)
-    // We iterate over the 'counts' state which holds the current truth
-    const itemsToSave = Object.entries(counts).map(([idStr, qty]) => {
-      const id = parseInt(idStr)
-      const product = allProducts.find((p) => p.ID === id)
-      return {
-        productId: id,
-        productCode: product?.CODIGO || null,
-        productName: product?.PRODUTO || '',
-        quantity: qty,
-        price: product ? parseCurrency(product.PREÇO) : 0,
-      }
-    })
+    // Calculate deltas to ensure additive logic works correctly
+    // even in concurrent environments or multiple saves
+    const itemsToSave = Object.entries(counts)
+      .map(([idStr, qty]) => {
+        const id = parseInt(idStr)
+        const initialQty = initialCounts[id] || 0
+        const delta = qty - initialQty
+
+        if (delta === 0) return null
+
+        const product = allProducts.find((p) => p.ID === id)
+        return {
+          productId: id,
+          productCode: product?.CODIGO || null,
+          productName: product?.PRODUTO || '',
+          quantity: delta, // Send only the difference!
+          price: product ? parseCurrency(product.PREÇO) : 0,
+        }
+      })
+      .filter(Boolean) as any[]
 
     if (itemsToSave.length === 0) {
       toast({
         title: 'Atenção',
-        description: 'Nenhuma contagem encontrada para salvar.',
+        description: 'Nenhuma nova contagem encontrada para salvar.',
         variant: 'default',
       })
       return
@@ -191,7 +199,7 @@ export default function ContagemPage() {
 
       await inventarioService.saveFinalCounts(
         itemsToSave,
-        activeSession['ID INVENTÁRIO'],
+        activeSession['ID INVENTÁRIO'] || activeSession.id,
         targetEmployeeId,
       )
 
@@ -200,6 +208,9 @@ export default function ContagemPage() {
         description: `${itemsToSave.length} itens salvos na tabela de Contagem de Estoque Final.`,
         className: 'bg-green-600 text-white',
       })
+
+      // Update initial counts to prevent sending duplicates
+      setInitialCounts({ ...counts })
     } catch (error: any) {
       console.error('Save error:', error)
       toast({
@@ -236,7 +247,7 @@ export default function ContagemPage() {
               {activeSession ? (
                 <>
                   <span className="font-semibold text-primary">
-                    Sessão #{activeSession['ID INVENTÁRIO']}
+                    Sessão #{activeSession['ID INVENTÁRIO'] || activeSession.id}
                   </span>
                   <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
                     {activeSession.TIPO}

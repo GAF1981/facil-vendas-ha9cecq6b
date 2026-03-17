@@ -44,6 +44,7 @@ import ContagemPage from '@/pages/inventario/ContagemPage'
 import ResumoAcertosPage from '@/pages/resumo-acertos/ResumoAcertosPage'
 import PermissionsPage from '@/pages/admin/PermissionsPage'
 import IndicadoresPage from '@/pages/admin/IndicadoresPage'
+import BulkGeocodePage from '@/pages/admin/BulkGeocodePage'
 import EstoqueCarroPage from '@/pages/estoque-carro/EstoqueCarroPage'
 import InativarClientesPage from '@/pages/inativar-clientes/InativarClientesPage'
 import VehiclesPage from '@/pages/vehicles/VehiclesPage'
@@ -76,6 +77,10 @@ const App = () => (
                 <Route element={<PermissionGuard module="Clientes" />}>
                   <Route path="/clientes" element={<ClientsPage />} />
                   <Route path="/clientes/novo" element={<ClientFormPage />} />
+                  <Route
+                    path="/clientes/geocode"
+                    element={<BulkGeocodePage />}
+                  />
                   <Route path="/clientes/:id" element={<ClientFormPage />} />
                   <Route
                     path="/clientes/:id/historico"

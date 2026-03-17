@@ -13,7 +13,7 @@ export function RotaMap({ rows }: RotaMapProps) {
       lng: parseFloat(r.client.longitude as string),
       name: r.client['NOME CLIENTE'],
       address: r.client.ENDEREÇO || '',
-      index: i + 1,
+      index: r.rowNumber || i + 1,
     }))
     .filter((m) => !isNaN(m.lat) && !isNaN(m.lng))
 
@@ -41,6 +41,24 @@ export function RotaMap({ rows }: RotaMapProps) {
           border: 2px solid white;
           box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
+        .popup-nav-btn {
+          display: inline-block;
+          margin-top: 10px;
+          padding: 8px 12px;
+          background-color: #2563eb;
+          color: white;
+          text-decoration: none;
+          border-radius: 4px;
+          font-weight: bold;
+          font-size: 12px;
+          text-align: center;
+          width: 100%;
+          box-sizing: border-box;
+          transition: background-color 0.2s;
+        }
+        .popup-nav-btn:hover {
+          background-color: #1d4ed8;
+        }
       </style>
     </head>
     <body>
@@ -62,7 +80,13 @@ export function RotaMap({ rows }: RotaMapProps) {
             iconAnchor: [14, 14]
           });
           const marker = L.marker([m.lat, m.lng], { icon }).addTo(map);
-          marker.bindPopup('<b>#' + m.index + ' - ' + m.name + '</b><br/>' + m.address);
+          
+          const navUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + m.lat + ',' + m.lng;
+          const popupContent = '<b>#' + m.index + ' - ' + m.name + '</b><br/>' + 
+                               m.address + 
+                               '<br/><a href="' + navUrl + '" target="_blank" class="popup-nav-btn">Iniciar Navegação</a>';
+                               
+          marker.bindPopup(popupContent);
           bounds.push([m.lat, m.lng]);
         });
 
@@ -90,7 +114,7 @@ export function RotaMap({ rows }: RotaMapProps) {
         srcDoc={html}
         className="w-full h-full border-0 absolute inset-0"
         title="Mapa de Rotas"
-        sandbox="allow-scripts allow-same-origin"
+        sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
       />
     </div>
   )

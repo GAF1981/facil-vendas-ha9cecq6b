@@ -121,4 +121,36 @@ export const inventarioService = {
       throw error
     }
   },
+
+  async getSessionCounts(sessionId: number): Promise<Record<number, number>> {
+    const { data, error } = await supabase
+      .from('CONTAGEM DE ESTOQUE FINAL' as any)
+      .select('produto_id, quantidade')
+      .eq('session_id', sessionId)
+
+    if (error) {
+      console.error('Error fetching session counts:', error)
+      return {}
+    }
+
+    const counts: Record<number, number> = {}
+    data?.forEach((row: any) => {
+      counts[row.produto_id] = row.quantidade
+    })
+    return counts
+  },
+
+  async saveFinalCounts(
+    items: any[],
+    sessionId: number,
+    employeeId: number | null,
+  ) {
+    if (items.length === 0) return
+    const { error } = await supabase.rpc('process_inventory_batch', {
+      p_session_id: sessionId,
+      p_items: items,
+      p_funcionario_id: employeeId || 0,
+    })
+    if (error) throw error
+  },
 }

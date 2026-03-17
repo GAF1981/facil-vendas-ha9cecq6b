@@ -625,14 +625,15 @@ export const estoqueCarroService = {
       .maybeSingle()
 
     if (bdRecord) {
-      const newSaldoFinal = Number(bdRecord['SALDO FINAL'] || 0) + Number(quantity)
+      const newSaldoFinal =
+        Number(bdRecord['SALDO FINAL'] || 0) + Number(quantity)
       const newContagem = Number(bdRecord['CONTAGEM'] || 0) + Number(quantity)
 
       await supabase
         .from('BANCO_DE_DADOS')
         .update({
           'SALDO FINAL': newSaldoFinal,
-          'CONTAGEM': newContagem,
+          CONTAGEM: newContagem,
         })
         .eq('ID VENDA ITENS', bdRecord['ID VENDA ITENS'])
     }

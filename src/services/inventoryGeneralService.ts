@@ -312,8 +312,9 @@ export const inventoryGeneralService = {
           .maybeSingle()
 
         if (existing) {
-          const newQty = Number(existing.quantidade || 0) + Number(item.quantity)
-          
+          const newQty =
+            Number(existing.quantidade || 0) + Number(item.quantity)
+
           const { error } = await supabase
             .from('ESTOQUE GERAL CONTAGEM')
             .update({
@@ -346,18 +347,17 @@ export const inventoryGeneralService = {
         if (cefRecord) {
           await supabase
             .from('CONTAGEM DE ESTOQUE FINAL' as any)
-            .update({ 
-              quantidade: Number(cefRecord.quantidade || 0) + Number(item.quantity) 
+            .update({
+              quantidade:
+                Number(cefRecord.quantidade || 0) + Number(item.quantity),
             })
             .eq('id', cefRecord.id)
         } else {
-          await supabase
-            .from('CONTAGEM DE ESTOQUE FINAL' as any)
-            .insert({
-              session_id: sessionId,
-              produto_id: item.productId,
-              quantidade: item.quantity,
-            })
+          await supabase.from('CONTAGEM DE ESTOQUE FINAL' as any).insert({
+            session_id: sessionId,
+            produto_id: item.productId,
+            quantidade: item.quantity,
+          })
         }
       }
     }

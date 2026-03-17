@@ -349,8 +349,8 @@ export function ClientForm({
       let finalLat = data.latitude
       let finalLon = data.longitude
 
-      // Automatic Geocoding on Save if empty
-      if (!finalLat || !finalLon) {
+      // Automatic Geocoding on Save if empty or zero
+      if (!finalLat || !finalLon || finalLat === '0' || finalLon === '0') {
         const endereco = data.ENDEREÇO
         const bairro = data.BAIRRO
         const municipio = data.MUNICÍPIO
