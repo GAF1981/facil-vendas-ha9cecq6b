@@ -11,10 +11,16 @@ import { Progress } from '@/components/ui/progress'
 import { useToast } from '@/hooks/use-toast'
 import { clientsService } from '@/services/clientsService'
 import { ClientRow } from '@/types/client'
-import { Loader2, MapPin, Play, CheckCircle2, AlertCircle } from 'lucide-react'
+import {
+  Loader2,
+  MapPin,
+  Play,
+  CheckCircle2,
+  AlertCircle,
+  ArrowLeft,
+} from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { Link } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
 
 export default function BulkGeocodePage() {
   const [loading, setLoading] = useState(false)
@@ -70,8 +76,8 @@ export default function BulkGeocodePage() {
             await supabase
               .from('CLIENTES')
               .update({
-                latitude: coords.lat,
-                longitude: coords.lon,
+                latitude: String(coords.lat),
+                longitude: String(coords.lon),
               })
               .eq('CODIGO', client.CODIGO)
             successes++
