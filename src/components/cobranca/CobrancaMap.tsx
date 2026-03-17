@@ -16,7 +16,6 @@ export function CobrancaMap({
 
   data.forEach((client) => {
     let hasSelected = false
-    let debtValue = 0
     let status = 'SEM DÉBITO'
     let isMotoqueiro = false
 
@@ -35,8 +34,6 @@ export function CobrancaMap({
           if (inst.formaCobranca === 'MOTOQUEIRO') {
             isMotoqueiro = true
           }
-          const currentDebt = Math.max(0, inst.valorRegistrado - inst.valorPago)
-          debtValue += currentDebt
           if (inst.status === 'VENCIDO') status = 'VENCIDO'
           else if (inst.status === 'A VENCER' && status !== 'VENCIDO')
             status = 'A VENCER'
@@ -52,7 +49,7 @@ export function CobrancaMap({
         address: client.address || '',
         neighborhood: client.neighborhood || '',
         city: client.city || '',
-        debtValue,
+        debtValue: client.totalDebt,
         code: client.clientId,
         status,
         isMotoqueiro,

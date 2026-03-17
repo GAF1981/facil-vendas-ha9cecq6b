@@ -207,21 +207,23 @@ export default function ResumoAcertosPage() {
 
   useEffect(() => {
     if (
-      data.length > 0 &&
+      !loading &&
+      hasInitializedEmployee &&
       selectedEmployeeId !== 'todos' &&
-      loggedInUser &&
-      selectedEmployeeId === loggedInUser.id.toString()
+      loggedInUser
     ) {
-      const hasMine = data.some(
-        (s) =>
-          s.employeeId?.toString() === selectedEmployeeId ||
-          s.employee === loggedInUser.nome_completo,
-      )
-      if (!hasMine) {
-        setSelectedEmployeeId('todos')
+      if (selectedEmployeeId === loggedInUser.id.toString()) {
+        const hasMine = data.some(
+          (s) =>
+            s.employeeId?.toString() === selectedEmployeeId ||
+            s.employee === loggedInUser.nome_completo,
+        )
+        if (!hasMine) {
+          setSelectedEmployeeId('todos')
+        }
       }
     }
-  }, [data, selectedEmployeeId, loggedInUser])
+  }, [loading, data, selectedEmployeeId, loggedInUser, hasInitializedEmployee])
 
   useEffect(() => {
     const fetchProjections = async () => {

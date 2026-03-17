@@ -34,7 +34,7 @@ import {
   ArrowLeft,
   CheckCircle,
   Trash2,
-  Info,
+  Eye,
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/formatters'
 import { Link } from 'react-router-dom'
@@ -47,6 +47,12 @@ import {
 import { Checkbox } from '@/components/ui/checkbox'
 import { ExpositorObservationModal } from '@/components/inativar-clientes/ExpositorObservationModal'
 import { InativarHistoryTable } from '@/components/inativar-clientes/InativarHistoryTable'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 export default function InativarClientesPage() {
   const [data, setData] = useState<InativarCliente[]>([])
@@ -57,6 +63,9 @@ export default function InativarClientesPage() {
   const [clientToDelete, setClientToDelete] = useState<InativarCliente | null>(
     null,
   )
+  const [reasonDialogOpen, setReasonDialogOpen] = useState(false)
+  const [selectedReason, setSelectedReason] = useState<string | null>(null)
+
   const { toast } = useToast()
 
   const loadData = async () => {
@@ -89,17 +98,14 @@ export default function InativarClientesPage() {
     checked: boolean,
   ) => {
     if (checked) {
-      // Open modal to capture observation before checking
       setModalClient(client)
     } else {
-      // Uncheck immediately (clear observation?)
       try {
         await inativarClientesService.updateExpositorStatus(
           client.id,
           false,
           null,
         )
-        // Update local state optimistically
         setData((prev) =>
           prev.map((item) =>
             item.id === client.id
@@ -123,7 +129,6 @@ export default function InativarClientesPage() {
 
   const handleSaveObservation = async (id: number, observation: string) => {
     await inativarClientesService.updateExpositorStatus(id, true, observation)
-    // Update local state
     setData((prev) =>
       prev.map((item) =>
         item.id === id
@@ -144,7 +149,6 @@ export default function InativarClientesPage() {
   const handleInactivate = async () => {
     if (!targetClient) return
 
-    // Determine Status based on debt (Scenario A/B)
     const hasDebt = (targetClient.debito || 0) > 0
     const newStatus = hasDebt ? 'INATIVO-COBRANÇA' : 'INATIVO'
 
@@ -194,7 +198,11 @@ export default function InativarClientesPage() {
     }
   }
 
-  // Helper to determine confirmation message
+  const handleViewReason = (reason: string | null) => {
+    setSelectedReason(reason || 'Nenhum motivo registrado.')
+    setReasonDialogOpen(true)
+  }
+
   const getConfirmationMessage = () => {
     if (!targetClient) return ''
     const hasDebt = (targetClient.debito || 0) > 0
@@ -254,6 +262,9 @@ export default function InativarClientesPage() {
                     <TableHead className="w-[120px] text-center">
                       Expositor
                     </TableHead>
+                    <TableHead className="w-[80px] text-center">
+                      Motivo
+                    </TableHead>
                     <TableHead className="w-[120px] text-center">
                       Ações
                     </TableHead>
@@ -263,7 +274,7 @@ export default function InativarClientesPage() {
                   {data.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={8}
+                        colSpan={9}
                         className="h-24 text-center text-muted-foreground"
                       >
                         Nenhum cliente pendente de inativação.
@@ -298,22 +309,23 @@ export default function InativarClientesPage() {
                                 handleExpositorCheck(row, checked === true)
                               }
                             />
-                            {row.expositor_retirado &&
-                              row.observacoes_expositor && (
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Info className="h-4 w-4 cursor-help text-muted-foreground" />
-                                    </TooltipTrigger>
-                                    <TooltipContent className="max-w-xs">
-                                      <p className="text-xs">
-                                        {row.observacoes_expositor}
-                                      </p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              )}
                           </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {row.expositor_retirado &&
+                            row.observacoes_expositor && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-blue-600 hover:bg-blue-50"
+                                onClick={() =>
+                                  handleViewReason(row.observacoes_expositor)
+                                }
+                                title="Ver Motivo"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            )}
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex justify-center gap-2">
@@ -375,7 +387,6 @@ export default function InativarClientesPage() {
         <InativarHistoryTable data={historyData} loading={loading} />
       </div>
 
-      {/* Expositor Observation Modal */}
       <ExpositorObservationModal
         isOpen={!!modalClient}
         onClose={() => setModalClient(null)}
@@ -383,7 +394,6 @@ export default function InativarClientesPage() {
         client={modalClient}
       />
 
-      {/* Inactivate Dialog */}
       <AlertDialog
         open={!!targetClient}
         onOpenChange={(open) => !open && setTargetClient(null)}
@@ -414,7 +424,6 @@ export default function InativarClientesPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete Dialog */}
       <AlertDialog
         open={!!clientToDelete}
         onOpenChange={(open) => !open && setClientToDelete(null)}
@@ -442,6 +451,19 @@ export default function InativarClientesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={reasonDialogOpen} onOpenChange={setReasonDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Motivo da Inativação</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+              {selectedReason}
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -75,8 +75,7 @@ export default function CobrancaPage() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [isSimplified, setIsSimplified] = useState(true)
   const [activeTab, setActiveTab] = useState('geral')
-  const [isMotoqueiroMapOpen, setIsMotoqueiroMapOpen] = useState(false)
-  const [isGeralMapOpen, setIsGeralMapOpen] = useState(false)
+  const [isMapMode, setIsMapMode] = useState(false)
 
   // Inactivity Alert State
   const [inactiveThreshold, setInactiveThreshold] = useState(10)
@@ -553,8 +552,24 @@ export default function CobrancaPage() {
               checked={isSimplified}
               onCheckedChange={setIsSimplified}
             />
-            <Label htmlFor="simplified-mode">Cobrança simplificado</Label>
+            <Label htmlFor="simplified-mode">Cobrança simplificada</Label>
           </div>
+
+          <Button
+            variant="outline"
+            onClick={() => setIsMapMode(!isMapMode)}
+            className="flex items-center gap-2"
+          >
+            {isMapMode ? (
+              <>
+                <List className="h-4 w-4" /> Ver Lista
+              </>
+            ) : (
+              <>
+                <MapIcon className="h-4 w-4" /> Ver Mapa
+              </>
+            )}
+          </Button>
 
           <Button
             variant="outline"
@@ -818,22 +833,8 @@ export default function CobrancaPage() {
                     </Button>
                   </>
                 )}
-                <div className="ml-auto flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setIsGeralMapOpen(!isGeralMapOpen)}
-                  >
-                    {isGeralMapOpen ? (
-                      <List className="mr-2 h-4 w-4" />
-                    ) : (
-                      <MapIcon className="mr-2 h-4 w-4" />
-                    )}
-                    {isGeralMapOpen ? 'Ver Lista' : 'Ver Mapa'}
-                  </Button>
-                </div>
               </div>
-              {isGeralMapOpen ? (
+              {isMapMode ? (
                 <CobrancaMap
                   data={filteredDebts}
                   selectedItems={new Set()}
@@ -870,18 +871,6 @@ export default function CobrancaPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => setIsMotoqueiroMapOpen(!isMotoqueiroMapOpen)}
-                  >
-                    {isMotoqueiroMapOpen ? (
-                      <List className="mr-2 h-4 w-4" />
-                    ) : (
-                      <MapIcon className="mr-2 h-4 w-4" />
-                    )}
-                    {isMotoqueiroMapOpen ? 'Ver Lista' : 'Ver Mapa'}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
                     onClick={handleRefreshCourierRoute}
                   >
                     <RefreshCw className="mr-2 h-4 w-4" />
@@ -893,7 +882,7 @@ export default function CobrancaPage() {
                   <Button size="sm">Enviar para Motoqueiro</Button>
                 </div>
               </div>
-              {isMotoqueiroMapOpen ? (
+              {isMapMode ? (
                 <CobrancaMap
                   data={filteredDebts}
                   selectedItems={selectedItems}
