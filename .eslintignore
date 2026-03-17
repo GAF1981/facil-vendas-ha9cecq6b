@@ -1,6 +1,4 @@
 node_modules
 dist
 dev-dist
-public
-.git
-.env
+src/lib/supabase/types.ts
