@@ -8,13 +8,28 @@ interface RotaMapProps {
 export function RotaMap({ rows }: RotaMapProps) {
   const markers = rows
     .filter((r) => r.client.latitude && r.client.longitude)
-    .map((r, i) => ({
-      lat: parseFloat(r.client.latitude as string),
-      lng: parseFloat(r.client.longitude as string),
-      name: r.client['NOME CLIENTE'],
-      address: r.client.ENDEREÇO || '',
-      index: r.rowNumber || i + 1,
-    }))
+    .map((r, i) => {
+      let color = 'white'
+      let textColor = 'black'
+
+      if (r.is_completed) {
+        color = '#22c55e' // Green
+        textColor = 'white'
+      } else if (r.has_pendency || r.debito > 0) {
+        color = '#ef4444' // Red
+        textColor = 'white'
+      }
+
+      return {
+        lat: parseFloat(r.client.latitude as string),
+        lng: parseFloat(r.client.longitude as string),
+        name: r.client['NOME CLIENTE'],
+        address: r.client.ENDEREÇO || '',
+        code: r.client.CODIGO,
+        color,
+        textColor,
+      }
+    })
     .filter((m) => !isNaN(m.lat) && !isNaN(m.lng))
 
   const html = `
@@ -28,16 +43,14 @@ export function RotaMap({ rows }: RotaMapProps) {
       <style>
         body, html, #map { margin: 0; padding: 0; height: 100%; width: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
         .custom-marker {
-          background-color: #2563eb;
-          color: white;
           border-radius: 50%;
-          width: 28px;
-          height: 28px;
+          width: 32px;
+          height: 32px;
           display: flex;
           align-items: center;
           justify-content: center;
           font-weight: bold;
-          font-size: 12px;
+          font-size: 11px;
           border: 2px solid white;
           box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
@@ -76,14 +89,23 @@ export function RotaMap({ rows }: RotaMapProps) {
         markers.forEach(m => {
           const icon = L.divIcon({
             className: 'custom-marker',
-            html: m.index,
-            iconSize: [28, 28],
-            iconAnchor: [14, 14]
+            html: m.code,
+            iconSize: [32, 32],
+            iconAnchor: [16, 16]
           });
           const marker = L.marker([m.lat, m.lng], { icon }).addTo(map);
           
+          marker.on('add', function() {
+            const el = marker.getElement();
+            if(el) {
+              el.style.backgroundColor = m.color;
+              el.style.color = m.textColor;
+              if (m.color === 'white') el.style.border = '2px solid black';
+            }
+          });
+
           const navUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + m.lat + ',' + m.lng;
-          const popupContent = '<b>#' + m.index + ' - ' + m.name + '</b><br/>' + 
+          const popupContent = '<b>#' + m.code + ' - ' + m.name + '</b><br/>' + 
                                m.address + 
                                '<br/><a href="' + navUrl + '" target="_blank" class="popup-nav-btn">Iniciar Navegação</a>';
                                
@@ -110,7 +132,7 @@ export function RotaMap({ rows }: RotaMapProps) {
   }
 
   return (
-    <div className="flex-1 rounded-md border bg-card overflow-hidden shadow-sm mt-2 relative">
+    <div className="flex-1 rounded-md border bg-card overflow-hidden shadow-sm mt-2 relative min-h-[500px]">
       <iframe
         srcDoc={html}
         className="w-full h-full border-0 absolute inset-0"

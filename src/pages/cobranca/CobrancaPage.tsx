@@ -27,8 +27,11 @@ import {
   Trash2,
   CalendarX,
   AlertTriangle,
+  MapIcon,
+  List,
 } from 'lucide-react'
 import { DebtTable } from '@/components/cobranca/DebtTable'
+import { CobrancaMap } from '@/components/cobranca/CobrancaMap'
 import { useToast } from '@/hooks/use-toast'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
@@ -72,6 +75,7 @@ export default function CobrancaPage() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [isSimplified, setIsSimplified] = useState(true)
   const [activeTab, setActiveTab] = useState('geral')
+  const [isMotoqueiroMapOpen, setIsMotoqueiroMapOpen] = useState(false)
 
   // Inactivity Alert State
   const [inactiveThreshold, setInactiveThreshold] = useState(10)
@@ -92,6 +96,21 @@ export default function CobrancaPage() {
 
       setDebts(debtsData)
       setBoletos(boletosData)
+
+      // Auto-populate selected items for motoqueiro based on active DB state
+      const initialSelected = new Set<string>()
+      debtsData.forEach((client) => {
+        client.orders.forEach((order) => {
+          order.installments.forEach((inst, index) => {
+            if (inst.formaCobranca === 'MOTOQUEIRO') {
+              initialSelected.add(
+                `${client.clientId || '0'}-${order.orderId || '0'}-${inst.id || '0'}-${index}`,
+              )
+            }
+          })
+        })
+      })
+      setSelectedItems(initialSelected)
 
       const threshold = thresholdStr ? parseInt(thresholdStr, 10) : 10
       setInactiveThreshold(threshold)
@@ -838,6 +857,18 @@ export default function CobrancaPage() {
                   <Button
                     size="sm"
                     variant="outline"
+                    onClick={() => setIsMotoqueiroMapOpen(!isMotoqueiroMapOpen)}
+                  >
+                    {isMotoqueiroMapOpen ? (
+                      <List className="mr-2 h-4 w-4" />
+                    ) : (
+                      <MapIcon className="mr-2 h-4 w-4" />
+                    )}
+                    {isMotoqueiroMapOpen ? 'Ver Lista' : 'Ver Mapa'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
                     onClick={handleRefreshCourierRoute}
                   >
                     <RefreshCw className="mr-2 h-4 w-4" />
@@ -849,23 +880,30 @@ export default function CobrancaPage() {
                   <Button size="sm">Enviar para Motoqueiro</Button>
                 </div>
               </div>
-              <DebtTable
-                data={filteredDebts}
-                boletos={boletos}
-                onRefresh={loadData}
-                selectedItems={selectedItems}
-                onToggleItem={handleToggleItem}
-                isCobrancaMode={true}
-                onToggleAll={handleToggleAll}
-                isSimplified={isSimplified}
-                statusFilter={statusFilter}
-                motoqueiroFilter={motoqueiroFilter}
-                orderFilter={orderFilter}
-                showOnlySelected={true}
-                formaPagamentoFilter={formaPagamentoFilter}
-                dataCombinadaRange={dataCombinadaRange}
-                vencimentoRange={vencimentoRange}
-              />
+              {isMotoqueiroMapOpen ? (
+                <CobrancaMap
+                  data={filteredDebts}
+                  selectedItems={selectedItems}
+                />
+              ) : (
+                <DebtTable
+                  data={filteredDebts}
+                  boletos={boletos}
+                  onRefresh={loadData}
+                  selectedItems={selectedItems}
+                  onToggleItem={handleToggleItem}
+                  isCobrancaMode={true}
+                  onToggleAll={handleToggleAll}
+                  isSimplified={isSimplified}
+                  statusFilter={statusFilter}
+                  motoqueiroFilter={motoqueiroFilter}
+                  orderFilter={orderFilter}
+                  showOnlySelected={true}
+                  formaPagamentoFilter={formaPagamentoFilter}
+                  dataCombinadaRange={dataCombinadaRange}
+                  vencimentoRange={vencimentoRange}
+                />
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>

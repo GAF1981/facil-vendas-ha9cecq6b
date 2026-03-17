@@ -3,7 +3,8 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, x-supabase-client-platform, apikey, content-type',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, x-supabase-client-platform, apikey, content-type',
 }
 
 Deno.serve(async (req) => {
@@ -16,26 +17,32 @@ Deno.serve(async (req) => {
     try {
       body = await req.json()
     } catch (e) {
-      return new Response(JSON.stringify({ error: 'Invalid or missing JSON body' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
-      })
+      return new Response(
+        JSON.stringify({ error: 'Invalid or missing JSON body' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        },
+      )
     }
 
     const { address } = body
 
     if (!address || typeof address !== 'string') {
-      return new Response(JSON.stringify({ error: 'Address string is required' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
-      })
+      return new Response(
+        JSON.stringify({ error: 'Address string is required' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        },
+      )
     }
 
     const encodedAddress = encodeURIComponent(address)
-    
+
     // Support an optional Google Maps API Key if configured in Supabase Edge Function environment
     const googleApiKey = Deno.env.get('GOOGLE_MAPS_API_KEY')
-    
+
     let lat: number | null = null
     let lon: number | null = null
 
@@ -45,56 +52,84 @@ Deno.serve(async (req) => {
       const response = await fetch(url)
 
       if (!response.ok) {
-        let errorText = response.statusText;
+        let errorText = response.statusText
         try {
-           const text = await response.text();
-           if (text) errorText = text.substring(0, 100);
+          const text = await response.text()
+          if (text) errorText = text.substring(0, 100)
         } catch (e) {}
 
-        return new Response(JSON.stringify({ error: `Google Maps API error: ${response.status} ${errorText}` }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 503,
-        })
+        return new Response(
+          JSON.stringify({
+            lat: null,
+            lon: null,
+            error: `Google Maps API error: ${response.status} ${errorText}`,
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          },
+        )
       }
 
       const data = await response.json()
-      
+
       if (data.status === 'OK' && data.results && data.results.length > 0) {
         lat = data.results[0].geometry.location.lat
         lon = data.results[0].geometry.location.lng
       } else if (data.status === 'ZERO_RESULTS') {
-        return new Response(JSON.stringify({ error: 'Address not found by Google Maps' }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 404,
-        })
+        return new Response(
+          JSON.stringify({
+            lat: null,
+            lon: null,
+            error: 'Address not found by Google Maps',
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          },
+        )
       } else {
-        return new Response(JSON.stringify({ error: `Geocoding failed with status: ${data.status}` }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 502,
-        })
+        return new Response(
+          JSON.stringify({
+            lat: null,
+            lon: null,
+            error: `Geocoding failed with status: ${data.status}`,
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          },
+        )
       }
     } else {
       // 2. Nominatim OpenStreetMap Free Geocoding API Strategy (Fallback)
       const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`
-      
+
       const response = await fetch(url, {
         headers: {
           'User-Agent': 'FacilVendasApp/1.0 (admin@facilvendas.com)',
-          'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'
+          'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
         },
       })
 
       if (!response.ok) {
-        let errorText = response.statusText;
+        let errorText = response.statusText
         try {
-           const text = await response.text();
-           if (text) errorText = text.substring(0, 100);
+          const text = await response.text()
+          if (text) errorText = text.substring(0, 100)
         } catch (e) {}
 
-        return new Response(JSON.stringify({ error: `Nominatim API error: ${response.status} ${errorText}` }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 503,
-        })
+        return new Response(
+          JSON.stringify({
+            lat: null,
+            lon: null,
+            error: `Nominatim API error: ${response.status} ${errorText}`,
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          },
+        )
       }
 
       const data = await response.json()
@@ -103,33 +138,50 @@ Deno.serve(async (req) => {
         lat = parseFloat(data[0].lat)
         lon = parseFloat(data[0].lon)
       } else {
-        return new Response(JSON.stringify({ error: 'Address not found by Nominatim' }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 404,
-        })
+        return new Response(
+          JSON.stringify({
+            lat: null,
+            lon: null,
+            error: 'Address not found by Nominatim',
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          },
+        )
       }
     }
 
     if (lat !== null && lon !== null) {
-      return new Response(
-        JSON.stringify({ lat, lon }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        },
-      )
+      return new Response(JSON.stringify({ lat, lon }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      })
     }
 
     // Fallback if something weird happens
-    return new Response(JSON.stringify({ error: 'Failed to extract coordinates' }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
-    })
-
+    return new Response(
+      JSON.stringify({
+        lat: null,
+        lon: null,
+        error: 'Failed to extract coordinates',
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      },
+    )
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message || 'Internal Server Error' }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
-    })
+    return new Response(
+      JSON.stringify({
+        lat: null,
+        lon: null,
+        error: error.message || 'Internal Server Error',
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      },
+    )
   }
 })

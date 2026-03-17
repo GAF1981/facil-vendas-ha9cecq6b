@@ -131,7 +131,23 @@ export default function ResumoAcertosPage() {
             })
           }
         }
-        setData(settlements)
+
+        let finalSettlements = settlements
+
+        if (
+          selectedEmployeeId !== 'todos' &&
+          loggedInUser &&
+          selectedEmployeeId === loggedInUser.id.toString()
+        ) {
+          const hasMine = finalSettlements.some(
+            (s) => s.employeeId === loggedInUser.id,
+          )
+          if (!hasMine) {
+            setSelectedEmployeeId('todos')
+          }
+        }
+
+        setData(finalSettlements)
       } catch (error) {
         console.error(error)
         toast({
@@ -143,7 +159,16 @@ export default function ResumoAcertosPage() {
         if (!isBackground) setLoading(false)
       }
     },
-    [routes, selectedRouteId, filterMode, dateRange, selectedClientId, toast],
+    [
+      routes,
+      selectedRouteId,
+      filterMode,
+      dateRange,
+      selectedClientId,
+      toast,
+      selectedEmployeeId,
+      loggedInUser,
+    ],
   )
 
   useEffect(() => {
@@ -189,13 +214,7 @@ export default function ResumoAcertosPage() {
       selectedEmployeeId === 'todos' &&
       filterMode !== 'cliente'
     ) {
-      const allowedSectors = ['Administrador', 'Gerente']
-      const userSectors = Array.isArray(loggedInUser.setor)
-        ? loggedInUser.setor
-        : [loggedInUser.setor]
-      if (!userSectors.some((s) => allowedSectors.includes(s || ''))) {
-        setSelectedEmployeeId(loggedInUser.id.toString())
-      }
+      setSelectedEmployeeId(loggedInUser.id.toString())
       setHasInitializedEmployee(true)
     }
   }, [loggedInUser, filterMode, hasInitializedEmployee, selectedEmployeeId])
