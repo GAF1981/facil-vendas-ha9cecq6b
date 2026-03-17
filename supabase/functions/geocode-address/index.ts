@@ -56,7 +56,9 @@ Deno.serve(async (req) => {
         try {
           const text = await response.text()
           if (text) errorText = text.substring(0, 100)
-        } catch (e) {}
+        } catch (e) {
+          // ignore
+        }
 
         return new Response(
           JSON.stringify({
@@ -117,7 +119,9 @@ Deno.serve(async (req) => {
         try {
           const text = await response.text()
           if (text) errorText = text.substring(0, 100)
-        } catch (e) {}
+        } catch (e) {
+          // ignore
+        }
 
         return new Response(
           JSON.stringify({
