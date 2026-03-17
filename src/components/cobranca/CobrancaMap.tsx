@@ -72,6 +72,7 @@ export function CobrancaMap({ data, selectedItems }: CobrancaMapProps) {
     return { ...c, color, textColor }
   })
 
+  // prettier-ignore
   const html = `
     <!DOCTYPE html>
     <html>

@@ -35,6 +35,7 @@ export function RotaMap({ rows }: RotaMapProps) {
     })
     .filter((m) => !isNaN(m.lat) && !isNaN(m.lng))
 
+  // prettier-ignore
   const html = `
     <!DOCTYPE html>
     <html>
