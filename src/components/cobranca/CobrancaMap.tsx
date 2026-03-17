@@ -78,7 +78,6 @@ export function CobrancaMap({
     return { ...c, color, textColor }
   })
 
-  // prettier-ignore
   const html = `
     <!DOCTYPE html>
     <html>
@@ -171,7 +170,7 @@ export function CobrancaMap({
                                addressFull + '<br/>' +
                                '<strong style="color:#ef4444; display:block; margin-top:4px;">Débito: ' + formattedDebt + '</strong>' +
                                '<a href="' + navUrl + '" target="_blank" class="popup-nav-btn">' +
-                               '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--!Font Awesome Free 6.5.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.--><path d="M215.7 499.2C267 435 384 279.4 384 192C384 86 298 0 192 0S0 86 0 192c0 87.4 117 243 168.3 307.2c12.3 15.3 35.1 15.3 47.4 0zM192 128a64 64 0 1 1 0 128 64 64 0 1 1 0-128z"/></svg>' +
+                               '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path d="M215.7 499.2C267 435 384 279.4 384 192C384 86 298 0 192 0S0 86 0 192c0 87.4 117 243 168.3 307.2c12.3 15.3 35.1 15.3 47.4 0zM192 128a64 64 0 1 1 0 128 64 64 0 1 1 0-128z"/></svg>' +
                                'Iniciar Navegação</a>';
                                
           marker.bindPopup(popupContent);
@@ -190,17 +189,17 @@ export function CobrancaMap({
 
   if (markers.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-[500px] bg-card border rounded-md p-8 text-center text-muted-foreground mt-2">
+      <div className="mt-2 flex h-[500px] flex-col items-center justify-center rounded-md border bg-card p-8 text-center text-muted-foreground">
         <p>Nenhum cliente com coordenadas registradas para a seleção atual.</p>
       </div>
     )
   }
 
   return (
-    <div className="flex-1 min-h-[600px] rounded-md border bg-card overflow-hidden shadow-sm mt-2 relative">
+    <div className="relative mt-2 min-h-[600px] flex-1 overflow-hidden rounded-md border bg-card shadow-sm">
       <iframe
         srcDoc={html}
-        className="w-full h-full border-0 absolute inset-0"
+        className="absolute inset-0 h-full w-full border-0"
         title="Mapa de Cobrança"
         sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
       />

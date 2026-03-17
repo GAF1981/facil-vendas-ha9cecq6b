@@ -205,7 +205,7 @@ export default function InativarClientesPage() {
   }
 
   return (
-    <div className="space-y-8 animate-fade-in p-4 sm:p-6 pb-20">
+    <div className="animate-fade-in space-y-8 p-4 pb-20 sm:p-6">
       <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" asChild>
           <Link to="/">
@@ -236,10 +236,10 @@ export default function InativarClientesPage() {
         <CardContent className="p-0">
           {loading ? (
             <div className="flex justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <Loader2 className="text-primary h-8 w-8 animate-spin" />
             </div>
           ) : (
-            <div className="rounded-md border overflow-hidden">
+            <div className="overflow-hidden rounded-md border">
               <Table>
                 <TableHeader className="bg-muted/50">
                   <TableRow>
@@ -248,13 +248,13 @@ export default function InativarClientesPage() {
                     <TableHead className="w-[100px]">Código</TableHead>
                     <TableHead>Nome Cliente</TableHead>
                     <TableHead className="text-right">Vl. Venda</TableHead>
-                    <TableHead className="text-right text-red-600 font-bold">
+                    <TableHead className="text-right font-bold text-red-600">
                       Débito
                     </TableHead>
-                    <TableHead className="text-center w-[120px]">
+                    <TableHead className="w-[120px] text-center">
                       Expositor
                     </TableHead>
-                    <TableHead className="text-center w-[120px]">
+                    <TableHead className="w-[120px] text-center">
                       Ações
                     </TableHead>
                   </TableRow>
@@ -287,11 +287,11 @@ export default function InativarClientesPage() {
                         <TableCell className="text-right text-sm">
                           R$ {formatCurrency(row.valor_venda)}
                         </TableCell>
-                        <TableCell className="text-right text-sm text-red-600 font-bold">
+                        <TableCell className="text-right text-sm font-bold text-red-600">
                           R$ {formatCurrency(row.debito)}
                         </TableCell>
                         <TableCell className="text-center">
-                          <div className="flex justify-center items-center gap-2">
+                          <div className="flex items-center justify-center gap-2">
                             <Checkbox
                               checked={row.expositor_retirado}
                               onCheckedChange={(checked) =>
@@ -303,7 +303,7 @@ export default function InativarClientesPage() {
                                 <TooltipProvider>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
-                                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                                      <Info className="h-4 w-4 cursor-help text-muted-foreground" />
                                     </TooltipTrigger>
                                     <TooltipContent className="max-w-xs">
                                       <p className="text-xs">
@@ -324,7 +324,7 @@ export default function InativarClientesPage() {
                                     <Button
                                       size="icon"
                                       variant="outline"
-                                      className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50 border-green-200 disabled:opacity-50"
+                                      className="h-8 w-8 border-green-200 text-green-600 hover:bg-green-50 hover:text-green-700 disabled:opacity-50"
                                       onClick={() => setTargetClient(row)}
                                       disabled={!row.expositor_retirado}
                                     >
@@ -348,7 +348,7 @@ export default function InativarClientesPage() {
                                   <Button
                                     size="icon"
                                     variant="outline"
-                                    className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                                    className="h-8 w-8 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
                                     onClick={() => setClientToDelete(row)}
                                   >
                                     <Trash2 className="h-4 w-4" />
@@ -396,7 +396,7 @@ export default function InativarClientesPage() {
             </AlertDialogDescription>
             <AlertDialogDescription>
               <br />
-              <span className="flex items-center gap-2 text-amber-600 bg-amber-50 p-2 rounded border border-amber-200 text-sm font-normal">
+              <span className="flex items-center gap-2 rounded border border-amber-200 bg-amber-50 p-2 text-sm font-normal text-amber-600">
                 <CheckCircle className="h-4 w-4" />
                 Expositor retirado e observação registrada.
               </span>

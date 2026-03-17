@@ -123,24 +123,38 @@ Deno.serve(async (req) => {
 
       try {
         let coords = await fetchNominatim(address)
-        
+
         // If not found, try a simplified address (fallback)
         if (!coords) {
           const parts = address.split(',')
           if (parts.length >= 3) {
-             const simplifiedAddress = `${parts[0].trim()}, ${parts[parts.length - 1].trim()}`
-             coords = await fetchNominatim(simplifiedAddress)
+            const simplifiedAddress = `${parts[0].trim()}, ${parts[parts.length - 1].trim()}`
+            coords = await fetchNominatim(simplifiedAddress)
           }
         }
-        
+
         if (coords) {
           lat = coords.lat
           lon = coords.lon
         } else {
-           return new Response(JSON.stringify({ lat: null, lon: null, error: 'Address not found by Nominatim' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+          return new Response(
+            JSON.stringify({
+              lat: null,
+              lon: null,
+              error: 'Address not found by Nominatim',
+            }),
+            {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            },
+          )
         }
       } catch (e: any) {
-         return new Response(JSON.stringify({ lat: null, lon: null, error: e.message }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        return new Response(
+          JSON.stringify({ lat: null, lon: null, error: e.message }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          },
+        )
       }
     }
 

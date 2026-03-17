@@ -446,8 +446,8 @@ export default function ResumoAcertosPage() {
   const totalAcertos = filteredData.length
 
   return (
-    <div className="space-y-6 animate-fade-in p-2 pb-20 sm:p-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div className="animate-fade-in space-y-6 p-2 pb-20 sm:p-6">
+      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div className="flex items-center gap-4">
           <Button variant="outline" size="icon" asChild>
             <Link to="/">
@@ -466,7 +466,7 @@ export default function ResumoAcertosPage() {
         </div>
         <div className="flex gap-2">
           {loading && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse">
+            <div className="animate-pulse flex items-center gap-2 text-sm text-muted-foreground">
               <RefreshCw className="h-3 w-3 animate-spin" />
               Atualizando...
             </div>
@@ -506,8 +506,8 @@ export default function ResumoAcertosPage() {
       />
 
       <Tabs defaultValue="acertos" className="w-full">
-        <div className="flex justify-between items-center mb-4">
-          <TabsList className="grid w-full sm:w-auto grid-cols-2">
+        <div className="mb-4 flex items-center justify-between">
+          <TabsList className="grid w-full grid-cols-2 sm:w-auto">
             <TabsTrigger value="acertos" className="flex items-center gap-2">
               <Receipt className="h-4 w-4" />
               Detalhamento de Acertos
@@ -522,7 +522,7 @@ export default function ResumoAcertosPage() {
         <TabsContent value="acertos" className="mt-0 space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex justify-between items-center">
+              <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <Receipt className="h-5 w-5" />
                   Detalhamento de Acertos
@@ -548,7 +548,7 @@ export default function ResumoAcertosPage() {
         <TabsContent value="projecoes" className="mt-0">
           <Card>
             <CardHeader>
-              <div className="flex justify-between items-center">
+              <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="h-5 w-5" />
                   Projeções e Média (Histórico Completo)
@@ -557,7 +557,7 @@ export default function ResumoAcertosPage() {
                   {filteredProjections.length} Registros Avaliados
                 </Badge>
               </div>
-              <p className="text-sm text-muted-foreground mt-2">
+              <p className="mt-2 text-sm text-muted-foreground">
                 Este cálculo utiliza todo o histórico disponível do cliente para
                 gerar uma projeção de compra mais precisa.
               </p>
