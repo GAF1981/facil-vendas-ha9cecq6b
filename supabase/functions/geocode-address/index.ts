@@ -12,34 +12,107 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { address } = await req.json()
+    let body
+    try {
+      body = await req.json()
+    } catch (e) {
+      return new Response(JSON.stringify({ error: 'Invalid or missing JSON body' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      })
+    }
 
-    if (!address) {
-      return new Response(JSON.stringify({ error: 'Address is required' }), {
+    const { address } = body
+
+    if (!address || typeof address !== 'string') {
+      return new Response(JSON.stringify({ error: 'Address string is required' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
       })
     }
 
     const encodedAddress = encodeURIComponent(address)
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}`
+    
+    // Support an optional Google Maps API Key if configured in Supabase Edge Function environment
+    const googleApiKey = Deno.env.get('GOOGLE_MAPS_API_KEY')
+    
+    let lat: number | null = null
+    let lon: number | null = null
 
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'FacilVendasApp/1.0',
-      },
-    })
+    if (googleApiKey) {
+      // 1. Google Maps Geocoding API Strategy
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodedAddress}&key=${googleApiKey}`
+      const response = await fetch(url)
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch from geocoding service')
+      if (!response.ok) {
+        let errorText = response.statusText;
+        try {
+           const text = await response.text();
+           if (text) errorText = text.substring(0, 100);
+        } catch (e) {}
+
+        return new Response(JSON.stringify({ error: `Google Maps API error: ${response.status} ${errorText}` }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 503,
+        })
+      }
+
+      const data = await response.json()
+      
+      if (data.status === 'OK' && data.results && data.results.length > 0) {
+        lat = data.results[0].geometry.location.lat
+        lon = data.results[0].geometry.location.lng
+      } else if (data.status === 'ZERO_RESULTS') {
+        return new Response(JSON.stringify({ error: 'Address not found by Google Maps' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 404,
+        })
+      } else {
+        return new Response(JSON.stringify({ error: `Geocoding failed with status: ${data.status}` }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 502,
+        })
+      }
+    } else {
+      // 2. Nominatim OpenStreetMap Free Geocoding API Strategy (Fallback)
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`
+      
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'FacilVendasApp/1.0 (admin@facilvendas.com)',
+          'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'
+        },
+      })
+
+      if (!response.ok) {
+        let errorText = response.statusText;
+        try {
+           const text = await response.text();
+           if (text) errorText = text.substring(0, 100);
+        } catch (e) {}
+
+        return new Response(JSON.stringify({ error: `Nominatim API error: ${response.status} ${errorText}` }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 503,
+        })
+      }
+
+      const data = await response.json()
+
+      if (data && Array.isArray(data) && data.length > 0) {
+        lat = parseFloat(data[0].lat)
+        lon = parseFloat(data[0].lon)
+      } else {
+        return new Response(JSON.stringify({ error: 'Address not found by Nominatim' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 404,
+        })
+      }
     }
 
-    const data = await response.json()
-
-    if (data && data.length > 0) {
-      const { lat, lon } = data[0]
+    if (lat !== null && lon !== null) {
       return new Response(
-        JSON.stringify({ lat: parseFloat(lat), lon: parseFloat(lon) }),
+        JSON.stringify({ lat, lon }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 200,
@@ -47,12 +120,14 @@ Deno.serve(async (req) => {
       )
     }
 
-    return new Response(JSON.stringify({ lat: null, lon: null }), {
+    // Fallback if something weird happens
+    return new Response(JSON.stringify({ error: 'Failed to extract coordinates' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200,
+      status: 500,
     })
+
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: error.message || 'Internal Server Error' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
     })

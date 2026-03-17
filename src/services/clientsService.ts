@@ -491,6 +491,12 @@ export const clientsService = {
 
       if (error) {
         console.warn('Edge function geocode-address returned an error:', error)
+        
+        // Throw an error if it's a 5xx or server error to trigger the catch block toast in UI
+        if (error.status && error.status >= 500) {
+            throw new Error('Serviço de geolocalização indisponível')
+        }
+        // 404 Address Not Found will return null and trigger "Não encontrado" toast
         return null
       }
 
@@ -500,7 +506,7 @@ export const clientsService = {
       return null
     } catch (error) {
       console.warn('Error geocoding address:', error)
-      return null
+      throw error // Re-throw to allow UI to catch and show generic error toast
     }
   },
 }
