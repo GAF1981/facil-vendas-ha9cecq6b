@@ -34,6 +34,7 @@ import {
   ArrowRightLeft,
   Users,
   Star,
+  MapPin,
 } from 'lucide-react'
 import {
   Tooltip,
@@ -418,6 +419,12 @@ export function RotaTable({
                       !!row.client['OBSERVAÇÃO FIXA'] ||
                       !!cleanTarefas
 
+                    const hasCoords =
+                      row.client.latitude &&
+                      row.client.longitude &&
+                      row.client.latitude !== 0 &&
+                      row.client.longitude !== 0
+
                     return (
                       <TableRow key={row.client.CODIGO} className={rowClass}>
                         <TableCell
@@ -503,6 +510,28 @@ export function RotaTable({
                             >
                               <History className="h-4 w-4" />
                             </Button>
+                            {hasCoords && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className={cn(
+                                  'h-6 w-6 shrink-0 rounded-full',
+                                  row.is_completed || row.x_na_rota > 3
+                                    ? 'text-white/70 hover:text-white hover:bg-white/20'
+                                    : 'text-blue-500 hover:text-blue-600 hover:bg-blue-50',
+                                )}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  window.open(
+                                    `https://www.google.com/maps/dir/?api=1&destination=${row.client.latitude},${row.client.longitude}`,
+                                    '_blank',
+                                  )
+                                }}
+                                title="Iniciar Navegação"
+                              >
+                                <MapPin className="h-4 w-4" />
+                              </Button>
+                            )}
                             <div className="flex flex-col gap-0.5">
                               <span
                                 className="font-semibold text-sm truncate max-w-[160px] block"

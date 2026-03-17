@@ -43,7 +43,7 @@ export default function BulkGeocodePage() {
       const { data, error } = await supabase
         .from('CLIENTES')
         .select('*')
-        .eq('situacao', 'ATIVO')
+        .or('situacao.eq.ATIVO,"TIPO DE CLIENTE".eq.ATIVO')
         .or('latitude.is.null,longitude.is.null,latitude.eq.0,longitude.eq.0')
         .limit(500)
 

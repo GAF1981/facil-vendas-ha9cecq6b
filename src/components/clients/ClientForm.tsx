@@ -946,7 +946,7 @@ export function ClientForm({
                       ) : (
                         <Globe className="mr-2 h-4 w-4" />
                       )}
-                      Obter pelo Endereço
+                      Obter Coordenadas pelo Endereço
                     </Button>
                     <Button
                       type="button"

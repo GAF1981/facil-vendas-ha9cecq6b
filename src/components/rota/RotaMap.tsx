@@ -46,7 +46,7 @@ export function RotaMap({ rows }: RotaMapProps) {
           margin-top: 10px;
           padding: 8px 12px;
           background-color: #2563eb;
-          color: white;
+          color: red;
           text-decoration: none;
           border-radius: 4px;
           font-weight: bold;

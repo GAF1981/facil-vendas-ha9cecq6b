@@ -3950,6 +3950,15 @@ export const Constants = {
 //     USING: true
 //   Policy "Enable update access for authenticated users" (UPDATE, PERMISSIVE) roles={authenticated}
 //     USING: true
+//   Policy "authenticated_delete_clientes" (DELETE, PERMISSIVE) roles={authenticated}
+//     USING: true
+//   Policy "authenticated_insert_clientes" (INSERT, PERMISSIVE) roles={authenticated}
+//     WITH CHECK: true
+//   Policy "authenticated_select_clientes" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
+//   Policy "authenticated_update_clientes" (UPDATE, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
 // Table: DATAS DE INVENTÁRIO
 //   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
@@ -4801,8 +4810,8 @@ export const Constants = {
 //   END;
 //   $function$
 //   
-// FUNCTION parse_currency_sql(character varying)
-//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str character varying)
+// FUNCTION parse_currency_sql(text)
+//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str text)
 //    RETURNS numeric
 //    LANGUAGE plpgsql
 //   AS $function$
@@ -4830,8 +4839,8 @@ export const Constants = {
 //   END;
 //   $function$
 //   
-// FUNCTION parse_currency_sql(text)
-//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str text)
+// FUNCTION parse_currency_sql(character varying)
+//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str character varying)
 //    RETURNS numeric
 //    LANGUAGE plpgsql
 //   AS $function$
@@ -4878,7 +4887,6 @@ export const Constants = {
 //     v_time_str TEXT;
 //     v_cef_id INTEGER;
 //   BEGIN
-//     -- Validate inputs
 //     IF p_session_id IS NULL THEN
 //       RAISE EXCEPTION 'Session ID cannot be null';
 //     END IF;
@@ -4887,22 +4895,16 @@ export const Constants = {
 //     v_date_str := to_char(v_now, 'YYYY-MM-DD');
 //     v_time_str := to_char(v_now, 'HH24:MI:SS');
 //   
-//     -- REMOVED: DELETE FROM "CONTAGEM DE ESTOQUE FINAL" WHERE session_id = p_session_id;
-//   
-//     -- 2. Loop through items to process
 //     FOR item IN SELECT * FROM jsonb_array_elements(p_items)
 //     LOOP
-//       -- Safe casting with checks
 //       v_prod_id := (item->>'productId')::INTEGER;
 //   
-//       -- Handle nullable productCode
 //       IF (item->>'productCode') IS NULL OR (item->>'productCode') = 'null' THEN
 //          v_prod_code := NULL;
 //       ELSE
 //          v_prod_code := (item->>'productCode')::INTEGER;
 //       END IF;
 //   
-//       -- Default quantity to 0 if missing
 //       IF (item->>'quantity') IS NULL OR (item->>'quantity') = 'null' THEN
 //          v_qty := 0;
 //       ELSE
@@ -4912,7 +4914,6 @@ export const Constants = {
 //       v_price := (item->>'price')::NUMERIC;
 //       v_prod_name := item->>'productName';
 //   
-//       -- Additive logic for CONTAGEM DE ESTOQUE FINAL
 //       SELECT id INTO v_cef_id FROM "CONTAGEM DE ESTOQUE FINAL" 
 //       WHERE session_id = p_session_id AND produto_id = v_prod_id LIMIT 1;
 //   
@@ -4926,9 +4927,7 @@ export const Constants = {
 //         VALUES (v_prod_id, v_qty, p_session_id, v_price);
 //       END IF;
 //   
-//       -- Update BANCO_DE_DADOS Ledger if we have a product code
 //       IF v_prod_code IS NOT NULL THEN
-//         -- Check for existing record in this session
 //         SELECT "ID VENDA ITENS" INTO v_current_record_id
 //         FROM "BANCO_DE_DADOS"
 //         WHERE "COD. PRODUTO" = v_prod_code
@@ -4936,7 +4935,6 @@ export const Constants = {
 //         LIMIT 1;
 //   
 //         IF v_current_record_id IS NOT NULL THEN
-//           -- UPDATE EXISTING (ADDITIVE LOGIC)
 //           UPDATE "BANCO_DE_DADOS"
 //           SET
 //             "SALDO FINAL" = COALESCE("SALDO FINAL", 0) + v_qty,
@@ -4946,8 +4944,6 @@ export const Constants = {
 //             "CODIGO FUNCIONARIO" = p_funcionario_id
 //           WHERE "ID VENDA ITENS" = v_current_record_id;
 //         ELSE
-//           -- INSERT NEW (v_qty starts as the first addition)
-//           -- Continuity Logic: Find the closing balance from the previous session.
 //           SELECT "SALDO FINAL" INTO v_prev_balance
 //           FROM "BANCO_DE_DADOS"
 //           WHERE "COD. PRODUTO" = v_prod_code
@@ -4958,7 +4954,6 @@ export const Constants = {
 //             "HORA DO ACERTO" DESC
 //           LIMIT 1;
 //   
-//           -- Default to 0 if no history exists
 //           IF v_prev_balance IS NULL THEN
 //             v_prev_balance := 0;
 //           END IF;
@@ -4977,7 +4972,7 @@ export const Constants = {
 //           ) VALUES (
 //             v_prod_code,
 //             p_funcionario_id,
-//             v_qty,
+//             v_prev_balance + v_qty,
 //             v_qty,
 //             v_date_str::DATE,
 //             v_time_str,
