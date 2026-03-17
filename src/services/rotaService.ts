@@ -5,6 +5,30 @@ import { reportsService } from './reportsService'
 import { parseISO, isBefore, startOfDay } from 'date-fns'
 
 export const rotaService = {
+  async autoFinalizeRota() {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+
+      const { data, error } = await supabase.functions.invoke(
+        'auto-finalize-rota',
+        {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        },
+      )
+
+      if (error) {
+        console.warn('Edge function auto-finalize-rota error:', error)
+        return { success: false, error }
+      }
+
+      return { success: true, data }
+    } catch (error) {
+      console.warn('Error invoking auto-finalize-rota:', error)
+      return { success: false, error }
+    }
+  },
+
   async getActiveRota() {
     const { data, error } = await supabase
       .from('ROTA')

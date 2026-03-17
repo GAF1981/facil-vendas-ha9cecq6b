@@ -478,19 +478,28 @@ export const clientsService = {
     address: string,
   ): Promise<{ lat: number; lon: number } | null> {
     try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+
       const { data, error } = await supabase.functions.invoke(
         'geocode-address',
         {
           body: { address },
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         },
       )
-      if (error) throw error
+
+      if (error) {
+        console.warn('Edge function geocode-address returned an error:', error)
+        return null
+      }
+
       if (data && data.lat != null && data.lon != null) {
         return { lat: data.lat, lon: data.lon }
       }
       return null
     } catch (error) {
-      console.error('Error geocoding address:', error)
+      console.warn('Error geocoding address:', error)
       return null
     }
   },

@@ -612,14 +612,29 @@ export const reportsService = {
   },
 
   async sendConsolidatedEmail(userEmail: string) {
-    const { data, error } = await supabase.functions.invoke(
-      'send-route-report',
-      {
-        body: { userEmail },
-      },
-    )
-    if (error) throw error
-    return data
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+
+      const { data, error } = await supabase.functions.invoke(
+        'send-route-report',
+        {
+          body: { userEmail },
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        },
+      )
+
+      if (error) {
+        console.warn('Edge function send-route-report error:', error)
+        throw new Error(
+          error.message || 'Falha ao enviar relatório, serviço indisponível.',
+        )
+      }
+      return data
+    } catch (error: any) {
+      console.warn('Error in sendConsolidatedEmail:', error)
+      throw new Error(error.message || 'Falha na comunicação com o servidor')
+    }
   },
 
   async getExpensesReport(

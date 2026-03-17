@@ -78,6 +78,17 @@ export default function RotaPage() {
   const loadData = async () => {
     setLoading(true)
     try {
+      // Safely auto finalize overdue routes first
+      const autoFinalizeRes = await rotaService.autoFinalizeRota()
+      if (autoFinalizeRes && !autoFinalizeRes.success) {
+        toast({
+          title: 'Aviso do Sistema',
+          description:
+            'Não foi possível verificar as rotas pendentes automaticamente. O serviço pode estar indisponível.',
+          duration: 5000,
+        })
+      }
+
       const [active, last, sellersData] = await Promise.all([
         rotaService.getActiveRota(),
         rotaService.getLastRota(),
