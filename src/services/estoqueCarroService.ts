@@ -581,7 +581,7 @@ export const estoqueCarroService = {
       .from('BANCO_DE_DADOS')
       .select('"ID VENDA ITENS", "SALDO FINAL", "CONTAGEM"')
       .eq('session_id', sessionId)
-      .eq('COD. PRODUTO', productId)
+      .eq('"COD. PRODUTO"', productId)
       .limit(1)
       .maybeSingle()
 
@@ -627,7 +627,7 @@ export const estoqueCarroService = {
         .from('BANCO_DE_DADOS')
         .select('"ID VENDA ITENS", "SALDO FINAL", "CONTAGEM"')
         .eq('session_id', sessionId)
-        .eq('COD. PRODUTO', productId)
+        .eq('"COD. PRODUTO"', productId)
         .limit(1)
         .maybeSingle()
 
@@ -664,7 +664,7 @@ export const estoqueCarroService = {
         .from('BANCO_DE_DADOS')
         .select('"ID VENDA ITENS", "SALDO FINAL", "CONTAGEM"')
         .eq('session_id', sessionId)
-        .eq('COD. PRODUTO', productId)
+        .eq('"COD. PRODUTO"', productId)
         .limit(1)
         .maybeSingle()
 
