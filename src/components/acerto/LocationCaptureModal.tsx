@@ -54,37 +54,62 @@ export function LocationCaptureModal({
 
   const handleCaptureGps = () => {
     setLoadingGps(true)
-    if (!navigator.geolocation) {
-      toast({
-        title: 'Erro',
-        description: 'Geolocalização não é suportada pelo seu navegador.',
-        variant: 'destructive',
-      })
-      if (mounted.current) setLoadingGps(false)
-      return
-    }
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        if (mounted.current) {
-          setLatitude(position.coords.latitude.toString())
-          setLongitude(position.coords.longitude.toString())
+    try {
+      if (!navigator.geolocation) {
+        toast({
+          title: 'Erro',
+          description: 'Geolocalização não é suportada pelo seu navegador.',
+          variant: 'destructive',
+        })
+        if (mounted.current) setLoadingGps(false)
+        return
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          if (mounted.current) {
+            setLatitude(position.coords.latitude.toString())
+            setLongitude(position.coords.longitude.toString())
+            setLoadingGps(false)
+          }
+        },
+        (error) => {
+          console.error('Geolocation error:', error.code, error.message)
+          if (!mounted.current) return
+
+          let description =
+            'Não foi possível obter sua localização atual via GPS. Verifique as permissões do dispositivo.'
+
+          if (
+            error.code === 1 ||
+            error.message?.toLowerCase().includes('permissions policy')
+          ) {
+            description =
+              'Acesso à localização bloqueado pelo navegador. Por favor, verifique as permissões do site ou utilize a busca por endereço.'
+          }
+
+          toast({
+            title: 'Erro de Localização',
+            description,
+            variant: 'destructive',
+          })
           setLoadingGps(false)
-        }
-      },
-      (error) => {
-        console.error('Geolocation error:', error.code, error.message)
-        if (!mounted.current) return
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+      )
+    } catch (err: any) {
+      console.error('Synchronous Geolocation error:', err)
+      if (mounted.current) {
         toast({
           title: 'Erro de Localização',
           description:
-            'Não foi possível obter sua localização atual via GPS. Verifique as permissões do dispositivo.',
+            'Acesso à localização bloqueado pelo navegador (Permissions Policy). Utilize a busca por endereço.',
           variant: 'destructive',
         })
         setLoadingGps(false)
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
-    )
+      }
+    }
   }
 
   const handleCaptureAddress = async () => {
