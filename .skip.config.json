@@ -37,7 +37,7 @@
     "vite.config.ts"
   ],
   "deployment": {
-    "lastDevBuildRef": "8ce6bb8",
+    "lastDevBuildRef": "33c6530",
     "lastProdBuildRef": "befde31",
     "publishedAt": "2026-03-17T15:11:34.649Z",
     "lastPublishedRef": "befde31"
