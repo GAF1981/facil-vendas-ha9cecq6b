@@ -7,12 +7,22 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { clientsService } from '@/services/clientsService'
-import { MapPin, Loader2, Navigation, Map } from 'lucide-react'
+import { MapPin, Loader2, Navigation, Map, AlertTriangle } from 'lucide-react'
 import { ClientRow } from '@/types/client'
 
 interface LocationCaptureModalProps {
@@ -20,6 +30,7 @@ interface LocationCaptureModalProps {
   onOpenChange: (open: boolean) => void
   client: ClientRow
   onSuccess: (lat: number, lon: number) => void
+  onForceSignature: () => void
 }
 
 export function LocationCaptureModal({
@@ -27,10 +38,12 @@ export function LocationCaptureModal({
   onOpenChange,
   client,
   onSuccess,
+  onForceSignature,
 }: LocationCaptureModalProps) {
   const [loadingGps, setLoadingGps] = useState(false)
   const [loadingAddress, setLoadingAddress] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [confirmForceOpen, setConfirmForceOpen] = useState(false)
 
   const [latitude, setLatitude] = useState<string>('')
   const [longitude, setLongitude] = useState<string>('')
@@ -182,110 +195,148 @@ export function LocationCaptureModal({
     }
   }
 
+  const handleConfirmForce = () => {
+    setConfirmForceOpen(false)
+    onForceSignature()
+  }
+
   const isOkDisabled =
     !latitude || !longitude || saving || loadingGps || loadingAddress
 
   return (
-    <Dialog open={open} onOpenChange={(val) => !saving && onOpenChange(val)}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-red-600">
-            <MapPin className="h-5 w-5" />
-            Localização Necessária
-          </DialogTitle>
-          <DialogDescription className="text-base font-medium text-foreground py-2">
-            Esse cliente não tem as coordenadas de sua localização inseridas no
-            cadastro de clientes, é necessário inserir as coordenadas para
-            prosseguir!!!
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={(val) => !saving && onOpenChange(val)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <MapPin className="h-5 w-5" />
+              Localização Necessária
+            </DialogTitle>
+            <DialogDescription className="text-base font-medium text-foreground py-2">
+              Esse cliente não tem as coordenadas de sua localização inseridas
+              no cadastro de clientes, é necessário inserir as coordenadas para
+              prosseguir!!!
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="bg-muted/30 p-3 rounded-md border space-y-1 text-sm">
-            <p>
-              <strong className="text-muted-foreground">Endereço:</strong>{' '}
-              {client.ENDEREÇO || '-'}
-            </p>
-            <p>
-              <strong className="text-muted-foreground">Município:</strong>{' '}
-              {client.MUNICÍPIO || '-'}
-            </p>
-            <p>
-              <strong className="text-muted-foreground">CEP:</strong>{' '}
-              {client['CEP OFICIO'] || '-'}
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-2 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleCaptureGps}
-              disabled={loadingGps || saving}
-              className="w-full justify-start"
-            >
-              {loadingGps ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Navigation className="mr-2 h-4 w-4 text-blue-600" />
-              )}
-              Localização Atual
-            </Button>
-
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleCaptureAddress}
-              disabled={loadingAddress || saving}
-              className="w-full justify-start"
-            >
-              {loadingAddress ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Map className="mr-2 h-4 w-4 text-green-600" />
-              )}
-              Localização pelo Endereço
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 pt-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="latitude" className="text-xs">
-                Latitude
-              </Label>
-              <Input
-                id="latitude"
-                value={latitude}
-                readOnly
-                placeholder="Aguardando..."
-                className="bg-muted font-mono text-sm"
-              />
+          <div className="space-y-4">
+            <div className="bg-muted/30 p-3 rounded-md border space-y-1 text-sm">
+              <p>
+                <strong className="text-muted-foreground">Endereço:</strong>{' '}
+                {client.ENDEREÇO || '-'}
+              </p>
+              <p>
+                <strong className="text-muted-foreground">Município:</strong>{' '}
+                {client.MUNICÍPIO || '-'}
+              </p>
+              <p>
+                <strong className="text-muted-foreground">CEP:</strong>{' '}
+                {client['CEP OFICIO'] || '-'}
+              </p>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="longitude" className="text-xs">
-                Longitude
-              </Label>
-              <Input
-                id="longitude"
-                value={longitude}
-                readOnly
-                placeholder="Aguardando..."
-                className="bg-muted font-mono text-sm"
-              />
+
+            <div className="flex flex-col gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCaptureGps}
+                disabled={loadingGps || saving}
+                className="w-full justify-start"
+              >
+                {loadingGps ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Navigation className="mr-2 h-4 w-4 text-blue-600" />
+                )}
+                Utilizar Localização Atual
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCaptureAddress}
+                disabled={loadingAddress || saving}
+                className="w-full justify-start"
+              >
+                {loadingAddress ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Map className="mr-2 h-4 w-4 text-green-600" />
+                )}
+                Buscar Localização pelo Endereço
+              </Button>
+
+              <Button
+                type="button"
+                onClick={() => setConfirmForceOpen(true)}
+                disabled={saving}
+                className="w-full justify-start bg-red-600 hover:bg-red-700 text-white"
+              >
+                <AlertTriangle className="mr-2 h-4 w-4" />
+                Forçar Assinatura
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 pt-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="latitude" className="text-xs">
+                  Latitude
+                </Label>
+                <Input
+                  id="latitude"
+                  value={latitude}
+                  readOnly
+                  placeholder="Aguardando..."
+                  className="bg-muted font-mono text-sm"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="longitude" className="text-xs">
+                  Longitude
+                </Label>
+                <Input
+                  id="longitude"
+                  value={longitude}
+                  readOnly
+                  placeholder="Aguardando..."
+                  className="bg-muted font-mono text-sm"
+                />
+              </div>
             </div>
           </div>
-        </div>
 
-        <DialogFooter className="mt-4">
-          <Button
-            onClick={handleSave}
-            disabled={isOkDisabled}
-            className="w-full sm:w-auto min-w-[120px]"
-          >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'OK'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <DialogFooter className="mt-4">
+            <Button
+              onClick={handleSave}
+              disabled={isOkDisabled}
+              className="w-full sm:w-auto min-w-[120px]"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'OK'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={confirmForceOpen} onOpenChange={setConfirmForceOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Atenção</AlertDialogTitle>
+            <AlertDialogDescription className="text-base text-foreground">
+              Será forçada a finalização sem registro das coordenadas do
+              cliente, deseja prosseguir?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Não</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmForce}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Sim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }

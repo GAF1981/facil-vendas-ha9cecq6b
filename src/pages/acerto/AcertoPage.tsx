@@ -670,6 +670,13 @@ export default function AcertoPage() {
     }, 300)
   }
 
+  const handleForceSignature = () => {
+    setLocationModalOpen(false)
+    setTimeout(() => {
+      if (mounted.current) setSignatureOpen(true)
+    }, 300)
+  }
+
   const handlePreSaveValidation = async () => {
     setHideContagem(false)
     setHideSaldoFinal(false)
@@ -1351,6 +1358,7 @@ export default function AcertoPage() {
           onOpenChange={setLocationModalOpen}
           client={client}
           onSuccess={handleLocationSuccess}
+          onForceSignature={handleForceSignature}
         />
       )}
 
