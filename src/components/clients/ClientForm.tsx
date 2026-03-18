@@ -281,7 +281,7 @@ export function ClientForm({
   }
 
   const handleCaptureLocation = () => {
-    if (!navigator.geolocation) {
+    if (!navigator.geolocation || !navigator.geolocation.getCurrentPosition) {
       toast({
         title: 'Erro',
         description: 'Geolocalização não suportada pelo navegador.',
@@ -291,26 +291,55 @@ export function ClientForm({
     }
 
     setCapturingLocation(true)
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        form.setValue('latitude', position.coords.latitude.toString())
-        form.setValue('longitude', position.coords.longitude.toString())
-        toast({
-          title: 'Sucesso',
-          description: 'Localização atual capturada com sucesso!',
-        })
-        setCapturingLocation(false)
-      },
-      (error) => {
-        toast({
-          title: 'Erro',
-          description: 'Não foi possível capturar a localização atual.',
-          variant: 'destructive',
-        })
-        setCapturingLocation(false)
-      },
-      { enableHighAccuracy: true },
-    )
+
+    try {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          form.setValue('latitude', position.coords.latitude.toString())
+          form.setValue('longitude', position.coords.longitude.toString())
+          toast({
+            title: 'Sucesso',
+            description: 'Localização atual capturada com sucesso!',
+          })
+          setCapturingLocation(false)
+        },
+        (error) => {
+          console.warn('Geolocation Error:', error)
+          let errorMsg = 'Não foi possível capturar a localização atual.'
+
+          if (error.code === 1) {
+            // PERMISSION_DENIED
+            errorMsg =
+              'Permissão negada. Verifique as configurações do seu navegador para permitir o acesso à localização.'
+          } else if (error.code === 2) {
+            // POSITION_UNAVAILABLE
+            errorMsg =
+              'A informação de localização está indisponível no momento.'
+          } else if (error.code === 3) {
+            // TIMEOUT
+            errorMsg =
+              'O tempo limite de espera para obter a localização esgotou.'
+          }
+
+          toast({
+            title: 'Erro de Geolocalização',
+            description: errorMsg,
+            variant: 'destructive',
+          })
+          setCapturingLocation(false)
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+      )
+    } catch (error) {
+      console.error('Geolocation Exception:', error)
+      toast({
+        title: 'Acesso Bloqueado',
+        description:
+          'A política de segurança do navegador bloqueou o acesso à geolocalização.',
+        variant: 'destructive',
+      })
+      setCapturingLocation(false)
+    }
   }
 
   const checkDuplicate = async (
