@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -32,6 +32,14 @@ export function LocationCaptureModal({
   const [latitude, setLatitude] = useState<string>('')
   const [longitude, setLongitude] = useState<string>('')
   const { toast } = useToast()
+  const mounted = useRef(true)
+
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
 
   const handleCapture = () => {
     setLoading(true)
@@ -41,7 +49,7 @@ export function LocationCaptureModal({
         description: 'Geolocalização não é suportada pelo seu navegador.',
         variant: 'destructive',
       })
-      setLoading(false)
+      if (mounted.current) setLoading(false)
       return
     }
 
@@ -49,14 +57,19 @@ export function LocationCaptureModal({
       async (position) => {
         const lat = position.coords.latitude
         const lon = position.coords.longitude
-        setLatitude(lat.toString())
-        setLongitude(lon.toString())
+
+        if (mounted.current) {
+          setLatitude(lat.toString())
+          setLongitude(lon.toString())
+        }
 
         try {
           await clientsService.update(client.CODIGO, {
-            latitude: lat as any,
-            longitude: lon as any,
+            latitude: lat,
+            longitude: lon,
           })
+
+          if (!mounted.current) return
 
           toast({
             title: 'Coordenadas Gravadas com Sucesso!!!',
@@ -64,23 +77,30 @@ export function LocationCaptureModal({
           })
 
           onSuccess(lat, lon)
-        } catch (error) {
-          console.error(error)
+        } catch (error: any) {
+          console.error('Location update error:', error)
+          if (!mounted.current) return
+          const msg =
+            error?.message ||
+            'Falha ao salvar as coordenadas no banco de dados.'
           toast({
             title: 'Erro',
-            description: 'Falha ao salvar as coordenadas no banco de dados.',
+            description: msg,
             variant: 'destructive',
           })
         } finally {
-          setLoading(false)
+          if (mounted.current) {
+            setLoading(false)
+          }
         }
       },
       (error) => {
-        console.error(error)
+        console.error('Geolocation error:', error.code, error.message)
+        if (!mounted.current) return
         toast({
           title: 'Erro de Localização',
           description:
-            'Não foi possível obter sua localização. Verifique as permissões.',
+            'Não foi possível obter sua localização. Verifique as permissões do navegador.',
           variant: 'destructive',
         })
         setLoading(false)

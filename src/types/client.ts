@@ -13,8 +13,8 @@ interface AdditionalFields {
   telefone_cobranca?: string | null
   email_cobranca?: string | null
   tipo_venda?: string | null
-  latitude?: string | null
-  longitude?: string | null
+  latitude?: number | null
+  longitude?: number | null
   favorito?: boolean | null
 }
 
@@ -85,8 +85,8 @@ export const clientSchema = z.object({
     .optional()
     .nullable()
     .default('consignado'),
-  latitude: z.string().optional().nullable(),
-  longitude: z.string().optional().nullable(),
+  latitude: z.coerce.number().optional().nullable(),
+  longitude: z.coerce.number().optional().nullable(),
   favorito: z.boolean().optional().nullable().default(false),
 })
 

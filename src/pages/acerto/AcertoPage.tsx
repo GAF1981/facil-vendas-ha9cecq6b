@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ClientSearch } from '@/components/acerto/ClientSearch'
 import { ClientDetails } from '@/components/acerto/ClientDetails'
@@ -64,6 +64,16 @@ export default function AcertoPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
+  const mounted = useRef(true)
+  const loadedClientIdRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+
   const [showSummaryModal, setShowSummaryModal] = useState(
     () => !searchParams.get('editOrderId'),
   )
@@ -115,8 +125,10 @@ export default function AcertoPage() {
     employeesService
       .getEmployees(1, 100)
       .then(({ data }) => {
-        const activeEmployees = data.filter((e) => e.situacao === 'ATIVO')
-        setEmployees(activeEmployees)
+        if (mounted.current) {
+          const activeEmployees = data.filter((e) => e.situacao === 'ATIVO')
+          setEmployees(activeEmployees)
+        }
       })
       .catch((err) => console.error('Failed to fetch employees', err))
   }, [])
@@ -128,7 +140,7 @@ export default function AcertoPage() {
       : ['Administrador', 'Gerente'].includes(loggedInUser.setor || ''))
 
   useEffect(() => {
-    if (loggedInUser) {
+    if (loggedInUser && mounted.current) {
       if (!selectedEmployeeId) {
         setSelectedEmployeeId(loggedInUser.id.toString())
       }
@@ -160,27 +172,29 @@ export default function AcertoPage() {
         bancoDeDadosService
           .getEditableOrderDetails(oid)
           .then(async (details) => {
-            if (details) {
+            if (details && mounted.current) {
               const clientData = await clientsService.getById(details.clientId)
+              if (!mounted.current) return
+
+              loadedClientIdRef.current = clientData.CODIGO
               setItems(details.items)
               setPayments(details.payments)
               setSelectedEmployeeId(details.employeeId.toString())
               setNotaFiscal(details.nfVenda)
               setOriginalOrderDate(details.originalDate)
               setOriginalSessionId(details.sessionId)
-
               setClient(clientData)
 
               bancoDeDadosService
                 .getMonthlyAverage(details.clientId)
-                .then(setMonthlyAverage)
+                .then((avg) => mounted.current && setMonthlyAverage(avg))
               setIsCaptacao(false)
 
               toast({
                 title: 'Modo de Edição',
                 description: `Carregado pedido #${oid} para edição.`,
               })
-            } else {
+            } else if (mounted.current) {
               toast({
                 title: 'Erro',
                 description: 'Pedido não encontrado.',
@@ -190,13 +204,17 @@ export default function AcertoPage() {
           })
           .catch((e) => {
             console.error(e)
-            toast({
-              title: 'Erro',
-              description: 'Erro ao carregar pedido.',
-              variant: 'destructive',
-            })
+            if (mounted.current) {
+              toast({
+                title: 'Erro',
+                description: 'Erro ao carregar pedido.',
+                variant: 'destructive',
+              })
+            }
           })
-          .finally(() => setLoadingAcerto(false))
+          .finally(() => {
+            if (mounted.current) setLoadingAcerto(false)
+          })
       }
     } else if (cid && !client && !isEditMode) {
       const clientIdNum = Number(cid)
@@ -205,7 +223,7 @@ export default function AcertoPage() {
         clientsService
           .getById(clientIdNum)
           .then((data) => {
-            if (data) {
+            if (data && mounted.current) {
               setClient(data)
               toast({
                 title: 'Cliente Selecionado',
@@ -215,13 +233,17 @@ export default function AcertoPage() {
           })
           .catch((err) => {
             console.error('Failed to load client from URL', err)
-            toast({
-              title: 'Erro',
-              description: 'Não foi possível carregar o cliente indicado.',
-              variant: 'destructive',
-            })
+            if (mounted.current) {
+              toast({
+                title: 'Erro',
+                description: 'Não foi possível carregar o cliente indicado.',
+                variant: 'destructive',
+              })
+            }
           })
-          .finally(() => setLoadingAcerto(false))
+          .finally(() => {
+            if (mounted.current) setLoadingAcerto(false)
+          })
       }
     }
   }, [
@@ -236,6 +258,12 @@ export default function AcertoPage() {
 
   useEffect(() => {
     if (client) {
+      if (loadedClientIdRef.current === client.CODIGO) {
+        return
+      }
+
+      loadedClientIdRef.current = client.CODIGO
+
       if (isEditMode) {
         return
       }
@@ -245,14 +273,14 @@ export default function AcertoPage() {
       bancoDeDadosService
         .checkClientHasOrders(client.CODIGO)
         .then((hasOrders) => {
-          setIsCaptacao(!hasOrders)
+          if (mounted.current) setIsCaptacao(!hasOrders)
         })
         .catch((e) => console.error('History check error', e))
 
       bancoDeDadosService
         .getLastAcerto(client.CODIGO)
         .then((data) => {
-          setLastAcerto(data)
+          if (mounted.current) setLastAcerto(data)
           if (data && data.date && data.time) {
             return bancoDeDadosService.getAcertoItemsAsNewTransaction(
               client.CODIGO,
@@ -263,27 +291,33 @@ export default function AcertoPage() {
           return { items: [], nextId: 1 }
         })
         .then(({ items: newItems }) => {
-          setItems(newItems)
-          setPendingAdjustments([])
+          if (mounted.current) {
+            setItems(newItems)
+            setPendingAdjustments([])
+          }
         })
         .catch((err) => {
           console.error(err)
-          toast({
-            title: 'Erro ao carregar dados',
-            description: 'Falha ao buscar itens do último acerto.',
-            variant: 'destructive',
-          })
+          if (mounted.current) {
+            toast({
+              title: 'Erro ao carregar dados',
+              description: 'Falha ao buscar itens do último acerto.',
+              variant: 'destructive',
+            })
+          }
         })
-        .finally(() => setLoadingAcerto(false))
+        .finally(() => {
+          if (mounted.current) setLoadingAcerto(false)
+        })
 
       bancoDeDadosService
         .getMonthlyAverage(client.CODIGO)
-        .then(setMonthlyAverage)
+        .then((avg) => mounted.current && setMonthlyAverage(avg))
         .catch((e) => console.error('Avg error', e))
 
       bancoDeDadosService
         .getNextNumeroPedido()
-        .then(setNextOrderNumber)
+        .then((num) => mounted.current && setNextOrderNumber(num))
         .catch((e) => console.error('Next order error', e))
 
       if (client['NOTA FISCAL'] === 'NÃO' || client['NOTA FISCAL'] === '0') {
@@ -312,6 +346,7 @@ export default function AcertoPage() {
       setOriginalOrderDate(null)
       setOriginalSessionId(null)
       setIsVendaMercadoria(false)
+      loadedClientIdRef.current = null
     }
   }, [client, isEditMode, toast])
 
@@ -602,21 +637,23 @@ export default function AcertoPage() {
 
       const url = window.URL.createObjectURL(pdfBlob)
       window.open(url, '_blank')
-    } catch (err) {
-      console.error(err)
-      toast({
-        title: 'Erro no PDF',
-        description: 'Não foi possível gerar a prévia.',
-        variant: 'destructive',
-      })
+    } catch (err: any) {
+      console.error('Preview Error:', err)
+      if (mounted.current) {
+        toast({
+          title: 'Erro no PDF',
+          description: 'Não foi possível gerar a prévia.',
+          variant: 'destructive',
+        })
+      }
     } finally {
-      setGeneratingPdf(false)
+      if (mounted.current) setGeneratingPdf(false)
     }
   }
 
   const handleOpenSignature = () => {
     if (!client) return
-    if (client.latitude && client.longitude) {
+    if (client.latitude != null && client.longitude != null) {
       setSignatureOpen(true)
     } else {
       setLocationModalOpen(true)
@@ -625,11 +662,11 @@ export default function AcertoPage() {
 
   const handleLocationSuccess = (lat: number, lon: number) => {
     if (client) {
-      setClient({ ...client, latitude: lat as any, longitude: lon as any })
+      setClient({ ...client, latitude: lat, longitude: lon })
     }
     setLocationModalOpen(false)
     setTimeout(() => {
-      setSignatureOpen(true)
+      if (mounted.current) setSignatureOpen(true)
     }, 300)
   }
 
@@ -796,7 +833,7 @@ export default function AcertoPage() {
             description: 'Você não tem permissão para editar pedidos.',
             variant: 'destructive',
           })
-          setSaving(false)
+          if (mounted.current) setSaving(false)
           return
         }
 
@@ -963,47 +1000,60 @@ export default function AcertoPage() {
         window.open(url, '_blank')
       }, 100)
 
-      toast({
-        title: isCaptacao
-          ? 'Captação Realizada'
-          : isEditMode
-            ? `Pedido #${finalOrderNumber} Atualizado`
-            : 'Acerto Realizado',
-        description: isEditMode
-          ? 'O pedido foi atualizado e o PDF gerado com sucesso.'
-          : 'Pedido salvo e PDF gerado com sucesso.',
-        className: 'bg-green-600 text-white',
-      })
+      if (mounted.current) {
+        toast({
+          title: isCaptacao
+            ? 'Captação Realizada'
+            : isEditMode
+              ? `Pedido #${finalOrderNumber} Atualizado`
+              : 'Acerto Realizado',
+          description: isEditMode
+            ? 'O pedido foi atualizado e o PDF gerado com sucesso.'
+            : 'Pedido salvo e PDF gerado com sucesso.',
+          className: 'bg-green-600 text-white',
+        })
 
-      setClient(null)
-      setPendingAdjustments([])
+        setClient(null)
+        setPendingAdjustments([])
 
-      const wasEditMode = isEditMode
+        const wasEditMode = isEditMode
 
-      setIsEditMode(false)
-      setEditOrderId(null)
-      setOriginalOrderDate(null)
-      setOriginalSessionId(null)
-      setIsVendaMercadoria(false)
+        setIsEditMode(false)
+        setEditOrderId(null)
+        setOriginalOrderDate(null)
+        setOriginalSessionId(null)
+        setIsVendaMercadoria(false)
+        loadedClientIdRef.current = null
 
-      if (flagInactivation && !isVendaMercadoria) {
-        navigate('/inativar-clientes')
-      } else if (wasEditMode) {
-        setTimeout(() => {
-          navigate('/resumo-acertos')
-        }, 1000)
+        if (flagInactivation && !isVendaMercadoria) {
+          navigate('/inativar-clientes')
+        } else if (wasEditMode) {
+          setTimeout(() => {
+            if (mounted.current) navigate('/resumo-acertos')
+          }, 1000)
+        }
       }
     } catch (err: any) {
-      console.error(err)
-      const errorMessage = err.message || 'Falha ao processar o acerto.'
+      console.error('Acerto Save Error:', err)
+      let errorMessage = 'Falha ao processar o acerto.'
+      if (err instanceof Error) {
+        errorMessage = err.message
+      } else if (err && typeof err === 'object') {
+        errorMessage =
+          err.message || err.details || err.hint || JSON.stringify(err)
+      } else if (typeof err === 'string') {
+        errorMessage = err
+      }
 
-      toast({
-        title: 'Erro ao salvar',
-        description: errorMessage,
-        variant: 'destructive',
-      })
+      if (mounted.current) {
+        toast({
+          title: 'Erro ao salvar',
+          description: errorMessage,
+          variant: 'destructive',
+        })
+      }
     } finally {
-      setSaving(false)
+      if (mounted.current) setSaving(false)
     }
   }
 
