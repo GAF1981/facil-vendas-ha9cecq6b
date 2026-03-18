@@ -15,6 +15,7 @@ import { ZeroStockAlert } from '@/components/acerto/ZeroStockAlert'
 import { KitSelectorDialog } from '@/components/acerto/KitSelectorDialog'
 import { ClientDebtSelectorDialog } from '@/components/acerto/ClientDebtSelectorDialog'
 import { PerformanceSummaryModal } from '@/components/acerto/PerformanceSummaryModal'
+import { LocationCaptureModal } from '@/components/acerto/LocationCaptureModal'
 import { ClientRow } from '@/types/client'
 import { Employee } from '@/types/employee'
 import { AcertoItem, PendingStockAdjustment } from '@/types/acerto'
@@ -75,6 +76,7 @@ export default function AcertoPage() {
   const [notaFiscal, setNotaFiscal] = useState<string>('')
   const [signature, setSignature] = useState<string | null>(null)
   const [signatureOpen, setSignatureOpen] = useState(false)
+  const [locationModalOpen, setLocationModalOpen] = useState(false)
   const [zeroStockDialogOpen, setZeroStockDialogOpen] = useState(false)
   const [isCaptacao, setIsCaptacao] = useState(false)
   const [collectionDialogOpen, setCollectionDialogOpen] = useState(false)
@@ -612,6 +614,25 @@ export default function AcertoPage() {
     }
   }
 
+  const handleOpenSignature = () => {
+    if (!client) return
+    if (client.latitude && client.longitude) {
+      setSignatureOpen(true)
+    } else {
+      setLocationModalOpen(true)
+    }
+  }
+
+  const handleLocationSuccess = (lat: number, lon: number) => {
+    if (client) {
+      setClient({ ...client, latitude: lat as any, longitude: lon as any })
+    }
+    setLocationModalOpen(false)
+    setTimeout(() => {
+      setSignatureOpen(true)
+    }, 300)
+  }
+
   const handlePreSaveValidation = async () => {
     setHideContagem(false)
     setHideSaldoFinal(false)
@@ -719,7 +740,7 @@ export default function AcertoPage() {
         description: 'A assinatura do cliente é obrigatória.',
         variant: 'destructive',
       })
-      setSignatureOpen(true)
+      handleOpenSignature()
       return
     }
 
@@ -1187,7 +1208,7 @@ export default function AcertoPage() {
           <div className="flex flex-wrap gap-4 justify-end pt-4 border-t">
             <Button
               variant="outline"
-              onClick={() => setSignatureOpen(true)}
+              onClick={handleOpenSignature}
               className={signature ? 'border-green-500 text-green-600' : ''}
             >
               {signature ? 'Assinatura Capturada' : 'Coletar Assinatura'}
@@ -1273,6 +1294,15 @@ export default function AcertoPage() {
         onOpenChange={setSignatureOpen}
         onSave={setSignature}
       />
+
+      {client && (
+        <LocationCaptureModal
+          open={locationModalOpen}
+          onOpenChange={setLocationModalOpen}
+          client={client}
+          onSuccess={handleLocationSuccess}
+        />
+      )}
 
       <ZeroStockAlert
         open={zeroStockDialogOpen}
