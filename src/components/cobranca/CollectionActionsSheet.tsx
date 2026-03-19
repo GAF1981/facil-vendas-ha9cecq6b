@@ -17,7 +17,7 @@ import { useToast } from '@/hooks/use-toast'
 import { format, parseISO } from 'date-fns'
 import { Loader2, Plus, CalendarIcon, UserIcon, History } from 'lucide-react'
 import { useUserStore } from '@/stores/useUserStore'
-import { formatCurrency } from '@/lib/formatters'
+import { formatCurrency, safeFormatDate } from '@/lib/formatters'
 
 interface CollectionActionsSheetProps {
   isOpen: boolean
@@ -61,11 +61,8 @@ export function CollectionActionsSheet({
     if (!orderId) return
     setLoading(true)
     try {
-      // Pass filtering options if installment is present
-      const data = await cobrancaService.getCollectionActions(orderId, {
-        targetVencimento: installment?.vencimento ?? undefined,
-        targetFormaPagamento: installment?.formaPagamento ?? undefined,
-      })
+      // Fetch full order history without filtering by installment to give Admins full visibility
+      const data = await cobrancaService.getCollectionActions(orderId)
       setActions(data)
     } catch (error) {
       console.error(error)
@@ -159,12 +156,13 @@ export function CollectionActionsSheet({
           </SheetTitle>
           <SheetDescription asChild>
             <div>
-              Histórico para o Pedido <strong>#{orderId}</strong> - {clientName}
+              Histórico Completo para o Pedido <strong>#{orderId}</strong> -{' '}
+              {clientName}
               {installment && (
                 <div className="mt-1 text-xs text-muted-foreground border-l-2 pl-2 border-primary">
-                  Parcela: {installment.formaPagamento}
+                  Registrando para a Parcela: {installment.formaPagamento}
                   {installment.vencimento &&
-                    ` (${format(parseISO(installment.vencimento), 'dd/MM/yyyy')})`}
+                    ` (${safeFormatDate(installment.vencimento, 'dd/MM/yyyy')})`}
                 </div>
               )}
             </div>
@@ -238,8 +236,7 @@ export function CollectionActionsSheet({
                 </div>
               ) : actions.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground text-sm">
-                  Nenhuma ação registrada
-                  {installment ? ' para esta parcela' : ' para este pedido'}.
+                  Nenhuma ação registrada para este pedido.
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -252,10 +249,10 @@ export function CollectionActionsSheet({
                         <div className="flex items-center gap-2 text-muted-foreground text-xs">
                           <CalendarIcon className="w-3 h-3" />
                           {action.dataAcao
-                            ? format(parseISO(action.dataAcao), 'dd/MM/yyyy')
+                            ? safeFormatDate(action.dataAcao, 'dd/MM/yyyy')
                             : '-'}
                         </div>
-                        <div className="flex items-center gap-1 text-muted-foreground text-xs">
+                        <div className="flex items-center gap-1 text-muted-foreground text-xs font-medium">
                           <UserIcon className="w-3 h-3" />
                           {action.funcionarioNome || 'Sistema'}
                         </div>
@@ -263,21 +260,21 @@ export function CollectionActionsSheet({
                       <div className="font-medium whitespace-pre-wrap">
                         {action.acao}
                       </div>
-                      {/* Show target details if we are viewing ALL order actions (installment not passed) */}
-                      {!installment &&
-                        (action.targetVencimento ||
-                          action.targetFormaPagamento) && (
-                          <div className="text-[10px] text-muted-foreground mt-1 border-t pt-1 border-dashed">
-                            Referente a:{' '}
-                            {action.targetFormaPagamento || 'Parcela'} -{' '}
-                            {action.targetVencimento
-                              ? format(
-                                  parseISO(action.targetVencimento),
-                                  'dd/MM',
-                                )
-                              : ''}
-                          </div>
-                        )}
+
+                      {/* Always show target details if available to maintain clarity of full history */}
+                      {(action.targetVencimento ||
+                        action.targetFormaPagamento) && (
+                        <div className="text-[10px] text-muted-foreground mt-1 border-t pt-1 border-dashed">
+                          Referente a:{' '}
+                          <span className="font-medium">
+                            {action.targetFormaPagamento || 'Parcela'}
+                          </span>
+                          {action.targetVencimento
+                            ? ` - ${safeFormatDate(action.targetVencimento, 'dd/MM/yyyy')}`
+                            : ''}
+                        </div>
+                      )}
+
                       {action.installments && action.installments.length > 0 ? (
                         <div className="mt-2 pt-2 border-t">
                           <p className="text-xs font-semibold text-muted-foreground mb-1">
@@ -290,7 +287,7 @@ export function CollectionActionsSheet({
                                 className="flex justify-between text-xs bg-muted/30 p-1 rounded"
                               >
                                 <span>
-                                  {format(parseISO(inst.vencimento), 'dd/MM')}
+                                  {safeFormatDate(inst.vencimento, 'dd/MM')}
                                 </span>
                                 <span>{inst.forma_pagamento}</span>
                                 <span className="font-medium text-green-600">
@@ -307,8 +304,8 @@ export function CollectionActionsSheet({
                               Nova Previsão:
                             </span>
                             <span className="font-semibold text-blue-600">
-                              {format(
-                                parseISO(action.novaDataCombinada),
+                              {safeFormatDate(
+                                action.novaDataCombinada,
                                 'dd/MM/yyyy',
                               )}
                             </span>
