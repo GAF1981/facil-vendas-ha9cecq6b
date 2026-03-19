@@ -157,15 +157,17 @@ export function CollectionActionsSheet({
             <History className="w-5 h-5" />
             Ações de Cobrança
           </SheetTitle>
-          <SheetDescription>
-            Histórico para o Pedido <strong>#{orderId}</strong> - {clientName}
-            {installment && (
-              <div className="mt-1 text-xs text-muted-foreground border-l-2 pl-2 border-primary">
-                Parcela: {installment.formaPagamento}
-                {installment.vencimento &&
-                  ` (${format(parseISO(installment.vencimento), 'dd/MM/yyyy')})`}
-              </div>
-            )}
+          <SheetDescription asChild>
+            <div>
+              Histórico para o Pedido <strong>#{orderId}</strong> - {clientName}
+              {installment && (
+                <div className="mt-1 text-xs text-muted-foreground border-l-2 pl-2 border-primary">
+                  Parcela: {installment.formaPagamento}
+                  {installment.vencimento &&
+                    ` (${format(parseISO(installment.vencimento), 'dd/MM/yyyy')})`}
+                </div>
+              )}
+            </div>
           </SheetDescription>
         </SheetHeader>
 
