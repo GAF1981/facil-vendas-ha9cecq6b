@@ -706,6 +706,38 @@ export const cobrancaService = {
     }))
   },
 
+  async getAllCollectionActions(limit = 300): Promise<CollectionAction[]> {
+    const { data, error } = await supabase
+      .from('acoes_cobranca')
+      .select('*, acoes_cobranca_vencimentos(*)')
+      .order('data_acao', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(limit)
+
+    if (error) throw error
+
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      acao: row.acao,
+      dataAcao: row.data_acao,
+      novaDataCombinada: row.nova_data_combinada,
+      funcionarioNome: row.funcionario_nome,
+      funcionarioId: row.funcionario_id,
+      pedidoId: row.pedido_id,
+      clienteId: row.cliente_id,
+      clienteNome: row.cliente_nome,
+      motivo: row.motivo,
+      targetVencimento: row.target_vencimento,
+      targetFormaPagamento: row.target_forma_pagamento,
+      installments: row.acoes_cobranca_vencimentos?.map((inst: any) => ({
+        id: inst.id,
+        vencimento: inst.vencimento,
+        valor: inst.valor,
+        forma_pagamento: inst.forma_pagamento,
+      })),
+    }))
+  },
+
   async addCollectionAction(action: CollectionActionInsert): Promise<void> {
     const payload = {
       acao: action.acao,

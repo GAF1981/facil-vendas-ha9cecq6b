@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { cobrancaService } from '@/services/cobrancaService'
 import { boletoService } from '@/services/boletoService'
 import { configService } from '@/services/configService'
-import { ClientDebt } from '@/types/cobranca'
+import { ClientDebt, CollectionAction } from '@/types/cobranca'
 import { Boleto } from '@/types/boleto'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -29,9 +29,11 @@ import {
   AlertTriangle,
   MapIcon,
   List,
+  History,
 } from 'lucide-react'
 import { DebtTable } from '@/components/cobranca/DebtTable'
 import { CobrancaMap } from '@/components/cobranca/CobrancaMap'
+import { GlobalActionsTable } from '@/components/cobranca/GlobalActionsTable'
 import { useToast } from '@/hooks/use-toast'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
@@ -44,6 +46,7 @@ import { DateRangePicker } from '@/components/common/DateRangePicker'
 import { DateRange } from 'react-day-picker'
 import { format, parseISO, isValid, startOfDay } from 'date-fns'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { cn } from '@/lib/utils'
 
 export default function CobrancaPage() {
   const [loading, setLoading] = useState(true)
@@ -76,6 +79,11 @@ export default function CobrancaPage() {
   const [isSimplified, setIsSimplified] = useState(true)
   const [activeTab, setActiveTab] = useState('geral')
   const [isMapMode, setIsMapMode] = useState(false)
+
+  // Global Actions State
+  const [globalActions, setGlobalActions] = useState<CollectionAction[]>([])
+  const [loadingActions, setLoadingActions] = useState(false)
+  const [actionSearch, setActionSearch] = useState('')
 
   // Inactivity Alert State
   const [inactiveThreshold, setInactiveThreshold] = useState(10)
@@ -193,6 +201,23 @@ export default function CobrancaPage() {
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadActions = async () => {
+    setLoadingActions(true)
+    try {
+      const data = await cobrancaService.getAllCollectionActions(300)
+      setGlobalActions(data)
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: 'Erro',
+        description: 'Falha ao carregar histórico de ações.',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoadingActions(false)
     }
   }
 
@@ -329,6 +354,18 @@ export default function CobrancaPage() {
     vencimentoRange,
   ])
 
+  const filteredActions = useMemo(() => {
+    if (!actionSearch) return globalActions
+    const lower = actionSearch.toLowerCase()
+    return globalActions.filter(
+      (a) =>
+        (a.clienteNome || '').toLowerCase().includes(lower) ||
+        (a.funcionarioNome || '').toLowerCase().includes(lower) ||
+        String(a.pedidoId).includes(lower) ||
+        (a.acao || '').toLowerCase().includes(lower),
+    )
+  }, [globalActions, actionSearch])
+
   const handleToggleItem = (id: string) => {
     const newSelected = new Set(selectedItems)
     if (newSelected.has(id)) {
@@ -355,6 +392,9 @@ export default function CobrancaPage() {
     setActiveTab(value)
     if (value === 'motoqueiro') {
       setMotoqueiroFilter('todos')
+    }
+    if (value === 'acoes' && globalActions.length === 0) {
+      loadActions()
     }
   }
 
@@ -809,6 +849,9 @@ export default function CobrancaPage() {
                   </Badge>
                 )}
               </TabsTrigger>
+              <TabsTrigger value="acoes" className="flex items-center gap-2">
+                <History className="h-4 w-4" /> Histórico de Ações
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="geral" className="mt-4">
@@ -906,6 +949,37 @@ export default function CobrancaPage() {
                   vencimentoRange={vencimentoRange}
                 />
               )}
+            </TabsContent>
+
+            <TabsContent value="acoes" className="mt-4">
+              <div className="mb-4 flex gap-4 items-center flex-wrap">
+                <div className="relative flex-1 min-w-[250px] max-w-md">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por cliente, funcionário, pedido ou ação..."
+                    value={actionSearch}
+                    onChange={(e) => setActionSearch(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={loadActions}
+                  disabled={loadingActions}
+                >
+                  <RefreshCw
+                    className={cn(
+                      'mr-2 h-4 w-4',
+                      loadingActions && 'animate-spin',
+                    )}
+                  />
+                  Atualizar Histórico
+                </Button>
+              </div>
+              <GlobalActionsTable
+                actions={filteredActions}
+                loading={loadingActions}
+              />
             </TabsContent>
           </Tabs>
         </CardContent>
