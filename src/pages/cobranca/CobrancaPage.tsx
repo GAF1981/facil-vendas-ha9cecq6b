@@ -591,13 +591,13 @@ export default function CobrancaPage() {
             Ação Necessária: Clientes sem acompanhamento
           </AlertTitle>
           <AlertDescription className="mt-2 text-amber-900">
-            <p className="mb-2">
+            <span className="mb-2 block">
               Os clientes abaixo estão sem ação de cobrança a mais de{' '}
               {inactiveThreshold} dias!
-            </p>
-            <div className="max-h-[120px] overflow-y-auto pr-2 space-y-1">
+            </span>
+            <span className="max-h-[120px] overflow-y-auto pr-2 space-y-1 block">
               {inactiveClients.map((c) => (
-                <div
+                <span
                   key={c.clientId}
                   className="text-sm bg-white/60 px-2 py-1 rounded border border-amber-200 flex justify-between"
                 >
@@ -607,9 +607,9 @@ export default function CobrancaPage() {
                   <span className="text-amber-700 font-bold">
                     {c.days} dias
                   </span>
-                </div>
+                </span>
               ))}
-            </div>
+            </span>
           </AlertDescription>
         </Alert>
       )}
