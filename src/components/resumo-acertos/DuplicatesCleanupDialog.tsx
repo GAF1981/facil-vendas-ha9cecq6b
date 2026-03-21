@@ -8,9 +8,13 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { Loader2, AlertTriangle, CheckCircle, CopyX } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useToast } from '@/hooks/use-toast'
+import { cn } from '@/lib/utils'
 
 interface DuplicatesCleanupDialogProps {
   open: boolean
@@ -19,11 +23,12 @@ interface DuplicatesCleanupDialogProps {
   onSuccess: () => void
 }
 
-interface DuplicateItem {
+interface DuplicateItemDetailed {
+  id_to_delete: string
   pedido_id: number
   cliente_nome: string
   tipo_duplicidade: string
-  quantidade: number
+  detalhes: string
 }
 
 export function DuplicatesCleanupDialog({
@@ -35,13 +40,15 @@ export function DuplicatesCleanupDialog({
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [cleaning, setCleaning] = useState(false)
-  const [duplicates, setDuplicates] = useState<DuplicateItem[]>([])
+  const [duplicates, setDuplicates] = useState<DuplicateItemDetailed[]>([])
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
 
   useEffect(() => {
     if (open && routeId) {
       checkDuplicates()
     } else {
       setDuplicates([])
+      setSelectedIds([])
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, routeId])
@@ -49,11 +56,17 @@ export function DuplicatesCleanupDialog({
   const checkDuplicates = async () => {
     setLoading(true)
     try {
-      const { data, error } = await supabase.rpc('get_route_duplicates', {
-        p_rota_id: parseInt(routeId),
-      })
+      const { data, error } = await supabase.rpc(
+        'get_route_duplicates_detailed',
+        {
+          p_rota_id: parseInt(routeId),
+        },
+      )
       if (error) throw error
-      setDuplicates(data || [])
+      const fetchedDuplicates = data || []
+      setDuplicates(fetchedDuplicates)
+      // Automatically select all by default for convenience
+      setSelectedIds(fetchedDuplicates.map((d: any) => d.id_to_delete))
     } catch (error: any) {
       console.error(error)
       toast({
@@ -67,12 +80,15 @@ export function DuplicatesCleanupDialog({
   }
 
   const handleCleanup = async () => {
-    if (!routeId) return
+    if (!routeId || selectedIds.length === 0) return
     setCleaning(true)
     try {
-      const { data, error } = await supabase.rpc('cleanup_route_duplicates', {
-        p_rota_id: parseInt(routeId),
-      })
+      const { data, error } = await supabase.rpc(
+        'cleanup_selected_duplicates',
+        {
+          p_ids: selectedIds,
+        },
+      )
       if (error) throw error
 
       const res = data as { items_removed: number; payments_removed: number }
@@ -96,9 +112,25 @@ export function DuplicatesCleanupDialog({
     }
   }
 
+  const handleSelectAll = () => {
+    if (selectedIds.length === duplicates.length) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(duplicates.map((d) => d.id_to_delete))
+    }
+  }
+
+  const handleCheck = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedIds((prev) => [...prev, id])
+    } else {
+      setSelectedIds((prev) => prev.filter((i) => i !== id))
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CopyX className="h-5 w-5 text-amber-600" />
@@ -107,14 +139,14 @@ export function DuplicatesCleanupDialog({
           <DialogDescription>Rota selecionada: #{routeId}</DialogDescription>
         </DialogHeader>
 
-        <div className="py-4 min-h-[100px] flex flex-col justify-center">
+        <div className="py-2 flex-1 overflow-hidden min-h-[200px] flex flex-col">
           {loading ? (
-            <div className="flex flex-col items-center gap-2 text-muted-foreground">
+            <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground my-8">
               <Loader2 className="h-6 w-6 animate-spin" />
               <p className="text-sm">Analisando rota atual...</p>
             </div>
           ) : duplicates.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 text-green-600">
+            <div className="flex flex-col items-center justify-center h-full gap-2 text-green-600 my-8">
               <CheckCircle className="h-8 w-8" />
               <p className="font-medium text-center">
                 Nenhuma duplicidade encontrada na rota {routeId}.<br />
@@ -122,50 +154,78 @@ export function DuplicatesCleanupDialog({
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="flex flex-col h-full space-y-4">
               <div className="flex items-start gap-2 text-amber-700 bg-amber-50 p-3 rounded-md border border-amber-200">
                 <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
                 <p className="text-sm">
-                  Foram encontrados{' '}
-                  {duplicates.reduce((acc, d) => acc + d.quantidade, 0)}{' '}
-                  registros duplicados. Deseja realizar a limpeza agora? As
-                  informações originais serão mantidas.
+                  Foram encontrados {duplicates.length} registros que parecem
+                  estar duplicados (mesmo valor e mesma data de
+                  vencimento/detalhe). Selecione abaixo quais cópias você deseja
+                  excluir (o pedido original sempre será mantido intacto).
                 </p>
               </div>
 
-              <div className="max-h-[200px] overflow-y-auto space-y-2 text-sm border rounded-md p-2 bg-muted/30">
-                {duplicates.map((dup, idx) => (
-                  <div
-                    key={idx}
-                    className="flex justify-between border-b pb-1 last:border-0 last:pb-0"
-                  >
-                    <div>
-                      <span className="font-mono font-semibold">
-                        #{dup.pedido_id}
-                      </span>
-                      <span
-                        className="ml-2 truncate max-w-[150px] inline-block align-bottom"
-                        title={dup.cliente_nome}
-                      >
-                        {dup.cliente_nome}
-                      </span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-muted-foreground mr-2">
-                        {dup.tipo_duplicidade}
-                      </span>
-                      <span className="font-bold text-amber-600">
-                        +{dup.quantidade}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+              <div className="flex items-center justify-between px-2">
+                <span className="text-sm font-medium">
+                  {selectedIds.length} de {duplicates.length} selecionados
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSelectAll}
+                  className="text-xs h-8"
+                >
+                  {selectedIds.length === duplicates.length
+                    ? 'Desmarcar Todos'
+                    : 'Selecionar Todos'}
+                </Button>
               </div>
+
+              <ScrollArea className="h-[300px] w-full rounded-md border p-4 bg-muted/20">
+                <div className="space-y-4">
+                  {duplicates.map((dup) => (
+                    <div
+                      key={dup.id_to_delete}
+                      className={cn(
+                        'flex items-start space-x-3 p-3 rounded-lg border transition-colors',
+                        selectedIds.includes(dup.id_to_delete)
+                          ? 'bg-amber-50 border-amber-200'
+                          : 'bg-background border-border',
+                      )}
+                    >
+                      <Checkbox
+                        id={dup.id_to_delete}
+                        checked={selectedIds.includes(dup.id_to_delete)}
+                        onCheckedChange={(checked) =>
+                          handleCheck(dup.id_to_delete, checked as boolean)
+                        }
+                        className="mt-0.5"
+                      />
+                      <div className="grid gap-1.5 leading-none flex-1">
+                        <Label
+                          htmlFor={dup.id_to_delete}
+                          className="font-semibold text-sm cursor-pointer flex justify-between w-full"
+                        >
+                          <span>
+                            Pedido #{dup.pedido_id} - {dup.cliente_nome}
+                          </span>
+                          <span className="text-amber-600 font-normal">
+                            {dup.tipo_duplicidade}
+                          </span>
+                        </Label>
+                        <p className="text-xs text-muted-foreground leading-snug">
+                          {dup.detalhes}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
             </div>
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="mt-4">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
@@ -177,11 +237,11 @@ export function DuplicatesCleanupDialog({
             <Button
               variant="default"
               onClick={handleCleanup}
-              disabled={cleaning || loading}
+              disabled={cleaning || loading || selectedIds.length === 0}
               className="bg-amber-600 hover:bg-amber-700"
             >
               {cleaning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Limpar Duplicados
+              Excluir Marcados
             </Button>
           )}
         </DialogFooter>

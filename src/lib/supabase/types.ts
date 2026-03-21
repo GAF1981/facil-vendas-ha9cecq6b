@@ -2707,6 +2707,7 @@ export type Database = {
         | { Args: { d: string }; Returns: string }
         | { Args: { t: string }; Returns: string }
       bulk_update_product_codes: { Args: { payload: Json }; Returns: undefined }
+      cleanup_route_duplicates: { Args: { p_rota_id: number }; Returns: Json }
       delete_full_order: { Args: { p_order_id: number }; Returns: undefined }
       get_client_projections: {
         Args: never
@@ -2784,6 +2785,15 @@ export type Database = {
         }[]
       }
       get_next_order_number: { Args: never; Returns: number }
+      get_route_duplicates: {
+        Args: { p_rota_id: number }
+        Returns: {
+          cliente_nome: string
+          pedido_id: number
+          quantidade: number
+          tipo_duplicidade: string
+        }[]
+      }
       get_top_selling_items: {
         Args: { end_date: string; start_date: string }
         Returns: {
@@ -4183,6 +4193,87 @@ export const Constants = {
 //   END;
 //   $function$
 //   
+// FUNCTION cleanup_route_duplicates(integer)
+//   CREATE OR REPLACE FUNCTION public.cleanup_route_duplicates(p_rota_id integer)
+//    RETURNS jsonb
+//    LANGUAGE plpgsql
+//    SECURITY DEFINER
+//   AS $function$
+//   DECLARE
+//       v_affected_items integer := 0;
+//       v_affected_payments integer := 0;
+//       v_order_id bigint;
+//   BEGIN
+//       -- Delete duplicate items
+//       WITH dups AS (
+//           SELECT bd."ID VENDA ITENS" as id_to_delete
+//           FROM "BANCO_DE_DADOS" bd
+//           JOIN "ROTA" r ON r.id = p_rota_id
+//           WHERE bd."NÚMERO DO PEDIDO" IS NOT NULL
+//           AND (
+//               (bd."DATA DO ACERTO" >= r.data_inicio::date AND (r.data_fim IS NULL OR bd."DATA DO ACERTO" <= r.data_fim::date))
+//               OR
+//               (bd."DATA E HORA" >= r.data_inicio AND (r.data_fim IS NULL OR bd."DATA E HORA" <= r.data_fim))
+//           )
+//           AND bd."ID VENDA ITENS" NOT IN (
+//               SELECT MIN(b2."ID VENDA ITENS")
+//               FROM "BANCO_DE_DADOS" b2
+//               WHERE b2."NÚMERO DO PEDIDO" = bd."NÚMERO DO PEDIDO"
+//               GROUP BY b2."NÚMERO DO PEDIDO", b2."COD. PRODUTO"
+//           )
+//       ),
+//       deleted_items AS (
+//           DELETE FROM "BANCO_DE_DADOS"
+//           WHERE "ID VENDA ITENS" IN (SELECT id_to_delete FROM dups)
+//           RETURNING "NÚMERO DO PEDIDO"
+//       )
+//       SELECT count(*) INTO v_affected_items FROM deleted_items;
+//   
+//       -- Delete duplicate payments
+//       WITH dups_pay AS (
+//           SELECT rec.id as id_to_delete
+//           FROM "RECEBIMENTOS" rec
+//           JOIN "ROTA" r ON r.id = p_rota_id
+//           WHERE (
+//               (rec.created_at >= r.data_inicio AND (r.data_fim IS NULL OR rec.created_at <= r.data_fim))
+//               OR rec.rota_id = p_rota_id
+//           )
+//           AND rec.id NOT IN (
+//               SELECT MIN(r2.id)
+//               FROM "RECEBIMENTOS" r2
+//               WHERE r2.venda_id = rec.venda_id
+//               GROUP BY r2.venda_id, r2.forma_pagamento, r2.valor_pago
+//           )
+//       ),
+//       deleted_payments AS (
+//           DELETE FROM "RECEBIMENTOS"
+//           WHERE id IN (SELECT id_to_delete FROM dups_pay)
+//           RETURNING venda_id
+//       )
+//       SELECT count(*) INTO v_affected_payments FROM deleted_payments;
+//   
+//       -- Recalculate debits for all affected orders in route
+//       FOR v_order_id IN
+//           SELECT DISTINCT "NÚMERO DO PEDIDO"
+//           FROM "BANCO_DE_DADOS" bd
+//           JOIN "ROTA" r ON r.id = p_rota_id
+//           WHERE bd."NÚMERO DO PEDIDO" IS NOT NULL
+//           AND (
+//               (bd."DATA DO ACERTO" >= r.data_inicio::date AND (r.data_fim IS NULL OR bd."DATA DO ACERTO" <= r.data_fim::date))
+//               OR
+//               (bd."DATA E HORA" >= r.data_inicio AND (r.data_fim IS NULL OR bd."DATA E HORA" <= r.data_fim))
+//           )
+//       LOOP
+//           PERFORM public.update_debito_historico_order(v_order_id);
+//       END LOOP;
+//   
+//       RETURN jsonb_build_object(
+//           'items_removed', v_affected_items,
+//           'payments_removed', v_affected_payments
+//       );
+//   END;
+//   $function$
+//   
 // FUNCTION clear_cobranca_info_if_paid()
 //   CREATE OR REPLACE FUNCTION public.clear_cobranca_info_if_paid()
 //    RETURNS trigger
@@ -4562,6 +4653,49 @@ export const Constants = {
 //     
 //     -- Return Max + 1, or 1 if the table is empty (COALESCE handles null if table empty)
 //     RETURN COALESCE(max_val, 0) + 1;
+//   END;
+//   $function$
+//   
+// FUNCTION get_route_duplicates(integer)
+//   CREATE OR REPLACE FUNCTION public.get_route_duplicates(p_rota_id integer)
+//    RETURNS TABLE(pedido_id bigint, cliente_nome text, tipo_duplicidade text, quantidade integer)
+//    LANGUAGE plpgsql
+//    SECURITY DEFINER
+//   AS $function$
+//   BEGIN
+//       RETURN QUERY
+//       WITH pedidos_rota AS (
+//           SELECT bd."NÚMERO DO PEDIDO" as pid, bd."CLIENTE" as cname, bd."COD. PRODUTO" as prod
+//           FROM "BANCO_DE_DADOS" bd
+//           JOIN "ROTA" r ON r.id = p_rota_id
+//           WHERE bd."NÚMERO DO PEDIDO" IS NOT NULL
+//           AND (
+//               (bd."DATA DO ACERTO" >= r.data_inicio::date AND (r.data_fim IS NULL OR bd."DATA DO ACERTO" <= r.data_fim::date))
+//               OR
+//               (bd."DATA E HORA" >= r.data_inicio AND (r.data_fim IS NULL OR bd."DATA E HORA" <= r.data_fim))
+//           )
+//       ),
+//       dup_items AS (
+//           SELECT pid, MAX(cname) as cname, (COUNT(*) - 1)::integer as qty
+//           FROM pedidos_rota
+//           GROUP BY pid, prod
+//           HAVING COUNT(*) > 1
+//       ),
+//       dup_payments AS (
+//           SELECT rec.venda_id as pid, MAX(c."NOME CLIENTE") as cname, (COUNT(*) - 1)::integer as qty
+//           FROM "RECEBIMENTOS" rec
+//           JOIN "CLIENTES" c ON c."CODIGO" = rec.cliente_id
+//           JOIN "ROTA" r ON r.id = p_rota_id
+//           WHERE (
+//               (rec.created_at >= r.data_inicio AND (r.data_fim IS NULL OR rec.created_at <= r.data_fim))
+//               OR rec.rota_id = p_rota_id
+//           )
+//           GROUP BY rec.venda_id, rec.forma_pagamento, rec.valor_pago
+//           HAVING COUNT(*) > 1
+//       )
+//       SELECT d.pid, d.cname, 'Itens do Pedido'::text, SUM(d.qty)::integer FROM dup_items d GROUP BY d.pid, d.cname
+//       UNION ALL
+//       SELECT p.pid, p.cname, 'Pagamentos (Recebimentos)'::text, SUM(p.qty)::integer FROM dup_payments p GROUP BY p.pid, p.cname;
 //   END;
 //   $function$
 //   
