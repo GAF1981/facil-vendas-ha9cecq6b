@@ -60,14 +60,25 @@ export const metasService = {
     if (error) throw error
   },
 
-  async getAcertos(funcionarioId: number, startDate: string, endDate: string) {
+  async getAcertos(
+    funcionarioId: number,
+    funcionarioNome: string,
+    startDate: string,
+    endDate: string,
+  ) {
+    const safeName = (funcionarioNome || '').replace(/,/g, '').trim()
+    let orQuery = `"CODIGO FUNCIONARIO".eq.${funcionarioId}`
+    if (safeName) {
+      orQuery += `,FUNCIONÁRIO.ilike.%${safeName}%`
+    }
+
     const { data, error } = await supabase
       .from('BANCO_DE_DADOS')
-      .select('"DATA DO ACERTO", "NÚMERO DO PEDIDO", "FORMA"')
-      .eq('CODIGO FUNCIONARIO', funcionarioId)
+      .select('"DATA DO ACERTO", "DATA E HORA", "NÚMERO DO PEDIDO", "FORMA"')
       .gte('DATA DO ACERTO', startDate)
       .lte('DATA DO ACERTO', endDate)
       .not('NÚMERO DO PEDIDO', 'is', null)
+      .or(orQuery)
 
     if (error) throw error
 
@@ -75,14 +86,21 @@ export const metasService = {
     const uniqueCaptacaoPerDay = new Map<string, Set<number>>()
 
     data?.forEach((row) => {
-      const date = row['DATA DO ACERTO']
+      let dateStr = row['DATA DO ACERTO']
+      if (!dateStr && row['DATA E HORA']) {
+        dateStr = row['DATA E HORA'].split('T')[0]
+      }
+      if (!dateStr) return
+
       const orderId = row['NÚMERO DO PEDIDO']
       const forma = row['FORMA']
-      if (!date || !orderId) return
+      if (!orderId) return
 
-      const dateStr = date.includes('T')
-        ? date.split('T')[0]
-        : date.split(' ')[0]
+      if (dateStr.includes('T')) {
+        dateStr = dateStr.split('T')[0]
+      } else if (dateStr.includes(' ')) {
+        dateStr = dateStr.split(' ')[0]
+      }
 
       const formaStr = forma ? forma.toLowerCase() : ''
       if (formaStr.includes('captação') || formaStr.includes('captacao')) {

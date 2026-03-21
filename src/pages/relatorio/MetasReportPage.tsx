@@ -149,13 +149,21 @@ const MetasReportPage = () => {
       const startStr = format(dateRange.from, 'yyyy-MM-dd')
       const endStr = format(dateRange.to, 'yyyy-MM-dd')
 
+      const emp = employees.find((e) => e.id.toString() === selectedEmployeeId)
+      const empName = emp ? emp.nome_completo : ''
+
       const metaInfo = await metasService.getMeta(funcId)
       setCurrentMetaDiaria(metaInfo?.meta_diaria || 0)
 
       const periodos = await metasService.getMetasPeriodos(funcId)
       setPeriodGoals(periodos)
 
-      const acertos = await metasService.getAcertos(funcId, startStr, endStr)
+      const acertos = await metasService.getAcertos(
+        funcId,
+        empName,
+        startStr,
+        endStr,
+      )
       setDailyAcertos(acertos.regular)
       setDailyCaptacao(acertos.captacao)
     } catch (error: any) {
@@ -312,13 +320,15 @@ const MetasReportPage = () => {
       const metaForDay = isNonWorkingDay ? 0 : effectiveMeta
       const acertos = dailyAcertos.get(dateStr) || 0
       const captacao = dailyCaptacao.get(dateStr) || 0
-      const apuracao = isFutureDate ? 0 : acertos - metaForDay
+      const totalGeral = acertos + captacao
+      const apuracao = isFutureDate ? 0 : totalGeral - metaForDay
 
       return {
         date: day,
         dateStr,
         acertos,
         captacao,
+        totalGeral,
         metaForDay,
         apuracao,
         isException,
@@ -339,6 +349,7 @@ const MetasReportPage = () => {
   const summary = useMemo(() => {
     let totalAcertos = 0
     let totalCaptacao = 0
+    let totalGeral = 0
     let totalMetas = 0
     let totalApuracao = 0
 
@@ -348,16 +359,18 @@ const MetasReportPage = () => {
       if (!isAfter(row.date, today)) {
         totalAcertos += row.acertos
         totalCaptacao += row.captacao
+        totalGeral += row.totalGeral
         totalMetas += row.metaForDay
         totalApuracao += row.apuracao
       }
     })
 
-    const atingimento = totalMetas > 0 ? (totalAcertos / totalMetas) * 100 : 0
+    const atingimento = totalMetas > 0 ? (totalGeral / totalMetas) * 100 : 0
 
     return {
       totalAcertos,
       totalCaptacao,
+      totalGeral,
       totalMetas: parseFloat(totalMetas.toFixed(2)),
       totalApuracao: parseFloat(totalApuracao.toFixed(2)),
       atingimento: parseFloat(atingimento.toFixed(2)),
@@ -627,15 +640,15 @@ const MetasReportPage = () => {
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
                   <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
-                  Total Acertos
+                  Total Geral (Acertos + Captações)
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{summary.totalAcertos}</div>
+                <div className="text-2xl font-bold">{summary.totalGeral}</div>
                 <div className="mt-2 text-sm text-muted-foreground border-t pt-2 flex flex-col">
-                  <span className="font-medium">Captação</span>
-                  <span className="text-xl font-bold text-foreground">
-                    {summary.totalCaptacao}
+                  <span className="flex justify-between">
+                    <span>Regulares: {summary.totalAcertos}</span>
+                    <span>Captação: {summary.totalCaptacao}</span>
                   </span>
                 </div>
               </CardContent>
@@ -682,8 +695,9 @@ const MetasReportPage = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Data</TableHead>
-                    <TableHead className="text-right">Acertos</TableHead>
+                    <TableHead className="text-right">Acertos (Reg.)</TableHead>
                     <TableHead className="text-right">Captações</TableHead>
+                    <TableHead className="text-right">Total Geral</TableHead>
                     <TableHead className="text-right">
                       Meta de Acertos
                     </TableHead>
@@ -719,10 +733,13 @@ const MetasReportPage = () => {
                         )}
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        {row.acertos}
+                        {row.acertos > 0 ? row.acertos : '-'}
                       </TableCell>
                       <TableCell className="text-right text-muted-foreground">
                         {row.captacao > 0 ? row.captacao : '-'}
+                      </TableCell>
+                      <TableCell className="text-right font-bold text-blue-600">
+                        {row.totalGeral > 0 ? row.totalGeral : '-'}
                       </TableCell>
                       <TableCell className="text-right text-muted-foreground">
                         {row.metaForDay}
@@ -737,7 +754,7 @@ const MetasReportPage = () => {
                   ))}
                   {reportData.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-4">
+                      <TableCell colSpan={6} className="text-center py-4">
                         Nenhum dado encontrado para o período.
                       </TableCell>
                     </TableRow>
