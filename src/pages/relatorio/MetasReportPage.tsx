@@ -46,6 +46,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { employeesService } from '@/services/employeesService'
 import { metasService } from '@/services/metasService'
+import { resumoAcertosService } from '@/services/resumoAcertosService'
 import { Employee } from '@/types/employee'
 import { MetaPeriodo } from '@/types/meta'
 import {
@@ -60,6 +61,17 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { Label } from '@/components/ui/label'
 import { ManageExceptionsDialog } from '@/components/relatorio/ManageExceptionsDialog'
+
+const normalizeName = (name: string | null | undefined) => {
+  if (!name) return ''
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/souza/g, 'sousa')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
 
 const MetasReportPage = () => {
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -157,14 +169,68 @@ const MetasReportPage = () => {
       const periodos = await metasService.getMetasPeriodos(funcId)
       setPeriodGoals(periodos)
 
-      const acertos = await metasService.getAcertos(
-        funcId,
-        empName,
-        startStr,
-        endStr,
-      )
-      setDailyAcertos(acertos.regular)
-      setDailyCaptacao(acertos.captacao)
+      // Unifying data source with ResumoAcertosPage
+      const settlements = await resumoAcertosService.getSettlements({
+        startDate: startStr,
+        endDate: endStr,
+      })
+
+      const normSelected = normalizeName(empName)
+      const regularMap = new Map<string, number>()
+      const captacaoMap = new Map<string, number>()
+
+      settlements.forEach((s) => {
+        // Filter by employee just like in ResumoAcertosPage
+        if (
+          s.employeeId?.toString() === selectedEmployeeId ||
+          normalizeName(s.employee) === normSelected
+        ) {
+          const dStr = s.acertoDate
+          const formBd = (s.paymentFormsBD || '').toLowerCase()
+
+          let isCaptacao = false
+          let hasRegular = false
+
+          // Check DB payment forms
+          const forms = formBd
+            .split('|')
+            .map((f) => f.trim())
+            .filter(Boolean)
+
+          if (forms.length > 0) {
+            forms.forEach((f) => {
+              if (f.includes('captação') || f.includes('captacao')) {
+                isCaptacao = true
+              } else {
+                hasRegular = true
+              }
+            })
+          } else {
+            // Fallback to detailed payments if DB form is empty
+            if (s.payments && s.payments.length > 0) {
+              s.payments.forEach((p) => {
+                const m = (p.method || '').toLowerCase()
+                if (m.includes('captação') || m.includes('captacao')) {
+                  isCaptacao = true
+                } else {
+                  hasRegular = true
+                }
+              })
+            } else {
+              hasRegular = true // Assume regular if no data found
+            }
+          }
+
+          if (isCaptacao && !hasRegular) {
+            captacaoMap.set(dStr, (captacaoMap.get(dStr) || 0) + 1)
+          } else {
+            regularMap.set(dStr, (regularMap.get(dStr) || 0) + 1)
+          }
+        }
+      })
+
+      setDailyAcertos(regularMap)
+      setDailyCaptacao(captacaoMap)
     } catch (error: any) {
       console.error(error)
       toast({
