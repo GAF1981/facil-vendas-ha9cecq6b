@@ -495,7 +495,9 @@ const MetasReportPage = () => {
       const acertos = dailyAcertos.get(dateStr) || 0
       const captacao = dailyCaptacao.get(dateStr) || 0
       const totalGeral = acertos + captacao
-      const apuracao = isFutureDate ? 0 : totalGeral - metaForDay
+
+      // Apuração: Total Metas - Acertos Regulares
+      const apuracao = isFutureDate ? 0 : metaForDay - acertos
 
       return {
         date: day,
@@ -525,7 +527,6 @@ const MetasReportPage = () => {
     let totalCaptacao = 0
     let totalGeral = 0
     let totalMetas = 0
-    let totalApuracao = 0
 
     const today = startOfDay(new Date())
 
@@ -535,9 +536,11 @@ const MetasReportPage = () => {
         totalCaptacao += row.captacao
         totalGeral += row.totalGeral
         totalMetas += row.metaForDay
-        totalApuracao += row.apuracao
       }
     })
+
+    // Apuração de Metas calculation: Total Metas - Total Acertos Regulares
+    const totalApuracao = totalMetas - totalAcertos
 
     const atingimento = totalMetas > 0 ? (totalGeral / totalMetas) * 100 : 0
 
@@ -823,9 +826,8 @@ const MetasReportPage = () => {
               </CardHeader>
               <CardContent>
                 <div
-                  className={`text-2xl font-bold ${summary.totalApuracao < 0 ? 'text-red-500' : 'text-green-500'}`}
+                  className={`text-2xl font-bold ${summary.totalApuracao > 0 ? 'text-red-500' : 'text-green-500'}`}
                 >
-                  {summary.totalApuracao > 0 ? '+' : ''}
                   {summary.totalApuracao}
                 </div>
               </CardContent>
@@ -906,9 +908,8 @@ const MetasReportPage = () => {
                         {row.metaForDay}
                       </TableCell>
                       <TableCell
-                        className={`text-right font-bold ${row.apuracao < 0 ? 'text-red-600' : row.apuracao > 0 ? 'text-green-600' : ''}`}
+                        className={`text-right font-bold ${row.apuracao > 0 ? 'text-red-600' : row.apuracao < 0 ? 'text-green-600' : ''}`}
                       >
-                        {row.apuracao > 0 ? '+' : ''}
                         {parseFloat(row.apuracao.toFixed(2))}
                       </TableCell>
                     </TableRow>
