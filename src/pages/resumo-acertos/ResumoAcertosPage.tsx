@@ -31,6 +31,17 @@ import { ResumoAcertosCards } from '@/components/resumo-acertos/ResumoAcertosCar
 import { ResumoAcertosTable } from '@/components/resumo-acertos/ResumoAcertosTable'
 import { ResumoAcertosProjectionsTable } from '@/components/resumo-acertos/ResumoAcertosProjectionsTable'
 
+const normalizeName = (name: string | null | undefined) => {
+  if (!name) return ''
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/souza/g, 'sousa')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 export default function ResumoAcertosPage() {
   const { employee: loggedInUser } = useUserStore()
   const [loading, setLoading] = useState(true)
@@ -213,10 +224,11 @@ export default function ResumoAcertosPage() {
       loggedInUser
     ) {
       if (selectedEmployeeId === loggedInUser.id.toString()) {
+        const normLoggedUser = normalizeName(loggedInUser.nome_completo)
         const hasMine = data.some(
           (s) =>
             s.employeeId?.toString() === selectedEmployeeId ||
-            s.employee === loggedInUser.nome_completo,
+            normalizeName(s.employee) === normLoggedUser,
         )
         if (!hasMine) {
           setSelectedEmployeeId('todos')
@@ -393,19 +405,22 @@ export default function ResumoAcertosPage() {
   const filteredData = useMemo(() => {
     let result = data
     if (selectedEmployeeId !== 'todos') {
+      const selectedEmpName = employees.find(
+        (e) => e.id.toString() === selectedEmployeeId,
+      )?.nome_completo
+      const normSelected = normalizeName(selectedEmpName)
+
       result = result.filter(
         (item) =>
           item.employeeId?.toString() === selectedEmployeeId ||
-          item.employee ===
-            employees.find((e) => e.id.toString() === selectedEmployeeId)
-              ?.nome_completo,
+          normalizeName(item.employee) === normSelected,
       )
     }
     if (clientSearchFilter) {
-      const searchLower = clientSearchFilter.toLowerCase()
+      const searchLower = normalizeName(clientSearchFilter)
       result = result.filter(
         (item) =>
-          item.clientName.toLowerCase().includes(searchLower) ||
+          normalizeName(item.clientName).includes(searchLower) ||
           item.clientCode.toString().includes(searchLower),
       )
     }

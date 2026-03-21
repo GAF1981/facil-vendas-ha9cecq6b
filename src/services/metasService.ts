@@ -1,6 +1,17 @@
 import { supabase } from '@/lib/supabase/client'
 import { MetaFuncionario, MetaPeriodo } from '@/types/meta'
 
+const normalizeName = (name: string | null | undefined) => {
+  if (!name) return ''
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/souza/g, 'sousa')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 export const metasService = {
   async getMeta(funcionarioId: number): Promise<MetaFuncionario | null> {
     const { data, error } = await supabase
@@ -67,8 +78,18 @@ export const metasService = {
     endDate: string,
   ) {
     // Unificação de Filtro de Datas: consideramos tanto DATA DO ACERTO quanto DATA E HORA
-    const startCond = `"DATA DO ACERTO".gte.${startDate},"DATA E HORA".gte.${startDate}T00:00:00`
-    const endCond = `"DATA DO ACERTO".lte.${endDate},"DATA E HORA".lte.${endDate}T23:59:59`
+    // Ampliamos a margem de busca para 1 dia antes e 1 dia depois, assegurando que
+    // offsets de timezone não mascarem registros próximos da meia-noite
+    const dStart = new Date(`${startDate}T12:00:00`)
+    dStart.setDate(dStart.getDate() - 1)
+    const dEnd = new Date(`${endDate}T12:00:00`)
+    dEnd.setDate(dEnd.getDate() + 1)
+
+    const startExtended = dStart.toISOString().split('T')[0]
+    const endExtended = dEnd.toISOString().split('T')[0]
+
+    const startCond = `"DATA DO ACERTO".gte.${startExtended},"DATA E HORA".gte.${startExtended}T00:00:00`
+    const endCond = `"DATA DO ACERTO".lte.${endExtended},"DATA E HORA".lte.${endExtended}T23:59:59`
 
     const { data, error } = await supabase
       .from('BANCO_DE_DADOS')
@@ -91,16 +112,21 @@ export const metasService = {
 
     data?.forEach((row) => {
       let dateStr = row['DATA DO ACERTO']
+
       if (!dateStr && row['DATA E HORA']) {
-        dateStr = row['DATA E HORA'].split('T')[0]
+        // Conversão com timezone seguro para não avançar/retroceder dias em horários limite
+        try {
+          dateStr = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'America/Sao_Paulo',
+          }).format(new Date(row['DATA E HORA']))
+        } catch {
+          dateStr = row['DATA E HORA'].split('T')[0]
+        }
       }
       if (!dateStr) return
 
       if (dateStr.includes('T')) dateStr = dateStr.split('T')[0]
       else if (dateStr.includes(' ')) dateStr = dateStr.split(' ')[0]
-
-      // Asseguramos que o registro caiu no período após as flexibilidades do OR
-      if (dateStr < startDate || dateStr > endDate) return
 
       const orderId = row['NÚMERO DO PEDIDO']
       if (!orderId) return
@@ -122,17 +148,21 @@ export const metasService = {
 
     const regularMap = new Map<string, number>()
     const captacaoMap = new Map<string, number>()
+    const normFuncNome = normalizeName(funcionarioNome)
 
     orderForms.forEach((forms, orderId) => {
       const emp = orderEmployees.get(orderId)!
 
-      // Refinamento de Identificação: Espelhamento exato com a regra do "Resumo de Acertos"
+      // Refinamento de Identificação com normalização (Sousa vs Souza, espaços e acentos)
       const matchesId = emp.id?.toString() === funcionarioId.toString()
-      const matchesName = emp.nome === funcionarioNome
+      const matchesName = normalizeName(emp.nome) === normFuncNome
 
       if (!matchesId && !matchesName) return
 
       const dateStr = orderDates.get(orderId)!
+
+      // Aplicamos o filtro estrito da data na memória (cobrindo a extensão da query)
+      if (dateStr < startDate || dateStr > endDate) return
 
       // Espelhamento de Cálculo: Identificar se o pedido inteiro é captação ou acerto regular
       let isCaptacao = false

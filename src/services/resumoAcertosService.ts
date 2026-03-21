@@ -244,16 +244,37 @@ export const resumoAcertosService = {
         ? options.rota.data_fim.split('T')[0]
         : null
 
-      const startCond = `"DATA DO ACERTO".gte.${datePartStart},"DATA E HORA".gte.${datePartStart}T00:00:00`
+      // Margem de segurança de timezone (1 dia para trás e para frente)
+      const dStart = new Date(`${datePartStart}T12:00:00`)
+      dStart.setDate(dStart.getDate() - 1)
+      const startExtended = dStart.toISOString().split('T')[0]
+
+      let endExtended = datePartEnd
       if (datePartEnd) {
-        const endCond = `"DATA DO ACERTO".lte.${datePartEnd},"DATA E HORA".lte.${datePartEnd}T23:59:59`
+        const dEnd = new Date(`${datePartEnd}T12:00:00`)
+        dEnd.setDate(dEnd.getDate() + 1)
+        endExtended = dEnd.toISOString().split('T')[0]
+      }
+
+      const startCond = `"DATA DO ACERTO".gte.${startExtended},"DATA E HORA".gte.${startExtended}T00:00:00`
+      if (endExtended) {
+        const endCond = `"DATA DO ACERTO".lte.${endExtended},"DATA E HORA".lte.${endExtended}T23:59:59`
         query = query.or(startCond).or(endCond)
       } else {
         query = query.or(startCond)
       }
     } else if (options.startDate && options.endDate) {
-      const startCond = `"DATA DO ACERTO".gte.${options.startDate},"DATA E HORA".gte.${options.startDate}T00:00:00`
-      const endCond = `"DATA DO ACERTO".lte.${options.endDate},"DATA E HORA".lte.${options.endDate}T23:59:59`
+      // Margem de segurança de timezone (1 dia para trás e para frente)
+      const dStart = new Date(`${options.startDate}T12:00:00`)
+      dStart.setDate(dStart.getDate() - 1)
+      const dEnd = new Date(`${options.endDate}T12:00:00`)
+      dEnd.setDate(dEnd.getDate() + 1)
+
+      const startExtended = dStart.toISOString().split('T')[0]
+      const endExtended = dEnd.toISOString().split('T')[0]
+
+      const startCond = `"DATA DO ACERTO".gte.${startExtended},"DATA E HORA".gte.${startExtended}T00:00:00`
+      const endCond = `"DATA DO ACERTO".lte.${endExtended},"DATA E HORA".lte.${endExtended}T23:59:59`
       query = query.or(startCond).or(endCond)
     }
 
@@ -268,9 +289,22 @@ export const resumoAcertosService = {
       let timeStr = row['HORA DO ACERTO'] || '00:00:00'
 
       if (!dateStr && row['DATA E HORA']) {
-        const iso = row['DATA E HORA'].split('T')
-        dateStr = iso[0]
-        if (iso[1]) timeStr = iso[1].substring(0, 8)
+        try {
+          const d = new Date(row['DATA E HORA'])
+          dateStr = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'America/Sao_Paulo',
+          }).format(d)
+          timeStr = new Intl.DateTimeFormat('pt-BR', {
+            timeZone: 'America/Sao_Paulo',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          }).format(d)
+        } catch {
+          const iso = row['DATA E HORA'].split('T')
+          dateStr = iso[0]
+          if (iso[1]) timeStr = iso[1].substring(0, 8)
+        }
       }
       if (!dateStr) return
 
@@ -290,6 +324,9 @@ export const resumoAcertosService = {
 
         if (!isAfterOrEqualStart) return
         if (options.rota.data_fim && !isBeforeOrEqualEnd) return
+      } else if (options.startDate && options.endDate && !options.clientId) {
+        // Filtragem estrita baseada nas datas recebidas (sem extensão)
+        if (dateStr < options.startDate || dateStr > options.endDate) return
       }
 
       const orderId = row['NÚMERO DO PEDIDO']
