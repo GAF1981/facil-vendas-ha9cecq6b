@@ -66,24 +66,27 @@ export const metasService = {
     startDate: string,
     endDate: string,
   ) {
-    const safeName = (funcionarioNome || '').replace(/,/g, '').trim()
-    let orQuery = `"CODIGO FUNCIONARIO".eq.${funcionarioId}`
-    if (safeName) {
-      orQuery += `,FUNCIONÁRIO.ilike.%${safeName}%`
-    }
+    // Unificação de Filtro de Datas: consideramos tanto DATA DO ACERTO quanto DATA E HORA
+    const startCond = `"DATA DO ACERTO".gte.${startDate},"DATA E HORA".gte.${startDate}T00:00:00`
+    const endCond = `"DATA DO ACERTO".lte.${endDate},"DATA E HORA".lte.${endDate}T23:59:59`
 
     const { data, error } = await supabase
       .from('BANCO_DE_DADOS')
-      .select('"DATA DO ACERTO", "DATA E HORA", "NÚMERO DO PEDIDO", "FORMA"')
-      .gte('DATA DO ACERTO', startDate)
-      .lte('DATA DO ACERTO', endDate)
+      .select(
+        '"DATA DO ACERTO", "DATA E HORA", "NÚMERO DO PEDIDO", "FORMA", "FUNCIONÁRIO", "CODIGO FUNCIONARIO"',
+      )
       .not('NÚMERO DO PEDIDO', 'is', null)
-      .or(orQuery)
+      .or(startCond)
+      .or(endCond)
 
     if (error) throw error
 
-    const uniqueOrdersPerDay = new Map<string, Set<number>>()
-    const uniqueCaptacaoPerDay = new Map<string, Set<number>>()
+    const orderForms = new Map<number, Set<string>>()
+    const orderDates = new Map<number, string>()
+    const orderEmployees = new Map<
+      number,
+      { id: number | null; nome: string }
+    >()
 
     data?.forEach((row) => {
       let dateStr = row['DATA DO ACERTO']
@@ -92,38 +95,61 @@ export const metasService = {
       }
       if (!dateStr) return
 
+      if (dateStr.includes('T')) dateStr = dateStr.split('T')[0]
+      else if (dateStr.includes(' ')) dateStr = dateStr.split(' ')[0]
+
+      // Asseguramos que o registro caiu no período após as flexibilidades do OR
+      if (dateStr < startDate || dateStr > endDate) return
+
       const orderId = row['NÚMERO DO PEDIDO']
-      const forma = row['FORMA']
       if (!orderId) return
 
-      if (dateStr.includes('T')) {
-        dateStr = dateStr.split('T')[0]
-      } else if (dateStr.includes(' ')) {
-        dateStr = dateStr.split(' ')[0]
+      if (!orderForms.has(orderId as number)) {
+        orderForms.set(orderId as number, new Set())
+        orderDates.set(orderId as number, dateStr)
+        orderEmployees.set(orderId as number, {
+          id: row['CODIGO FUNCIONARIO'],
+          nome: row['FUNCIONÁRIO'] || '',
+        })
       }
 
-      const formaStr = forma ? forma.toLowerCase() : ''
-      if (formaStr.includes('captação') || formaStr.includes('captacao')) {
-        if (!uniqueCaptacaoPerDay.has(dateStr)) {
-          uniqueCaptacaoPerDay.set(dateStr, new Set())
-        }
-        uniqueCaptacaoPerDay.get(dateStr)!.add(orderId as number)
-      } else {
-        if (!uniqueOrdersPerDay.has(dateStr)) {
-          uniqueOrdersPerDay.set(dateStr, new Set())
-        }
-        uniqueOrdersPerDay.get(dateStr)!.add(orderId as number)
+      const forma = row['FORMA']
+      if (forma) {
+        orderForms.get(orderId as number)!.add(forma.toLowerCase())
       }
     })
 
     const regularMap = new Map<string, number>()
-    uniqueOrdersPerDay.forEach((orders, date) => {
-      regularMap.set(date, orders.size)
-    })
-
     const captacaoMap = new Map<string, number>()
-    uniqueCaptacaoPerDay.forEach((orders, date) => {
-      captacaoMap.set(date, orders.size)
+
+    orderForms.forEach((forms, orderId) => {
+      const emp = orderEmployees.get(orderId)!
+
+      // Refinamento de Identificação: Espelhamento exato com a regra do "Resumo de Acertos"
+      const matchesId = emp.id?.toString() === funcionarioId.toString()
+      const matchesName = emp.nome === funcionarioNome
+
+      if (!matchesId && !matchesName) return
+
+      const dateStr = orderDates.get(orderId)!
+
+      // Espelhamento de Cálculo: Identificar se o pedido inteiro é captação ou acerto regular
+      let isCaptacao = false
+      let hasRegular = false
+      forms.forEach((f) => {
+        if (f.includes('captação') || f.includes('captacao')) {
+          isCaptacao = true
+        } else {
+          hasRegular = true
+        }
+      })
+
+      // Somente marcamos como Captação se não houver NENHUMA forma de pagamento regular
+      if (isCaptacao && !hasRegular) {
+        captacaoMap.set(dateStr, (captacaoMap.get(dateStr) || 0) + 1)
+      } else {
+        regularMap.set(dateStr, (regularMap.get(dateStr) || 0) + 1)
+      }
     })
 
     return { regular: regularMap, captacao: captacaoMap }

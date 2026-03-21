@@ -183,7 +183,7 @@ export const resumoAcertosService = {
       return {
         venda_id: orderId,
         cliente_id: clientId,
-        funcionario_id: employeeId, // Always use the original employee to ensure correct cash flow
+        funcionario_id: employeeId,
         forma_pagamento: inst.method,
         valor_registrado: inst.value,
         valor_pago: inst.paidValue || 0,
@@ -244,14 +244,17 @@ export const resumoAcertosService = {
         ? options.rota.data_fim.split('T')[0]
         : null
 
-      query = query.gte('"DATA DO ACERTO"', datePartStart)
+      const startCond = `"DATA DO ACERTO".gte.${datePartStart},"DATA E HORA".gte.${datePartStart}T00:00:00`
       if (datePartEnd) {
-        query = query.lte('"DATA DO ACERTO"', datePartEnd)
+        const endCond = `"DATA DO ACERTO".lte.${datePartEnd},"DATA E HORA".lte.${datePartEnd}T23:59:59`
+        query = query.or(startCond).or(endCond)
+      } else {
+        query = query.or(startCond)
       }
     } else if (options.startDate && options.endDate) {
-      query = query
-        .gte('"DATA DO ACERTO"', options.startDate)
-        .lte('"DATA DO ACERTO"', options.endDate)
+      const startCond = `"DATA DO ACERTO".gte.${options.startDate},"DATA E HORA".gte.${options.startDate}T00:00:00`
+      const endCond = `"DATA DO ACERTO".lte.${options.endDate},"DATA E HORA".lte.${options.endDate}T23:59:59`
+      query = query.or(startCond).or(endCond)
     }
 
     const { data: dbData, error: dbError } = await query
