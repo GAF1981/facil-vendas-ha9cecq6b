@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase/client'
 import { formatCurrency, parseCurrency } from '@/lib/formatters'
-import { parseISO, isAfter, isBefore, isEqual } from 'date-fns'
+import { parseISO, isAfter, isBefore, isEqual, format } from 'date-fns'
+import { parseDateSafe } from '@/lib/dateUtils'
 import { Rota } from '@/types/rota'
 
 export interface SettlementItem {
@@ -288,24 +289,27 @@ export const resumoAcertosService = {
       let dateStr = row['DATA DO ACERTO']
       let timeStr = row['HORA DO ACERTO'] || '00:00:00'
 
+      if (dateStr) {
+        const parsed = parseDateSafe(dateStr)
+        if (parsed) {
+          dateStr = format(parsed, 'yyyy-MM-dd')
+        }
+      }
+
       if (!dateStr && row['DATA E HORA']) {
         try {
-          const d = new Date(row['DATA E HORA'])
-          dateStr = new Intl.DateTimeFormat('en-CA', {
-            timeZone: 'America/Sao_Paulo',
-          }).format(d)
-          timeStr = new Intl.DateTimeFormat('pt-BR', {
-            timeZone: 'America/Sao_Paulo',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-          }).format(d)
+          const parsed = parseDateSafe(row['DATA E HORA'])
+          if (parsed) {
+            dateStr = format(parsed, 'yyyy-MM-dd')
+            timeStr = format(parsed, 'HH:mm:ss')
+          }
         } catch {
           const iso = row['DATA E HORA'].split('T')
           dateStr = iso[0]
           if (iso[1]) timeStr = iso[1].substring(0, 8)
         }
       }
+
       if (!dateStr) return
 
       if (options.rota && !options.clientId) {
@@ -325,7 +329,7 @@ export const resumoAcertosService = {
         if (!isAfterOrEqualStart) return
         if (options.rota.data_fim && !isBeforeOrEqualEnd) return
       } else if (options.startDate && options.endDate && !options.clientId) {
-        // Filtragem estrita baseada nas datas recebidas (sem extensão)
+        // Filtragem estrita baseada nas datas recebidas (sem extensão) garantida pelo formato yyyy-MM-dd
         if (dateStr < options.startDate || dateStr > options.endDate) return
       }
 

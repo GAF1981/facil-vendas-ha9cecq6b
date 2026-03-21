@@ -94,12 +94,9 @@ export const parseDateSafe = (
   let d: Date | null = null
 
   // Try ISO format (YYYY-MM-DD)
-  // Simple check for YYYY-MM-DD pattern
   if (str.match(/^\d{4}-\d{2}-\d{2}/)) {
     const isoDate = parseISO(str)
-    if (isValid(isoDate)) {
-      d = isoDate
-    }
+    if (isValid(isoDate)) d = isoDate
   }
 
   // Try YYYY/MM/DD
@@ -132,7 +129,7 @@ export const parseDateSafe = (
     }
   }
 
-  // Last resort: standard Date parsing (might work for some ISO variations or US formats)
+  // Last resort: standard Date parsing
   if (!d) {
     const fallback = new Date(str)
     if (isValid(fallback)) {
@@ -141,10 +138,12 @@ export const parseDateSafe = (
   }
 
   // Fix 2-digit year issue (e.g., 0026 -> 2026)
-  // We assume that dates in this system won't be from the 1st century AD
   if (d && isValid(d)) {
-    if (d.getFullYear() < 1900) {
-      d.setFullYear(d.getFullYear() + 2000)
+    const year = d.getFullYear()
+    if (year < 100) {
+      d.setFullYear(year + 2000)
+    } else if (year < 1900) {
+      d.setFullYear(year + 2000)
     }
     return d
   }

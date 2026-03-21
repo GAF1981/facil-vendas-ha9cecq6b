@@ -75,7 +75,7 @@ export function ResumoAcertosTable({
                   #{row.orderId}
                 </TableCell>
                 <TableCell className="text-xs">
-                  {safeFormatDate(row.acertoDate, 'dd/MM/yy')}
+                  {safeFormatDate(row.acertoDate, 'dd/MM/yyyy')}
                   <span className="block text-[10px] text-muted-foreground">
                     {row.acertoTime.substring(0, 5)}
                   </span>

@@ -61,7 +61,7 @@ export function ResumoAcertosProjectionsTable({
                   {row.orderId < 0 ? 'Saldo Ini.' : `#${row.orderId}`}
                 </TableCell>
                 <TableCell className="text-xs">
-                  {safeFormatDate(row.orderDate, 'dd/MM/yy')}
+                  {safeFormatDate(row.orderDate, 'dd/MM/yyyy')}
                 </TableCell>
                 <TableCell className="text-sm font-medium">
                   {row.clientName}
