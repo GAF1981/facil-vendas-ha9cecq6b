@@ -165,13 +165,13 @@ export function PerformanceSummaryModal({
     message = 'Força, ainda temos muito trabalho até a meta!'
     msgColor = 'text-red-600'
   } else if (atingimento >= 70 && atingimento < 90) {
-    message = 'Vamos lá estamos caminhando para a meta!'
+    message = 'Vamos lá, estamos caminhando para a meta!'
     msgColor = 'text-orange-500'
   } else if (atingimento >= 90 && atingimento < 100) {
-    message = 'Vamos estamos quase atingindo a Meta!'
+    message = 'Vamos, estamos quase atingindo a Meta!'
     msgColor = 'text-orange-500'
   } else {
-    message = 'Parabéns você conseguiu!'
+    message = 'Parabéns, você conseguiu!'
     msgColor = 'text-green-600'
   }
 
@@ -252,7 +252,7 @@ export function PerformanceSummaryModal({
                       : 'text-green-600'
                   }`}
                 >
-                  {metrics.atingimento}%
+                  {metrics.atingimento.toString().replace('.', ',')}%
                 </span>
               </div>
             </div>
