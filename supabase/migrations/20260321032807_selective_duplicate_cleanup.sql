@@ -12,7 +12,6 @@ SECURITY DEFINER
 AS $$
 BEGIN
     RETURN QUERY
-    -- Duplicate Items (Same Order, Product, Quantity and Value)
     WITH pedidos_rota AS (
         SELECT bd."ID VENDA ITENS", bd."NÚMERO DO PEDIDO", bd."CLIENTE", bd."COD. PRODUTO", bd."MERCADORIA", bd."VALOR VENDIDO", bd."QUANTIDADE VENDIDA"
         FROM "BANCO_DE_DADOS" bd
@@ -29,21 +28,8 @@ BEGIN
         FROM pedidos_rota
         GROUP BY "NÚMERO DO PEDIDO", "COD. PRODUTO", "QUANTIDADE VENDIDA", "VALOR VENDIDO"
         HAVING COUNT(*) > 1
-    )
-    SELECT
-        'item_' || pr."ID VENDA ITENS" as id_to_delete,
-        pr."NÚMERO DO PEDIDO" as pedido_id,
-        pr."CLIENTE" as cliente_nome,
-        'Item do Pedido'::text as tipo_duplicidade,
-        'Produto: ' || COALESCE(pr."MERCADORIA", 'N/D') || ' | Qtd: ' || COALESCE(pr."QUANTIDADE VENDIDA", '0') || ' | Vl: R$ ' || COALESCE(pr."VALOR VENDIDO", '0') as detalhes
-    FROM pedidos_rota pr
-    WHERE pr."NÚMERO DO PEDIDO" IN (SELECT "NÚMERO DO PEDIDO" FROM pedidos_rota GROUP BY "NÚMERO DO PEDIDO", "COD. PRODUTO", "QUANTIDADE VENDIDA", "VALOR VENDIDO" HAVING COUNT(*) > 1)
-      AND pr."ID VENDA ITENS" NOT IN (SELECT min_id FROM min_items)
-
-    UNION ALL
-
-    -- Duplicate Payments (Same Order, Method, Value and Due Date)
-    WITH pay_rota AS (
+    ),
+    pay_rota AS (
         SELECT rec.id, rec.venda_id, c."NOME CLIENTE", rec.forma_pagamento, rec.valor_pago, rec.vencimento::date as venc
         FROM "RECEBIMENTOS" rec
         LEFT JOIN "CLIENTES" c ON c."CODIGO" = rec.cliente_id
@@ -59,6 +45,18 @@ BEGIN
         GROUP BY venda_id, forma_pagamento, valor_pago, venc
         HAVING COUNT(*) > 1
     )
+    SELECT
+        'item_' || pr."ID VENDA ITENS" as id_to_delete,
+        pr."NÚMERO DO PEDIDO" as pedido_id,
+        pr."CLIENTE" as cliente_nome,
+        'Item do Pedido'::text as tipo_duplicidade,
+        'Produto: ' || COALESCE(pr."MERCADORIA", 'N/D') || ' | Qtd: ' || COALESCE(pr."QUANTIDADE VENDIDA", '0') || ' | Vl: R$ ' || COALESCE(pr."VALOR VENDIDO", '0') as detalhes
+    FROM pedidos_rota pr
+    WHERE pr."NÚMERO DO PEDIDO" IN (SELECT "NÚMERO DO PEDIDO" FROM pedidos_rota GROUP BY "NÚMERO DO PEDIDO", "COD. PRODUTO", "QUANTIDADE VENDIDA", "VALOR VENDIDO" HAVING COUNT(*) > 1)
+      AND pr."ID VENDA ITENS" NOT IN (SELECT min_id FROM min_items)
+
+    UNION ALL
+
     SELECT
         'pay_' || pr.id as id_to_delete,
         pr.venda_id as pedido_id,
