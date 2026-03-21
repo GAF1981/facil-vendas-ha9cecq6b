@@ -496,8 +496,8 @@ const MetasReportPage = () => {
       const captacao = dailyCaptacao.get(dateStr) || 0
       const totalGeral = acertos + captacao
 
-      // Apuração: Acertos Regulares + Captações - Total Metas
-      const apuracao = isFutureDate ? 0 : totalGeral - metaForDay
+      // Apuração: Acertos Regulares - Total Metas
+      const apuracao = isFutureDate ? 0 : acertos - metaForDay
 
       return {
         date: day,
@@ -539,10 +539,11 @@ const MetasReportPage = () => {
       }
     })
 
-    // Apuração de Metas calculation: (Acertos Regulares + Captações) - Total Metas
-    const totalApuracao = totalGeral - totalMetas
+    // Apuração de Metas calculation: Acertos Regulares - Total Metas
+    const totalApuracao = totalAcertos - totalMetas
 
-    const atingimento = totalMetas > 0 ? (totalGeral / totalMetas) * 100 : 0
+    // Atingimento: Acertos Regulares / Total Metas (como a apuração dos acertos dividida pela meta)
+    const atingimento = totalMetas > 0 ? (totalAcertos / totalMetas) * 100 : 0
 
     return {
       totalAcertos,
@@ -826,8 +827,9 @@ const MetasReportPage = () => {
               </CardHeader>
               <CardContent>
                 <div
-                  className={`text-2xl font-bold ${summary.totalApuracao < 0 ? 'text-red-500' : 'text-green-500'}`}
+                  className={`text-2xl font-bold ${summary.totalApuracao < 0 ? 'text-red-500' : summary.totalApuracao > 0 ? 'text-green-500' : ''}`}
                 >
+                  {summary.totalApuracao > 0 ? '+' : ''}
                   {summary.totalApuracao}
                 </div>
               </CardContent>
@@ -910,6 +912,7 @@ const MetasReportPage = () => {
                       <TableCell
                         className={`text-right font-bold ${row.apuracao < 0 ? 'text-red-600' : row.apuracao > 0 ? 'text-green-600' : ''}`}
                       >
+                        {row.apuracao > 0 ? '+' : ''}
                         {parseFloat(row.apuracao.toFixed(2))}
                       </TableCell>
                     </TableRow>

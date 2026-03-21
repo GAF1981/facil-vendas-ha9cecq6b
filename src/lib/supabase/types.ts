@@ -4334,7 +4334,8 @@ export const Constants = {
 //   
 //       -- Update debts for all affected unique orders
 //       IF v_orders IS NOT NULL THEN
-//           FOR v_order_id IN SELECT DISTINCT unnest(v_orders) WHERE unnest IS NOT NULL
+//           -- FIX: Use proper alias 'o' for unnest to avoid "column unnest does not exist"
+//           FOR v_order_id IN SELECT DISTINCT o FROM unnest(v_orders) AS o WHERE o IS NOT NULL
 //           LOOP
 //               PERFORM public.update_debito_historico_order(v_order_id);
 //           END LOOP;
