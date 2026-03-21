@@ -68,7 +68,6 @@ const MetasReportPage = () => {
   })
   const [employees, setEmployees] = useState<Employee[]>([])
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('')
-  const [summaryFilter, setSummaryFilter] = useState<string>('rota')
 
   const [isLoading, setIsLoading] = useState(false)
   const [dailyAcertos, setDailyAcertos] = useState<Map<string, number>>(
@@ -567,19 +566,6 @@ const MetasReportPage = () => {
         </CardHeader>
         <CardContent>
           <div className="flex flex-col md:flex-row gap-4 items-end">
-            <div className="space-y-2 w-full md:w-auto flex-1">
-              <Label>Filtro de Resumo</Label>
-              <Select value={summaryFilter} onValueChange={setSummaryFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="rota">Por Rota</SelectItem>
-                  <SelectItem value="funcionario">Por Funcionário</SelectItem>
-                  <SelectItem value="geral">Geral</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             <div className="space-y-2 w-full md:w-auto flex-1">
               <Label>Período</Label>
               <DateRangePicker

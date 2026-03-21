@@ -78,6 +78,7 @@ export const metasService = {
       .not('NÚMERO DO PEDIDO', 'is', null)
       .or(startCond)
       .or(endCond)
+      .limit(100000)
 
     if (error) throw error
 
