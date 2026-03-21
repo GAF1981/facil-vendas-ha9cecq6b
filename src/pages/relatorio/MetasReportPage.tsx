@@ -496,8 +496,8 @@ const MetasReportPage = () => {
       const captacao = dailyCaptacao.get(dateStr) || 0
       const totalGeral = acertos + captacao
 
-      // Apuração: Acertos Regulares - Total Metas
-      const apuracao = isFutureDate ? 0 : acertos - metaForDay
+      // Apuração: Acertos Regulares + Captações - Total Metas
+      const apuracao = isFutureDate ? 0 : totalGeral - metaForDay
 
       return {
         date: day,
@@ -539,8 +539,8 @@ const MetasReportPage = () => {
       }
     })
 
-    // Apuração de Metas calculation: Total Acertos Regulares - Total Metas
-    const totalApuracao = totalAcertos - totalMetas
+    // Apuração de Metas calculation: (Acertos Regulares + Captações) - Total Metas
+    const totalApuracao = totalGeral - totalMetas
 
     const atingimento = totalMetas > 0 ? (totalGeral / totalMetas) * 100 : 0
 
