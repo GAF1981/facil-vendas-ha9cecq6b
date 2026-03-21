@@ -15,6 +15,7 @@ import {
   User,
   Search,
   Hash,
+  CopyX,
 } from 'lucide-react'
 import { DateRangePicker } from '@/components/common/DateRangePicker'
 import { DateRange } from 'react-day-picker'
@@ -42,6 +43,7 @@ interface ResumoAcertosFiltersProps {
   handleLocateOrder: () => void
   fetchData: () => void
   selectedRoute: Rota | undefined
+  onDuplicatesClick: () => void
 }
 
 export function ResumoAcertosFilters({
@@ -64,6 +66,7 @@ export function ResumoAcertosFilters({
   handleLocateOrder,
   fetchData,
   selectedRoute,
+  onDuplicatesClick,
 }: ResumoAcertosFiltersProps) {
   return (
     <Card className="border-l-4 border-l-blue-600 bg-blue-50/20">
@@ -207,21 +210,32 @@ export function ResumoAcertosFilters({
       </CardHeader>
       <CardContent>
         {filterMode === 'rota' && selectedRoute ? (
-          <div className="flex flex-wrap gap-4 pt-2 text-sm">
-            <div className="bg-background border px-3 py-1 rounded-md">
-              <span className="text-muted-foreground mr-2">Início:</span>
-              <span className="font-medium">
-                {safeFormatDate(selectedRoute.data_inicio)}
-              </span>
+          <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
+            <div className="flex gap-4 text-sm">
+              <div className="bg-background border px-3 py-1 rounded-md">
+                <span className="text-muted-foreground mr-2">Início:</span>
+                <span className="font-medium">
+                  {safeFormatDate(selectedRoute.data_inicio)}
+                </span>
+              </div>
+              <div className="bg-background border px-3 py-1 rounded-md">
+                <span className="text-muted-foreground mr-2">Fim:</span>
+                <span className="font-medium">
+                  {selectedRoute.data_fim
+                    ? safeFormatDate(selectedRoute.data_fim)
+                    : 'Em andamento'}
+                </span>
+              </div>
             </div>
-            <div className="bg-background border px-3 py-1 rounded-md">
-              <span className="text-muted-foreground mr-2">Fim:</span>
-              <span className="font-medium">
-                {selectedRoute.data_fim
-                  ? safeFormatDate(selectedRoute.data_fim)
-                  : 'Em andamento'}
-              </span>
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-amber-700 border-amber-200 bg-amber-50 hover:bg-amber-100 hover:text-amber-800"
+              onClick={onDuplicatesClick}
+            >
+              <CopyX className="h-4 w-4 mr-2" />
+              Verificar Duplicados
+            </Button>
           </div>
         ) : filterMode === 'rota' && !selectedRoute ? (
           <div className="text-amber-600 font-medium">

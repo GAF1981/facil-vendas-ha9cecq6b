@@ -25,6 +25,7 @@ import { supabase } from '@/lib/supabase/client'
 import { acertoService } from '@/services/acertoService'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 import { EditPaymentDialog } from '@/components/resumo-acertos/EditPaymentDialog'
+import { DuplicatesCleanupDialog } from '@/components/resumo-acertos/DuplicatesCleanupDialog'
 import { DateRange } from 'react-day-picker'
 import { ResumoAcertosFilters } from '@/components/resumo-acertos/ResumoAcertosFilters'
 import { ResumoAcertosCards } from '@/components/resumo-acertos/ResumoAcertosCards'
@@ -74,6 +75,7 @@ export default function ResumoAcertosPage() {
   const [pendingEditOrderId, setPendingEditOrderId] = useState<number | null>(
     null,
   )
+  const [duplicatesDialogOpen, setDuplicatesDialogOpen] = useState(false)
   const [hasInitializedEmployee, setHasInitializedEmployee] = useState(false)
 
   const { toast } = useToast()
@@ -511,6 +513,7 @@ export default function ResumoAcertosPage() {
         handleLocateOrder={handleLocateOrder}
         fetchData={() => fetchData()}
         selectedRoute={selectedRoute}
+        onDuplicatesClick={() => setDuplicatesDialogOpen(true)}
       />
 
       <ResumoAcertosCards
@@ -597,6 +600,13 @@ export default function ResumoAcertosPage() {
           onSuccess={() => fetchData()}
         />
       )}
+
+      <DuplicatesCleanupDialog
+        open={duplicatesDialogOpen}
+        onOpenChange={setDuplicatesDialogOpen}
+        routeId={selectedRouteId}
+        onSuccess={() => fetchData()}
+      />
     </div>
   )
 }
