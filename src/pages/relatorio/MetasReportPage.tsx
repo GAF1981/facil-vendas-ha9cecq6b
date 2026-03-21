@@ -46,7 +46,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { employeesService } from '@/services/employeesService'
 import { metasService } from '@/services/metasService'
-import { resumoAcertosService } from '@/services/resumoAcertosService'
+import { supabase } from '@/lib/supabase/client'
 import { Employee } from '@/types/employee'
 import { MetaPeriodo } from '@/types/meta'
 import {
@@ -162,6 +162,7 @@ const MetasReportPage = () => {
 
       const emp = employees.find((e) => e.id.toString() === selectedEmployeeId)
       const empName = emp ? emp.nome_completo : ''
+      const normSelected = normalizeName(empName)
 
       const metaInfo = await metasService.getMeta(funcId)
       setCurrentMetaDiaria(metaInfo?.meta_diaria || 0)
@@ -169,36 +170,76 @@ const MetasReportPage = () => {
       const periodos = await metasService.getMetasPeriodos(funcId)
       setPeriodGoals(periodos)
 
-      // Unifying data source with ResumoAcertosPage
-      const settlements = await resumoAcertosService.getSettlements({
-        startDate: startStr,
-        endDate: endStr,
-      })
+      // Fetching directly from BANCO_DE_DADOS to strictly enforce Date logic
+      const { data: dbData, error: dbError } = await supabase
+        .from('BANCO_DE_DADOS')
+        .select(
+          '"NÚMERO DO PEDIDO", "DATA DO ACERTO", "DATA E HORA", "CODIGO FUNCIONARIO", "FUNCIONÁRIO", "FORMA"',
+        )
+        .not('NÚMERO DO PEDIDO', 'is', null)
+        .or(
+          `"DATA DO ACERTO".gte.${startStr},"DATA E HORA".gte.${startStr}T00:00:00`,
+        )
+        .limit(100000)
 
-      const normSelected = normalizeName(empName)
+      if (dbError) throw dbError
+
+      const orderIds = Array.from(
+        new Set((dbData || []).map((r: any) => r['NÚMERO DO PEDIDO'])),
+      )
+
+      const paymentsMap = new Map<number, any[]>()
+      if (orderIds.length > 0) {
+        const chunkSize = 1000
+        for (let i = 0; i < orderIds.length; i += chunkSize) {
+          const chunk = orderIds.slice(i, i + chunkSize)
+          const { data: payData } = await supabase
+            .from('RECEBIMENTOS')
+            .select('venda_id, forma_pagamento')
+            .in('venda_id', chunk)
+
+          payData?.forEach((p) => {
+            if (!paymentsMap.has(p.venda_id)) paymentsMap.set(p.venda_id, [])
+            paymentsMap.get(p.venda_id)!.push(p)
+          })
+        }
+      }
+
       const regularMap = new Map<string, number>()
       const captacaoMap = new Map<string, number>()
+      const processedOrders = new Set<number>()
 
-      settlements.forEach((s) => {
-        // Filter by employee just like in ResumoAcertosPage
+      dbData?.forEach((row: any) => {
+        const orderId = row['NÚMERO DO PEDIDO']
+        if (processedOrders.has(orderId)) return
+
+        const funcCode = row['CODIGO FUNCIONARIO']?.toString()
+        const fName = row['FUNCIONÁRIO']
+
         if (
-          s.employeeId?.toString() === selectedEmployeeId ||
-          normalizeName(s.employee) === normSelected
+          funcCode === selectedEmployeeId ||
+          normalizeName(fName) === normSelected
         ) {
-          const dStr = s.acertoDate
-          const formBd = (s.paymentFormsBD || '').toLowerCase()
+          let dateStr = row['DATA DO ACERTO']
+          if (!dateStr && row['DATA E HORA']) {
+            dateStr = row['DATA E HORA'].split('T')[0]
+          }
 
+          if (!dateStr || dateStr < startStr || dateStr > endStr) return
+
+          processedOrders.add(orderId)
+
+          const formBd = (row['FORMA'] || '').toLowerCase()
           let isCaptacao = false
           let hasRegular = false
 
-          // Check DB payment forms
           const forms = formBd
             .split('|')
-            .map((f) => f.trim())
+            .map((f: string) => f.trim())
             .filter(Boolean)
 
           if (forms.length > 0) {
-            forms.forEach((f) => {
+            forms.forEach((f: string) => {
               if (f.includes('captação') || f.includes('captacao')) {
                 isCaptacao = true
               } else {
@@ -206,10 +247,10 @@ const MetasReportPage = () => {
               }
             })
           } else {
-            // Fallback to detailed payments if DB form is empty
-            if (s.payments && s.payments.length > 0) {
-              s.payments.forEach((p) => {
-                const m = (p.method || '').toLowerCase()
+            const pays = paymentsMap.get(orderId) || []
+            if (pays.length > 0) {
+              pays.forEach((p) => {
+                const m = (p.forma_pagamento || '').toLowerCase()
                 if (m.includes('captação') || m.includes('captacao')) {
                   isCaptacao = true
                 } else {
@@ -217,14 +258,14 @@ const MetasReportPage = () => {
                 }
               })
             } else {
-              hasRegular = true // Assume regular if no data found
+              hasRegular = true
             }
           }
 
           if (isCaptacao && !hasRegular) {
-            captacaoMap.set(dStr, (captacaoMap.get(dStr) || 0) + 1)
+            captacaoMap.set(dateStr, (captacaoMap.get(dateStr) || 0) + 1)
           } else {
-            regularMap.set(dStr, (regularMap.get(dStr) || 0) + 1)
+            regularMap.set(dateStr, (regularMap.get(dateStr) || 0) + 1)
           }
         }
       })
