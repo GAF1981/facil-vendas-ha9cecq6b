@@ -496,8 +496,8 @@ const MetasReportPage = () => {
       const captacao = dailyCaptacao.get(dateStr) || 0
       const totalGeral = acertos + captacao
 
-      // Apuração: Total Metas - Acertos Regulares
-      const apuracao = isFutureDate ? 0 : metaForDay - acertos
+      // Apuração: Acertos Regulares - Total Metas
+      const apuracao = isFutureDate ? 0 : acertos - metaForDay
 
       return {
         date: day,
@@ -539,8 +539,8 @@ const MetasReportPage = () => {
       }
     })
 
-    // Apuração de Metas calculation: Total Metas - Total Acertos Regulares
-    const totalApuracao = totalMetas - totalAcertos
+    // Apuração de Metas calculation: Total Acertos Regulares - Total Metas
+    const totalApuracao = totalAcertos - totalMetas
 
     const atingimento = totalMetas > 0 ? (totalGeral / totalMetas) * 100 : 0
 
@@ -826,7 +826,7 @@ const MetasReportPage = () => {
               </CardHeader>
               <CardContent>
                 <div
-                  className={`text-2xl font-bold ${summary.totalApuracao > 0 ? 'text-red-500' : 'text-green-500'}`}
+                  className={`text-2xl font-bold ${summary.totalApuracao < 0 ? 'text-red-500' : 'text-green-500'}`}
                 >
                   {summary.totalApuracao}
                 </div>
@@ -908,7 +908,7 @@ const MetasReportPage = () => {
                         {row.metaForDay}
                       </TableCell>
                       <TableCell
-                        className={`text-right font-bold ${row.apuracao > 0 ? 'text-red-600' : row.apuracao < 0 ? 'text-green-600' : ''}`}
+                        className={`text-right font-bold ${row.apuracao < 0 ? 'text-red-600' : row.apuracao > 0 ? 'text-green-600' : ''}`}
                       >
                         {parseFloat(row.apuracao.toFixed(2))}
                       </TableCell>
