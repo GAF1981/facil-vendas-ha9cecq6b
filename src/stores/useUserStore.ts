@@ -6,6 +6,8 @@ interface UserState {
   employee: Employee | null
   setEmployee: (employee: Employee | null) => void
   clearEmployee: () => void
+  showLoginNotification: boolean
+  setShowLoginNotification: (show: boolean) => void
 }
 
 export const useUserStore = create<UserState>()(
@@ -13,7 +15,10 @@ export const useUserStore = create<UserState>()(
     (set) => ({
       employee: null,
       setEmployee: (employee) => set({ employee }),
-      clearEmployee: () => set({ employee: null }),
+      clearEmployee: () =>
+        set({ employee: null, showLoginNotification: false }),
+      showLoginNotification: false,
+      setShowLoginNotification: (show) => set({ showLoginNotification: show }),
     }),
     {
       name: 'facil-vendas-user-storage',

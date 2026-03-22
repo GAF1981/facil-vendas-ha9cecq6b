@@ -11,6 +11,7 @@ export interface Employee {
   foto_url?: string | null
   created_at?: string
   situacao: 'ATIVO' | 'INATIVO'
+  login_count?: number
 }
 
 export type EmployeeInsert = Omit<Employee, 'id' | 'created_at'>

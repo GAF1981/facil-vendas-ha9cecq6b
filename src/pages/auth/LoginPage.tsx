@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
 import { authService } from '@/services/authService'
+import { configService } from '@/services/configService'
 import { useUserStore } from '@/stores/useUserStore'
 import { Loader2, Mail, AlertCircle } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -39,7 +40,7 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { toast } = useToast()
-  const { setEmployee } = useUserStore()
+  const { setEmployee, setShowLoginNotification } = useUserStore()
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -57,6 +58,24 @@ export default function LoginPage() {
 
       if (employee) {
         setEmployee(employee)
+
+        // Determine if notification box should be shown
+        try {
+          const loginsNeededStr = await configService.getConfig(
+            'logins_para_notificacao',
+          )
+          const loginsNeeded = parseInt(loginsNeededStr || '3', 10)
+          const currentCount = employee.login_count || 1
+
+          if (currentCount > 0 && currentCount % loginsNeeded === 0) {
+            setShowLoginNotification(true)
+          } else {
+            setShowLoginNotification(false)
+          }
+        } catch (err) {
+          console.error('Erro ao verificar configuração de notificações', err)
+        }
+
         const from = (location.state as any)?.from?.pathname || '/'
 
         toast({
@@ -65,7 +84,6 @@ export default function LoginPage() {
           className: 'bg-green-50 border-green-200 text-green-900',
         })
 
-        // Use replace to prevent going back to login
         navigate(from, { replace: true })
       } else {
         setErrorMsg('E-mail não encontrado.')

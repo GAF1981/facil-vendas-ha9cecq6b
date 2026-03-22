@@ -1,5 +1,10 @@
 import { supabase } from '@/lib/supabase/client'
-import { Pendencia, PendenciaInsert, PendenciaUpdate } from '@/types/pendencia'
+import {
+  Pendencia,
+  PendenciaInsert,
+  PendenciaUpdate,
+  PendenciaAnotacao,
+} from '@/types/pendencia'
 
 export const pendenciasService = {
   async getAll(resolvida?: boolean) {
@@ -81,5 +86,36 @@ export const pendenciasService = {
   async delete(id: number) {
     const { error } = await supabase.from('PENDENCIAS').delete().eq('id', id)
     if (error) throw error
+  },
+
+  async getAnotacoes(pendenciaId: number) {
+    const { data, error } = await supabase
+      .from('pendencia_anotacoes')
+      .select(
+        `
+        *,
+        funcionario:FUNCIONARIOS(nome_completo)
+      `,
+      )
+      .eq('pendencia_id', pendenciaId)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data as PendenciaAnotacao[]
+  },
+
+  async addAnotacao(pendenciaId: number, funcionarioId: number, texto: string) {
+    const { data, error } = await supabase
+      .from('pendencia_anotacoes')
+      .insert({
+        pendencia_id: pendenciaId,
+        funcionario_id: funcionarioId,
+        texto,
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+    return data as PendenciaAnotacao
   },
 }

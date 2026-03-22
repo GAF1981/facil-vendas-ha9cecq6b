@@ -28,20 +28,21 @@ import { Badge } from '@/components/ui/badge'
 import {
   AlertCircle,
   Plus,
-  Loader2,
   Search,
   CheckCircle2,
   RefreshCw,
-  User,
   Users,
+  MessageSquare,
 } from 'lucide-react'
 import { PendenciaFormDialog } from '@/components/pendencias/PendenciaFormDialog'
 import { ResolvePendenciaDialog } from '@/components/pendencias/ResolvePendenciaDialog'
+import { AnotacoesDialog } from '@/components/pendencias/AnotacoesDialog'
 import { Pendencia } from '@/types/pendencia'
 import { pendenciasService } from '@/services/pendenciasService'
 import { employeesService } from '@/services/employeesService'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
+import { formatBrazilDate } from '@/lib/dateUtils'
 import {
   Dialog,
   DialogContent,
@@ -61,6 +62,7 @@ export default function PendenciasPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [openCreate, setOpenCreate] = useState(false)
   const [openResolve, setOpenResolve] = useState(false)
+  const [openAnotacoes, setOpenAnotacoes] = useState(false)
   const [selectedPendencia, setSelectedPendencia] = useState<Pendencia | null>(
     null,
   )
@@ -96,7 +98,6 @@ export default function PendenciasPage() {
   }, [])
 
   const fetchPendencias = useCallback(async () => {
-    // Logic for "Existe Pendências?": If NÃO, show nothing (or empty list)
     if (filterExiste === 'NÃO') {
       setPendencias([])
       setLoading(false)
@@ -107,7 +108,6 @@ export default function PendenciasPage() {
     setLoading(true)
     setError(null)
     try {
-      // Map "Pendência Resolvida" filter
       let resolvedFilter: boolean | undefined = undefined
       if (filterResolvida === 'SIM') resolvedFilter = true
       if (filterResolvida === 'NÃO') resolvedFilter = false
@@ -132,7 +132,6 @@ export default function PendenciasPage() {
   }, [fetchPendencias])
 
   const filteredPendencias = pendencias.filter((p) => {
-    // Filter by Responsible
     if (filterResponsavel !== 'TODOS') {
       const respId = Number(filterResponsavel)
       if (p.responsavel_id !== respId) return false
@@ -152,6 +151,11 @@ export default function PendenciasPage() {
   const handleResolveClick = (pendencia: Pendencia) => {
     setSelectedPendencia(pendencia)
     setOpenResolve(true)
+  }
+
+  const handleAnotacoesClick = (pendencia: Pendencia) => {
+    setSelectedPendencia(pendencia)
+    setOpenAnotacoes(true)
   }
 
   const handleRefresh = () => {
@@ -297,6 +301,7 @@ export default function PendenciasPage() {
                     <TableRow>
                       <TableHead className="w-[80px]">CÓDIGO</TableHead>
                       <TableHead>NOME CLIENTE</TableHead>
+                      <TableHead className="w-[100px]">DATA</TableHead>
                       <TableHead className="hidden md:table-cell">
                         STATUS
                       </TableHead>
@@ -304,10 +309,10 @@ export default function PendenciasPage() {
                         Responsável
                       </TableHead>
                       <TableHead className="min-w-[200px]">PENDENCIA</TableHead>
-                      <TableHead className="text-center w-[150px]">
+                      <TableHead className="text-center w-[120px]">
                         RESOLVIDA?
                       </TableHead>
-                      <TableHead className="text-right w-[150px]">
+                      <TableHead className="text-right w-[200px]">
                         Ações
                       </TableHead>
                     </TableRow>
@@ -316,7 +321,7 @@ export default function PendenciasPage() {
                     {filteredPendencias.length === 0 ? (
                       <TableRow>
                         <TableCell
-                          colSpan={7}
+                          colSpan={8}
                           className="h-24 text-center text-muted-foreground"
                         >
                           {filterExiste === 'NÃO'
@@ -339,6 +344,11 @@ export default function PendenciasPage() {
                           <TableCell className="font-medium">
                             {pendencia.CLIENTES?.['NOME CLIENTE'] ||
                               'Cliente não encontrado'}
+                          </TableCell>
+                          <TableCell className="text-sm whitespace-nowrap">
+                            {formatBrazilDate(
+                              pendencia.created_at || new Date().toISOString(),
+                            )}
                           </TableCell>
                           <TableCell className="hidden md:table-cell">
                             <Badge variant="outline">
@@ -403,27 +413,44 @@ export default function PendenciasPage() {
                             </div>
                           </TableCell>
                           <TableCell className="text-right">
-                            {!pendencia.resolvida && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
-                                onClick={() => handleResolveClick(pendencia)}
-                              >
-                                <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                                Resolver
-                              </Button>
-                            )}
-                            {pendencia.resolvida && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-8 text-muted-foreground"
-                                onClick={() => setViewResolution(pendencia)}
-                              >
-                                Ver Detalhes
-                              </Button>
-                            )}
+                            <div className="flex justify-end gap-2">
+                              {!pendencia.resolvida && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 text-blue-600 border-blue-200 hover:bg-blue-50"
+                                    onClick={() =>
+                                      handleAnotacoesClick(pendencia)
+                                    }
+                                    title="Anotações"
+                                  >
+                                    <MessageSquare className="w-3.5 h-3.5" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+                                    onClick={() =>
+                                      handleResolveClick(pendencia)
+                                    }
+                                  >
+                                    <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                                    Resolver
+                                  </Button>
+                                </>
+                              )}
+                              {pendencia.resolvida && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 text-muted-foreground"
+                                  onClick={() => setViewResolution(pendencia)}
+                                >
+                                  Ver Detalhes
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))
@@ -446,6 +473,12 @@ export default function PendenciasPage() {
         open={openResolve}
         onOpenChange={setOpenResolve}
         onSuccess={fetchPendencias}
+        pendencia={selectedPendencia}
+      />
+
+      <AnotacoesDialog
+        open={openAnotacoes}
+        onOpenChange={setOpenAnotacoes}
         pendencia={selectedPendencia}
       />
 
@@ -472,7 +505,10 @@ export default function PendenciasPage() {
               </p>
               <p className="text-sm">{viewResolution?.descricao_pendencia}</p>
               <p className="text-xs text-muted-foreground mt-2">
-                Criado por: {viewResolution?.creator?.nome_completo || 'N/A'}
+                Criado por: {viewResolution?.creator?.nome_completo || 'N/A'} em{' '}
+                {formatBrazilDate(
+                  viewResolution?.created_at || new Date().toISOString(),
+                )}
               </p>
             </div>
             <div className="bg-green-50 p-3 rounded border border-green-100 text-green-900">

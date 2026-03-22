@@ -16,6 +16,9 @@ import { configService } from '@/services/configService'
 
 export default function IndicadoresPage() {
   const [diasSemAcao, setDiasSemAcao] = useState('10')
+  const [diasPendencia, setDiasPendencia] = useState('5')
+  const [loginsNotificacao, setLoginsNotificacao] = useState('3')
+
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const { toast } = useToast()
@@ -24,10 +27,18 @@ export default function IndicadoresPage() {
     const loadConfig = async () => {
       setLoading(true)
       try {
-        const val = await configService.getConfig('dias_sem_acao_cobranca')
-        if (val !== null) {
-          setDiasSemAcao(val)
-        }
+        const valAcao = await configService.getConfig('dias_sem_acao_cobranca')
+        if (valAcao !== null) setDiasSemAcao(valAcao)
+
+        const valPend = await configService.getConfig(
+          'dias_notificacao_pendencia',
+        )
+        if (valPend !== null) setDiasPendencia(valPend)
+
+        const valLogins = await configService.getConfig(
+          'logins_para_notificacao',
+        )
+        if (valLogins !== null) setLoginsNotificacao(valLogins)
       } catch (error) {
         toast({
           title: 'Erro',
@@ -43,10 +54,17 @@ export default function IndicadoresPage() {
   }, [toast])
 
   const handleSave = async () => {
-    if (!diasSemAcao || isNaN(Number(diasSemAcao))) {
+    if (
+      !diasSemAcao ||
+      isNaN(Number(diasSemAcao)) ||
+      !diasPendencia ||
+      isNaN(Number(diasPendencia)) ||
+      !loginsNotificacao ||
+      isNaN(Number(loginsNotificacao))
+    ) {
       toast({
         title: 'Valor Inválido',
-        description: 'Por favor, insira um número válido para os dias.',
+        description: 'Por favor, insira números válidos nos campos.',
         variant: 'destructive',
       })
       return
@@ -55,6 +73,12 @@ export default function IndicadoresPage() {
     setSaving(true)
     try {
       await configService.setConfig('dias_sem_acao_cobranca', diasSemAcao)
+      await configService.setConfig('dias_notificacao_pendencia', diasPendencia)
+      await configService.setConfig(
+        'logins_para_notificacao',
+        loginsNotificacao,
+      )
+
       toast({
         title: 'Sucesso',
         description: 'Configurações de indicadores salvas com sucesso.',
@@ -92,48 +116,110 @@ export default function IndicadoresPage() {
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Alertas de Cobrança</CardTitle>
-          <CardDescription>
-            Defina o período limite para alertar sobre inatividade nas
-            cobranças.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex justify-center p-8">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
-          ) : (
-            <div className="space-y-4 max-w-sm">
-              <div className="space-y-2">
-                <Label htmlFor="dias">Dias sem ação de Cobrança</Label>
-                <Input
-                  id="dias"
-                  type="number"
-                  min="1"
-                  value={diasSemAcao}
-                  onChange={(e) => setDiasSemAcao(e.target.value)}
-                  placeholder="Ex: 10"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Clientes que ultrapassarem este limite de dias sem ações
-                  registradas serão alertados.
-                </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Alertas de Cobrança</CardTitle>
+            <CardDescription>
+              Defina o período limite para alertar sobre inatividade nas
+              cobranças.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex justify-center p-4">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
               </div>
-              <Button onClick={handleSave} disabled={saving} className="w-full">
-                {saving ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4 mr-2" />
-                )}
-                Salvar Configuração
-              </Button>
-            </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="dias">Dias sem ação de Cobrança</Label>
+                  <Input
+                    id="dias"
+                    type="number"
+                    min="1"
+                    value={diasSemAcao}
+                    onChange={(e) => setDiasSemAcao(e.target.value)}
+                    placeholder="Ex: 10"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Clientes que ultrapassarem este limite de dias sem ações
+                    registradas serão alertados.
+                  </p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Caixa de Notificações</CardTitle>
+            <CardDescription>
+              Regras para exibição da caixa de notificações ao fazer login.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex justify-center p-4">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="diasPendencia">
+                    Dias sem resolução (Pendências)
+                  </Label>
+                  <Input
+                    id="diasPendencia"
+                    type="number"
+                    min="1"
+                    value={diasPendencia}
+                    onChange={(e) => setDiasPendencia(e.target.value)}
+                    placeholder="Ex: 5"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Pendências sem atualização ou resolução que ultrapassarem
+                    este limite serão notificadas.
+                  </p>
+                </div>
+
+                <div className="space-y-2 pt-2 border-t">
+                  <Label htmlFor="logins">
+                    Frequência de Notificação (Logins)
+                  </Label>
+                  <Input
+                    id="logins"
+                    type="number"
+                    min="1"
+                    value={loginsNotificacao}
+                    onChange={(e) => setLoginsNotificacao(e.target.value)}
+                    placeholder="Ex: 3"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Exibir a caixa a cada X logins realizados pelo funcionário.
+                  </p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="flex justify-end">
+        <Button
+          onClick={handleSave}
+          disabled={saving || loading}
+          className="w-full sm:w-auto min-w-[200px]"
+        >
+          {saving ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <Save className="w-4 h-4 mr-2" />
           )}
-        </CardContent>
-      </Card>
+          Salvar Configurações
+        </Button>
+      </div>
     </div>
   )
 }

@@ -1,5 +1,17 @@
 import { z } from 'zod'
 
+export interface PendenciaAnotacao {
+  id: number
+  pendencia_id: number
+  funcionario_id: number | null
+  texto: string
+  created_at: string
+  // Joined fields
+  funcionario?: {
+    nome_completo: string
+  } | null
+}
+
 export interface Pendencia {
   id: number
   cliente_id: number

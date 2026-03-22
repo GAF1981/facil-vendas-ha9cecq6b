@@ -4,7 +4,7 @@ import { Employee } from '@/types/employee'
 export const authService = {
   /**
    * Verifies employee credentials against the FUNCIONARIOS table using a secure RPC call.
-   * Now only checks for email existence.
+   * Now only checks for email existence and increments login_count.
    */
   async loginByEmail(email: string) {
     // Calling the RPC function that checks email in the FUNCIONARIOS table
@@ -15,7 +15,6 @@ export const authService = {
 
     if (error) {
       console.error('Auth RPC Error:', error)
-      // Throwing the error object allows the caller to inspect the message/code
       throw new Error(
         error.message ||
           'Erro ao validar credenciais. Tente novamente mais tarde.',
@@ -24,7 +23,25 @@ export const authService = {
 
     // Check if any user was returned
     if (data && data.length > 0) {
-      return data[0] as unknown as Employee
+      const employeeData = data[0] as unknown as Employee
+
+      // Increment login count
+      try {
+        const { data: updatedData, error: updateError } = await supabase
+          .from('FUNCIONARIOS')
+          .update({ login_count: ((employeeData as any).login_count || 0) + 1 })
+          .eq('id', employeeData.id)
+          .select('login_count')
+          .single()
+
+        if (!updateError && updatedData) {
+          employeeData.login_count = updatedData.login_count
+        }
+      } catch (err) {
+        console.error('Failed to increment login count', err)
+      }
+
+      return employeeData
     }
 
     return null
