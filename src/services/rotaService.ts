@@ -769,8 +769,10 @@ export const rotaService = {
         const item = itemMap.get(assignment.clientId)
         if (item) {
           // Merge existing item with new seller to ensure other fields are preserved
+          // Exclude 'id' to prevent null constraint violations in batch upserts
+          const { id, ...itemWithoutId } = item
           rowsToUpsert.push({
-            ...item,
+            ...itemWithoutId,
             vendedor_id: assignment.sellerId,
           })
         } else {
@@ -782,6 +784,8 @@ export const rotaService = {
             x_na_rota: 0,
             boleto: false,
             agregado: false,
+            tarefas: null,
+            vendedor_proximo_id: null,
           })
         }
       }
