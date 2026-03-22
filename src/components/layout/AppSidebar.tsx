@@ -47,171 +47,159 @@ export function AppSidebar() {
   const { canAccess } = usePermissions()
   const { employee } = useUserStore()
 
-  // Order matching Main Menu
-  const items = [
+  const categorizedItems = [
     {
-      title: 'Menu Principal',
-      url: '/',
-      icon: LayoutDashboard,
-      module: 'Menu',
+      category: 'Principal',
+      items: [
+        {
+          title: 'Menu Principal',
+          url: '/',
+          icon: LayoutDashboard,
+          module: 'Menu',
+        },
+        {
+          title: 'Indicadores',
+          url: '/indicadores',
+          icon: BarChart4,
+          module: 'Indicadores',
+        },
+        {
+          title: 'Relatório',
+          url: '/relatorio',
+          icon: BarChart3,
+          module: 'Relatório',
+        },
+      ],
     },
     {
-      title: 'Acerto',
-      url: '/acerto',
-      icon: Scale,
-      module: 'Acerto',
+      category: 'Operacional',
+      items: [
+        { title: 'Rota', url: '/rota', icon: Map, module: 'Rota' },
+        { title: 'Acerto', url: '/acerto', icon: Scale, module: 'Acerto' },
+        {
+          title: 'Recebimento',
+          url: '/recebimento',
+          icon: ArrowDownCircle,
+          module: 'Recebimento',
+        },
+        {
+          title: 'Pendências',
+          url: '/pendencias',
+          icon: AlertCircle,
+          module: 'Pendências',
+        },
+        {
+          title: 'INATIVAR CLIENTES',
+          url: '/inativar-clientes',
+          icon: UserX,
+          module: 'Inativar Clientes',
+        },
+        {
+          title: 'Rota Motoqueiro',
+          url: '/rota-motoqueiro',
+          icon: Bike,
+          module: 'Rota Motoqueiro',
+        },
+      ],
     },
     {
-      title: 'Rota',
-      url: '/rota',
-      icon: Map,
-      module: 'Rota',
+      category: 'Financeiro',
+      items: [
+        { title: 'Caixa', url: '/caixa', icon: Wallet, module: 'Caixa' },
+        {
+          title: 'Fechamentos',
+          url: '/fechamentos',
+          icon: Lock,
+          module: 'Fechamentos',
+        },
+        {
+          title: 'Resumo Acertos',
+          url: '/resumo-acertos',
+          icon: FileBarChart,
+          module: 'Resumo Acertos',
+        },
+        {
+          title: 'Cobrança',
+          url: '/cobranca',
+          icon: CreditCard,
+          module: 'Cobrança',
+        },
+        { title: 'Boletos', url: '/boletos', icon: Barcode, module: 'Boletos' },
+        {
+          title: 'Nota Fiscal',
+          url: '/nota-fiscal',
+          icon: FileText,
+          module: 'Nota Fiscal',
+        },
+        { title: 'DRE', url: '/dre', icon: BarChart4, module: 'DRE' },
+      ],
     },
     {
-      title: 'Recebimento',
-      url: '/recebimento',
-      icon: ArrowDownCircle,
-      module: 'Recebimento',
+      category: 'Estoque & Frota',
+      items: [
+        {
+          title: 'Inventário',
+          url: '/inventario',
+          icon: ClipboardList,
+          module: 'Inventário',
+        },
+        {
+          title: 'Estoque Carro',
+          url: '/estoque-carro',
+          icon: Car,
+          module: 'Inventário',
+        },
+        { title: 'Veículos', url: '/veiculos', icon: Car, module: 'Veículos' },
+      ],
     },
     {
-      title: 'DRE',
-      url: '/dre',
-      icon: BarChart4,
-      module: 'DRE',
+      category: 'Cadastros',
+      items: [
+        {
+          title: 'Clientes',
+          url: '/clientes',
+          icon: Users,
+          module: 'Clientes',
+        },
+        {
+          title: 'Produtos',
+          url: '/produtos',
+          icon: Package,
+          module: 'Produtos',
+        },
+        {
+          title: 'Fornecedores',
+          url: '/fornecedores',
+          icon: Truck,
+          module: 'Produtos',
+        },
+        {
+          title: 'Funcionários',
+          url: '/funcionarios',
+          icon: Briefcase,
+          module: 'Funcionários',
+        },
+      ],
     },
     {
-      title: 'Caixa',
-      url: '/caixa',
-      icon: Wallet,
-      module: 'Caixa',
-    },
-    {
-      title: 'Rota Motoqueiro',
-      url: '/rota-motoqueiro',
-      icon: Bike,
-      module: 'Rota Motoqueiro',
-    },
-    {
-      title: 'Estoque Carro',
-      url: '/estoque-carro',
-      icon: Car,
-      module: 'Inventário',
-    },
-    {
-      title: 'Veículos',
-      url: '/veiculos',
-      icon: Car,
-      module: 'Veículos',
-    },
-    {
-      title: 'Resumo Acertos',
-      url: '/resumo-acertos',
-      icon: FileBarChart,
-      module: 'Resumo Acertos',
-    },
-    {
-      title: 'Cobrança',
-      url: '/cobranca',
-      icon: CreditCard,
-      module: 'Cobrança',
-    },
-    {
-      title: 'Boletos',
-      url: '/boletos',
-      icon: Barcode,
-      module: 'Boletos',
-    },
-    {
-      title: 'Nota Fiscal',
-      url: '/nota-fiscal',
-      icon: FileText,
-      module: 'Nota Fiscal',
-    },
-    {
-      title: 'Fechamentos',
-      url: '/fechamentos',
-      icon: Lock,
-      module: 'Fechamentos',
-    },
-    {
-      title: 'INATIVAR CLIENTES',
-      url: '/inativar-clientes',
-      icon: UserX,
-      module: 'Inativar Clientes',
-    },
-    {
-      title: 'Pendências',
-      url: '/pendencias',
-      icon: AlertCircle,
-      module: 'Pendências',
-    },
-    {
-      title: 'Inventário',
-      url: '/inventario',
-      icon: ClipboardList,
-      module: 'Inventário',
-    },
-    {
-      title: 'Relatório',
-      url: '/relatorio',
-      icon: BarChart3,
-      module: 'Relatório',
-    },
-    {
-      title: 'e-mail seguro',
-      url: '/email-seguro',
-      icon: Mail,
-      module: 'Email Seguro',
-    },
-    {
-      title: 'Permissões',
-      url: '/permissoes',
-      icon: Settings,
-      module: 'Permissões',
-    },
-    {
-      title: 'Backup',
-      url: '/backup',
-      icon: Database,
-      module: 'Backup',
-    },
-    {
-      title: 'Clientes',
-      url: '/clientes',
-      icon: Users,
-      module: 'Clientes',
-    },
-    {
-      title: 'Fornecedores',
-      url: '/fornecedores',
-      icon: Truck,
-      module: 'Produtos',
-    },
-    {
-      title: 'Funcionários',
-      url: '/funcionarios',
-      icon: Briefcase,
-      module: 'Funcionários',
-    },
-    {
-      title: 'Produtos',
-      url: '/produtos',
-      icon: Package,
-      module: 'Produtos',
+      category: 'Sistema',
+      items: [
+        {
+          title: 'e-mail seguro',
+          url: '/email-seguro',
+          icon: Mail,
+          module: 'Email Seguro',
+        },
+        {
+          title: 'Permissões',
+          url: '/permissoes',
+          icon: Settings,
+          module: 'Permissões',
+        },
+        { title: 'Backup', url: '/backup', icon: Database, module: 'Backup' },
+      ],
     },
   ]
-
-  const visibleItems = items.filter((item) => {
-    if (item.module === 'Menu') return true
-    if (item.module === 'Email Seguro') return true
-    if (item.module === 'Permissões') {
-      if (Array.isArray(employee?.setor)) {
-        return employee?.setor.includes('Administrador')
-      }
-      return employee?.setor === 'Administrador'
-    }
-    return canAccess(item.module)
-  })
 
   return (
     <Sidebar collapsible="icon">
@@ -224,32 +212,52 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Menu Principal</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {visibleItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={
-                      location.pathname === item.url ||
-                      (item.url !== '/' &&
-                        location.pathname.startsWith(item.url))
-                    }
-                    tooltip={item.title}
-                    onClick={() => setOpenMobile(false)}
-                  >
-                    <Link to={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {categorizedItems.map((group) => {
+          const visibleGroupItems = group.items.filter((item) => {
+            if (item.module === 'Menu') return true
+            if (item.module === 'Email Seguro') return true
+            if (item.module === 'Permissões') {
+              if (Array.isArray(employee?.setor)) {
+                return employee?.setor.includes('Administrador')
+              }
+              return employee?.setor === 'Administrador'
+            }
+            return canAccess(item.module)
+          })
+
+          if (visibleGroupItems.length === 0) return null
+
+          return (
+            <SidebarGroup key={group.category}>
+              <SidebarGroupLabel className="text-xs font-semibold text-primary/70 uppercase tracking-wider">
+                {group.category}
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {visibleGroupItems.map((item) => (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={
+                          location.pathname === item.url ||
+                          (item.url !== '/' &&
+                            location.pathname.startsWith(item.url))
+                        }
+                        tooltip={item.title}
+                        onClick={() => setOpenMobile(false)}
+                      >
+                        <Link to={item.url}>
+                          <item.icon />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )
+        })}
       </SidebarContent>
       <SidebarRail />
     </Sidebar>

@@ -18,6 +18,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { InventoryGeneralSession } from '@/types/inventory_general'
+import { usePermissions } from '@/hooks/use-permissions'
 
 interface Props {
   activeSession: InventoryGeneralSession | undefined
@@ -44,6 +45,10 @@ export function InventoryControlBar({
   onFinalize,
   allItemsCounted,
 }: Props) {
+  const { canAccess } = usePermissions()
+  const canReset = canAccess('Botão Reset Inventário')
+  const canFinalizeInventory = canAccess('Botão Finalizar Inventário')
+
   return (
     <Card>
       <CardContent className="p-4 flex flex-wrap gap-2 items-center">
@@ -77,13 +82,15 @@ export function InventoryControlBar({
 
             {!isEditMode && (
               <>
-                <Button
-                  variant="outline"
-                  onClick={onResetInitial}
-                  className="text-red-600 border-red-200 hover:bg-red-50"
-                >
-                  <RotateCcw className="mr-2 h-4 w-4" /> Reset Saldo Inicial
-                </Button>
+                {canReset && (
+                  <Button
+                    variant="outline"
+                    onClick={onResetInitial}
+                    className="text-red-600 border-red-200 hover:bg-red-50"
+                  >
+                    <RotateCcw className="mr-2 h-4 w-4" /> Reset Saldo Inicial
+                  </Button>
+                )}
                 <Button
                   variant="secondary"
                   onClick={() => onOpenAction('COMPRA')}
@@ -118,7 +125,7 @@ export function InventoryControlBar({
             )}
 
             <div className="flex-1" />
-            {!isEditMode && (
+            {!isEditMode && canFinalizeInventory && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span>

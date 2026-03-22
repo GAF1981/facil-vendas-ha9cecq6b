@@ -263,192 +263,192 @@ export function RotaHeader({
             </Button>
           </div>
 
-          {!activeRota ? (
-            <Button
-              onClick={onStart}
-              disabled={loading}
-              className="bg-green-600 hover:bg-green-700 w-full sm:w-auto"
-            >
-              {loading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Play className="mr-2 h-4 w-4" />
-              )}
-              Iniciar Nova Rota
-            </Button>
-          ) : (
-            canViewFinalize && (
-              <>
-                {ignoredRouteEmployees.length > 0 && isHighLevelAdmin && (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-muted-foreground hover:text-blue-600"
-                        title="Vendedores sem movimento ignorados"
+          {!activeRota
+            ? canAccess('Botão Iniciar Rota') && (
+                <Button
+                  onClick={onStart}
+                  disabled={loading}
+                  className="bg-green-600 hover:bg-green-700 w-full sm:w-auto"
+                >
+                  {loading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Play className="mr-2 h-4 w-4" />
+                  )}
+                  Iniciar Nova Rota
+                </Button>
+              )
+            : canViewFinalize && (
+                <>
+                  {ignoredRouteEmployees.length > 0 && isHighLevelAdmin && (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-muted-foreground hover:text-blue-600"
+                          title="Vendedores sem movimento ignorados"
+                        >
+                          <Info className="h-4 w-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className="w-64 bg-blue-50 border-blue-200"
+                        align="end"
                       >
-                        <Info className="h-4 w-4" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      className="w-64 bg-blue-50 border-blue-200"
-                      align="end"
-                    >
-                      <div className="space-y-1">
-                        <h4 className="font-semibold text-blue-900 text-xs">
-                          Ignorados (Sem Movimento)
-                        </h4>
-                        <ul className="list-disc pl-4 text-[10px] text-blue-800">
-                          {ignoredRouteEmployees.map((name, idx) => (
-                            <li key={idx}>{name}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                )}
+                        <div className="space-y-1">
+                          <h4 className="font-semibold text-blue-900 text-xs">
+                            Ignorados (Sem Movimento)
+                          </h4>
+                          <ul className="list-disc pl-4 text-[10px] text-blue-800">
+                            {ignoredRouteEmployees.map((name, idx) => (
+                              <li key={idx}>{name}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  )}
 
-                {!isGerencialActive && hasPendingRoute && (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 gap-2 h-9 border border-yellow-200 animate-pulse"
-                      >
-                        <ShieldAlert className="h-4 w-4" />
-                        Pendência de Rota
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      className="w-80 bg-yellow-50 border-yellow-200"
-                      align="end"
-                    >
-                      <div className="space-y-2">
-                        <h4 className="font-semibold text-yellow-900 flex items-center gap-2">
+                  {!isGerencialActive && hasPendingRoute && (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 gap-2 h-9 border border-yellow-200 animate-pulse"
+                        >
                           <ShieldAlert className="h-4 w-4" />
-                          Vendedores Pendentes
-                        </h4>
-                        <p className="text-xs text-yellow-800">
-                          Todos os vendedores com movimento devem fechar o
-                          caixa.
-                          {isHighLevelAdmin && (
-                            <span className="block mt-1 font-bold">
-                              Admin pode forçar.
-                            </span>
-                          )}
-                        </p>
-                        <ul className="list-disc pl-4 text-sm text-yellow-900 max-h-40 overflow-y-auto">
-                          {pendingRouteEmployees.map((name, idx) => (
-                            <li key={idx}>{name}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                )}
-
-                {!hasPendingRoute && hasPendingClosing && (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2 h-9 border border-red-200 animate-pulse"
+                          Pendência de Rota
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className="w-80 bg-yellow-50 border-yellow-200"
+                        align="end"
                       >
-                        <AlertTriangle className="h-4 w-4" />
-                        {pendingClosingEmployees.length} Pendência(s) de
-                        Fechamento
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      className="w-80 bg-red-50 border-red-200"
-                      align="end"
-                    >
-                      <div className="space-y-2">
-                        <h4 className="font-semibold text-red-900 flex items-center gap-2">
+                        <div className="space-y-2">
+                          <h4 className="font-semibold text-yellow-900 flex items-center gap-2">
+                            <ShieldAlert className="h-4 w-4" />
+                            Vendedores Pendentes
+                          </h4>
+                          <p className="text-xs text-yellow-800">
+                            Todos os vendedores com movimento devem fechar o
+                            caixa.
+                            {isHighLevelAdmin && (
+                              <span className="block mt-1 font-bold">
+                                Admin pode forçar.
+                              </span>
+                            )}
+                          </p>
+                          <ul className="list-disc pl-4 text-sm text-yellow-900 max-h-40 overflow-y-auto">
+                            {pendingRouteEmployees.map((name, idx) => (
+                              <li key={idx}>{name}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  )}
+
+                  {!hasPendingRoute && hasPendingClosing && (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2 h-9 border border-red-200 animate-pulse"
+                        >
                           <AlertTriangle className="h-4 w-4" />
-                          Fechamentos Pendentes
-                        </h4>
-                        <p className="text-xs text-red-800">
-                          Os seguintes vendedores precisam fechar o caixa:
-                        </p>
-                        <ul className="list-disc pl-4 text-sm text-red-900">
-                          {pendingClosingEmployees.map((name, idx) => (
-                            <li key={idx}>{name}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                )}
-
-                {hasPendingConfirmation && (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 gap-2 h-9 border border-orange-200"
+                          {pendingClosingEmployees.length} Pendência(s) de
+                          Fechamento
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className="w-80 bg-red-50 border-red-200"
+                        align="end"
                       >
-                        <Clock className="h-4 w-4" />
-                        {pendingConfirmationEmployees.length} Pendência(s) de
-                        Confirmação
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      className="w-80 bg-orange-50 border-orange-200"
-                      align="end"
-                    >
-                      <div className="space-y-2">
-                        <h4 className="font-semibold text-orange-900 flex items-center gap-2">
-                          <Clock className="h-4 w-4" />
-                          Confirmações Pendentes
-                        </h4>
-                        <p className="text-xs text-orange-800">
-                          Os seguintes vendedores aguardam confirmação do
-                          gerente:
-                        </p>
-                        <ul className="list-disc pl-4 text-sm text-orange-900">
-                          {pendingConfirmationEmployees.map((name, idx) => (
-                            <li key={idx}>{name}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                )}
+                        <div className="space-y-2">
+                          <h4 className="font-semibold text-red-900 flex items-center gap-2">
+                            <AlertTriangle className="h-4 w-4" />
+                            Fechamentos Pendentes
+                          </h4>
+                          <p className="text-xs text-red-800">
+                            Os seguintes vendedores precisam fechar o caixa:
+                          </p>
+                          <ul className="list-disc pl-4 text-sm text-red-900">
+                            {pendingClosingEmployees.map((name, idx) => (
+                              <li key={idx}>{name}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  )}
 
-                {!isGerencialActive && (
-                  <div className="relative group">
-                    <Button
-                      onClick={onEnd}
-                      disabled={isBlocked}
-                      variant="destructive"
-                      className="w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {loading ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <Square className="mr-2 h-4 w-4" />
+                  {hasPendingConfirmation && (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 gap-2 h-9 border border-orange-200"
+                        >
+                          <Clock className="h-4 w-4" />
+                          {pendingConfirmationEmployees.length} Pendência(s) de
+                          Confirmação
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className="w-80 bg-orange-50 border-orange-200"
+                        align="end"
+                      >
+                        <div className="space-y-2">
+                          <h4 className="font-semibold text-orange-900 flex items-center gap-2">
+                            <Clock className="h-4 w-4" />
+                            Confirmações Pendentes
+                          </h4>
+                          <p className="text-xs text-orange-800">
+                            Os seguintes vendedores aguardam confirmação do
+                            gerente:
+                          </p>
+                          <ul className="list-disc pl-4 text-sm text-orange-900">
+                            {pendingConfirmationEmployees.map((name, idx) => (
+                              <li key={idx}>{name}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  )}
+
+                  {!isGerencialActive && (
+                    <div className="relative group">
+                      <Button
+                        onClick={onEnd}
+                        disabled={isBlocked}
+                        variant="destructive"
+                        className="w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {loading ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Square className="mr-2 h-4 w-4" />
+                        )}
+                        {isHighLevelAdmin && hasIssues
+                          ? 'Forçar Finalização'
+                          : 'Finalizar Rota'}
+                      </Button>
+                      {isBlocked && !loading && !hasPendingUpdates && (
+                        <div className="absolute top-full right-0 mt-1 w-64 p-2 bg-black/80 text-white text-xs rounded hidden group-hover:block z-50 text-center">
+                          Não é possível finalizar. Existem caixas não fechados
+                          ou pendentes de confirmação.
+                          {!isHighLevelAdmin && ' (Restrito a Admin)'}
+                        </div>
                       )}
-                      {isHighLevelAdmin && hasIssues
-                        ? 'Forçar Finalização'
-                        : 'Finalizar Rota'}
-                    </Button>
-                    {isBlocked && !loading && !hasPendingUpdates && (
-                      <div className="absolute top-full right-0 mt-1 w-64 p-2 bg-black/80 text-white text-xs rounded hidden group-hover:block z-50 text-center">
-                        Não é possível finalizar. Existem caixas não fechados ou
-                        pendentes de confirmação.
-                        {!isHighLevelAdmin && ' (Restrito a Admin)'}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
-            )
-          )}
+                    </div>
+                  )}
+                </>
+              )}
         </div>
       </CardContent>
     </Card>

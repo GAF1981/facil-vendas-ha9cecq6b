@@ -24,6 +24,8 @@ import {
   AlertCircle,
   CheckCircle2,
   Search,
+  Edit,
+  Trash2,
 } from 'lucide-react'
 import { MetricCard } from '@/components/dashboard/MetricCard'
 import { useToast } from '@/hooks/use-toast'
@@ -38,6 +40,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
 
 const GRUPOS = [
   'Alimentação',
@@ -66,6 +76,14 @@ export function DREDespesas({ startDate, endDate }: DREDespesasProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedExpense, setSelectedExpense] =
     useState<ExpenseReportRow | null>(null)
+
+  // Edit states
+  const [editExpenseId, setEditExpenseId] = useState<number | null>(null)
+  const [editData, setEditData] = useState('')
+  const [editGrupo, setEditGrupo] = useState('')
+  const [editDetalhamento, setEditDetalhamento] = useState('')
+  const [editValor, setEditValor] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
 
   useEffect(() => {
     supabase
@@ -130,6 +148,51 @@ export function DREDespesas({ startDate, endDate }: DREDespesasProps) {
       fetchData()
     } catch (err) {
       toast({ title: 'Erro ao confirmar despesa', variant: 'destructive' })
+    }
+  }
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('Deseja realmente excluir esta despesa?')) return
+    try {
+      await supabase.from('DESPESAS').delete().eq('id', id)
+      toast({ title: 'Despesa excluída com sucesso' })
+      fetchData()
+    } catch (e) {
+      toast({ title: 'Erro ao excluir', variant: 'destructive' })
+    }
+  }
+
+  const handleOpenEdit = (exp: ExpenseReportRow) => {
+    setEditExpenseId(exp.id)
+    setEditData(exp.data ? exp.data.split('T')[0] : '')
+    setEditGrupo(exp.grupo)
+    setEditDetalhamento(exp.detalhamento)
+    setEditValor(exp.valor.toString())
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editExpenseId) return
+    setSavingEdit(true)
+    try {
+      const dataIso = editData
+        ? new Date(editData).toISOString()
+        : new Date().toISOString()
+      await supabase
+        .from('DESPESAS')
+        .update({
+          Data: dataIso,
+          'Grupo de Despesas': editGrupo,
+          Detalhamento: editDetalhamento,
+          Valor: Number(editValor),
+        })
+        .eq('id', editExpenseId)
+      toast({ title: 'Despesa atualizada com sucesso' })
+      setEditExpenseId(null)
+      fetchData()
+    } catch (e) {
+      toast({ title: 'Erro ao atualizar', variant: 'destructive' })
+    } finally {
+      setSavingEdit(false)
     }
   }
 
@@ -235,7 +298,7 @@ export function DREDespesas({ startDate, endDate }: DREDespesasProps) {
                 <TableHead>Funcionário</TableHead>
                 <TableHead className="text-center">Caixa</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
-                <TableHead className="text-center w-[140px]">Ação</TableHead>
+                <TableHead className="text-center w-[180px]">Ação</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -274,30 +337,54 @@ export function DREDespesas({ startDate, endDate }: DREDespesasProps) {
                       R$ {formatCurrency(item.valor)}
                     </TableCell>
                     <TableCell className="text-center">
-                      <Button
-                        variant={
-                          item.status === 'Confirmado'
-                            ? 'outline'
-                            : 'destructive'
-                        }
-                        size="sm"
-                        className={cn(
-                          'w-full text-xs h-8 px-2 font-semibold',
-                          item.status === 'Confirmado'
-                            ? 'text-emerald-600 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-700'
-                            : 'bg-red-500 hover:bg-red-600',
-                        )}
-                        onClick={() => handleOpenModal(item)}
-                      >
-                        {item.status === 'Confirmado' ? (
+                      <div className="flex items-center justify-center gap-1">
+                        <Button
+                          variant={
+                            item.status === 'Confirmado'
+                              ? 'outline'
+                              : 'destructive'
+                          }
+                          size="sm"
+                          className={cn(
+                            'text-xs h-8 px-2 font-semibold',
+                            item.status === 'Confirmado'
+                              ? 'text-emerald-600 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-700'
+                              : 'bg-red-500 hover:bg-red-600',
+                          )}
+                          onClick={() => handleOpenModal(item)}
+                        >
+                          {item.status === 'Confirmado' ? (
+                            <>
+                              <CheckCircle2 className="h-3.5 w-3.5 mr-1" />{' '}
+                              Confirmado
+                            </>
+                          ) : (
+                            'A confirmar'
+                          )}
+                        </Button>
+                        {!item.saiu_do_caixa && (
                           <>
-                            <CheckCircle2 className="h-3.5 w-3.5 mr-1" />{' '}
-                            Confirmado
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              onClick={() => handleOpenEdit(item)}
+                              title="Editar"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => handleDelete(item.id)}
+                              title="Excluir"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </>
-                        ) : (
-                          'A confirmar'
                         )}
-                      </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -313,6 +400,79 @@ export function DREDespesas({ startDate, endDate }: DREDespesasProps) {
         expense={selectedExpense}
         onConfirm={handleConfirm}
       />
+
+      <Dialog
+        open={editExpenseId !== null}
+        onOpenChange={(open) => !open && setEditExpenseId(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Despesa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Data</Label>
+              <Input
+                type="date"
+                value={editData}
+                onChange={(e) => setEditData(e.target.value)}
+                disabled={savingEdit}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Grupo</Label>
+              <Select
+                value={editGrupo}
+                onValueChange={setEditGrupo}
+                disabled={savingEdit}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um grupo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {GRUPOS.map((g) => (
+                    <SelectItem key={g} value={g}>
+                      {g}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Detalhamento</Label>
+              <Input
+                value={editDetalhamento}
+                onChange={(e) => setEditDetalhamento(e.target.value)}
+                disabled={savingEdit}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Valor (R$)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={editValor}
+                onChange={(e) => setEditValor(e.target.value)}
+                disabled={savingEdit}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditExpenseId(null)}
+              disabled={savingEdit}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={savingEdit}>
+              {savingEdit && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

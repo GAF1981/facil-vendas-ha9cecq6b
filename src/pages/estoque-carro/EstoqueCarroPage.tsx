@@ -32,10 +32,12 @@ import {
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { safeFormatDate } from '@/lib/formatters'
+import { usePermissions } from '@/hooks/use-permissions'
 
 export default function EstoqueCarroPage() {
   const { employee } = useUserStore()
   const { toast } = useToast()
+  const { canAccess } = usePermissions()
 
   const [loading, setLoading] = useState(false)
 

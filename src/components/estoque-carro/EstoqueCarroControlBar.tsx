@@ -9,6 +9,7 @@ import {
   Gift,
   Lock,
 } from 'lucide-react'
+import { usePermissions } from '@/hooks/use-permissions'
 
 interface Props {
   viewedSession: EstoqueCarroSession | null
@@ -35,10 +36,9 @@ export function EstoqueCarroControlBar({
   disableFinalize = false,
   canFinalize = true,
 }: Props) {
-  // Logic determining what to show
-  // 1. If viewedSession is null, we can only start a session if one doesn't exist (handled by outer logic mostly, but button is here)
-  // 2. If viewedSession is closed (data_fim != null), show READ ONLY
-  // 3. If viewedSession is OPEN (data_fim == null), show ACTIONS
+  const { canAccess } = usePermissions()
+  const canReset = canAccess('Botão Reset Estoque Carro')
+  const canFinalizeEstoque = canAccess('Botão Finalizar Estoque Carro')
 
   const isViewedSessionClosed = !!viewedSession?.data_fim
   const isViewedSessionActive =
@@ -51,7 +51,6 @@ export function EstoqueCarroControlBar({
   return (
     <Card>
       <CardContent className="p-4 flex flex-wrap gap-2 items-center">
-        {/* State: No View Session OR No Active Session (Show Start) */}
         {!viewedSession && canStartNew && (
           <Button
             onClick={onStart}
@@ -62,7 +61,6 @@ export function EstoqueCarroControlBar({
           </Button>
         )}
 
-        {/* State: Viewing Closed History */}
         {viewedSession && isViewedSessionClosed && (
           <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded text-gray-600 border border-gray-200 w-full sm:w-auto">
             <Lock className="h-4 w-4" />
@@ -72,13 +70,14 @@ export function EstoqueCarroControlBar({
           </div>
         )}
 
-        {/* State: Viewing Active Session */}
         {viewedSession && isViewedSessionActive && (
           <>
-            <Button variant="outline" onClick={onReset} disabled={loading}>
-              <RotateCcw className="mr-2 h-4 w-4 text-red-600" /> Reset Saldo
-              Inicial
-            </Button>
+            {canReset && (
+              <Button variant="outline" onClick={onReset} disabled={loading}>
+                <RotateCcw className="mr-2 h-4 w-4 text-red-600" /> Reset Saldo
+                Inicial
+              </Button>
+            )}
 
             <Button variant="secondary" onClick={onCount} disabled={loading}>
               <Calculator className="mr-2 h-4 w-4" /> Contagem Carro
@@ -95,21 +94,23 @@ export function EstoqueCarroControlBar({
 
             <div className="flex-1" />
 
-            <Button
-              onClick={onFinalize}
-              disabled={loading || disableFinalize || !canFinalize}
-              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              title={
-                !canFinalize
-                  ? 'Você não tem permissão para finalizar.'
-                  : disableFinalize
-                    ? 'Realize todas as contagens pendentes antes de finalizar.'
-                    : ''
-              }
-            >
-              <CheckCircle2 className="mr-2 h-4 w-4" /> Finalizar Ajustes e
-              Abrir Novo
-            </Button>
+            {canFinalizeEstoque && (
+              <Button
+                onClick={onFinalize}
+                disabled={loading || disableFinalize || !canFinalize}
+                className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                title={
+                  !canFinalize
+                    ? 'Você não tem permissão para finalizar.'
+                    : disableFinalize
+                      ? 'Realize todas as contagens pendentes antes de finalizar.'
+                      : ''
+                }
+              >
+                <CheckCircle2 className="mr-2 h-4 w-4" /> Finalizar Ajustes e
+                Abrir Novo
+              </Button>
+            )}
           </>
         )}
       </CardContent>

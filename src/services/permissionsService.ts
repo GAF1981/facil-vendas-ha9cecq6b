@@ -33,6 +33,13 @@ const MODULES_LIST = [
   'Rota Motoqueiro',
   'Boletos',
   'E-mail Seguro',
+  'Indicadores',
+  'DRE',
+  'Botão Iniciar Rota',
+  'Botão Finalizar Estoque Carro',
+  'Botão Reset Estoque Carro',
+  'Botão Finalizar Inventário',
+  'Botão Reset Inventário',
 ]
 
 // Sectors authorized to finalize routes
