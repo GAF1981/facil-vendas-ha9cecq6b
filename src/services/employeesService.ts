@@ -4,7 +4,7 @@ import { Employee, EmployeeInsert, EmployeeUpdate } from '@/types/employee'
 export const employeesService = {
   async getEmployees(
     page: number = 1,
-    pageSize: number = 20,
+    pageSize: number = 1000,
     search: string = '',
   ) {
     try {
@@ -32,6 +32,21 @@ export const employeesService = {
       }
     } catch (err) {
       console.error('Service error fetching employees:', err)
+      throw err
+    }
+  },
+
+  async getAll() {
+    try {
+      const { data, error } = await supabase
+        .from('FUNCIONARIOS')
+        .select('*')
+        .order('nome_completo', { ascending: true })
+
+      if (error) throw error
+      return data as Employee[]
+    } catch (err) {
+      console.error('Service error fetching all employees:', err)
       throw err
     }
   },

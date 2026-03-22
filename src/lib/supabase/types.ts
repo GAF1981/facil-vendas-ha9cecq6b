@@ -534,6 +534,33 @@ export type Database = {
         }
         Relationships: []
       }
+      "CONTAGEM DE ESTOQUE FINAL": {
+        Row: {
+          created_at: string | null
+          id: number
+          produto_id: number | null
+          quantidade: number | null
+          session_id: number | null
+          valor_unitario_snapshot: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number
+          produto_id?: number | null
+          quantidade?: number | null
+          session_id?: number | null
+          valor_unitario_snapshot?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          produto_id?: number | null
+          quantidade?: number | null
+          session_id?: number | null
+          valor_unitario_snapshot?: number | null
+        }
+        Relationships: []
+      }
       CRIAR_NOVA_ROTA: {
         Row: {
           id: number
@@ -3213,6 +3240,13 @@ export const Constants = {
 //   latitude: numeric (nullable)
 //   longitude: numeric (nullable)
 //   favorito: boolean (nullable, default: false)
+// Table: CONTAGEM DE ESTOQUE FINAL
+//   id: integer (not null, default: nextval('"CONTAGEM DE ESTOQUE FINAL_id_seq"'::regclass))
+//   session_id: integer (nullable)
+//   produto_id: integer (nullable)
+//   quantidade: numeric (nullable, default: 0)
+//   valor_unitario_snapshot: numeric (nullable, default: 0)
+//   created_at: timestamp with time zone (nullable, default: now())
 // Table: CRIAR_NOVA_ROTA
 //   id: bigint (not null)
 //   nome_rota: text (not null)
@@ -3765,6 +3799,8 @@ export const Constants = {
 //   FOREIGN KEY BANCO_DE_DADOS_session_id_fkey: FOREIGN KEY (session_id) REFERENCES "DATAS DE INVENTÁRIO"("ID INVENTÁRIO")
 // Table: CLIENTES
 //   PRIMARY KEY CLIENTES_pkey: PRIMARY KEY ("CODIGO")
+// Table: CONTAGEM DE ESTOQUE FINAL
+//   PRIMARY KEY CONTAGEM DE ESTOQUE FINAL_pkey: PRIMARY KEY (id)
 // Table: CRIAR_NOVA_ROTA
 //   PRIMARY KEY CRIAR_NOVA_ROTA_pkey: PRIMARY KEY (id)
 // Table: DATAS DE INVENTÁRIO
@@ -3978,6 +4014,10 @@ export const Constants = {
 //   Policy "authenticated_select_clientes" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: true
 //   Policy "authenticated_update_clientes" (UPDATE, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: CONTAGEM DE ESTOQUE FINAL
+//   Policy "authenticated_all" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
 // Table: DATAS DE INVENTÁRIO
