@@ -65,6 +65,7 @@ interface DebtTableProps {
   formaPagamentoFilter?: string
   dataCombinadaRange?: DateRange
   vencimentoRange?: DateRange
+  debitoValueFilter?: string
 }
 
 interface FlatRow {
@@ -123,6 +124,7 @@ export function DebtTable({
   formaPagamentoFilter = 'todos',
   dataCombinadaRange,
   vencimentoRange,
+  debitoValueFilter,
 }: DebtTableProps) {
   const [selectedClient, setSelectedClient] = useState<ClientDebt | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -251,7 +253,9 @@ export function DebtTable({
           const currentMotivo =
             updates.motivo !== undefined ? updates.motivo : inst.motivo
 
-          const debito = Math.max(0, inst.valorRegistrado - inst.valorPago)
+          const debito = Number(
+            Math.max(0, inst.valorRegistrado - inst.valorPago).toFixed(2),
+          )
           const bDateStr = inst.vencimento
             ? inst.vencimento.substring(0, 10)
             : null
@@ -373,6 +377,12 @@ export function DebtTable({
       })
     }
 
+    if (debitoValueFilter && debitoValueFilter !== 'todos') {
+      filtered = filtered.filter(
+        (r) => r.debito.toString() === debitoValueFilter,
+      )
+    }
+
     if (sortConfig) {
       filtered.sort((a, b) => {
         const aValue = a[sortConfig.key]
@@ -406,6 +416,7 @@ export function DebtTable({
     formaPagamentoFilter,
     dataCombinadaRange,
     vencimentoRange,
+    debitoValueFilter,
   ])
 
   const requestSort = (key: keyof FlatRow) => {

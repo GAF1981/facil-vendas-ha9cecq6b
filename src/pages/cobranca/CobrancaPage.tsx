@@ -67,6 +67,7 @@ export default function CobrancaPage() {
   ])
   const [cityFilter, setCityFilter] = useState<string>('todos')
   const [motoqueiroFilter, setMotoqueiroFilter] = useState<string>('todos')
+  const [debitoValueFilter, setDebitoValueFilter] = useState<string>('todos')
 
   const [dataCombinadaRange, setDataCombinadaRange] = useState<
     DateRange | undefined
@@ -247,6 +248,21 @@ export default function CobrancaPage() {
     ),
   ).sort()
 
+  const uniqueDebitoValues = useMemo(() => {
+    const values = new Set<number>()
+    debts.forEach((client) => {
+      client.orders.forEach((order) => {
+        order.installments.forEach((inst) => {
+          const debito = Number(
+            Math.max(0, inst.valorRegistrado - inst.valorPago).toFixed(2),
+          )
+          values.add(debito)
+        })
+      })
+    })
+    return Array.from(values).sort((a, b) => a - b)
+  }, [debts])
+
   useEffect(() => {
     let result = debts
 
@@ -280,7 +296,8 @@ export default function CobrancaPage() {
       statusFilter.length > 0 ||
       (!shouldIgnoreMotoqueiroFilter && motoqueiroFilter !== 'todos') ||
       dataCombinadaRange?.from ||
-      vencimentoRange?.from
+      vencimentoRange?.from ||
+      debitoValueFilter !== 'todos'
     ) {
       const fromStr = dataCombinadaRange?.from
         ? format(dataCombinadaRange.from, 'yyyy-MM-dd')
@@ -334,6 +351,13 @@ export default function CobrancaPage() {
               }
             }
 
+            if (debitoValueFilter !== 'todos') {
+              const currentDebt = Number(
+                Math.max(0, inst.valorRegistrado - inst.valorPago).toFixed(2),
+              )
+              if (currentDebt.toString() !== debitoValueFilter) matches = false
+            }
+
             return matches
           }),
         )
@@ -352,6 +376,7 @@ export default function CobrancaPage() {
     clientTypeFilter,
     dataCombinadaRange,
     vencimentoRange,
+    debitoValueFilter,
   ])
 
   const filteredActions = useMemo(() => {
@@ -459,6 +484,13 @@ export default function CobrancaPage() {
             }
           }
 
+          if (debitoValueFilter !== 'todos') {
+            const currentDebt = Number(
+              Math.max(0, inst.valorRegistrado - inst.valorPago).toFixed(2),
+            )
+            if (currentDebt.toString() !== debitoValueFilter) matches = false
+          }
+
           if (matches) {
             const currentDebt = Math.max(
               0,
@@ -485,6 +517,7 @@ export default function CobrancaPage() {
     activeTab,
     dataCombinadaRange,
     vencimentoRange,
+    debitoValueFilter,
   ])
 
   const handleBulkClearMotoqueiro = async () => {
@@ -570,6 +603,7 @@ export default function CobrancaPage() {
     setFormaPagamentoFilter('todos')
     setDataCombinadaRange(undefined)
     setVencimentoRange(undefined)
+    setDebitoValueFilter('todos')
   }
 
   return (
@@ -770,6 +804,25 @@ export default function CobrancaPage() {
               />
             </div>
 
+            <div className="w-full md:w-[150px]">
+              <Select
+                value={debitoValueFilter}
+                onValueChange={setDebitoValueFilter}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Valor Débito" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos Débitos</SelectItem>
+                  {uniqueDebitoValues.map((val) => (
+                    <SelectItem key={val} value={val.toString()}>
+                      R$ {formatCurrency(val)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="w-full md:w-[250px]">
               <DateRangePicker
                 date={vencimentoRange}
@@ -900,6 +953,7 @@ export default function CobrancaPage() {
                   formaPagamentoFilter={formaPagamentoFilter}
                   dataCombinadaRange={dataCombinadaRange}
                   vencimentoRange={vencimentoRange}
+                  debitoValueFilter={debitoValueFilter}
                 />
               )}
             </TabsContent>
@@ -947,6 +1001,7 @@ export default function CobrancaPage() {
                   formaPagamentoFilter={formaPagamentoFilter}
                   dataCombinadaRange={dataCombinadaRange}
                   vencimentoRange={vencimentoRange}
+                  debitoValueFilter={debitoValueFilter}
                 />
               )}
             </TabsContent>
