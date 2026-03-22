@@ -758,10 +758,9 @@ export const rotaService = {
         .in('cliente_id', chunkClientIds)
 
       if (fetchError) throw fetchError
-      if (!existingItems || existingItems.length === 0) continue
 
       const itemMap = new Map(
-        existingItems.map((item) => [item.cliente_id, item]),
+        (existingItems || []).map((item) => [item.cliente_id, item]),
       )
       const chunkAssignments = assignments.slice(i, i + chunkSize)
       const rowsToUpsert = []
@@ -774,13 +773,23 @@ export const rotaService = {
             ...item,
             vendedor_id: assignment.sellerId,
           })
+        } else {
+          // Insert new row with default values for clients not yet in route
+          rowsToUpsert.push({
+            rota_id: rotaId,
+            cliente_id: assignment.clientId,
+            vendedor_id: assignment.sellerId,
+            x_na_rota: 0,
+            boleto: false,
+            agregado: false,
+          })
         }
       }
 
       if (rowsToUpsert.length > 0) {
         const { error: upsertError } = await supabase
           .from('ROTA_ITEMS')
-          .upsert(rowsToUpsert)
+          .upsert(rowsToUpsert, { onConflict: 'rota_id,cliente_id' })
 
         if (upsertError) throw upsertError
         totalUpdated += rowsToUpsert.length

@@ -16,7 +16,6 @@ import {
   FileSpreadsheet,
   CheckCircle,
   Loader2,
-  RefreshCw,
   AlertCircle,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
@@ -88,7 +87,19 @@ export function RotaImportDialog({
           .trim()
 
       employees.forEach((emp) => {
-        employeeMap.set(normalize(emp.nome_completo), emp.id)
+        const normName = normalize(emp.nome_completo)
+        employeeMap.set(normName, emp.id)
+
+        // Also map by nickname if available
+        if (emp.apelido) {
+          employeeMap.set(normalize(emp.apelido), emp.id)
+        }
+
+        // Also map by first name to increase match rate
+        const firstName = normName.split(' ')[0]
+        if (!employeeMap.has(firstName)) {
+          employeeMap.set(firstName, emp.id)
+        }
       })
 
       // 2. Read CSV
@@ -105,14 +116,14 @@ export function RotaImportDialog({
         .split(delimiter)
         .map((h) => normalize(h.replace(/^"|"$/g, '')))
 
-      const sellerIdx = headers.findIndex((h) => h === 'vendedor')
+      const sellerIdx = headers.findIndex((h) => h.includes('vendedor'))
       const clientIdx = headers.findIndex(
-        (h) => h === 'cliente' || h === 'codigo' || h === 'codigo cliente',
+        (h) => h.includes('cliente') || h.includes('codigo'),
       )
 
       if (sellerIdx === -1 || clientIdx === -1) {
         throw new Error(
-          "Colunas 'vendedor' e 'cliente' não encontradas. Verifique o cabeçalho do CSV.",
+          "Colunas 'vendedor' e 'cliente' (ou 'codigo') não encontradas. Verifique o cabeçalho do CSV.",
         )
       }
 
@@ -136,7 +147,8 @@ export function RotaImportDialog({
 
         if (!sellerName || !clientCodeStr) continue
 
-        const clientId = parseInt(clientCodeStr)
+        // Removing non numeric chars from client id just in case
+        const clientId = parseInt(clientCodeStr.replace(/\D/g, ''))
         if (isNaN(clientId)) continue
 
         const normalizedSellerName = normalize(sellerName)
@@ -191,7 +203,7 @@ export function RotaImportDialog({
 
       toast({
         title: 'Sucesso',
-        description: `${result.count} registros atualizados.`,
+        description: `${result.count} clientes atualizados/inseridos.`,
       })
     } catch (error) {
       console.error(error)
@@ -230,7 +242,8 @@ export function RotaImportDialog({
           <DialogHeader>
             <DialogTitle>Importar Vendedores</DialogTitle>
             <DialogDescription>
-              Atualize os vendedores da rota atual enviando um arquivo CSV.
+              Atualize ou insira novos clientes na rota atual enviando um
+              arquivo CSV.
             </DialogDescription>
           </DialogHeader>
 
@@ -248,7 +261,7 @@ export function RotaImportDialog({
                   />
                   <p className="text-xs text-muted-foreground">
                     O arquivo deve conter as colunas <strong>vendedor</strong> e{' '}
-                    <strong>cliente</strong>.
+                    <strong>cliente</strong> (ou <strong>codigo</strong>).
                   </p>
                 </div>
 
@@ -326,7 +339,8 @@ export function RotaImportDialog({
                     Importação Concluída
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    Foram atualizados {resultCount} clientes com sucesso.
+                    Foram importados/atualizados {resultCount} clientes com
+                    sucesso.
                   </p>
                 </div>
                 <Button onClick={() => setOpen(false)} className="mt-2">
@@ -338,7 +352,7 @@ export function RotaImportDialog({
         </DialogContent>
       </Dialog>
       <span className="text-[10px] text-muted-foreground mt-1 text-center max-w-[150px] leading-tight">
-        O arquivo CSV deve conter as colunas 'vendedor' e 'cliente'
+        O arquivo CSV deve conter 'vendedor' e 'cliente'
       </span>
     </div>
   )
