@@ -11,7 +11,7 @@ export interface CaixaSummaryRow {
   totalBoleto: number
   totalDespesas: number
   saldo: number
-  statusCaixa: 'Aberto' | 'Fechado'
+  statusCaixa: 'Aberto' | 'Pendente' | 'Fechado'
   hasClosingRecord: boolean
   dbStatus: 'Aberto' | 'Fechado' | null
 }
@@ -111,7 +111,13 @@ export const caixaService = {
     employees?.forEach((emp) => {
       const dbStatus = closureMap.get(emp.id) || null
       const hasClosingRecord = closureMap.has(emp.id)
-      const statusCaixa = dbStatus === 'Fechado' ? 'Fechado' : 'Aberto'
+
+      let statusCaixa: 'Aberto' | 'Pendente' | 'Fechado' = 'Aberto'
+      if (dbStatus === 'Fechado') {
+        statusCaixa = 'Fechado'
+      } else if (dbStatus === 'Aberto') {
+        statusCaixa = 'Pendente'
+      }
 
       summaryMap.set(emp.id, {
         funcionarioId: emp.id,

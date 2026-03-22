@@ -153,7 +153,7 @@ export function CloseCashierDialog({
         return
       }
 
-      // Create Closing Record - Status will be 'Fechado'
+      // Create Closing Record - Status will be 'Aberto' to enforce manual conference
       const fechamento = await fechamentoService.createClosing(
         currentRoute,
         empId,
@@ -161,9 +161,10 @@ export function CloseCashierDialog({
       )
 
       toast({
-        title: 'Caixa Fechado',
-        description: 'Caixa fechado com sucesso. Gerando relatório PDF...',
-        className: 'bg-green-600 text-white',
+        title: 'Fechamento Iniciado',
+        description:
+          'Caixa enviado para conferência (Pendente). Vá na aba Fechamentos para confirmar.',
+        className: 'bg-blue-600 text-white',
       })
 
       try {
@@ -173,7 +174,7 @@ export function CloseCashierDialog({
         toast({
           title: 'Aviso',
           description:
-            'Caixa fechado, mas houve erro ao gerar o PDF de resumo.',
+            'Fechamento iniciado, mas houve erro ao gerar o PDF de resumo.',
           variant: 'warning',
         })
       }
@@ -185,7 +186,7 @@ export function CloseCashierDialog({
       toast({
         title: 'Erro',
         description:
-          'Falha ao fechar caixa. Verifique sua conexão e tente novamente.',
+          'Falha ao iniciar fechamento de caixa. Verifique sua conexão e tente novamente.',
         variant: 'destructive',
       })
     } finally {
@@ -205,7 +206,7 @@ export function CloseCashierDialog({
         <DialogHeader>
           <DialogTitle>Fechar Caixa Detalhado</DialogTitle>
           <DialogDescription>
-            Confira os lançamentos antes de fechar o caixa para{' '}
+            Confira os lançamentos antes de enviar o caixa para conferência na{' '}
             <strong>Rota #{currentRoute?.id}</strong>.
           </DialogDescription>
         </DialogHeader>
@@ -374,7 +375,7 @@ export function CloseCashierDialog({
             }
           >
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Confirmar e Fechar
+            Confirmar e Enviar
           </Button>
         </DialogFooter>
       </DialogContent>

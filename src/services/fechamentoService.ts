@@ -88,8 +88,8 @@ export const fechamentoService = {
       valor_boleto: valorBoleto,
       valor_despesas: valorDespesas,
       saldo_acerto: saldoAcerto,
-      status: 'Fechado',
-      responsavel_id: responsavelId || null,
+      status: 'Aberto', // Mudado de 'Fechado' para 'Aberto' para forçar conferência manual
+      responsavel_id: null, // Mantém null até ser confirmado
     }
 
     const { data, error } = await supabase
