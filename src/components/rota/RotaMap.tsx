@@ -12,13 +12,33 @@ export function RotaMap({ rows, userLocation }: RotaMapProps) {
     .map((r, i) => {
       let color = 'white'
       let textColor = 'black'
+      let borderColor = 'black'
 
       if (r.is_completed) {
+        // clientes que estão na rota e o acerto foi realizado: verde
         color = '#22c55e' // Green
         textColor = 'white'
-      } else if (r.has_pendency || r.debito > 0) {
+        borderColor = '#22c55e'
+      } else if (r.vencimento_status === 'VENCIDO') {
+        // clientes com débitos vencidos: vermelho
         color = '#ef4444' // Red
         textColor = 'white'
+        borderColor = '#ef4444'
+      } else if (r.vencimento_status === 'A VENCER') {
+        // clientes com débitos a vencer: verde
+        color = '#22c55e' // Green
+        textColor = 'white'
+        borderColor = '#22c55e'
+      } else if (r.vendedor_id == null) {
+        // clientes que não estão na rota: azul
+        color = '#3b82f6' // Blue
+        textColor = 'white'
+        borderColor = '#3b82f6'
+      } else {
+        // clientes que estão na rota e o acerto não foi realizado: branco circulo de preto
+        color = 'white'
+        textColor = 'black'
+        borderColor = 'black'
       }
 
       return {
@@ -32,6 +52,7 @@ export function RotaMap({ rows, userLocation }: RotaMapProps) {
         debtValue: r.debito || 0,
         color,
         textColor,
+        borderColor,
       }
     })
     .filter((m) => !isNaN(m.lat) && !isNaN(m.lng))
@@ -56,13 +77,12 @@ export function RotaMap({ rows, userLocation }: RotaMapProps) {
           justify-content: center;
           font-weight: bold;
           font-size: 11px;
-          border: 2px solid white;
           box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
         .user-location-marker {
           border-radius: 50%;
           background-color: #ccff00; /* Neon Yellow */
-          border: 3px solid white;
+          border: 3px solid black;
           box-shadow: 0 0 12px #ccff00, 0 2px 6px rgba(0,0,0,0.4);
         }
         .popup-nav-btn {
@@ -134,7 +154,7 @@ export function RotaMap({ rows, userLocation }: RotaMapProps) {
             if(el) {
               el.style.backgroundColor = m.color;
               el.style.color = m.textColor;
-              if (m.color === 'white') el.style.border = '2px solid black';
+              el.style.border = '2px solid ' + m.borderColor;
             }
           });
 
