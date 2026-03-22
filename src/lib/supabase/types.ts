@@ -1753,6 +1753,7 @@ export type Database = {
           email: string
           foto_url: string | null
           id: number
+          login_count: number | null
           nome_completo: string
           senha: string
           setor: string[] | null
@@ -1765,6 +1766,7 @@ export type Database = {
           email: string
           foto_url?: string | null
           id?: number
+          login_count?: number | null
           nome_completo: string
           senha?: string
           setor?: string[] | null
@@ -1777,6 +1779,7 @@ export type Database = {
           email?: string
           foto_url?: string | null
           id?: number
+          login_count?: number | null
           nome_completo?: string
           senha?: string
           setor?: string[] | null
@@ -2088,6 +2091,45 @@ export type Database = {
           pedido_id?: number
         }
         Relationships: []
+      }
+      pendencia_anotacoes: {
+        Row: {
+          created_at: string | null
+          funcionario_id: number | null
+          id: number
+          pendencia_id: number | null
+          texto: string
+        }
+        Insert: {
+          created_at?: string | null
+          funcionario_id?: number | null
+          id?: number
+          pendencia_id?: number | null
+          texto: string
+        }
+        Update: {
+          created_at?: string | null
+          funcionario_id?: number | null
+          id?: number
+          pendencia_id?: number | null
+          texto?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pendencia_anotacoes_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "FUNCIONARIOS"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pendencia_anotacoes_pendencia_id_fkey"
+            columns: ["pendencia_id"]
+            isOneToOne: false
+            referencedRelation: "PENDENCIAS"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       PENDENCIAS: {
         Row: {
@@ -3454,6 +3496,7 @@ export const Constants = {
 //   senha: text (not null, default: '0000'::text)
 //   foto_url: text (nullable)
 //   situacao: text (not null, default: 'ATIVO'::text)
+//   login_count: integer (nullable, default: 0)
 // Table: ID ESTOQUE CARRO
 //   id: bigint (not null)
 //   data_inicio: timestamp with time zone (not null, default: now())
@@ -3730,6 +3773,12 @@ export const Constants = {
 //   data_emissao: timestamp with time zone (not null, default: timezone('utc'::text, now()))
 //   funcionario_id: integer (nullable)
 //   created_at: timestamp with time zone (not null, default: timezone('utc'::text, now()))
+// Table: pendencia_anotacoes
+//   id: bigint (not null)
+//   pendencia_id: bigint (nullable)
+//   funcionario_id: bigint (nullable)
+//   texto: text (not null)
+//   created_at: timestamp with time zone (nullable, default: now())
 // Table: permissoes
 //   id: bigint (not null)
 //   setor: text (not null)
@@ -3974,6 +4023,10 @@ export const Constants = {
 //   PRIMARY KEY metas_periodos_pkey: PRIMARY KEY (id)
 // Table: notas_fiscais_emitidas
 //   PRIMARY KEY notas_fiscais_emitidas_pkey: PRIMARY KEY (id)
+// Table: pendencia_anotacoes
+//   FOREIGN KEY pendencia_anotacoes_funcionario_id_fkey: FOREIGN KEY (funcionario_id) REFERENCES "FUNCIONARIOS"(id) ON DELETE SET NULL
+//   FOREIGN KEY pendencia_anotacoes_pendencia_id_fkey: FOREIGN KEY (pendencia_id) REFERENCES "PENDENCIAS"(id) ON DELETE CASCADE
+//   PRIMARY KEY pendencia_anotacoes_pkey: PRIMARY KEY (id)
 // Table: permissoes
 //   PRIMARY KEY permissoes_pkey: PRIMARY KEY (id)
 //   UNIQUE permissoes_setor_modulo_key: UNIQUE (setor, modulo)
@@ -4129,6 +4182,10 @@ export const Constants = {
 //     WITH CHECK: true
 // Table: metas_periodos
 //   Policy "Enable all access for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: pendencia_anotacoes
+//   Policy "Enable all access for all users" (ALL, PERMISSIVE) roles={public}
 //     USING: true
 //     WITH CHECK: true
 // Table: rota_motoqueiro_km
