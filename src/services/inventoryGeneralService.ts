@@ -354,27 +354,31 @@ export const inventoryGeneralService = {
         })
         if (error) throw error
 
-        const { data: cefRecord } = await supabase
-          .from('CONTAGEM DE ESTOQUE FINAL' as any)
-          .select('id, quantidade')
-          .eq('session_id', sessionId)
-          .eq('produto_id', item.productId)
-          .maybeSingle()
-
-        if (cefRecord) {
-          await supabase
+        try {
+          const { data: cefRecord, error: cefError } = await supabase
             .from('CONTAGEM DE ESTOQUE FINAL' as any)
-            .update({
-              quantidade:
-                Number(cefRecord.quantidade || 0) + Number(item.quantity),
+            .select('id, quantidade')
+            .eq('session_id', sessionId)
+            .eq('produto_id', item.productId)
+            .maybeSingle()
+
+          if (!cefError && cefRecord) {
+            await supabase
+              .from('CONTAGEM DE ESTOQUE FINAL' as any)
+              .update({
+                quantidade:
+                  Number(cefRecord.quantidade || 0) + Number(item.quantity),
+              })
+              .eq('id', cefRecord.id)
+          } else if (!cefError) {
+            await supabase.from('CONTAGEM DE ESTOQUE FINAL' as any).insert({
+              session_id: sessionId,
+              produto_id: item.productId,
+              quantidade: item.quantity,
             })
-            .eq('id', cefRecord.id)
-        } else {
-          await supabase.from('CONTAGEM DE ESTOQUE FINAL' as any).insert({
-            session_id: sessionId,
-            produto_id: item.productId,
-            quantidade: item.quantity,
-          })
+          }
+        } catch (e) {
+          console.warn('Ignorando erro na tabela CONTAGEM DE ESTOQUE FINAL:', e)
         }
       }
     }
@@ -466,20 +470,24 @@ export const inventoryGeneralService = {
     if (error) throw error
 
     if (diff !== 0) {
-      const { data: cefRecord } = await supabase
-        .from('CONTAGEM DE ESTOQUE FINAL' as any)
-        .select('id, quantidade')
-        .eq('session_id', sessionId)
-        .eq('produto_id', productId)
-        .maybeSingle()
-
-      if (cefRecord) {
-        await supabase
+      try {
+        const { data: cefRecord, error: cefError } = await supabase
           .from('CONTAGEM DE ESTOQUE FINAL' as any)
-          .update({
-            quantidade: Number(cefRecord.quantidade || 0) + diff,
-          })
-          .eq('id', cefRecord.id)
+          .select('id, quantidade')
+          .eq('session_id', sessionId)
+          .eq('produto_id', productId)
+          .maybeSingle()
+
+        if (!cefError && cefRecord) {
+          await supabase
+            .from('CONTAGEM DE ESTOQUE FINAL' as any)
+            .update({
+              quantidade: Number(cefRecord.quantidade || 0) + diff,
+            })
+            .eq('id', cefRecord.id)
+        }
+      } catch (e) {
+        console.warn('Ignorando erro na tabela CONTAGEM DE ESTOQUE FINAL:', e)
       }
     }
   },
@@ -501,20 +509,24 @@ export const inventoryGeneralService = {
     if (error) throw error
 
     if (oldQty !== 0) {
-      const { data: cefRecord } = await supabase
-        .from('CONTAGEM DE ESTOQUE FINAL' as any)
-        .select('id, quantidade')
-        .eq('session_id', sessionId)
-        .eq('produto_id', productId)
-        .maybeSingle()
-
-      if (cefRecord) {
-        await supabase
+      try {
+        const { data: cefRecord, error: cefError } = await supabase
           .from('CONTAGEM DE ESTOQUE FINAL' as any)
-          .update({
-            quantidade: Number(cefRecord.quantidade || 0) - oldQty,
-          })
-          .eq('id', cefRecord.id)
+          .select('id, quantidade')
+          .eq('session_id', sessionId)
+          .eq('produto_id', productId)
+          .maybeSingle()
+
+        if (!cefError && cefRecord) {
+          await supabase
+            .from('CONTAGEM DE ESTOQUE FINAL' as any)
+            .update({
+              quantidade: Number(cefRecord.quantidade || 0) - oldQty,
+            })
+            .eq('id', cefRecord.id)
+        }
+      } catch (e) {
+        console.warn('Ignorando erro na tabela CONTAGEM DE ESTOQUE FINAL:', e)
       }
     }
   },
