@@ -73,13 +73,14 @@ export function InventoryMovementDetailsDialog({
     try {
       const newQtd = Number(editValue)
       if (isNaN(newQtd) || newQtd < 0) return
-      await inventoryGeneralService.updateCount(
+      await inventoryGeneralService.updateMovementQty(
         mov.id,
+        mov.movement_type,
         newQtd,
         sessionId,
         productId,
       )
-      toast({ title: 'Contagem atualizada' })
+      toast({ title: 'Movimentação atualizada' })
       setEditingId(null)
       loadMovements()
       if (onRefresh) onRefresh()
@@ -93,10 +94,15 @@ export function InventoryMovementDetailsDialog({
   }
 
   const handleDelete = async (mov: any) => {
-    if (!confirm('Tem certeza que deseja remover esta contagem?')) return
+    if (!confirm('Tem certeza que deseja remover esta movimentação?')) return
     try {
-      await inventoryGeneralService.deleteCount(mov.id, sessionId, productId)
-      toast({ title: 'Contagem removida' })
+      await inventoryGeneralService.deleteMovementRecord(
+        mov.id,
+        mov.movement_type,
+        sessionId,
+        productId,
+      )
+      toast({ title: 'Movimentação removida' })
       loadMovements()
       if (onRefresh) onRefresh()
     } catch (error: any) {
@@ -159,7 +165,6 @@ export function InventoryMovementDetailsDialog({
               ) : (
                 movements.map((mov, idx) => {
                   const { label, color } = getTypeLabel(mov.movement_type)
-                  const isContagem = mov.movement_type === 'contagem'
 
                   return (
                     <TableRow key={idx}>
@@ -171,7 +176,7 @@ export function InventoryMovementDetailsDialog({
                         {mov.pedido ? `#${mov.pedido}` : '-'}
                       </TableCell>
                       <TableCell className="text-right font-mono font-bold">
-                        {editingId === mov.id && isContagem ? (
+                        {editingId === mov.id ? (
                           <div className="flex items-center justify-end gap-2">
                             <Input
                               type="number"
@@ -199,26 +204,22 @@ export function InventoryMovementDetailsDialog({
                         ) : (
                           <div className="flex items-center justify-end gap-2">
                             <span>{mov.quantidade}</span>
-                            {isContagem && (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleEditStart(mov)}
-                                  className="h-6 w-6 ml-2"
-                                >
-                                  <Edit2 className="h-3 w-3" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleDelete(mov)}
-                                  className="h-6 w-6 text-red-600"
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </>
-                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEditStart(mov)}
+                              className="h-6 w-6 ml-2"
+                            >
+                              <Edit2 className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(mov)}
+                              className="h-6 w-6 text-red-600"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
                           </div>
                         )}
                       </TableCell>

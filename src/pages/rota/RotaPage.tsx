@@ -21,6 +21,10 @@ export default function RotaPage() {
   const [rows, setRows] = useState<RotaRow[]>([])
   const [loading, setLoading] = useState(false)
   const [sellers, setSellers] = useState<Employee[]>([])
+  const [userLocation, setUserLocation] = useState<{
+    lat: number
+    lng: number
+  } | null>(null)
 
   const { employee: loggedInUser } = useUserStore()
   const { selectedEmployeeIds, setSelectedEmployeeIds } = useRotaFilterStore()
@@ -704,6 +708,44 @@ export default function RotaPage() {
     }
   }
 
+  const handleMyLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      toast({
+        title: 'Erro',
+        description: 'Geolocalização não suportada pelo navegador.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    toast({
+      title: 'Aguarde',
+      description: 'Buscando sua localização...',
+    })
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        })
+        if (!isMapView) {
+          setIsMapView(true)
+        }
+      },
+      (error) => {
+        console.error(error)
+        toast({
+          title: 'Erro',
+          description:
+            'Não foi possível obter sua localização. Verifique as permissões do navegador.',
+          variant: 'destructive',
+        })
+      },
+      { enableHighAccuracy: true },
+    )
+  }, [toast, isMapView])
+
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] gap-2 p-2 sm:p-4">
       <RotaHeader
@@ -718,6 +760,7 @@ export default function RotaPage() {
         totalClients={filteredRows.length}
         isMapView={isMapView}
         onToggleMap={() => setIsMapView(!isMapView)}
+        onMyLocation={handleMyLocation}
         hasCoordinates={hasCoordinates}
       />
 
@@ -741,7 +784,7 @@ export default function RotaPage() {
       />
 
       {isMapView ? (
-        <RotaMap rows={sortedRows} />
+        <RotaMap rows={sortedRows} userLocation={userLocation} />
       ) : (
         <RotaTable
           rows={sortedRows}

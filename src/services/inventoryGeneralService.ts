@@ -380,6 +380,69 @@ export const inventoryGeneralService = {
     }
   },
 
+  async updateMovementQty(
+    id: number,
+    movementType: string,
+    newQuantity: number,
+    sessionId: number,
+    productId: number,
+  ) {
+    if (movementType === 'contagem') {
+      return this.updateCount(id, newQuantity, sessionId, productId)
+    }
+
+    let table = ''
+    let qtyField = 'quantidade'
+    if (movementType === 'compra') {
+      table = 'ESTOQUE GERAL COMPRAS'
+      qtyField = 'compras_quantidade'
+    } else if (movementType === 'devolucao_carro') {
+      table = 'ESTOQUE GERAL CARRO PARA ESTOQUE'
+    } else if (movementType === 'reposicao_carro') {
+      table = 'ESTOQUE GERAL ESTOQUE PARA CARRO'
+    } else if (movementType === 'perda') {
+      table = 'ESTOQUE GERAL SAÍDAS PERDAS'
+    }
+
+    if (table) {
+      const { error } = await supabase
+        .from(table as any)
+        .update({ [qtyField]: newQuantity })
+        .eq('id', id)
+      if (error) throw error
+    }
+  },
+
+  async deleteMovementRecord(
+    id: number,
+    movementType: string,
+    sessionId: number,
+    productId: number,
+  ) {
+    if (movementType === 'contagem') {
+      return this.deleteCount(id, sessionId, productId)
+    }
+
+    let table = ''
+    if (movementType === 'compra') {
+      table = 'ESTOQUE GERAL COMPRAS'
+    } else if (movementType === 'devolucao_carro') {
+      table = 'ESTOQUE GERAL CARRO PARA ESTOQUE'
+    } else if (movementType === 'reposicao_carro') {
+      table = 'ESTOQUE GERAL ESTOQUE PARA CARRO'
+    } else if (movementType === 'perda') {
+      table = 'ESTOQUE GERAL SAÍDAS PERDAS'
+    }
+
+    if (table) {
+      const { error } = await supabase
+        .from(table as any)
+        .delete()
+        .eq('id', id)
+      if (error) throw error
+    }
+  },
+
   async updateCount(
     countId: number,
     newQuantity: number,

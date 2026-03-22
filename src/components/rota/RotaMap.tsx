@@ -3,9 +3,10 @@ import { RotaRow } from '@/types/rota'
 
 interface RotaMapProps {
   rows: RotaRow[]
+  userLocation?: { lat: number; lng: number } | null
 }
 
-export function RotaMap({ rows }: RotaMapProps) {
+export function RotaMap({ rows, userLocation }: RotaMapProps) {
   const markers = rows
     .filter((r) => r.client.latitude && r.client.longitude)
     .map((r, i) => {
@@ -58,6 +59,12 @@ export function RotaMap({ rows }: RotaMapProps) {
           border: 2px solid white;
           box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
+        .user-location-marker {
+          border-radius: 50%;
+          background-color: #ccff00; /* Neon Yellow */
+          border: 3px solid white;
+          box-shadow: 0 0 12px #ccff00, 0 2px 6px rgba(0,0,0,0.4);
+        }
         .popup-nav-btn {
           display: inline-flex;
           align-items: center;
@@ -91,6 +98,8 @@ export function RotaMap({ rows }: RotaMapProps) {
       <div id="map"></div>
       <script>
         const markers = ${JSON.stringify(markers)};
+        const userLoc = ${userLocation ? JSON.stringify(userLocation) : 'null'};
+        
         const map = L.map('map');
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '© OpenStreetMap contributors',
@@ -98,6 +107,19 @@ export function RotaMap({ rows }: RotaMapProps) {
         }).addTo(map);
 
         const bounds = [];
+        
+        if (userLoc) {
+          const userIcon = L.divIcon({
+            className: 'user-location-marker',
+            html: '',
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+          });
+          const userMarker = L.marker([userLoc.lat, userLoc.lng], { icon: userIcon, zIndexOffset: 1000 }).addTo(map);
+          userMarker.bindPopup('<b style="font-size: 14px;">Minha Localização</b>');
+          bounds.push([userLoc.lat, userLoc.lng]);
+        }
+
         markers.forEach(m => {
           const icon = L.divIcon({
             className: 'custom-marker',
@@ -144,10 +166,10 @@ export function RotaMap({ rows }: RotaMapProps) {
     </html>
   `
 
-  if (markers.length === 0) {
+  if (markers.length === 0 && !userLocation) {
     return (
       <div className="flex flex-col items-center justify-center h-full bg-card border rounded-md p-8 text-center text-muted-foreground mt-2">
-        <p>Nenhum cliente com coordenadas registradas nesta visualização.</p>
+        <p>Nenhum cliente ou localização registrada nesta visualização.</p>
       </div>
     )
   }

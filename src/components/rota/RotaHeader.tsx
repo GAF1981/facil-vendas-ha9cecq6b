@@ -15,6 +15,7 @@ import {
   Info,
   MapIcon,
   List,
+  LocateFixed,
 } from 'lucide-react'
 import { usePermissions } from '@/hooks/use-permissions'
 import { useUserStore } from '@/stores/useUserStore'
@@ -42,6 +43,7 @@ interface RotaHeaderProps {
   totalClients?: number
   isMapView?: boolean
   onToggleMap?: () => void
+  onMyLocation?: () => void
   hasCoordinates?: boolean
 }
 
@@ -58,6 +60,7 @@ export function RotaHeader({
   totalClients,
   isMapView,
   onToggleMap,
+  onMyLocation,
   hasCoordinates,
 }: RotaHeaderProps) {
   const displayRota = activeRota || lastRota
@@ -234,6 +237,18 @@ export function RotaHeader({
                     Visualizar Mapa
                   </>
                 )}
+              </Button>
+            )}
+
+            {onMyLocation && (
+              <Button
+                onClick={onMyLocation}
+                variant="outline"
+                className="w-full sm:w-auto text-green-600 border-green-200 hover:bg-green-50"
+                title="Minha Localização"
+              >
+                <LocateFixed className="mr-2 h-4 w-4" />
+                Minha Localização
               </Button>
             )}
 
