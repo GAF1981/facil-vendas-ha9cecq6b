@@ -8,18 +8,32 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Search, RefreshCw, Loader2, QrCode, ArrowLeft } from 'lucide-react'
+import { Search, RefreshCw, Loader2, QrCode, ArrowLeft, X } from 'lucide-react'
 import { PixTable } from '@/components/pix/PixTable'
 import { PixConferenceDialog } from '@/components/pix/PixConferenceDialog'
 import { pixService } from '@/services/pixService'
 import { PixReceiptRow } from '@/types/pix'
 import { useToast } from '@/hooks/use-toast'
 import { Link } from 'react-router-dom'
+import { formatCurrency } from '@/lib/formatters'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 export default function PixPage() {
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<PixReceiptRow[]>([])
-  const [searchTerm, setSearchTerm] = useState('')
+
+  // Filters
+  const [filterClienteCodigo, setFilterClienteCodigo] = useState('')
+  const [filterClienteNome, setFilterClienteNome] = useState('')
+  const [filterPedido, setFilterPedido] = useState('')
+  const [filterValor, setFilterValor] = useState<string>('all')
+
   const [selectedReceipt, setSelectedReceipt] = useState<PixReceiptRow | null>(
     null,
   )
@@ -52,17 +66,39 @@ export default function PixPage() {
     loadData()
   }, [])
 
+  const unconfirmedValues = useMemo(() => {
+    const vals = data
+      .filter((r) => !r.confirmado_por && r.valor_pago)
+      .map((r) => r.valor_pago)
+    return Array.from(new Set(vals)).sort((a, b) => a - b)
+  }, [data])
+
   const filteredAndSortedData = useMemo(() => {
     let result = [...data]
 
-    if (searchTerm) {
-      const lower = searchTerm.toLowerCase()
+    if (filterClienteCodigo) {
+      const lower = filterClienteCodigo.toLowerCase()
+      result = result.filter((row) => row.cliente_id.toString().includes(lower))
+    }
+
+    if (filterClienteNome) {
+      const lower = filterClienteNome.toLowerCase()
       result = result.filter(
         (row) =>
           row.cliente_nome.toLowerCase().includes(lower) ||
-          row.venda_id.toString().includes(lower) ||
-          row.cliente_id.toString().includes(lower) ||
           (row.nome_no_pix && row.nome_no_pix.toLowerCase().includes(lower)),
+      )
+    }
+
+    if (filterPedido) {
+      const lower = filterPedido.toLowerCase()
+      result = result.filter((row) => row.venda_id.toString().includes(lower))
+    }
+
+    if (filterValor !== 'all') {
+      const val = parseFloat(filterValor)
+      result = result.filter(
+        (row) => row.valor_pago === val && !row.confirmado_por,
       )
     }
 
@@ -79,7 +115,14 @@ export default function PixPage() {
     })
 
     return result
-  }, [data, searchTerm, sortConfig])
+  }, [
+    data,
+    filterClienteCodigo,
+    filterClienteNome,
+    filterPedido,
+    filterValor,
+    sortConfig,
+  ])
 
   const handleSort = (key: string) => {
     setSortConfig((current) => {
@@ -132,15 +175,66 @@ export default function PixPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center gap-2 max-w-md">
-            <div className="relative flex-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por cliente, pedido ou nome no pix..."
+                placeholder="Código Cliente..."
                 className="pl-8"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={filterClienteCodigo}
+                onChange={(e) => setFilterClienteCodigo(e.target.value)}
               />
+            </div>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Nome Cliente..."
+                className="pl-8"
+                value={filterClienteNome}
+                onChange={(e) => setFilterClienteNome(e.target.value)}
+              />
+            </div>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Número Pedido..."
+                className="pl-8"
+                value={filterPedido}
+                onChange={(e) => setFilterPedido(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Select value={filterValor} onValueChange={setFilterValor}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Valor pendente..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os valores</SelectItem>
+                  {unconfirmedValues.map((v) => (
+                    <SelectItem key={v} value={v.toString()}>
+                      R$ {formatCurrency(v)} (Pendente)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {(filterClienteCodigo ||
+                filterClienteNome ||
+                filterPedido ||
+                filterValor !== 'all') && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setFilterClienteCodigo('')
+                    setFilterClienteNome('')
+                    setFilterPedido('')
+                    setFilterValor('all')
+                  }}
+                  title="Limpar filtros"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
 
