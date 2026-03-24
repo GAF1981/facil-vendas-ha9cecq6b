@@ -73,11 +73,9 @@ export default function PendenciasPage() {
   // Filters
   const [filterExiste, setFilterExiste] = useState('SIM')
   const [filterResolvida, setFilterResolvida] = useState('NÃO')
-  const [filterResponsavel, setFilterResponsavel] = useState(
-    currentUser?.id ? currentUser.id.toString() : 'TODOS',
-  )
-  const initialSet = useRef(!!currentUser?.id)
+  const [filterResponsavel, setFilterResponsavel] = useState('TODOS')
 
+  const initialSet = useRef(false)
   const [employees, setEmployees] = useState<Employee[]>([])
 
   const { toast } = useToast()
@@ -175,7 +173,7 @@ export default function PendenciasPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in pb-10">
+    <div className="space-y-6 animate-fade-in pb-10 p-4 sm:p-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-amber-100 text-amber-700 rounded-lg shrink-0">
@@ -263,7 +261,7 @@ export default function PendenciasPage() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">
-                cliente (número ou nome)
+                Cliente (número ou nome)
               </label>
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />

@@ -37,7 +37,7 @@ import BrindeReportPage from '@/pages/relatorio/BrindeReportPage'
 import MetasReportPage from '@/pages/relatorio/MetasReportPage'
 import CaixaPage from '@/pages/caixa/CaixaPage'
 import FechamentosPage from '@/pages/fechamento/FechamentosPage'
-import PagamentosPage from '@/pages/pagamentos/PagamentosPage'
+import PixPage from '@/pages/pix/PixPage'
 import ControlePage from '@/pages/controle/ControlePage'
 import InventarioPage from '@/pages/inventario/InventarioPage'
 import ContagemPage from '@/pages/inventario/ContagemPage'
@@ -120,17 +120,12 @@ const App = () => (
                   />
                 </Route>
 
-                <Route
-                  path="/pix"
-                  element={<Navigate to="/fechamentos" replace />}
-                />
-
                 <Route element={<PermissionGuard module="Fechamentos" />}>
                   <Route path="/fechamentos" element={<FechamentosPage />} />
                 </Route>
 
                 <Route element={<PermissionGuard module="Pagamentos" />}>
-                  <Route path="/pagamentos" element={<PagamentosPage />} />
+                  <Route path="/pix" element={<PixPage />} />
                 </Route>
 
                 <Route element={<PermissionGuard module="Controle" />}>

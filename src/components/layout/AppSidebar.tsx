@@ -37,6 +37,7 @@ import {
   Mail,
   Barcode,
   QrCode,
+  CheckCircle2,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { usePermissions } from '@/hooks/use-permissions'
@@ -84,6 +85,12 @@ export function AppSidebar() {
           module: 'Recebimento',
         },
         {
+          title: 'Confirmação',
+          url: '/confirmacao-recebimentos',
+          icon: CheckCircle2,
+          module: 'Recebimento',
+        },
+        {
           title: 'Pendências',
           url: '/pendencias',
           icon: AlertCircle,
@@ -109,7 +116,7 @@ export function AppSidebar() {
         { title: 'Caixa', url: '/caixa', icon: Wallet, module: 'Caixa' },
         {
           title: 'Pix',
-          url: '/pagamentos',
+          url: '/pix',
           icon: QrCode,
           module: 'Pagamentos',
         },

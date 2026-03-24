@@ -51,6 +51,10 @@ export function Header() {
         return 'Recebimento'
       case 'pagamentos':
         return 'Pagamentos'
+      case 'pix':
+        return 'Pix'
+      case 'confirmacao-recebimentos':
+        return 'Confirmação de Recebimentos'
       case 'controle':
         return 'Controle'
       case 'nota-fiscal':

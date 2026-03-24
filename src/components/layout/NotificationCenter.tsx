@@ -105,7 +105,7 @@ export function NotificationCenter() {
         alert={hasPendencia}
         to="/pendencias"
       />
-      <IconWrapper icon={QrCode} label="pix" alert={false} to="/pagamentos" />
+      <IconWrapper icon={QrCode} label="pix" alert={false} to="/pix" />
     </div>
   )
 }

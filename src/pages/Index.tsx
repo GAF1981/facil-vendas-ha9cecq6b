@@ -27,6 +27,7 @@ import {
   Database,
   Activity,
   QrCode,
+  CheckCircle2,
 } from 'lucide-react'
 import { usePermissions } from '@/hooks/use-permissions'
 import { useUserStore } from '@/stores/useUserStore'
@@ -75,6 +76,13 @@ export default function Index() {
           color: 'bg-green-500',
         },
         {
+          title: 'Confirmação',
+          icon: CheckCircle2,
+          href: '/confirmacao-recebimentos',
+          module: 'Recebimento',
+          color: 'bg-green-600',
+        },
+        {
           title: 'Pendências',
           icon: AlertCircle,
           href: '/pendencias',
@@ -89,7 +97,7 @@ export default function Index() {
         {
           title: 'Pix',
           icon: QrCode,
-          href: '/pagamentos',
+          href: '/pix',
           module: 'Pagamentos',
           color: 'bg-teal-500',
         },
