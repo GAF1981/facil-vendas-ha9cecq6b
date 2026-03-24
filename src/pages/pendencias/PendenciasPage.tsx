@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   Card,
   CardContent,
@@ -54,8 +54,10 @@ import { useSearchParams } from 'react-router-dom'
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Employee } from '@/types/employee'
+import { useUserStore } from '@/stores/useUserStore'
 
 export default function PendenciasPage() {
+  const { employee: currentUser } = useUserStore()
   const [pendencias, setPendencias] = useState<Pendencia[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -71,12 +73,22 @@ export default function PendenciasPage() {
   // Filters
   const [filterExiste, setFilterExiste] = useState('SIM')
   const [filterResolvida, setFilterResolvida] = useState('NÃO')
-  const [filterResponsavel, setFilterResponsavel] = useState('TODOS')
+  const [filterResponsavel, setFilterResponsavel] = useState(
+    currentUser?.id ? currentUser.id.toString() : 'TODOS',
+  )
+  const initialSet = useRef(!!currentUser?.id)
 
   const [employees, setEmployees] = useState<Employee[]>([])
 
   const { toast } = useToast()
   const [searchParams] = useSearchParams()
+
+  useEffect(() => {
+    if (currentUser?.id && !initialSet.current) {
+      setFilterResponsavel(currentUser.id.toString())
+      initialSet.current = true
+    }
+  }, [currentUser])
 
   // Handle Initial Search from Query Param
   useEffect(() => {
