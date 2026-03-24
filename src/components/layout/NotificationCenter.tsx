@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { ClipboardList } from 'lucide-react'
+import { ClipboardList, QrCode } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useUserStore } from '@/stores/useUserStore'
 import { cn } from '@/lib/utils'
@@ -105,6 +105,7 @@ export function NotificationCenter() {
         alert={hasPendencia}
         to="/pendencias"
       />
+      <IconWrapper icon={QrCode} label="pix" alert={false} to="/pagamentos" />
     </div>
   )
 }

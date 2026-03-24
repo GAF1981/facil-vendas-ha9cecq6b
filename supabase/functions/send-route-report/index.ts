@@ -251,11 +251,8 @@ Deno.serve(async (req) => {
     )
 
     // REPORT 2: All Clients (Full Dump)
-    const fetchAllClients = fetchBatched(
-      supabaseClient,
-      'CLIENTES',
-      '*',
-      (q) => q.order('CODIGO'),
+    const fetchAllClients = fetchBatched(supabaseClient, 'CLIENTES', '*', (q) =>
+      q.order('CODIGO'),
     )
 
     // REPORT 3: Database History (Last 180 Days)

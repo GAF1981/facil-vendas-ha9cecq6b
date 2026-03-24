@@ -26,6 +26,7 @@ import {
   ShieldCheck,
   Database,
   Activity,
+  QrCode,
 } from 'lucide-react'
 import { usePermissions } from '@/hooks/use-permissions'
 import { useUserStore } from '@/stores/useUserStore'
@@ -85,6 +86,13 @@ export default function Index() {
     {
       title: 'Financeiro',
       links: [
+        {
+          title: 'Pix',
+          icon: QrCode,
+          href: '/pagamentos',
+          module: 'Pagamentos',
+          color: 'bg-teal-500',
+        },
         {
           title: 'Cobrança',
           icon: CreditCard,

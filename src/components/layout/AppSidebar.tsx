@@ -36,6 +36,7 @@ import {
   Bike,
   Mail,
   Barcode,
+  QrCode,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { usePermissions } from '@/hooks/use-permissions'
@@ -106,6 +107,12 @@ export function AppSidebar() {
       category: 'Financeiro',
       items: [
         { title: 'Caixa', url: '/caixa', icon: Wallet, module: 'Caixa' },
+        {
+          title: 'Pix',
+          url: '/pagamentos',
+          icon: QrCode,
+          module: 'Pagamentos',
+        },
         {
           title: 'Fechamentos',
           url: '/fechamentos',
