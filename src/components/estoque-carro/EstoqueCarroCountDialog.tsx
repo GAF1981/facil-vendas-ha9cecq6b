@@ -38,7 +38,9 @@ export function EstoqueCarroCountDialog({
   preselectedProduct,
 }: Props) {
   const [step, setStep] = useState(1)
-  const [inputMode, setInputMode] = useState<'barcode' | 'manual'>('barcode')
+  const [inputMode, setInputMode] = useState<
+    'barcode' | 'manual' | 'auto-barcode'
+  >('barcode')
   const [barcode, setBarcode] = useState('')
   const [selectedProduct, setSelectedProduct] = useState<ProductRow | null>(
     null,
@@ -89,12 +91,82 @@ export function EstoqueCarroCountDialog({
       if (e.key === 'F2') {
         e.preventDefault()
         setInputMode((prev) => (prev === 'barcode' ? 'manual' : 'barcode'))
+      } else if (e.key === 'F3') {
+        e.preventDefault()
+        setInputMode('auto-barcode')
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [open, step, preselectedProduct])
+
+  const handleAutoBarcodeScan = async (
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      const code = barcode.trim()
+      if (!code) return
+
+      setLoading(true)
+      try {
+        const { data } = await productsService.getProducts(
+          1,
+          10,
+          code,
+          null,
+          null,
+          'PRODUTO',
+          true,
+          false,
+        )
+
+        const exactMatch = data.find(
+          (p) =>
+            p['CÓDIGO BARRAS'] === code ||
+            p.codigo_interno === code ||
+            p.CODIGO?.toString() === code,
+        )
+
+        if (exactMatch) {
+          await estoqueCarroService.saveCount(
+            sessionId,
+            exactMatch.ID,
+            1,
+            employee?.id,
+            employee?.nome_completo,
+          )
+          toast({
+            title: 'Soma Aplicada (+1)',
+            description: exactMatch.PRODUTO,
+          })
+
+          if (onSuccess) onSuccess()
+          setBarcode('')
+        } else {
+          toast({
+            title: 'Não encontrado',
+            description: `Nenhum produto com código ${code}.`,
+            variant: 'destructive',
+          })
+          barcodeRef.current?.select()
+        }
+      } catch (err: any) {
+        console.error(err)
+        toast({
+          title: 'Erro',
+          description: 'Erro ao buscar produto.',
+          variant: 'destructive',
+        })
+      } finally {
+        setLoading(false)
+        setTimeout(() => {
+          barcodeRef.current?.focus()
+        }, 50)
+      }
+    }
+  }
 
   const handleProductSelect = (p: ProductRow | null) => {
     if (p) {
@@ -213,9 +285,9 @@ export function EstoqueCarroCountDialog({
               <RadioGroup
                 value={inputMode}
                 onValueChange={(val) =>
-                  setInputMode(val as 'barcode' | 'manual')
+                  setInputMode(val as 'barcode' | 'manual' | 'auto-barcode')
                 }
-                className="flex items-center space-x-4"
+                className="flex items-center space-x-4 flex-wrap gap-y-2"
               >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="barcode" id="cc-barcode" />
@@ -229,23 +301,52 @@ export function EstoqueCarroCountDialog({
                     Busca Manual (F2)
                   </Label>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="auto-barcode" id="cc-auto-barcode" />
+                  <Label htmlFor="cc-auto-barcode" className="cursor-pointer">
+                    Barras Automático (F3)
+                  </Label>
+                </div>
               </RadioGroup>
 
-              {inputMode === 'barcode' ? (
+              {inputMode === 'barcode' || inputMode === 'auto-barcode' ? (
                 <div className="space-y-2">
-                  <Label className="flex items-center gap-2 text-primary font-semibold">
+                  <Label
+                    className={cn(
+                      'flex items-center gap-2 font-semibold',
+                      inputMode === 'auto-barcode'
+                        ? 'text-green-600'
+                        : 'text-primary',
+                    )}
+                  >
                     <Barcode className="w-4 h-4" />
-                    Scanner
+                    {inputMode === 'auto-barcode'
+                      ? 'Scanner Automático (Soma 1)'
+                      : 'Scanner'}
                   </Label>
                   <Input
                     ref={barcodeRef}
                     value={barcode}
                     onChange={(e) => setBarcode(e.target.value)}
-                    onKeyDown={handleBarcodeScan}
+                    onKeyDown={
+                      inputMode === 'auto-barcode'
+                        ? handleAutoBarcodeScan
+                        : handleBarcodeScan
+                    }
                     placeholder="Bipe o código..."
                     disabled={loading}
-                    className="bg-background focus-visible:ring-primary"
+                    className={cn(
+                      'bg-background focus-visible:ring-primary',
+                      inputMode === 'auto-barcode' &&
+                        'border-green-500 focus-visible:ring-green-500',
+                    )}
                   />
+                  {inputMode === 'auto-barcode' && (
+                    <p className="text-xs text-green-600 font-medium mt-1">
+                      O produto será salvo automaticamente com quantidade 1 e o
+                      cursor continuará no campo.
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-2">

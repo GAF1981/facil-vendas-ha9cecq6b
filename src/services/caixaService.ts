@@ -88,17 +88,31 @@ export const caixaService = {
     if (error) throw error
   },
 
-  async getFinancialSummary(rota: Rota): Promise<CaixaSummaryRow[]> {
+  async getFinancialSummary(filters: {
+    rotaId?: number
+    startDate?: string
+    endDate?: string
+  }): Promise<CaixaSummaryRow[]> {
     const { data: employees, error: empError } = await supabase
       .from('FUNCIONARIOS')
       .select('id, nome_completo')
 
     if (empError) throw empError
 
-    const { data: closures, error: closureError } = await supabase
+    let closureQuery = supabase
       .from('fechamento_caixa')
       .select('funcionario_id, status')
-      .eq('rota_id', rota.id)
+    if (filters.rotaId)
+      closureQuery = closureQuery.eq('rota_id', filters.rotaId)
+    if (filters.startDate)
+      closureQuery = closureQuery.gte('created_at', filters.startDate)
+    if (filters.endDate)
+      closureQuery = closureQuery.lte(
+        'created_at',
+        filters.endDate + 'T23:59:59.999Z',
+      )
+
+    const { data: closures, error: closureError } = await closureQuery
 
     if (closureError) throw closureError
 
@@ -132,11 +146,17 @@ export const caixaService = {
       })
     })
 
-    const { data: receipts, error: recError } = await supabase
+    let recQuery = supabase
       .from('RECEBIMENTOS')
       .select('funcionario_id, valor_pago, forma_pagamento, rota_id')
-      .eq('rota_id', rota.id)
       .gt('valor_pago', 0)
+    if (filters.rotaId) recQuery = recQuery.eq('rota_id', filters.rotaId)
+    if (filters.startDate)
+      recQuery = recQuery.gte('created_at', filters.startDate)
+    if (filters.endDate)
+      recQuery = recQuery.lte('created_at', filters.endDate + 'T23:59:59.999Z')
+
+    const { data: receipts, error: recError } = await recQuery
 
     if (recError) throw recError
 
@@ -151,10 +171,15 @@ export const caixaService = {
       }
     })
 
-    const { data: expenses, error: expError } = await supabase
+    let expQuery = supabase
       .from('DESPESAS')
       .select('funcionario_id, Valor, saiu_do_caixa, rota_id')
-      .eq('rota_id', rota.id)
+    if (filters.rotaId) expQuery = expQuery.eq('rota_id', filters.rotaId)
+    if (filters.startDate) expQuery = expQuery.gte('Data', filters.startDate)
+    if (filters.endDate)
+      expQuery = expQuery.lte('Data', filters.endDate + 'T23:59:59.999Z')
+
+    const { data: expenses, error: expError } = await expQuery
 
     if (expError) throw expError
 
@@ -184,26 +209,25 @@ export const caixaService = {
     return result
   },
 
-  async getAllReceipts(rota: Rota): Promise<ReceiptDetail[]> {
-    const { data, error } = await supabase
+  async getAllReceipts(filters: {
+    rotaId?: number
+    startDate?: string
+    endDate?: string
+  }): Promise<ReceiptDetail[]> {
+    let query = supabase
       .from('RECEBIMENTOS')
       .select(
-        `
-        id,
-        created_at,
-        valor_pago,
-        forma_pagamento,
-        funcionario_id,
-        venda_id,
-        data_pagamento,
-        rota_id,
-        CLIENTES ( "NOME CLIENTE" ),
-        FUNCIONARIOS ( nome_completo )
-      `,
+        `id, created_at, valor_pago, forma_pagamento, funcionario_id, venda_id, data_pagamento, rota_id, CLIENTES ( "NOME CLIENTE" ), FUNCIONARIOS ( nome_completo )`,
       )
-      .eq('rota_id', rota.id)
       .gt('valor_pago', 0)
       .order('created_at', { ascending: false })
+
+    if (filters.rotaId) query = query.eq('rota_id', filters.rotaId)
+    if (filters.startDate) query = query.gte('created_at', filters.startDate)
+    if (filters.endDate)
+      query = query.lte('created_at', filters.endDate + 'T23:59:59.999Z')
+
+    const { data, error } = await query
 
     if (error) throw error
 
@@ -219,17 +243,22 @@ export const caixaService = {
     }))
   },
 
-  async getAllExpenses(rota: Rota): Promise<ExpenseDetail[]> {
-    const { data, error } = await supabase
+  async getAllExpenses(filters: {
+    rotaId?: number
+    startDate?: string
+    endDate?: string
+  }): Promise<ExpenseDetail[]> {
+    let query = supabase
       .from('DESPESAS')
-      .select(
-        `
-        *,
-        FUNCIONARIOS ( nome_completo )
-      `,
-      )
-      .eq('rota_id', rota.id)
+      .select(`*, FUNCIONARIOS ( nome_completo )`)
       .order('Data', { ascending: false })
+
+    if (filters.rotaId) query = query.eq('rota_id', filters.rotaId)
+    if (filters.startDate) query = query.gte('Data', filters.startDate)
+    if (filters.endDate)
+      query = query.lte('Data', filters.endDate + 'T23:59:59.999Z')
+
+    const { data, error } = await query
 
     if (error) throw error
 

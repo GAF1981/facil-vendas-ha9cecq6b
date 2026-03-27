@@ -81,6 +81,8 @@ export default function CaixaPage() {
   const [activeEmployees, setActiveEmployees] = useState<Employee[]>([])
 
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('all')
+  const [startDate, setStartDate] = useState<string>('')
+  const [endDate, setEndDate] = useState<string>('')
   const { employee: loggedInUser } = useUserStore()
 
   const { toast } = useToast()
@@ -170,22 +172,25 @@ export default function CaixaPage() {
     }
   }
 
-  const fetchData = async (routeId: string) => {
-    if (!routeId) return
+  const fetchData = async (routeId: string, sDate: string, eDate: string) => {
+    if (!routeId && !sDate && !eDate) return
     setLoading(true)
     try {
-      const route = routes.find((r) => r.id.toString() === routeId)
-      if (route) {
-        const [summary, receipts, expenses] = await Promise.all([
-          caixaService.getFinancialSummary(route),
-          caixaService.getAllReceipts(route),
-          caixaService.getAllExpenses(route),
-        ])
-
-        setSummaryData(summary)
-        setAllReceipts(receipts)
-        setAllExpenses(expenses)
+      const filters = {
+        rotaId: routeId && routeId !== 'all' ? parseInt(routeId) : undefined,
+        startDate: sDate || undefined,
+        endDate: eDate || undefined,
       }
+
+      const [summary, receipts, expenses] = await Promise.all([
+        caixaService.getFinancialSummary(filters),
+        caixaService.getAllReceipts(filters),
+        caixaService.getAllExpenses(filters),
+      ])
+
+      setSummaryData(summary)
+      setAllReceipts(receipts)
+      setAllExpenses(expenses)
     } catch (error) {
       console.error(error)
       toast({
@@ -199,10 +204,10 @@ export default function CaixaPage() {
   }
 
   useEffect(() => {
-    if (selectedRouteId && routes.length > 0) {
-      fetchData(selectedRouteId)
+    if (routes.length > 0) {
+      fetchData(selectedRouteId, startDate, endDate)
     }
-  }, [selectedRouteId, routes])
+  }, [selectedRouteId, startDate, endDate, routes])
 
   const selectedRoute = routes.find((r) => r.id.toString() === selectedRouteId)
 
@@ -356,7 +361,6 @@ export default function CaixaPage() {
     employeeId?: number,
     employeeName?: string,
   ) => {
-    if (!selectedRoute) return
     setGeneratingPdf(true)
     try {
       const targetId =
@@ -392,8 +396,11 @@ export default function CaixaPage() {
 
       let settlements = []
 
-      const allSettlements =
-        await resumoAcertosService.getSettlements(selectedRoute)
+      let allSettlements: any[] = []
+      if (selectedRoute) {
+        allSettlements =
+          await resumoAcertosService.getSettlements(selectedRoute)
+      }
 
       if (targetId) {
         const empSummary = summaryData.find((s) => s.funcionarioId === targetId)
@@ -453,9 +460,9 @@ export default function CaixaPage() {
             totalSaldo: finalTotalSaldo,
             saldoDeAcerto: finalSaldoDeAcerto,
             periodo: {
-              inicio: selectedRoute.data_inicio,
-              fim: selectedRoute.data_fim,
-              rotaId: selectedRoute.id,
+              inicio: selectedRoute ? selectedRoute.data_inicio : startDate,
+              fim: selectedRoute ? selectedRoute.data_fim : endDate,
+              rotaId: selectedRoute ? selectedRoute.id : null,
             },
             employee: employeeData,
             date: new Date().toISOString(),
@@ -468,7 +475,7 @@ export default function CaixaPage() {
               saldo_acerto: finalSaldoDeAcerto,
               venda_total: vendaTotal,
               desconto_total: descontoTotal,
-              rota_id: selectedRoute.id,
+              rota_id: selectedRoute ? selectedRoute.id : null,
               funcionario: employeeData
                 ? { nome_completo: employeeData.name }
                 : null,
@@ -575,7 +582,6 @@ export default function CaixaPage() {
               disabled={
                 generatingPdf ||
                 loading ||
-                !selectedRoute ||
                 (!selectedEmployeeId && selectedEmployeeId !== 'all')
               }
               className="flex-1 sm:flex-none"
@@ -597,7 +603,7 @@ export default function CaixaPage() {
           </Button>
           <Button
             variant="outline"
-            onClick={() => fetchData(selectedRouteId)}
+            onClick={() => fetchData(selectedRouteId, startDate, endDate)}
             disabled={loading}
           >
             <RefreshCw
@@ -654,12 +660,21 @@ export default function CaixaPage() {
                 <Label className="text-xs mb-1 block">Rota</Label>
                 <Select
                   value={selectedRouteId}
-                  onValueChange={setSelectedRouteId}
+                  onValueChange={(v) => {
+                    setSelectedRouteId(v)
+                    if (v !== 'all') {
+                      setStartDate('')
+                      setEndDate('')
+                    }
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione a rota" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="all">
+                      Todas as Rotas / Período
+                    </SelectItem>
                     {routes.map((route) => (
                       <SelectItem key={route.id} value={route.id.toString()}>
                         Rota #{route.id} (
@@ -672,6 +687,30 @@ export default function CaixaPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="w-full sm:w-[130px]">
+                <Label className="text-xs mb-1 block">Data Inicial</Label>
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value)
+                    if (selectedRouteId !== 'all') setSelectedRouteId('all')
+                  }}
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="w-full sm:w-[130px]">
+                <Label className="text-xs mb-1 block">Data Final</Label>
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => {
+                    setEndDate(e.target.value)
+                    if (selectedRouteId !== 'all') setSelectedRouteId('all')
+                  }}
+                  className="h-9 text-xs"
+                />
               </div>
             </div>
           </div>
