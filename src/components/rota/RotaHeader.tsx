@@ -16,6 +16,8 @@ import {
   MapIcon,
   List,
   LocateFixed,
+  MapPinned,
+  Route as RouteIcon,
 } from 'lucide-react'
 import { usePermissions } from '@/hooks/use-permissions'
 import { useUserStore } from '@/stores/useUserStore'
@@ -45,6 +47,8 @@ interface RotaHeaderProps {
   onToggleMap?: () => void
   onMyLocation?: () => void
   hasCoordinates?: boolean
+  onGoogleMapsPriority?: () => void
+  onGoogleMapsSuggested?: () => void
 }
 
 export function RotaHeader({
@@ -62,6 +66,8 @@ export function RotaHeader({
   onToggleMap,
   onMyLocation,
   hasCoordinates,
+  onGoogleMapsPriority,
+  onGoogleMapsSuggested,
 }: RotaHeaderProps) {
   const displayRota = activeRota || lastRota
   const { canAccess } = usePermissions()
@@ -249,6 +255,30 @@ export function RotaHeader({
               >
                 <LocateFixed className="mr-2 h-4 w-4" />
                 Minha Localização
+              </Button>
+            )}
+
+            {onGoogleMapsPriority && (
+              <Button
+                onClick={onGoogleMapsPriority}
+                variant="outline"
+                className="w-full sm:w-auto text-amber-600 border-amber-200 hover:bg-amber-50"
+                title="Rota Google Maps (Prioritários)"
+              >
+                <MapPinned className="mr-2 h-4 w-4" />
+                Rota Prioritários
+              </Button>
+            )}
+
+            {onGoogleMapsSuggested && (
+              <Button
+                onClick={onGoogleMapsSuggested}
+                variant="outline"
+                className="w-full sm:w-auto text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                title="Sugerir Rota Google Maps"
+              >
+                <RouteIcon className="mr-2 h-4 w-4" />
+                Sugerir Rota
               </Button>
             )}
 

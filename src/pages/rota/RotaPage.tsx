@@ -14,6 +14,15 @@ import { usePermissions } from '@/hooks/use-permissions'
 import { useUserStore } from '@/stores/useUserStore'
 import { BulkFillNextSellerDialog } from '@/components/rota/BulkFillNextSellerDialog'
 import { ParametrosDialog } from '@/components/rota/ParametrosDialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 
 export default function RotaPage() {
   const [activeRota, setActiveRota] = useState<Rota | null>(null)
@@ -38,6 +47,12 @@ export default function RotaPage() {
   const [isBulkFillOpen, setIsBulkFillOpen] = useState(false)
   const [isParametrosModalOpen, setIsParametrosModalOpen] = useState(false)
   const [isFirstLoad, setIsFirstLoad] = useState(true)
+
+  const [googleMapsDialog, setGoogleMapsDialog] = useState<{
+    open: boolean
+    type: 'priority' | 'suggested'
+    clients: RotaRow[]
+  }>({ open: false, type: 'priority', clients: [] })
 
   const [filters, setFilters] = useState<RotaFilterState>(() => ({
     search: '',
@@ -708,6 +723,100 @@ export default function RotaPage() {
     }
   }
 
+  const handleOpenGoogleMapsPriority = () => {
+    let clients = sortedRows.filter(
+      (r) => r.favorito && r.client.latitude && r.client.longitude,
+    )
+
+    if (clients.length === 0) {
+      toast({
+        title: 'Nenhum cliente',
+        description: 'Não há clientes prioritários com coordenadas válidas.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (clients.length > 9) {
+      clients = clients.slice(0, 9)
+      toast({
+        title: 'Limite de Endereços',
+        description:
+          'O Google Maps suporta apenas 9 endereços por rota. Foram selecionados os 9 primeiros prioritários.',
+      })
+    }
+
+    setGoogleMapsDialog({ open: true, type: 'priority', clients })
+  }
+
+  const handleOpenGoogleMapsSuggested = () => {
+    let clients = sortedRows.filter(
+      (r) => r.vendedor_id !== null && r.client.latitude && r.client.longitude,
+    )
+
+    if (clients.length === 0) {
+      toast({
+        title: 'Nenhum cliente',
+        description:
+          'Não há clientes com vendedor designado e coordenadas válidas.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (clients.length > 0) {
+      const startPoint = userLocation || {
+        lat: clients[0].client.latitude!,
+        lng: clients[0].client.longitude!,
+      }
+      clients.sort((a, b) => {
+        const distA =
+          Math.pow(a.client.latitude! - startPoint.lat, 2) +
+          Math.pow(a.client.longitude! - startPoint.lng, 2)
+        const distB =
+          Math.pow(b.client.latitude! - startPoint.lat, 2) +
+          Math.pow(b.client.longitude! - startPoint.lng, 2)
+        return distA - distB
+      })
+    }
+
+    if (clients.length > 9) {
+      clients = clients.slice(0, 9)
+      toast({
+        title: 'Limite de Endereços',
+        description:
+          'O Google Maps suporta apenas 9 endereços por rota. Foram selecionados os 9 clientes mais próximos.',
+      })
+    }
+
+    setGoogleMapsDialog({ open: true, type: 'suggested', clients })
+  }
+
+  const handleConfirmGoogleMapsRoute = () => {
+    const clients = googleMapsDialog.clients
+    if (clients.length === 0) return
+
+    let url = ''
+    if (clients.length === 1) {
+      url = `https://www.google.com/maps/dir/?api=1&destination=${clients[0].client.latitude},${clients[0].client.longitude}`
+    } else {
+      const origin = `${clients[0].client.latitude},${clients[0].client.longitude}`
+      const destination = `${clients[clients.length - 1].client.latitude},${clients[clients.length - 1].client.longitude}`
+      const waypoints = clients
+        .slice(1, clients.length - 1)
+        .map((c) => `${c.client.latitude},${c.client.longitude}`)
+        .join('|')
+
+      url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`
+      if (waypoints) {
+        url += `&waypoints=optimize:true|${waypoints}`
+      }
+    }
+
+    window.open(url, '_blank')
+    setGoogleMapsDialog((prev) => ({ ...prev, open: false }))
+  }
+
   const handleMyLocation = useCallback(() => {
     if (!navigator.geolocation) {
       toast({
@@ -762,6 +871,8 @@ export default function RotaPage() {
         onToggleMap={() => setIsMapView(!isMapView)}
         onMyLocation={handleMyLocation}
         hasCoordinates={hasCoordinates}
+        onGoogleMapsPriority={handleOpenGoogleMapsPriority}
+        onGoogleMapsSuggested={handleOpenGoogleMapsSuggested}
       />
 
       <RotaFilters
@@ -816,6 +927,66 @@ export default function RotaPage() {
         activeRotaId={activeRota?.id}
         onComplete={loadData}
       />
+
+      <Dialog
+        open={googleMapsDialog.open}
+        onOpenChange={(open) =>
+          setGoogleMapsDialog((prev) => ({ ...prev, open }))
+        }
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {googleMapsDialog.type === 'priority'
+                ? 'Criar Rota de Prioritários'
+                : 'Sugestão de Rota (Google Maps)'}
+            </DialogTitle>
+            <DialogDescription>
+              {googleMapsDialog.type === 'priority'
+                ? 'Deseja criar esta rota no Google Maps com os seguintes clientes prioritários?'
+                : 'Deseja confirmar a sugestão de rota no Google Maps com os seguintes clientes?'}
+              <br />
+              <span className="text-xs text-orange-600 font-semibold mt-1 block">
+                Aviso: O limite máximo é de 9 clientes por rota.
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-[60vh] overflow-y-auto space-y-2 my-2 py-2 border-y">
+            {googleMapsDialog.clients.map((r, i) => (
+              <div
+                key={r.client.CODIGO}
+                className="flex flex-col text-sm bg-muted/50 p-2 rounded"
+              >
+                <span className="font-semibold">
+                  {i + 1}. {r.client['NOME CLIENTE']}
+                </span>
+                <span className="text-xs text-muted-foreground truncate">
+                  {r.client.ENDEREÇO || 'Sem endereço'} -{' '}
+                  {r.client.MUNICÍPIO || ''}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() =>
+                setGoogleMapsDialog((prev) => ({ ...prev, open: false }))
+              }
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleConfirmGoogleMapsRoute}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              Abrir no Google Maps
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
