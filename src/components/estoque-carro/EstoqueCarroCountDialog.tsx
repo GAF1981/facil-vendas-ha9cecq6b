@@ -17,6 +17,7 @@ import { useUserStore } from '@/stores/useUserStore'
 import { ManualProductSelect } from '@/components/products/ManualProductSelect'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { cn } from '@/lib/utils'
 
 interface Props {
   open: boolean
