@@ -151,7 +151,7 @@ export const resumoAcertosService = {
   ) {
     const { data: orderData, error: orderError } = await supabase
       .from('BANCO_DE_DADOS')
-      .select('"CÓDIGO DO CLIENTE", "CODIGO FUNCIONARIO"')
+      .select('"CÓDIGO DO CLIENTE", "CODIGO FUNCIONARIO", "FORMA"')
       .eq('"NÚMERO DO PEDIDO"', orderId)
       .limit(1)
       .maybeSingle()
@@ -161,6 +161,7 @@ export const resumoAcertosService = {
 
     const clientId = orderData['CÓDIGO DO CLIENTE']
     const employeeId = orderData['CODIGO FUNCIONARIO']
+    const currentForma = orderData['FORMA'] || ''
 
     const { error: deleteError } = await supabase
       .from('RECEBIMENTOS')
@@ -205,9 +206,16 @@ export const resumoAcertosService = {
       .map((p) => `${p.method} Reg: R$ ${formatCurrency(p.value)}`)
       .join(' | ')
 
+    let prefix = ''
+    if (currentForma.includes('Captação')) {
+      prefix = 'Captação | '
+    } else if (currentForma.includes('Acerto')) {
+      prefix = 'Acerto | '
+    }
+
     await supabase
       .from('BANCO_DE_DADOS')
-      .update({ FORMA: paymentString } as any)
+      .update({ FORMA: `${prefix}${paymentString}` } as any)
       .eq('"NÚMERO DO PEDIDO"', orderId)
 
     const { error: rpcError } = await supabase.rpc(

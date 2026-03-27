@@ -775,7 +775,9 @@ export const bancoDeDadosService = {
           `${p.method} Reg: R$ ${formatCurrency(p.value)} Pago: R$ ${formatCurrency(p.paidValue)} (${p.installments}x)`,
       )
       .join(' | ')
-    const formaPagamento = paymentString || acertoTipo
+    const formaPagamento = paymentString
+      ? `${acertoTipo} | ${paymentString}`
+      : acertoTipo
 
     const nfCadastro = client['NOTA FISCAL'] || 'NÃO'
     const nfVenda = notaFiscalVenda || 'NÃO'
