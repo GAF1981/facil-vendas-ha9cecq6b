@@ -425,4 +425,7 @@ export function EstoqueCarroCountDialog({
             </DialogFooter>
           </div>
         )}
-      </Di
+      </DialogContent>
+    </Dialog>
+  )
+}
