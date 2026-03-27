@@ -27,19 +27,45 @@ export const bancoDeDadosService = {
     return (count || 0) > 0
   },
 
-  async checkClientHasOrders(clienteId: number): Promise<boolean> {
-    const { count, error } = await supabase
+  async checkClientHasOrders(
+    clienteId: number,
+    excludeOrderId?: number,
+  ): Promise<boolean> {
+    let query = supabase
       .from('BANCO_DE_DADOS')
-      .select('"ID VENDA ITENS"', { count: 'exact' })
+      .select(
+        '"NÚMERO DO PEDIDO", "VALOR VENDIDO", "QUANTIDADE VENDIDA", "SALDO FINAL", "NOVAS CONSIGNAÇÕES"',
+      )
       .eq('"CÓDIGO DO CLIENTE"', clienteId)
       .not('"NÚMERO DO PEDIDO"', 'is', null)
-      .limit(1)
+
+    if (excludeOrderId) {
+      query = query.neq('"NÚMERO DO PEDIDO"', excludeOrderId)
+    }
+
+    const { data, error } = await query
 
     if (error) {
       console.error('Error checking client orders:', error)
       return false
     }
-    return (count || 0) > 0
+
+    // Ignore drafts or test records: an effective order must have some movement
+    const validOrders = (data || []).filter((row) => {
+      const valorVendido = parseCurrency(row['VALOR VENDIDO'])
+      const qtdVendida = parseCurrency(row['QUANTIDADE VENDIDA'])
+      const saldoFinal = Number(row['SALDO FINAL']) || 0
+      const novasConsignacoes = parseCurrency(row['NOVAS CONSIGNAÇÕES'])
+
+      return (
+        valorVendido > 0 ||
+        qtdVendida > 0 ||
+        saldoFinal > 0 ||
+        novasConsignacoes > 0
+      )
+    })
+
+    return validOrders.length > 0
   },
 
   async getLastIdVendaItens(

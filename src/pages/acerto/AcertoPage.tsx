@@ -188,7 +188,12 @@ export default function AcertoPage() {
               bancoDeDadosService
                 .getMonthlyAverage(details.clientId)
                 .then((avg) => mounted.current && setMonthlyAverage(avg))
-              setIsCaptacao(false)
+
+              bancoDeDadosService
+                .checkClientHasOrders(details.clientId, oid)
+                .then((hasOrders) => {
+                  if (mounted.current) setIsCaptacao(!hasOrders)
+                })
 
               toast({
                 title: 'Modo de Edição',
@@ -1099,7 +1104,10 @@ export default function AcertoPage() {
           <CardTitle>Cliente</CardTitle>
         </CardHeader>
         <CardContent>
-          <ClientSearch onSelect={handleClientSelect} disabled={saving} />
+          <ClientSearch
+            onSelect={handleClientSelect}
+            disabled={saving || isEditMode}
+          />
         </CardContent>
       </Card>
 
