@@ -5359,6 +5359,44 @@ export const Constants = {
 //   END;
 //   $function$
 //   
+// FUNCTION protect_captacao_status()
+//   CREATE OR REPLACE FUNCTION public.protect_captacao_status()
+//    RETURNS trigger
+//    LANGUAGE plpgsql
+//    SECURITY DEFINER
+//   AS $function$
+//   DECLARE
+//       v_last_order RECORD;
+//   BEGIN
+//       -- Check if the new record is marked as ACERTO or doesn't have a type yet, and has a valid client
+//       IF (NEW."TIPO" = 'ACERTO' OR NEW."TIPO" IS NULL) AND NEW."CÓDIGO DO CLIENTE" IS NOT NULL THEN
+//           -- Find the last order type for this client (excluding the current order number if it's already assigned)
+//           SELECT "TIPO", "DATA E HORA"
+//           INTO v_last_order
+//           FROM "BANCO_DE_DADOS"
+//           WHERE "CÓDIGO DO CLIENTE" = NEW."CÓDIGO DO CLIENTE"
+//             AND "NÚMERO DO PEDIDO" IS NOT NULL
+//             AND "NÚMERO DO PEDIDO" IS DISTINCT FROM NEW."NÚMERO DO PEDIDO"
+//           ORDER BY "DATA E HORA" DESC NULLS LAST, "ID VENDA ITENS" DESC
+//           LIMIT 1;
+//   
+//           -- If the last order was a CAPTAÇÃO within the last 1 hour
+//           IF FOUND AND v_last_order."TIPO" = 'CAPTAÇÃO' THEN
+//               IF v_last_order."DATA E HORA" >= (NOW() - INTERVAL '1 hour') THEN
+//                   -- If no sales or quantity changes (it's basically an empty/duplicate submit due to poor internet)
+//                   IF (public.parse_currency_sql(NEW."QUANTIDADE VENDIDA") = 0) AND 
+//                      (public.parse_currency_sql(NEW."VALOR VENDIDO") = 0) THEN
+//                       -- Override the type back to CAPTAÇÃO
+//                       NEW."TIPO" := 'CAPTAÇÃO';
+//                   END IF;
+//               END IF;
+//           END IF;
+//       END IF;
+//       
+//       RETURN NEW;
+//   END;
+//   $function$
+//   
 // FUNCTION refresh_debitos_historico()
 //   CREATE OR REPLACE FUNCTION public.refresh_debitos_historico()
 //    RETURNS void
@@ -5956,6 +5994,7 @@ export const Constants = {
 
 // --- TRIGGERS ---
 // Table: BANCO_DE_DADOS
+//   trg_protect_captacao: CREATE TRIGGER trg_protect_captacao BEFORE INSERT ON public."BANCO_DE_DADOS" FOR EACH ROW EXECUTE FUNCTION protect_captacao_status()
 //   trg_reset_x_na_rota_bd: CREATE TRIGGER trg_reset_x_na_rota_bd AFTER INSERT ON public."BANCO_DE_DADOS" FOR EACH ROW EXECUTE FUNCTION reset_x_na_rota_on_activity()
 //   trg_update_debito_historico_sales: CREATE TRIGGER trg_update_debito_historico_sales AFTER INSERT OR UPDATE ON public."BANCO_DE_DADOS" FOR EACH ROW EXECUTE FUNCTION trigger_update_debito_historico_sales()
 // Table: DESPESAS
