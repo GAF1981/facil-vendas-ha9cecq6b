@@ -98,33 +98,39 @@ export default function RotaPage() {
     setLoading(true)
     try {
       // Safely auto finalize overdue routes first
-      const autoFinalizeRes = await rotaService.autoFinalizeRota()
-      if (autoFinalizeRes && !autoFinalizeRes.success) {
-        toast({
-          title: 'Aviso do Sistema',
-          description:
-            'Não foi possível verificar as rotas pendentes automaticamente. O serviço pode estar indisponível.',
-          duration: 5000,
-        })
+      try {
+        const autoFinalizeRes = await rotaService.autoFinalizeRota()
+        if (autoFinalizeRes && !autoFinalizeRes.success) {
+          toast({
+            title: 'Aviso do Sistema',
+            description:
+              'Não foi possível verificar as rotas pendentes automaticamente. O serviço pode estar indisponível.',
+            duration: 5000,
+          })
+        }
+      } catch (autoFinalizeError) {
+        console.error('Auto finalize error:', autoFinalizeError)
       }
 
       const [active, last, sellersData] = await Promise.all([
         rotaService.getActiveRota(),
         rotaService.getLastRota(),
-        employeesService.getEmployees(1, 100),
+        employeesService.getEmployees(1, 100).catch(() => ({ data: [] })),
       ])
 
       setActiveRota(active)
       setLastRota(last)
-      setSellers(sellersData.data.filter((e) => e.situacao === 'ATIVO'))
+      setSellers(
+        sellersData?.data?.filter((e: any) => e.situacao === 'ATIVO') || [],
+      )
 
-      const rotaRows = await rotaService.getFullRotaData(active)
-      setRows(rotaRows)
+      const rotaRows = await rotaService.getFullRotaData(active).catch(() => [])
+      setRows(rotaRows || [])
 
       if (isFirstLoad) {
         if (loggedInUser) {
-          const isUserInRoute = rotaRows.some(
-            (r) => r.vendedor_id === loggedInUser.id,
+          const isUserInRoute = (rotaRows || []).some(
+            (r: any) => r.vendedor_id === loggedInUser.id,
           )
 
           setFilters((prev) => ({
@@ -139,7 +145,7 @@ export default function RotaPage() {
         setIsFirstLoad(false)
       }
     } catch (error) {
-      console.error(error)
+      console.error('Load data error:', error)
       toast({
         title: 'Erro',
         description: 'Falha ao carregar dados da rota.',
@@ -152,13 +158,15 @@ export default function RotaPage() {
 
   const municipios = useMemo(() => {
     const m = new Set<string>()
-    rows.forEach((r) => r.client.MUNICÍPIO && m.add(r.client.MUNICÍPIO))
+    rows.forEach((r) => r.client?.MUNICÍPIO && m.add(r.client.MUNICÍPIO))
     return Array.from(m).sort()
   }, [rows])
 
   const routeGroups = useMemo(() => {
     const g = new Set<string>()
-    rows.forEach((r) => r.client['GRUPO ROTA'] && g.add(r.client['GRUPO ROTA']))
+    rows.forEach(
+      (r) => r.client?.['GRUPO ROTA'] && g.add(r.client['GRUPO ROTA']),
+    )
     return Array.from(g).sort()
   }, [rows])
 
@@ -167,8 +175,8 @@ export default function RotaPage() {
       if (filters.search) {
         const s = filters.search.toLowerCase()
         const matchesSearch =
-          row.client['NOME CLIENTE']?.toLowerCase().includes(s) ||
-          row.client.CODIGO.toString().includes(s)
+          row.client?.['NOME CLIENTE']?.toLowerCase().includes(s) ||
+          row.client?.CODIGO?.toString().includes(s)
         if (!matchesSearch) return false
       }
 
@@ -226,13 +234,13 @@ export default function RotaPage() {
 
       if (
         filters.municipio !== 'todos' &&
-        row.client.MUNICÍPIO !== filters.municipio
+        row.client?.MUNICÍPIO !== filters.municipio
       )
         return false
 
       if (
         filters.grupo_rota !== 'todos' &&
-        row.client['GRUPO ROTA'] !== filters.grupo_rota
+        row.client?.['GRUPO ROTA'] !== filters.grupo_rota
       )
         return false
 
@@ -264,17 +272,17 @@ export default function RotaPage() {
         let valB: any = b[sort.key as keyof RotaRow]
 
         if (sort.key === 'municipio') {
-          valA = a.client.MUNICÍPIO || ''
-          valB = b.client.MUNICÍPIO || ''
+          valA = a.client?.MUNICÍPIO || ''
+          valB = b.client?.MUNICÍPIO || ''
         } else if (sort.key === 'grupo_rota') {
-          valA = a.client['GRUPO ROTA'] || ''
-          valB = b.client['GRUPO ROTA'] || ''
+          valA = a.client?.['GRUPO ROTA'] || ''
+          valB = b.client?.['GRUPO ROTA'] || ''
         } else if (sort.key === 'cep') {
-          valA = a.client['CEP OFICIO'] || ''
-          valB = b.client['CEP OFICIO'] || ''
+          valA = a.client?.['CEP OFICIO'] || ''
+          valB = b.client?.['CEP OFICIO'] || ''
         } else if (sort.key === 'client_nome') {
-          valA = a.client['NOME CLIENTE'] || ''
-          valB = b.client['NOME CLIENTE'] || ''
+          valA = a.client?.['NOME CLIENTE'] || ''
+          valB = b.client?.['NOME CLIENTE'] || ''
         } else if (sort.key === 'vendedor_nome') {
           valA = a.vendedor_id ? sellersMap.get(a.vendedor_id) || '' : ''
           valB = b.vendedor_id ? sellersMap.get(b.vendedor_id) || '' : ''
@@ -292,7 +300,7 @@ export default function RotaPage() {
   }, [filteredRows, sortConfig, sellers])
 
   const hasCoordinates = useMemo(
-    () => sortedRows.some((r) => r.client.latitude && r.client.longitude),
+    () => sortedRows.some((r) => r.client?.latitude && r.client?.longitude),
     [sortedRows],
   )
 
@@ -333,7 +341,7 @@ export default function RotaPage() {
     async (clientId: number, field: string, value: any) => {
       setRows((prev) =>
         prev.map((r) => {
-          if (r.client.CODIGO === clientId) {
+          if (r.client?.CODIGO === clientId) {
             return { ...r, [field]: value }
           }
           return r
@@ -391,7 +399,7 @@ export default function RotaPage() {
         if (result && result.x_na_rota !== undefined) {
           setRows((prev) =>
             prev.map((r) => {
-              if (r.client.CODIGO === clientId) {
+              if (r.client?.CODIGO === clientId) {
                 return {
                   ...r,
                   x_na_rota: result.x_na_rota!,
@@ -402,7 +410,7 @@ export default function RotaPage() {
           )
         }
       } catch (error) {
-        console.error('Update failed', error)
+        console.error('Update failed:', error)
         toast({
           title: 'Erro',
           description: 'Falha ao atualizar registro.',
@@ -424,7 +432,7 @@ export default function RotaPage() {
       })
       loadData()
     } catch (error) {
-      console.error(error)
+      console.error('Start rota error:', error)
       toast({
         title: 'Erro',
         description: 'Não foi possível iniciar a rota.',
@@ -447,7 +455,7 @@ export default function RotaPage() {
       })
       loadData()
     } catch (error) {
-      console.error(error)
+      console.error('End rota error:', error)
       toast({
         title: 'Erro',
         description: 'Não foi possível finalizar a rota.',
@@ -510,25 +518,25 @@ export default function RotaPage() {
 
       const line = [
         escape(row.rowNumber),
-        escape(row.client.CODIGO),
-        escape(row.client['NOME CLIENTE']),
-        escape(row.client.MUNICÍPIO),
+        escape(row.client?.CODIGO),
+        escape(row.client?.['NOME CLIENTE']),
+        escape(row.client?.MUNICÍPIO),
         escape(row.debito),
         escape(row.projecao || 0),
         escape(vVendedor),
         escape(vProximo),
-        escape(row.client['GRUPO ROTA']),
+        escape(row.client?.['GRUPO ROTA']),
         escape(row.valor_consignado || 0),
-        escape(row.client.ENDEREÇO),
-        escape(row.client['FONE 1']),
-        escape(row.client['CONTATO 1']),
+        escape(row.client?.ENDEREÇO),
+        escape(row.client?.['FONE 1']),
+        escape(row.client?.['CONTATO 1']),
         escape(row.x_na_rota),
         escape(row.numero_pedido),
         escape(row.data_acerto),
         escape(row.vencimento_status),
         escape(row.boleto ? 'Sim' : 'Não'),
         escape(row.agregado ? 'Sim' : 'Não'),
-        escape(row.client['CEP OFICIO']),
+        escape(row.client?.['CEP OFICIO']),
         escape(row.tarefas),
       ]
       csvLines.push(line.join(';'))
@@ -568,7 +576,7 @@ export default function RotaPage() {
       })
       loadData()
     } catch (error) {
-      console.error(error)
+      console.error('Bulk clear error:', error)
       toast({
         title: 'Erro',
         description: 'Falha ao limpar dados.',
@@ -598,7 +606,7 @@ export default function RotaPage() {
       })
       loadData()
     } catch (error) {
-      console.error(error)
+      console.error('Bulk transfer error:', error)
       toast({
         title: 'Erro',
         description: 'Falha na transferência.',
@@ -614,7 +622,7 @@ export default function RotaPage() {
 
     setRows((prev) =>
       prev.map((r) => {
-        if (r.client.CODIGO === row.client.CODIGO) {
+        if (r.client?.CODIGO === row.client?.CODIGO) {
           return {
             ...r,
             vendedor_id: row.proximo_vendedor_id,
@@ -624,6 +632,8 @@ export default function RotaPage() {
         return r
       }),
     )
+
+    if (!row.client?.CODIGO) return
 
     try {
       const result = await rotaService.transferSingleNextSeller(
@@ -636,7 +646,7 @@ export default function RotaPage() {
       if (result && result.x_na_rota !== undefined) {
         setRows((prev) =>
           prev.map((r) => {
-            if (r.client.CODIGO === row.client.CODIGO) {
+            if (r.client?.CODIGO === row.client?.CODIGO) {
               return {
                 ...r,
                 x_na_rota: result.x_na_rota!,
@@ -652,7 +662,7 @@ export default function RotaPage() {
         description: 'Vendedor atualizado com sucesso.',
       })
     } catch (error) {
-      console.error(error)
+      console.error('Transfer row error:', error)
       toast({
         title: 'Erro',
         description: 'Falha ao transferir vendedor.',
@@ -668,7 +678,9 @@ export default function RotaPage() {
   ) => {
     if (!activeRota) return
 
-    const clientsToUpdate = sortedRows.map((r) => r.client.CODIGO)
+    const clientsToUpdate = sortedRows
+      .map((r) => r.client?.CODIGO)
+      .filter(Boolean) as number[]
     const count = clientsToUpdate.length
 
     if (count === 0) {
@@ -712,7 +724,7 @@ export default function RotaPage() {
       })
       loadData()
     } catch (error) {
-      console.error(error)
+      console.error('Bulk update error:', error)
       toast({
         title: 'Erro',
         description: 'Falha ao atualizar clientes em lote.',
@@ -728,8 +740,8 @@ export default function RotaPage() {
       (r) =>
         r.favorito &&
         !r.is_completed &&
-        r.client.latitude &&
-        r.client.longitude,
+        r.client?.latitude &&
+        r.client?.longitude,
     )
 
     if (clients.length === 0) {
@@ -759,8 +771,8 @@ export default function RotaPage() {
       (r) =>
         r.vendedor_id !== null &&
         !r.is_completed &&
-        r.client.latitude &&
-        r.client.longitude,
+        r.client?.latitude &&
+        r.client?.longitude,
     )
 
     if (clients.length === 0) {
@@ -775,16 +787,16 @@ export default function RotaPage() {
 
     if (clients.length > 0) {
       const startPoint = userLocation || {
-        lat: clients[0].client.latitude!,
-        lng: clients[0].client.longitude!,
+        lat: clients[0].client?.latitude!,
+        lng: clients[0].client?.longitude!,
       }
       clients.sort((a, b) => {
         const distA =
-          Math.pow(a.client.latitude! - startPoint.lat, 2) +
-          Math.pow(a.client.longitude! - startPoint.lng, 2)
+          Math.pow((a.client?.latitude || 0) - startPoint.lat, 2) +
+          Math.pow((a.client?.longitude || 0) - startPoint.lng, 2)
         const distB =
-          Math.pow(b.client.latitude! - startPoint.lat, 2) +
-          Math.pow(b.client.longitude! - startPoint.lng, 2)
+          Math.pow((b.client?.latitude || 0) - startPoint.lat, 2) +
+          Math.pow((b.client?.longitude || 0) - startPoint.lng, 2)
         return distA - distB
       })
     }
@@ -807,13 +819,13 @@ export default function RotaPage() {
 
     let url = ''
     if (clients.length === 1) {
-      url = `https://www.google.com/maps/dir/?api=1&destination=${clients[0].client.latitude},${clients[0].client.longitude}`
+      url = `https://www.google.com/maps/dir/?api=1&destination=${clients[0].client?.latitude},${clients[0].client?.longitude}`
     } else {
-      const origin = `${clients[0].client.latitude},${clients[0].client.longitude}`
-      const destination = `${clients[clients.length - 1].client.latitude},${clients[clients.length - 1].client.longitude}`
+      const origin = `${clients[0].client?.latitude},${clients[0].client?.longitude}`
+      const destination = `${clients[clients.length - 1].client?.latitude},${clients[clients.length - 1].client?.longitude}`
       const waypoints = clients
         .slice(1, clients.length - 1)
-        .map((c) => `${c.client.latitude},${c.client.longitude}`)
+        .map((c) => `${c.client?.latitude},${c.client?.longitude}`)
         .join('|')
 
       url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`
@@ -852,7 +864,7 @@ export default function RotaPage() {
         }
       },
       (error) => {
-        console.error(error)
+        console.error('Geolocation error:', error)
         toast({
           title: 'Erro',
           description:
@@ -964,15 +976,15 @@ export default function RotaPage() {
           <div className="max-h-[60vh] overflow-y-auto space-y-2 my-2 py-2 border-y">
             {googleMapsDialog.clients.map((r, i) => (
               <div
-                key={r.client.CODIGO}
+                key={r.client?.CODIGO || i}
                 className="flex flex-col text-sm bg-muted/50 p-2 rounded"
               >
                 <span className="font-semibold">
-                  {i + 1}. {r.client['NOME CLIENTE']}
+                  {i + 1}. {r.client?.['NOME CLIENTE']}
                 </span>
                 <span className="text-xs text-muted-foreground truncate">
-                  {r.client.ENDEREÇO || 'Sem endereço'} -{' '}
-                  {r.client.MUNICÍPIO || ''}
+                  {r.client?.ENDEREÇO || 'Sem endereço'} -{' '}
+                  {r.client?.MUNICÍPIO || ''}
                 </span>
               </div>
             ))}
