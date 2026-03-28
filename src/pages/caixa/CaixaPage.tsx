@@ -59,6 +59,7 @@ import { supabase } from '@/lib/supabase/client'
 import { RevenueGallery } from '@/components/caixa/RevenueGallery'
 import { ExpenseGallery } from '@/components/caixa/ExpenseGallery'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 import { CloseCashierDialog } from '@/components/caixa/CloseCashierDialog'
 import { useUserStore } from '@/stores/useUserStore'
 import {
