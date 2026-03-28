@@ -767,9 +767,18 @@ export default function RotaPage() {
   }
 
   const handleOpenGoogleMapsSuggested = () => {
+    if (!loggedInUser) {
+      toast({
+        title: 'Usuário não logado',
+        description: 'É necessário estar logado para ver sugestões de rota.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     let clients = sortedRows.filter(
       (r) =>
-        r.vendedor_id !== null &&
+        r.vendedor_id === loggedInUser.id &&
         !r.is_completed &&
         r.client?.latitude &&
         r.client?.longitude,
@@ -779,7 +788,7 @@ export default function RotaPage() {
       toast({
         title: 'Nenhum cliente',
         description:
-          'Não há clientes pendentes com vendedor designado e coordenadas válidas na rota atual.',
+          'Não há clientes pendentes vinculados a você com coordenadas válidas na rota atual.',
         variant: 'destructive',
       })
       return
@@ -823,14 +832,15 @@ export default function RotaPage() {
     } else {
       const origin = `${clients[0].client?.latitude},${clients[0].client?.longitude}`
       const destination = `${clients[clients.length - 1].client?.latitude},${clients[clients.length - 1].client?.longitude}`
+
       const waypoints = clients
         .slice(1, clients.length - 1)
         .map((c) => `${c.client?.latitude},${c.client?.longitude}`)
-        .join('|')
+        .join('%7C')
 
       url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`
       if (waypoints) {
-        url += `&waypoints=optimize:true|${waypoints}`
+        url += `&waypoints=${waypoints}`
       }
     }
 
