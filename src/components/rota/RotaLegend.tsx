@@ -1,8 +1,10 @@
 export function RotaLegend() {
   const items = [
-    { color: 'bg-green-800', label: 'Acerto na Rota Atual (Atendido)' },
-    { color: 'bg-red-200', label: 'Débito Vencido' },
-    { color: 'bg-[#4c1d95]', label: 'x na ROTA > 3' },
+    { color: 'bg-[#166534] border-[#14532d]', label: 'Acerto Realizado' },
+    { color: 'bg-[#ef4444] border-[#dc2626]', label: 'Débito Vencido' },
+    { color: 'bg-[#86efac] border-[#4ade80]', label: 'Débito a Vencer' },
+    { color: 'bg-[#3b82f6] border-[#2563eb]', label: 'Fora da Rota' },
+    { color: 'bg-white border-black', label: 'Na Rota, Sem Acerto' },
   ]
 
   return (
@@ -13,7 +15,7 @@ export function RotaLegend() {
       {items.map((item) => (
         <div key={item.label} className="flex items-center gap-2">
           <div
-            className={`w-4 h-4 rounded-sm ${item.color} shadow-sm border border-black/10`}
+            className={`w-4 h-4 rounded-full ${item.color} shadow-sm border-[2px]`}
           />
           <span>{item.label}</span>
         </div>

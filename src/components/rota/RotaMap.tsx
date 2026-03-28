@@ -15,25 +15,25 @@ export function RotaMap({ rows, userLocation }: RotaMapProps) {
       let borderColor = 'black'
 
       if (r.is_completed) {
-        // clientes que estão na rota e o acerto foi realizado: verde
-        color = '#22c55e' // Green
+        // clientes que estão na rota e o acerto foi realizado: verde escuro
+        color = '#166534' // Dark Green
         textColor = 'white'
-        borderColor = '#22c55e'
+        borderColor = '#14532d'
       } else if (r.vencimento_status === 'VENCIDO') {
         // clientes com débitos vencidos: vermelho
         color = '#ef4444' // Red
         textColor = 'white'
-        borderColor = '#ef4444'
+        borderColor = '#dc2626'
       } else if (r.vencimento_status === 'A VENCER') {
-        // clientes com débitos a vencer: verde
-        color = '#22c55e' // Green
-        textColor = 'white'
-        borderColor = '#22c55e'
+        // clientes com débitos a vencer: verde claro
+        color = '#86efac' // Light Green
+        textColor = 'black'
+        borderColor = '#4ade80'
       } else if (r.vendedor_id == null) {
-        // clientes que não estão na rota: azul
+        // clientes que não estão na rota atual: azul
         color = '#3b82f6' // Blue
         textColor = 'white'
-        borderColor = '#3b82f6'
+        borderColor = '#2563eb'
       } else {
         // clientes que estão na rota e o acerto não foi realizado: branco circulo de preto
         color = 'white'

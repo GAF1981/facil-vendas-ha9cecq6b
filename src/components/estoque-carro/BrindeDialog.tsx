@@ -43,7 +43,7 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { cn } from '@/lib/utils'
-import { ProductCombobox } from '@/components/products/ProductCombobox'
+import { ManualProductSelect } from '@/components/products/ManualProductSelect'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 
 interface Props {
@@ -397,15 +397,11 @@ export function BrindeDialog({
                     <Search className="w-4 h-4" />
                     Busca Manual
                   </Label>
-                  <ProductCombobox
-                    inputId="brinde-manual-input"
+                  <ManualProductSelect
                     selectedProduct={selectedProduct}
                     onSelect={handleProductSelect}
-                    excludeInternalCode={true}
-                    className="w-full"
-                    autoFocus={true}
-                    disableScanner={true}
                     disabled={loading}
+                    autoFocus={true}
                   />
                 </div>
               )}

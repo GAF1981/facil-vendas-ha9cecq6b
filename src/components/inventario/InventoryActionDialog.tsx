@@ -29,6 +29,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Textarea } from '@/components/ui/textarea'
 import { ManualProductSelect } from '@/components/products/ManualProductSelect'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { cn } from '@/lib/utils'
 
 interface InventoryActionDialogProps {
   open: boolean
@@ -67,7 +68,9 @@ export function InventoryActionDialog({
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
 
-  const [inputMode, setInputMode] = useState<'barcode' | 'manual'>('barcode')
+  const [inputMode, setInputMode] = useState<
+    'barcode' | 'manual' | 'auto-barcode'
+  >('barcode')
   const [selectedProduct, setSelectedProduct] = useState<ProductRow | null>(
     null,
   )
@@ -106,6 +109,9 @@ export function InventoryActionDialog({
       if (e.key === 'F2') {
         e.preventDefault()
         setInputMode((prev) => (prev === 'barcode' ? 'manual' : 'barcode'))
+      } else if (e.key === 'F3') {
+        e.preventDefault()
+        setInputMode('auto-barcode')
       }
     }
 
@@ -200,6 +206,123 @@ export function InventoryActionDialog({
       }, 50)
     } else {
       setQuantity('')
+    }
+  }
+
+  const handleAutoBarcodeScan = async (
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      const code = barcode.trim()
+      if (!code) return
+
+      // Validate required fields before scanning
+      const extra: any = {}
+      if (type === 'COMPRA') {
+        if (!selectedSupplier) {
+          toast({
+            title: 'Erro',
+            description: 'Fornecedor é obrigatório.',
+            variant: 'destructive',
+          })
+          return
+        }
+        if (!costValue) {
+          toast({
+            title: 'Erro',
+            description: 'Valor de custo é obrigatório.',
+            variant: 'destructive',
+          })
+          return
+        }
+        extra.fornecedorId = parseInt(selectedSupplier)
+        extra.valorUnitario = parseCurrency(costValue)
+        setPersistedSupplierId(selectedSupplier)
+      }
+      if (type === 'PERDA') {
+        if (!reason.trim()) {
+          toast({
+            title: 'Erro',
+            description: 'Motivo da perda é obrigatório.',
+            variant: 'destructive',
+          })
+          return
+        }
+        extra.motivo = reason
+      }
+      if (type === 'CARRO_PARA_ESTOQUE' || type === 'ESTOQUE_PARA_CARRO') {
+        if (!selectedEmployee) {
+          toast({
+            title: 'Erro',
+            description: 'Funcionário é obrigatório.',
+            variant: 'destructive',
+          })
+          return
+        }
+        extra.funcionarioId = parseInt(selectedEmployee)
+        setPersistedEmployeeId(selectedEmployee)
+      }
+
+      setLoading(true)
+      try {
+        const { data } = await productsService.getProducts(
+          1,
+          10,
+          code,
+          null,
+          null,
+          'PRODUTO',
+          true,
+          false,
+        )
+        const exactMatch = data.find(
+          (p) =>
+            p['CÓDIGO BARRAS'] === code ||
+            p.codigo_interno === code ||
+            p.CODIGO?.toString() === code,
+        )
+
+        if (exactMatch) {
+          await inventoryGeneralService.registerMovement(sessionId, type!, [
+            { productId: exactMatch.ID, quantity: 1, extra },
+          ])
+
+          if (type === 'CONTAGEM') {
+            toast({
+              title: 'Sucesso',
+              description: `Contagem Atualizada (Soma Aplicada): ${exactMatch.PRODUTO}`,
+            })
+          } else {
+            toast({
+              title: 'Sucesso',
+              description: `Movimentação registrada (+1): ${exactMatch.PRODUTO}`,
+            })
+          }
+
+          onSuccess()
+          setBarcode('')
+        } else {
+          toast({
+            title: 'Não encontrado',
+            description: `Nenhum produto com código ${code}.`,
+            variant: 'destructive',
+          })
+          barcodeRef.current?.select()
+        }
+      } catch (err: any) {
+        console.error(err)
+        toast({
+          title: 'Erro',
+          description: 'Erro ao processar produto.',
+          variant: 'destructive',
+        })
+      } finally {
+        setLoading(false)
+        setTimeout(() => {
+          barcodeRef.current?.focus()
+        }, 50)
+      }
     }
   }
 
@@ -389,9 +512,9 @@ export function InventoryActionDialog({
               <RadioGroup
                 value={inputMode}
                 onValueChange={(val) =>
-                  setInputMode(val as 'barcode' | 'manual')
+                  setInputMode(val as 'barcode' | 'manual' | 'auto-barcode')
                 }
-                className="flex items-center space-x-4"
+                className="flex items-center space-x-4 flex-wrap gap-y-2"
               >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="barcode" id="ia-barcode" />
@@ -405,15 +528,30 @@ export function InventoryActionDialog({
                     Busca Manual (F2)
                   </Label>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="auto-barcode" id="ia-auto-barcode" />
+                  <Label htmlFor="ia-auto-barcode" className="cursor-pointer">
+                    Barras Automático (F3)
+                  </Label>
+                </div>
               </RadioGroup>
 
-              {inputMode === 'barcode' ? (
+              {inputMode === 'barcode' || inputMode === 'auto-barcode' ? (
                 <div className="space-y-2">
-                  <Label className="flex items-center gap-2 text-primary font-semibold">
+                  <Label
+                    className={cn(
+                      'flex items-center gap-2 font-semibold',
+                      inputMode === 'auto-barcode'
+                        ? 'text-green-600'
+                        : 'text-primary',
+                    )}
+                  >
                     <Barcode className="w-4 h-4" />
-                    Scanner
+                    {inputMode === 'auto-barcode'
+                      ? 'Scanner Automático (Soma 1)'
+                      : 'Scanner'}
                   </Label>
-                  {selectedProduct ? (
+                  {selectedProduct && inputMode === 'barcode' ? (
                     <div className="flex items-center justify-between border rounded-md px-3 py-3 bg-primary/5 border-primary">
                       <div className="flex flex-col">
                         <span className="font-semibold text-primary text-sm truncate">
@@ -436,15 +574,32 @@ export function InventoryActionDialog({
                       </Button>
                     </div>
                   ) : (
-                    <Input
-                      ref={barcodeRef}
-                      value={barcode}
-                      onChange={(e) => setBarcode(e.target.value)}
-                      onKeyDown={handleBarcodeScan}
-                      placeholder="Bipe o código..."
-                      disabled={loading || submitting}
-                      className="bg-background focus-visible:ring-primary"
-                    />
+                    <div className="space-y-1">
+                      <Input
+                        ref={barcodeRef}
+                        value={barcode}
+                        onChange={(e) => setBarcode(e.target.value)}
+                        onKeyDown={
+                          inputMode === 'auto-barcode'
+                            ? handleAutoBarcodeScan
+                            : handleBarcodeScan
+                        }
+                        placeholder="Bipe o código..."
+                        disabled={loading || submitting}
+                        className={cn(
+                          'bg-background focus-visible:ring-primary',
+                          inputMode === 'auto-barcode' &&
+                            'border-green-500 focus-visible:ring-green-500',
+                        )}
+                      />
+                      {inputMode === 'auto-barcode' && (
+                        <p className="text-xs text-green-600 font-medium mt-1">
+                          O produto será salvo automaticamente com quantidade 1
+                          e o cursor continuará no campo. Preencha os campos
+                          abaixo antes de bipar.
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               ) : (
