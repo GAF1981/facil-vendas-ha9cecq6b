@@ -735,7 +735,39 @@ export default function RotaPage() {
     }
   }
 
-  const handleOpenGoogleMapsPriority = () => {
+  const getOrRequestLocation = (): Promise<{ lat: number; lng: number }> => {
+    return new Promise((resolve, reject) => {
+      if (userLocation) {
+        resolve(userLocation)
+      } else {
+        if (!navigator.geolocation) {
+          reject(new Error('Geolocalização não suportada pelo navegador.'))
+          return
+        }
+        toast({
+          title: 'Aguarde',
+          description: 'Buscando sua localização atual...',
+        })
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const loc = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+            }
+            setUserLocation(loc)
+            resolve(loc)
+          },
+          (error) => {
+            console.error('Geolocation error:', error)
+            reject(error)
+          },
+          { enableHighAccuracy: true },
+        )
+      }
+    })
+  }
+
+  const handleOpenGoogleMapsPriority = async () => {
     let clients = sortedRows.filter(
       (r) =>
         r.favorito &&
@@ -754,19 +786,30 @@ export default function RotaPage() {
       return
     }
 
-    if (clients.length > 9) {
-      clients = clients.slice(0, 9)
+    try {
+      const loc = await getOrRequestLocation()
+
+      if (clients.length > 8) {
+        clients = clients.slice(0, 8)
+        toast({
+          title: 'Limite de Endereços',
+          description:
+            'O Google Maps suporta apenas 9 pontos por rota (Sua localização + 8 clientes). Foram selecionados os 8 primeiros prioritários.',
+        })
+      }
+
+      setGoogleMapsDialog({ open: true, type: 'priority', clients })
+    } catch (error) {
       toast({
-        title: 'Limite de Endereços',
+        title: 'Erro de Localização',
         description:
-          'O Google Maps suporta apenas 9 endereços por rota. Foram selecionados os 9 primeiros prioritários.',
+          'Não foi possível obter sua localização atual para traçar a rota.',
+        variant: 'destructive',
       })
     }
-
-    setGoogleMapsDialog({ open: true, type: 'priority', clients })
   }
 
-  const handleOpenGoogleMapsSuggested = () => {
+  const handleOpenGoogleMapsSuggested = async () => {
     if (!loggedInUser) {
       toast({
         title: 'Usuário não logado',
@@ -794,54 +837,73 @@ export default function RotaPage() {
       return
     }
 
-    if (clients.length > 0) {
-      const startPoint = userLocation || {
-        lat: clients[0].client?.latitude!,
-        lng: clients[0].client?.longitude!,
-      }
+    try {
+      const loc = await getOrRequestLocation()
+
       clients.sort((a, b) => {
         const distA =
-          Math.pow((a.client?.latitude || 0) - startPoint.lat, 2) +
-          Math.pow((a.client?.longitude || 0) - startPoint.lng, 2)
+          Math.pow((a.client?.latitude || 0) - loc.lat, 2) +
+          Math.pow((a.client?.longitude || 0) - loc.lng, 2)
         const distB =
-          Math.pow((b.client?.latitude || 0) - startPoint.lat, 2) +
-          Math.pow((b.client?.longitude || 0) - startPoint.lng, 2)
+          Math.pow((b.client?.latitude || 0) - loc.lat, 2) +
+          Math.pow((b.client?.longitude || 0) - loc.lng, 2)
         return distA - distB
       })
-    }
 
-    if (clients.length > 9) {
-      clients = clients.slice(0, 9)
+      if (clients.length > 8) {
+        clients = clients.slice(0, 8)
+        toast({
+          title: 'Limite de Endereços',
+          description:
+            'O Google Maps suporta apenas 9 pontos por rota (Sua localização + 8 clientes). Foram selecionados os 8 clientes mais próximos.',
+        })
+      }
+
+      setGoogleMapsDialog({ open: true, type: 'suggested', clients })
+    } catch (error) {
       toast({
-        title: 'Limite de Endereços',
+        title: 'Erro de Localização',
         description:
-          'O Google Maps suporta apenas 9 endereços por rota. Foram selecionados os 9 clientes mais próximos.',
+          'Não foi possível obter sua localização atual para traçar a rota.',
+        variant: 'destructive',
       })
     }
-
-    setGoogleMapsDialog({ open: true, type: 'suggested', clients })
   }
 
   const handleConfirmGoogleMapsRoute = () => {
     const clients = googleMapsDialog.clients
     if (clients.length === 0) return
 
-    let url = ''
-    if (clients.length === 1) {
-      url = `https://www.google.com/maps/dir/?api=1&destination=${clients[0].client?.latitude},${clients[0].client?.longitude}`
-    } else {
-      const origin = `${clients[0].client?.latitude},${clients[0].client?.longitude}`
-      const destination = `${clients[clients.length - 1].client?.latitude},${clients[clients.length - 1].client?.longitude}`
+    const originStr = userLocation
+      ? `${userLocation.lat},${userLocation.lng}`
+      : `${clients[0].client?.latitude},${clients[0].client?.longitude}`
 
-      const waypoints = clients
-        .slice(1, clients.length - 1)
-        .map((c) => `${c.client?.latitude},${c.client?.longitude}`)
-        .join('%7C')
+    const destClient = userLocation
+      ? clients[clients.length - 1]
+      : clients.length > 1
+        ? clients[clients.length - 1]
+        : clients[0]
+    const destinationStr = `${destClient.client?.latitude},${destClient.client?.longitude}`
 
-      url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`
-      if (waypoints) {
-        url += `&waypoints=${waypoints}`
+    let url = `https://www.google.com/maps/dir/?api=1&origin=${originStr}&destination=${destinationStr}`
+
+    let waypoints = []
+    if (userLocation) {
+      if (clients.length > 1) {
+        waypoints = clients
+          .slice(0, clients.length - 1)
+          .map((c) => `${c.client?.latitude},${c.client?.longitude}`)
       }
+    } else {
+      if (clients.length > 2) {
+        waypoints = clients
+          .slice(1, clients.length - 1)
+          .map((c) => `${c.client?.latitude},${c.client?.longitude}`)
+      }
+    }
+
+    if (waypoints.length > 0) {
+      url += `&waypoints=${waypoints.join('%7C')}`
     }
 
     window.open(url, '_blank')
@@ -974,11 +1036,12 @@ export default function RotaPage() {
             </DialogTitle>
             <DialogDescription>
               {googleMapsDialog.type === 'priority'
-                ? 'Deseja criar esta rota no Google Maps com os seguintes clientes prioritários?'
-                : 'Deseja confirmar a sugestão de rota no Google Maps com os seguintes clientes?'}
+                ? 'Deseja criar esta rota no Google Maps com sua localização atual e os seguintes clientes prioritários?'
+                : 'Deseja confirmar a sugestão de rota no Google Maps com sua localização atual e os seguintes clientes?'}
               <br />
               <span className="text-xs text-orange-600 font-semibold mt-1 block">
-                Aviso: O limite máximo é de 9 clientes por rota.
+                Aviso: O limite máximo é de 9 pontos (Localização atual + 8
+                clientes).
               </span>
             </DialogDescription>
           </DialogHeader>
