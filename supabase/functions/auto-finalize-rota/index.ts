@@ -15,12 +15,14 @@ Deno.serve(async (req) => {
     // and bypass any RLS that might restrict visibility of routes
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     )
 
     // Call the Database Function we created in the migration
     // This keeps the logic centralized in the database
-    const { data, error } = await supabaseClient.rpc('auto_finalize_overdue_routes')
+    const { data, error } = await supabaseClient.rpc(
+      'auto_finalize_overdue_routes',
+    )
 
     if (error) {
       console.error('Error executing auto_finalize_overdue_routes:', error)

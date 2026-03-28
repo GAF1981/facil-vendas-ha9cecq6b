@@ -725,13 +725,18 @@ export default function RotaPage() {
 
   const handleOpenGoogleMapsPriority = () => {
     let clients = sortedRows.filter(
-      (r) => r.favorito && r.client.latitude && r.client.longitude,
+      (r) =>
+        r.favorito &&
+        !r.is_completed &&
+        r.client.latitude &&
+        r.client.longitude,
     )
 
     if (clients.length === 0) {
       toast({
         title: 'Nenhum cliente',
-        description: 'Não há clientes prioritários com coordenadas válidas.',
+        description:
+          'Não há clientes prioritários pendentes com coordenadas válidas.',
         variant: 'destructive',
       })
       return
@@ -751,14 +756,18 @@ export default function RotaPage() {
 
   const handleOpenGoogleMapsSuggested = () => {
     let clients = sortedRows.filter(
-      (r) => r.vendedor_id !== null && r.client.latitude && r.client.longitude,
+      (r) =>
+        r.vendedor_id !== null &&
+        !r.is_completed &&
+        r.client.latitude &&
+        r.client.longitude,
     )
 
     if (clients.length === 0) {
       toast({
         title: 'Nenhum cliente',
         description:
-          'Não há clientes com vendedor designado e coordenadas válidas.',
+          'Não há clientes pendentes com vendedor designado e coordenadas válidas na rota atual.',
         variant: 'destructive',
       })
       return
