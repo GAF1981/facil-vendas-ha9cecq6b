@@ -4301,6 +4301,30 @@ export const Constants = {
 //   END;
 //   $function$
 //   
+// FUNCTION check_inativo_cobranca()
+//   CREATE OR REPLACE FUNCTION public.check_inativo_cobranca()
+//    RETURNS trigger
+//    LANGUAGE plpgsql
+//   AS $function$
+//   DECLARE
+//       v_total_debito NUMERIC;
+//   BEGIN
+//       IF NEW.situacao IN ('INATIVO', 'INATIVO-COBRANÇA') THEN
+//           -- Get total debit from debitos_historico
+//           SELECT COALESCE(SUM(debito), 0) INTO v_total_debito
+//           FROM debitos_historico
+//           WHERE cliente_codigo = NEW."CODIGO";
+//   
+//           IF v_total_debito > 0 THEN
+//               NEW.situacao := 'INATIVO-COBRANÇA';
+//           ELSE
+//               NEW.situacao := 'INATIVO';
+//           END IF;
+//       END IF;
+//       RETURN NEW;
+//   END;
+//   $function$
+//   
 // FUNCTION cleanup_route_duplicates(integer)
 //   CREATE OR REPLACE FUNCTION public.cleanup_route_duplicates(p_rota_id integer)
 //    RETURNS jsonb
@@ -5640,6 +5664,42 @@ export const Constants = {
 //   END;
 //   $function$
 //   
+// FUNCTION sync_inativo_cobranca_from_debito()
+//   CREATE OR REPLACE FUNCTION public.sync_inativo_cobranca_from_debito()
+//    RETURNS trigger
+//    LANGUAGE plpgsql
+//   AS $function$
+//   DECLARE
+//       v_cliente_codigo BIGINT;
+//       v_total_debito NUMERIC;
+//       v_situacao TEXT;
+//   BEGIN
+//       IF TG_OP = 'DELETE' THEN
+//           v_cliente_codigo := OLD.cliente_codigo;
+//       ELSE
+//           v_cliente_codigo := NEW.cliente_codigo;
+//       END IF;
+//   
+//       IF v_cliente_codigo IS NOT NULL THEN
+//           SELECT situacao INTO v_situacao FROM "CLIENTES" WHERE "CODIGO" = v_cliente_codigo;
+//           
+//           IF v_situacao IN ('INATIVO', 'INATIVO-COBRANÇA') THEN
+//               SELECT COALESCE(SUM(debito), 0) INTO v_total_debito
+//               FROM debitos_historico
+//               WHERE cliente_codigo = v_cliente_codigo;
+//   
+//               IF v_total_debito > 0 AND v_situacao = 'INATIVO' THEN
+//                   UPDATE "CLIENTES" SET situacao = 'INATIVO-COBRANÇA' WHERE "CODIGO" = v_cliente_codigo;
+//               ELSIF v_total_debito <= 0 AND v_situacao = 'INATIVO-COBRANÇA' THEN
+//                   UPDATE "CLIENTES" SET situacao = 'INATIVO' WHERE "CODIGO" = v_cliente_codigo;
+//               END IF;
+//           END IF;
+//       END IF;
+//   
+//       RETURN NULL;
+//   END;
+//   $function$
+//   
 // FUNCTION sync_pix_receipt_on_insert()
 //   CREATE OR REPLACE FUNCTION public.sync_pix_receipt_on_insert()
 //    RETURNS trigger
@@ -6014,6 +6074,8 @@ export const Constants = {
 //   trg_protect_captacao: CREATE TRIGGER trg_protect_captacao BEFORE INSERT ON public."BANCO_DE_DADOS" FOR EACH ROW EXECUTE FUNCTION protect_captacao_status()
 //   trg_reset_x_na_rota_bd: CREATE TRIGGER trg_reset_x_na_rota_bd AFTER INSERT ON public."BANCO_DE_DADOS" FOR EACH ROW EXECUTE FUNCTION reset_x_na_rota_on_activity()
 //   trg_update_debito_historico_sales: CREATE TRIGGER trg_update_debito_historico_sales AFTER INSERT OR UPDATE ON public."BANCO_DE_DADOS" FOR EACH ROW EXECUTE FUNCTION trigger_update_debito_historico_sales()
+// Table: CLIENTES
+//   trg_check_inativo_cobranca: CREATE TRIGGER trg_check_inativo_cobranca BEFORE INSERT OR UPDATE OF situacao ON public."CLIENTES" FOR EACH ROW EXECUTE FUNCTION check_inativo_cobranca()
 // Table: DESPESAS
 //   on_despesa_auto_confirm: CREATE TRIGGER on_despesa_auto_confirm BEFORE INSERT OR UPDATE OF saiu_do_caixa, status ON public."DESPESAS" FOR EACH ROW EXECUTE FUNCTION auto_confirm_despesa()
 // Table: RECEBIMENTOS
@@ -6024,6 +6086,8 @@ export const Constants = {
 // Table: ROTA_ITEMS
 //   tr_update_x_na_rota: CREATE TRIGGER tr_update_x_na_rota BEFORE UPDATE ON public."ROTA_ITEMS" FOR EACH ROW EXECUTE FUNCTION update_x_na_rota()
 //   trg_update_x_na_rota: CREATE TRIGGER trg_update_x_na_rota BEFORE INSERT OR UPDATE ON public."ROTA_ITEMS" FOR EACH ROW EXECUTE FUNCTION update_x_na_rota()
+// Table: debitos_historico
+//   trg_sync_inativo_cobranca_debito: CREATE TRIGGER trg_sync_inativo_cobranca_debito AFTER INSERT OR DELETE OR UPDATE OF debito ON public.debitos_historico FOR EACH ROW EXECUTE FUNCTION sync_inativo_cobranca_from_debito()
 
 // --- INDEXES ---
 // Table: BANCO_DE_DADOS
