@@ -811,6 +811,11 @@ export const bancoDeDadosService = {
         valorConsignadoVendaVal - valorConsignadoVendaVal * discountFactor
       const itemDebt = valorVendidoVal * (1 - discountFactor)
 
+      let finalProdutoCodigo = item.produtoCodigo ?? null
+      if (finalProdutoCodigo == 9788532241054) {
+        finalProdutoCodigo = 9000013
+      }
+
       const row: any = {
         'NÚMERO DO PEDIDO': nextPedido,
         'DATA DO ACERTO': dataAcertoStr,
@@ -821,9 +826,11 @@ export const bancoDeDadosService = {
         'CODIGO FUNCIONARIO': employee.id,
         FUNCIONÁRIO: employee.nome_completo,
         'DESCONTO POR GRUPO': client.Desconto,
-        'COD. PRODUTO': item.produtoCodigo ?? null,
-        codigo_interno: item.codigoInterno,
-        codigo_barras: item.codigoBarras,
+        'COD. PRODUTO': finalProdutoCodigo,
+        codigo_interno:
+          finalProdutoCodigo == 9000013 ? '9000013' : item.codigoInterno,
+        codigo_barras:
+          finalProdutoCodigo == 9000013 ? '9788532241054' : item.codigoBarras,
         MERCADORIA: item.produtoNome,
         TIPO: item.tipo,
         FORMA: formaPagamento,
