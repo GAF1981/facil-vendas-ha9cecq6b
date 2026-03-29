@@ -294,6 +294,9 @@ export const resumoAcertosService = {
     const ordersMap = new Map<number, SettlementSummary>()
 
     dbData?.forEach((row: any) => {
+      if (row['FORMA'] && String(row['FORMA']).toLowerCase().includes('ajuste'))
+        return
+
       let dateStr = row['DATA DO ACERTO']
       let timeStr = row['HORA DO ACERTO'] || '00:00:00'
 

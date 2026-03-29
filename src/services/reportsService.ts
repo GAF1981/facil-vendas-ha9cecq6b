@@ -142,7 +142,7 @@ export const reportsService = {
 
     const salesData = await fetchBatchedData(
       'BANCO_DE_DADOS',
-      '"NÚMERO DO PEDIDO", "CÓDIGO DO CLIENTE", "CLIENTE", "DATA DO ACERTO", "DATA E HORA", "VALOR VENDIDO", "HORA DO ACERTO"',
+      '"NÚMERO DO PEDIDO", "CÓDIGO DO CLIENTE", "CLIENTE", "DATA DO ACERTO", "DATA E HORA", "VALOR VENDIDO", "HORA DO ACERTO", "FORMA"',
       (q) => {
         let query = q.not('NÚMERO DO PEDIDO', 'is', null)
         if (clientIds && clientIds.length > 0) {
@@ -152,23 +152,14 @@ export const reportsService = {
       },
     )
 
-    const adjData = await fetchBatchedData(
-      'AJUSTE_SALDO_INICIAL',
-      'cliente_id, cliente_nome, data_acerto, numero_pedido, saldo_novo, id',
-      (q) => {
-        let query = q.not('data_acerto', 'is', null)
-        if (clientIds && clientIds.length > 0) {
-          query = query.in('cliente_id', clientIds)
-        }
-        return query.order('id', { ascending: false })
-      },
-    )
-
     const ordersMap = new Map<string, ProjectionReportRow>()
 
     salesData?.forEach((row: any) => {
       const orderId = row['NÚMERO DO PEDIDO']
       if (!orderId) return
+
+      if (row['FORMA'] && String(row['FORMA']).toLowerCase().includes('ajuste'))
+        return
 
       let dateStr = row['DATA DO ACERTO']
       if ((!dateStr || String(dateStr).trim() === '') && row['DATA E HORA']) {
@@ -202,31 +193,6 @@ export const reportsService = {
 
       const order = ordersMap.get(uniqueId)!
       order.totalValue += val
-    })
-
-    adjData?.forEach((row: any) => {
-      const dateObj = parseDateSafe(row.data_acerto)
-      if (!dateObj) return
-
-      const orderId = row.numero_pedido || -row.id
-      const uniqueId = `adj-${orderId}-${row.id}`
-      const cid = Number(row.cliente_id)
-
-      if (!ordersMap.has(uniqueId)) {
-        ordersMap.set(uniqueId, {
-          id: uniqueId,
-          orderId: orderId,
-          clientCode: cid,
-          clientName: row.cliente_nome || 'Cliente Importado',
-          orderDate: dateObj.toISOString(),
-          totalValue: 0,
-          daysBetweenOrders: null,
-          indexDays: null,
-          monthlyAverage: null,
-          daysSinceLastOrder: null,
-          projection: null,
-        })
-      }
     })
 
     const allOrders = Array.from(ordersMap.values())
