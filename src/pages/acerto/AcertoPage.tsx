@@ -286,16 +286,12 @@ export default function AcertoPage() {
         .getLastAcerto(client.CODIGO)
         .then((data) => {
           if (mounted.current) setLastAcerto(data)
-          if (data && data.date && data.time) {
-            return bancoDeDadosService.getAcertoItemsAsNewTransaction(
-              client.CODIGO,
-              data.date,
-              data.time,
-            )
-          }
-          return { items: [], nextId: 1 }
         })
-        .then(({ items: newItems }) => {
+        .catch((e) => console.error('Last Acerto error', e))
+
+      acertoService
+        .getInitialItemsForClient(client.CODIGO)
+        .then((newItems) => {
           if (mounted.current) {
             setItems(newItems)
             setPendingAdjustments([])
@@ -306,7 +302,7 @@ export default function AcertoPage() {
           if (mounted.current) {
             toast({
               title: 'Erro ao carregar dados',
-              description: 'Falha ao buscar itens do último acerto.',
+              description: 'Falha ao buscar estoque atual do cliente.',
               variant: 'destructive',
             })
           }

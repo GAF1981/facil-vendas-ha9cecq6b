@@ -6,6 +6,85 @@ import { parseCurrency } from '@/lib/formatters'
 import { cobrancaService } from './cobrancaService'
 
 export const acertoService = {
+  async getInitialItemsForClient(clientId: number) {
+    const { data: dbItems, error: dbError } = await supabase
+      .from('BANCO_DE_DADOS')
+      .select(
+        'COD. PRODUTO, SALDO FINAL, MERCADORIA, PREÇO VENDIDO, TIPO, codigo_interno, codigo_barras, ID VENDA ITENS',
+      )
+      .eq('CÓDIGO DO CLIENTE', clientId)
+      .order('ID VENDA ITENS', { ascending: false })
+
+    if (dbError) throw dbError
+
+    const latestPerProduct = new Map<number, any>()
+    if (dbItems) {
+      for (const row of dbItems) {
+        const prodId = row['COD. PRODUTO']
+        if (prodId && !latestPerProduct.has(prodId)) {
+          latestPerProduct.set(prodId, row)
+        }
+      }
+    }
+
+    const activeItems = Array.from(latestPerProduct.values()).filter(
+      (row) => (row['SALDO FINAL'] || 0) > 0,
+    )
+
+    if (activeItems.length === 0) return []
+
+    // Use loop to fetch products in batches to avoid URL too long if many products
+    const productIds = activeItems.map((item) => item['COD. PRODUTO'])
+    const productMap = new Map<number, any>()
+
+    for (let i = 0; i < productIds.length; i += 100) {
+      const chunk = productIds.slice(i, i + 100)
+      const { data: productsData } = await supabase
+        .from('PRODUTOS')
+        .select('ID, PREÇO, PRODUTO, TIPO, codigo_interno, "CÓDIGO BARRAS"')
+        .in('ID', chunk)
+
+      if (productsData) {
+        productsData.forEach((p) => productMap.set(p.ID, p))
+      }
+    }
+
+    const newItems = activeItems.map((row) => {
+      const prodId = row['COD. PRODUTO']
+      const productInfo = productMap.get(prodId)
+
+      let precoUnitario = parseCurrency(row['PREÇO VENDIDO'] || '0')
+      if (productInfo && productInfo['PREÇO']) {
+        precoUnitario = parseCurrency(productInfo['PREÇO'])
+      }
+
+      return {
+        uid: Math.random().toString(36).substr(2, 9),
+        produtoId: prodId,
+        produtoCodigo: prodId,
+        produtoNome: productInfo
+          ? productInfo['PRODUTO']
+          : row['MERCADORIA'] || '',
+        tipo: productInfo ? productInfo['TIPO'] : row['TIPO'] || '',
+        codigoInterno: productInfo
+          ? productInfo['codigo_interno']
+          : row['codigo_interno'] || '',
+        codigoBarras: productInfo
+          ? productInfo['CÓDIGO BARRAS']
+          : row['codigo_barras'] || '',
+        precoUnitario,
+        saldoInicial: row['SALDO FINAL'] || 0,
+        contagem: 0,
+        quantVendida: 0,
+        valorVendido: 0,
+        saldoFinal: 0,
+        idVendaItens: null,
+      }
+    })
+
+    return newItems.sort((a, b) => a.produtoNome.localeCompare(b.produtoNome))
+  },
+
   async saveAcerto(acerto: Acerto) {
     const { data: acertoData, error: acertoError } = await supabase
       .from('ACERTOS')
