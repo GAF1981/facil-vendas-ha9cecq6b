@@ -534,7 +534,10 @@ export default function AcertoPage() {
 
     setGeneratingPdf(true)
     try {
-      const history = await bancoDeDadosService.getHistoryForPdf(client.CODIGO)
+      const historyRaw = await bancoDeDadosService.getHistoryForPdf(
+        client.CODIGO,
+      )
+      const history = historyRaw.filter((h: any) => !h.isAjuste)
 
       const detailedPayments = payments
         .filter((p) => p.paidValue > 0)
@@ -908,8 +911,12 @@ export default function AcertoPage() {
         })
       }
 
-      const history = await bancoDeDadosService.getHistoryForPdf(client.CODIGO)
-      const filteredHistory = history.slice(0, 10)
+      const historyRaw = await bancoDeDadosService.getHistoryForPdf(
+        client.CODIGO,
+      )
+      const filteredHistory = historyRaw
+        .filter((h: any) => !h.isAjuste)
+        .slice(0, 10)
 
       const detailedPayments = payments
         .filter((p) => p.paidValue > 0)

@@ -412,7 +412,7 @@ export function AcertoHistoryTable({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {history.length === 0 ? (
+                  {history.filter((row) => !row.isAjuste).length === 0 ? (
                     <TableRow>
                       <TableCell
                         colSpan={10}
@@ -422,21 +422,22 @@ export function AcertoHistoryTable({
                       </TableCell>
                     </TableRow>
                   ) : (
-                    history.map((row) => {
-                      if (row.isAjuste) {
+                    history
+                      .filter((row) => !row.isAjuste)
+                      .map((row) => {
                         return (
-                          <TableRow
-                            key={`ajuste-${row.id}`}
-                            className="hover:bg-muted/30 bg-muted/10"
-                          >
+                          <TableRow key={row.id} className="hover:bg-muted/30">
                             <TableCell className="font-medium whitespace-nowrap text-xs">
                               {row.data
                                 ? format(parseISO(row.data), 'dd/MM/yyyy', {
                                     locale: ptBR,
                                   })
                                 : '-'}
+                              <span className="block text-[10px] text-muted-foreground">
+                                {row.hora ? row.hora.substring(0, 5) : ''}
+                              </span>
                             </TableCell>
-                            <TableCell className="font-mono text-xs">
+                            <TableCell className="font-mono text-blue-600 text-xs">
                               #{row.id}
                             </TableCell>
                             <TableCell
@@ -451,104 +452,62 @@ export function AcertoHistoryTable({
                             >
                               {row.vendedor}
                             </TableCell>
-                            <TableCell
-                              colSpan={6}
-                              className="text-muted-foreground text-sm"
-                            >
-                              Ajuste de Estoque / Captação Inicial (Qtd
-                              Alterada:{' '}
-                              <span className="font-bold text-foreground">
-                                {row.quantidadeAlterada}
-                              </span>
-                              )
+                            <TableCell className="text-right font-medium text-sm">
+                              R$ {formatCurrency(row.valorVendaTotal)}
+                            </TableCell>
+                            <TableCell className="text-right text-muted-foreground text-sm">
+                              R$ {formatCurrency(row.desconto || 0)}
+                            </TableCell>
+                            <TableCell className="text-right font-medium text-green-600 text-sm">
+                              R$ {formatCurrency(row.valorPago)}
+                            </TableCell>
+                            <TableCell className="text-right font-bold text-red-600 text-sm">
+                              R$ {formatCurrency(row.debito)}
+                            </TableCell>
+                            <TableCell className="text-right text-muted-foreground text-sm">
+                              R$ {formatCurrency(row.mediaMensal || 0)}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                  onClick={() =>
+                                    handleShowCollectionActions(row.id)
+                                  }
+                                  title="Ações de Cobrança"
+                                >
+                                  <Banknote className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-muted-foreground hover:text-primary"
+                                  onClick={() => handleShowDetails(row)}
+                                  title="Ver Detalhes"
+                                >
+                                  <Search className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                  onClick={() => handleReprintOrder(row)}
+                                  disabled={printingId === row.id}
+                                  title="Imprimir Recibo"
+                                >
+                                  {printingId === row.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <FileText className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         )
-                      }
-
-                      return (
-                        <TableRow key={row.id} className="hover:bg-muted/30">
-                          <TableCell className="font-medium whitespace-nowrap text-xs">
-                            {row.data
-                              ? format(parseISO(row.data), 'dd/MM/yyyy', {
-                                  locale: ptBR,
-                                })
-                              : '-'}
-                            <span className="block text-[10px] text-muted-foreground">
-                              {row.hora ? row.hora.substring(0, 5) : ''}
-                            </span>
-                          </TableCell>
-                          <TableCell className="font-mono text-blue-600 text-xs">
-                            #{row.id}
-                          </TableCell>
-                          <TableCell
-                            className="font-medium text-sm truncate max-w-[150px]"
-                            title={row.cliente_nome || ''}
-                          >
-                            {row.cliente_nome || ''}
-                          </TableCell>
-                          <TableCell
-                            className="text-sm truncate max-w-[120px]"
-                            title={row.vendedor}
-                          >
-                            {row.vendedor}
-                          </TableCell>
-                          <TableCell className="text-right font-medium text-sm">
-                            R$ {formatCurrency(row.valorVendaTotal)}
-                          </TableCell>
-                          <TableCell className="text-right text-muted-foreground text-sm">
-                            R$ {formatCurrency(row.desconto || 0)}
-                          </TableCell>
-                          <TableCell className="text-right font-medium text-green-600 text-sm">
-                            R$ {formatCurrency(row.valorPago)}
-                          </TableCell>
-                          <TableCell className="text-right font-bold text-red-600 text-sm">
-                            R$ {formatCurrency(row.debito)}
-                          </TableCell>
-                          <TableCell className="text-right text-muted-foreground text-sm">
-                            R$ {formatCurrency(row.mediaMensal || 0)}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                onClick={() =>
-                                  handleShowCollectionActions(row.id)
-                                }
-                                title="Ações de Cobrança"
-                              >
-                                <Banknote className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-primary"
-                                onClick={() => handleShowDetails(row)}
-                                title="Ver Detalhes"
-                              >
-                                <Search className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                onClick={() => handleReprintOrder(row)}
-                                disabled={printingId === row.id}
-                                title="Imprimir Recibo"
-                              >
-                                {printingId === row.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <FileText className="h-4 w-4" />
-                                )}
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })
+                      })
                   )}
                 </TableBody>
               </Table>

@@ -145,7 +145,8 @@ export const acertoService = {
     const lastAcertoInfo = await bancoDeDadosService.getLastAcerto(clientId)
     const lastAcertoDate = lastAcertoInfo?.date || null
 
-    const history = await bancoDeDadosService.getHistoryForPdf(clientId)
+    const historyRaw = await bancoDeDadosService.getHistoryForPdf(clientId)
+    const history = historyRaw.filter((h: any) => !h.isAjuste)
     const recentHistory = history.slice(0, 10)
     const lastOrder = recentHistory.length > 0 ? recentHistory[0] : null
 
