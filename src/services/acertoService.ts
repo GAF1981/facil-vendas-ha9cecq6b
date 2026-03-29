@@ -10,7 +10,7 @@ export const acertoService = {
     const { data: dbItems, error: dbError } = await supabase
       .from('BANCO_DE_DADOS')
       .select(
-        'COD. PRODUTO, SALDO FINAL, MERCADORIA, PREÇO VENDIDO, TIPO, codigo_interno, codigo_barras, ID VENDA ITENS',
+        '"COD. PRODUTO", "SALDO FINAL", MERCADORIA, "PREÇO VENDIDO", TIPO, codigo_interno, codigo_barras, "ID VENDA ITENS"',
       )
       .eq('CÓDIGO DO CLIENTE', clientId)
       .order('ID VENDA ITENS', { ascending: false })
