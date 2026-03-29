@@ -4263,15 +4263,6 @@ export const Constants = {
 //   END;
 //   $function$
 //   
-// FUNCTION btrim(date)
-//   CREATE OR REPLACE FUNCTION public.btrim(d date)
-//    RETURNS text
-//    LANGUAGE sql
-//    IMMUTABLE
-//   AS $function$
-//     SELECT btrim(d::text);
-//   $function$
-//   
 // FUNCTION btrim(time without time zone)
 //   CREATE OR REPLACE FUNCTION public.btrim(t time without time zone)
 //    RETURNS text
@@ -4279,6 +4270,15 @@ export const Constants = {
 //    IMMUTABLE
 //   AS $function$
 //     SELECT btrim(t::text);
+//   $function$
+//   
+// FUNCTION btrim(date)
+//   CREATE OR REPLACE FUNCTION public.btrim(d date)
+//    RETURNS text
+//    LANGUAGE sql
+//    IMMUTABLE
+//   AS $function$
+//     SELECT btrim(d::text);
 //   $function$
 //   
 // FUNCTION bulk_update_product_codes(json)
@@ -4479,6 +4479,22 @@ export const Constants = {
 //     DELETE FROM "acoes_cobranca" WHERE pedido_id = p_order_id;
 //   END;
 //   $function$
+//   
+// FUNCTION fix_brinquedo_codigo()
+//   CREATE OR REPLACE FUNCTION public.fix_brinquedo_codigo()
+//    RETURNS trigger
+//    LANGUAGE plpgsql
+//   AS $function$
+//     BEGIN
+//         IF NEW."COD. PRODUTO" = 9788532241054 THEN
+//             NEW."COD. PRODUTO" := 9000013;
+//         END IF;
+//         IF NEW."codigo_interno" = '9788532241054' THEN
+//             NEW."codigo_interno" := '9000013';
+//         END IF;
+//         RETURN NEW;
+//     END;
+//     $function$
 //   
 // FUNCTION get_client_projections()
 //   CREATE OR REPLACE FUNCTION public.get_client_projections()
@@ -5994,6 +6010,7 @@ export const Constants = {
 
 // --- TRIGGERS ---
 // Table: BANCO_DE_DADOS
+//   fix_brinquedo_codigo_trigger: CREATE TRIGGER fix_brinquedo_codigo_trigger BEFORE INSERT OR UPDATE ON public."BANCO_DE_DADOS" FOR EACH ROW EXECUTE FUNCTION fix_brinquedo_codigo()
 //   trg_protect_captacao: CREATE TRIGGER trg_protect_captacao BEFORE INSERT ON public."BANCO_DE_DADOS" FOR EACH ROW EXECUTE FUNCTION protect_captacao_status()
 //   trg_reset_x_na_rota_bd: CREATE TRIGGER trg_reset_x_na_rota_bd AFTER INSERT ON public."BANCO_DE_DADOS" FOR EACH ROW EXECUTE FUNCTION reset_x_na_rota_on_activity()
 //   trg_update_debito_historico_sales: CREATE TRIGGER trg_update_debito_historico_sales AFTER INSERT OR UPDATE ON public."BANCO_DE_DADOS" FOR EACH ROW EXECUTE FUNCTION trigger_update_debito_historico_sales()

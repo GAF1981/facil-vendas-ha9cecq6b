@@ -251,8 +251,11 @@ Deno.serve(async (req) => {
     )
 
     // REPORT 2: All Clients (Full Dump)
-    const fetchAllClients = fetchBatched(supabaseClient, 'CLIENTES', '*', (q) =>
-      q.order('CODIGO'),
+    const fetchAllClients = fetchBatched(
+      supabaseClient,
+      'CLIENTES',
+      '*',
+      (q) => q.order('CODIGO'),
     )
 
     // REPORT 3: Database History (Last 180 Days)
@@ -404,19 +407,7 @@ Deno.serve(async (req) => {
     const csvContent2 = jsonToCsv(allClients || [])
 
     // --- Processing Report 3: DB History (180 days) ---
-    // Fix for "Brinquedo" product code issue
-    const processedDbHistory = (dbHistory || []).map((row: any) => {
-      if (String(row['COD. PRODUTO']) === '9788532241054') {
-        return {
-          ...row,
-          'COD. PRODUTO': '9000013',
-          codigo_interno: '9000013',
-        }
-      }
-      return row
-    })
-
-    const csvContent3 = jsonToCsv(processedDbHistory || [])
+    const csvContent3 = jsonToCsv(dbHistory || [])
 
     // --- ZIP Compression ---
     const zip = new JSZip()
