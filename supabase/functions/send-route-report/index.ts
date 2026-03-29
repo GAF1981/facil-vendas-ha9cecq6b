@@ -3,6 +3,8 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
 import JSZip from 'npm:jszip@3.10.1'
 import { corsHeaders } from '../_shared/cors.ts'
 
+// Edge function send-route-report deployed
+
 console.log(
   'Send Route Report function up and running (Zip Consolidated 10k Limit)',
 )
