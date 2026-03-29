@@ -30,6 +30,7 @@ import {
   MapIcon,
   List,
   History,
+  Download,
 } from 'lucide-react'
 import { DebtTable } from '@/components/cobranca/DebtTable'
 import { CobrancaMap } from '@/components/cobranca/CobrancaMap'
@@ -37,7 +38,7 @@ import { GlobalActionsTable } from '@/components/cobranca/GlobalActionsTable'
 import { useToast } from '@/hooks/use-toast'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { formatCurrency } from '@/lib/formatters'
+import { formatCurrency, safeFormatDate } from '@/lib/formatters'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { supabase } from '@/lib/supabase/client'
@@ -606,6 +607,189 @@ export default function CobrancaPage() {
     setDebitoValueFilter('todos')
   }
 
+  const handleExportCSV = () => {
+    const shouldIgnoreMotoqueiroFilter = activeTab === 'motoqueiro'
+    const fromStr = dataCombinadaRange?.from
+      ? format(dataCombinadaRange.from, 'yyyy-MM-dd')
+      : null
+    const toStr = dataCombinadaRange?.to
+      ? format(dataCombinadaRange.to, 'yyyy-MM-dd')
+      : fromStr
+
+    const vFromStr = vencimentoRange?.from
+      ? format(vencimentoRange.from, 'yyyy-MM-dd')
+      : null
+    const vToStr = vencimentoRange?.to
+      ? format(vencimentoRange.to, 'yyyy-MM-dd')
+      : vFromStr
+
+    const rows: any[] = []
+
+    filteredDebts.forEach((client) => {
+      client.orders.forEach((order) => {
+        if (orderFilter && !order.orderId.toString().includes(orderFilter))
+          return
+
+        order.installments.forEach((inst, index) => {
+          let matches = true
+
+          if (statusFilter.length > 0 && !statusFilter.includes(inst.status))
+            matches = false
+
+          if (!shouldIgnoreMotoqueiroFilter && motoqueiroFilter !== 'todos') {
+            if (
+              motoqueiroFilter === 'com_rota' &&
+              inst.formaCobranca !== 'MOTOQUEIRO'
+            )
+              matches = false
+            if (
+              motoqueiroFilter === 'sem_rota' &&
+              inst.formaCobranca === 'MOTOQUEIRO'
+            )
+              matches = false
+          }
+
+          if (fromStr) {
+            if (!inst.dataCombinada) matches = false
+            else if (
+              inst.dataCombinada < fromStr ||
+              inst.dataCombinada > toStr!
+            )
+              matches = false
+          }
+
+          if (vFromStr) {
+            if (!inst.vencimento) matches = false
+            else {
+              const instVenc = inst.vencimento.substring(0, 10)
+              if (instVenc < vFromStr || instVenc > vToStr!) matches = false
+            }
+          }
+
+          const currentDebt = Number(
+            Math.max(0, inst.valorRegistrado - inst.valorPago).toFixed(2),
+          )
+
+          if (debitoValueFilter !== 'todos') {
+            if (currentDebt.toString() !== debitoValueFilter) matches = false
+          }
+
+          let isConferido = false
+          let needsConferir = false
+          const bDateStr = inst.vencimento
+            ? inst.vencimento.substring(0, 10)
+            : null
+          const matchBoleto = boletos.find(
+            (b) =>
+              b.cliente_codigo === client.clientId &&
+              (b.vencimento ? b.vencimento.substring(0, 10) : null) ===
+                bDateStr &&
+              Math.abs(Number(b.valor) - currentDebt) < 0.01,
+          )
+          if (matchBoleto) isConferido = true
+          else if (inst.formaPagamento?.toLowerCase().includes('boleto'))
+            needsConferir = true
+
+          if (formaPagamentoFilter && formaPagamentoFilter !== 'todos') {
+            if (formaPagamentoFilter === 'boleto conferido' && !isConferido)
+              matches = false
+            else if (
+              formaPagamentoFilter === 'boleto conferir' &&
+              !needsConferir
+            )
+              matches = false
+            else {
+              const lower = inst.formaPagamento?.toLowerCase() || ''
+              if (formaPagamentoFilter === 'pix' && !lower.includes('pix'))
+                matches = false
+              if (
+                formaPagamentoFilter === 'dinheiro' &&
+                !lower.includes('dinheiro')
+              )
+                matches = false
+              if (
+                formaPagamentoFilter === 'cheque' &&
+                !lower.includes('cheque')
+              )
+                matches = false
+            }
+          }
+
+          if (activeTab === 'motoqueiro') {
+            const uniqueId = `${client.clientId || '0'}-${order.orderId || '0'}-${inst.id || '0'}-${index}`
+            if (!selectedItems.has(uniqueId)) matches = false
+          }
+
+          if (matches) {
+            rows.push({
+              Funcionário: order.employeeName || '-',
+              Código: client.clientId,
+              Tipo: client.clientType || '-',
+              'Nome Cliente': client.clientName,
+              Endereço: client.address || '-',
+              Bairro: client.neighborhood || '-',
+              Município: client.city || '-',
+              CEP: client.cep || '-',
+              Contador: inst.collectionActionCount || 0,
+              Pedido: order.orderId,
+              'Data Acerto': order.date
+                ? safeFormatDate(order.date, 'dd/MM/yyyy')
+                : '-',
+              Vencimento: inst.vencimento
+                ? format(parseISO(inst.vencimento), 'dd/MM/yyyy')
+                : '-',
+              'F. Pagamento': inst.formaPagamento || '-',
+              'Valor Parc.': formatCurrency(inst.valorRegistrado),
+              Pago: formatCurrency(inst.valorPago),
+              Débito: formatCurrency(currentDebt),
+              Status: inst.status,
+              'Forma Cobrança': inst.formaCobranca || '-',
+              'Data Combinada': inst.dataCombinada
+                ? format(parseISO(inst.dataCombinada), 'dd/MM/yyyy')
+                : '-',
+              Motivo: inst.motivo || '-',
+              'Telefone Cobrança':
+                client.telefone_cobranca || client.phone || '-',
+              'Email Cobrança': client.email_cobranca || '-',
+            })
+          }
+        })
+      })
+    })
+
+    if (rows.length === 0) {
+      toast({ title: 'Aviso', description: 'Nenhum dado para exportar.' })
+      return
+    }
+
+    const headers = Object.keys(rows[0])
+    const csvContent = [
+      headers.join(';'),
+      ...rows.map((row) =>
+        headers
+          .map(
+            (header) =>
+              `"${String(row[header as keyof typeof row] || '').replace(/"/g, '""')}"`,
+          )
+          .join(';'),
+      ),
+    ].join('\n')
+
+    const blob = new Blob(['\uFEFF' + csvContent], {
+      type: 'text/csv;charset=utf-8;',
+    })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute(
+      'download',
+      `cobranca_${format(new Date(), 'yyyy-MM-dd_HH-mm-ss')}.csv`,
+    )
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   return (
     <div className="space-y-6 animate-fade-in p-4 sm:p-6 pb-20">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -643,6 +827,14 @@ export default function CobrancaPage() {
                 <MapIcon className="h-4 w-4" /> Ver Mapa
               </>
             )}
+          </Button>
+
+          <Button
+            variant="outline"
+            onClick={handleExportCSV}
+            className="flex items-center gap-2"
+          >
+            <Download className="h-4 w-4" /> Exportar CSV
           </Button>
 
           <Button
