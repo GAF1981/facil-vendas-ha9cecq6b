@@ -4528,7 +4528,6 @@ export const Constants = {
 //   BEGIN
 //     RETURN QUERY
 //     WITH 
-//     -- 1. Standard Sales Data - Using robust date fallback
 //     sales_data AS (
 //         SELECT
 //             "CÓDIGO DO CLIENTE" as cid,
@@ -4539,44 +4538,24 @@ export const Constants = {
 //         WHERE (NULLIF(TRIM("DATA DO ACERTO"::text), '') IS NOT NULL OR "DATA E HORA" IS NOT NULL)
 //           AND "CÓDIGO DO CLIENTE" IS NOT NULL
 //           AND "NÚMERO DO PEDIDO" IS NOT NULL
+//           AND ("FORMA" IS NULL OR "FORMA" NOT ILIKE '%ajuste%')
 //     ),
-//     -- 2. Initial Balance / Adjustment Data
-//     adj_data AS (
-//         SELECT
-//             cliente_id as cid,
-//             numero_pedido as oid,
-//             to_char(data_acerto, 'YYYY-MM-DD') as date_str,
-//             '0' as val_str -- Value is 0 for projection calc purposes (timeline anchor)
-//         FROM "AJUSTE_SALDO_INICIAL"
-//         WHERE data_acerto IS NOT NULL 
-//           AND cliente_id IS NOT NULL
-//     ),
-//     -- 3. Combine Data Sources
-//     combined_raw AS (
-//         SELECT * FROM sales_data
-//         UNION ALL
-//         SELECT * FROM adj_data
-//     ),
-//     -- 4. Parse Dates and Values with mixed format support
 //     parsed_data AS (
 //         SELECT
 //           cid,
 //           oid,
 //           val_str,
 //           CASE
-//               -- ISO Format (YYYY-MM-DD)
 //               WHEN date_str ~ '^\d{4}-\d{2}-\d{2}' THEN 
 //                   to_date(substring(date_str from 1 for 10), 'YYYY-MM-DD')
-//               -- BR Format (DD/MM/YYYY)
 //               WHEN date_str ~ '^\d{2}/\d{2}/\d{4}' THEN 
 //                   to_date(substring(date_str from 1 for 10), 'DD/MM/YYYY')
-//               -- BR Short Format (DD/MM/YY)
 //               WHEN date_str ~ '^\d{2}/\d{2}/\d{2}
  THEN 
 //                    to_date(date_str, 'DD/MM/YY')
 //               ELSE NULL
 //           END as raw_dt
-//         FROM combined_raw
+//         FROM sales_data
 //     ),
 //     corrected_dates AS (
 //         SELECT
@@ -4585,7 +4564,6 @@ export const Constants = {
 //           val_str,
 //           CASE
 //               WHEN raw_dt IS NULL THEN NULL
-//               -- Fix Year < 1900 (e.g., 0026 -> 2026)
 //               WHEN EXTRACT(YEAR FROM raw_dt) < 1900 THEN
 //                   raw_dt + (INTERVAL '2000 years')
 //               ELSE raw_dt
@@ -4607,7 +4585,6 @@ export const Constants = {
 //         FROM corrected_dates
 //         WHERE dt IS NOT NULL
 //     ),
-//     -- 5. Group by order to sum total value (handling multiple items per order)
 //     grouped_orders AS (
 //         SELECT
 //             cid,
@@ -4617,7 +4594,6 @@ export const Constants = {
 //         FROM parsed_values
 //         GROUP BY cid, oid, dt
 //     ),
-//     -- 6. Rank Orders per Client (Latest first)
 //     ranked_orders AS (
 //         SELECT
 //             cid,
@@ -4627,25 +4603,18 @@ export const Constants = {
 //             ROW_NUMBER() OVER (PARTITION BY cid ORDER BY dt DESC, oid DESC) as rn
 //         FROM grouped_orders
 //     ),
-//     -- 7. Get Latest and Previous
 //     latest AS (
 //         SELECT cid, dt, total_val FROM ranked_orders WHERE rn = 1
 //     ),
 //     previous AS (
 //         SELECT cid, dt FROM ranked_orders WHERE rn = 2
 //     ),
-//     -- 8. Calculate Projection securely
 //     base_calc AS (
 //         SELECT
 //             l.cid,
 //             (l.dt - p.dt) as days_diff,
 //             CASE
-//                 -- If no previous data (p.dt is null), or dates are same/invalid
 //                 WHEN p.dt IS NULL OR (l.dt - p.dt) <= 0 THEN 100.00
-//                 
-//                 -- Standard Calculation
-//                 -- Monthly Avg = Val / ((DateDiff)/30)
-//                 -- Projection = (DaysSinceLast/30) * Monthly Avg
 //                 ELSE
 //                      ((CURRENT_DATE - l.dt)::numeric / 30.0) *
 //                      (l.total_val / ((l.dt - p.dt)::numeric / 30.0))
@@ -5222,8 +5191,8 @@ export const Constants = {
 //   END;
 //   $function$
 //   
-// FUNCTION parse_currency_sql(text)
-//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str text)
+// FUNCTION parse_currency_sql(character varying)
+//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str character varying)
 //    RETURNS numeric
 //    LANGUAGE plpgsql
 //   AS $function$
@@ -5251,8 +5220,8 @@ export const Constants = {
 //   END;
 //   $function$
 //   
-// FUNCTION parse_currency_sql(character varying)
-//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str character varying)
+// FUNCTION parse_currency_sql(text)
+//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str text)
 //    RETURNS numeric
 //    LANGUAGE plpgsql
 //   AS $function$
@@ -5471,12 +5440,12 @@ export const Constants = {
 //               SUM(public.parse_currency_sql("VALOR VENDIDO")) as valor_venda
 //           FROM "BANCO_DE_DADOS"
 //           WHERE "NÚMERO DO PEDIDO" IS NOT NULL
+//             AND ("FORMA" IS NULL OR "FORMA" NOT ILIKE '%ajuste%')
 //           GROUP BY "NÚMERO DO PEDIDO"
 //       ),
 //       vendas_calc AS (
 //           SELECT 
 //               v.*,
-//               -- Replicate Discount Logic
 //               CASE 
 //                   WHEN public.parse_currency_sql(v.desconto_str) > 0 THEN
 //                       CASE
@@ -5898,6 +5867,7 @@ export const Constants = {
 //       v_desconto_final NUMERIC := 0;
 //       v_saldo_a_pagar NUMERIC := 0;
 //       v_debito NUMERIC := 0;
+//       v_forma TEXT;
 //       
 //       v_cliente_id BIGINT;
 //       v_cliente_nome TEXT;
@@ -5907,13 +5877,11 @@ export const Constants = {
 //       v_rota TEXT;
 //       v_data_acerto_ts TIMESTAMP;
 //   BEGIN
-//       -- 1. Calculate Total Paid from RECEBIMENTOS
 //       SELECT COALESCE(SUM(valor_pago), 0)
 //       INTO v_total_pago
 //       FROM "RECEBIMENTOS"
 //       WHERE venda_id = p_pedido_id;
 //   
-//       -- 2. Fetch Sales Data
 //       SELECT 
 //           SUM(public.parse_currency_sql("VALOR VENDIDO")),
 //           MAX("CÓDIGO DO CLIENTE"),
@@ -5921,7 +5889,8 @@ export const Constants = {
 //           MAX("FUNCIONÁRIO"),
 //           MAX("DATA DO ACERTO"),
 //           MAX("HORA DO ACERTO"),
-//           MAX("DESCONTO POR GRUPO")
+//           MAX("DESCONTO POR GRUPO"),
+//           MAX("FORMA")
 //       INTO 
 //           v_valor_venda,
 //           v_cliente_id,
@@ -5929,7 +5898,8 @@ export const Constants = {
 //           v_vendedor_nome,
 //           v_data_acerto_str,
 //           v_hora_acerto,
-//           v_desconto_str
+//           v_desconto_str,
+//           v_forma
 //       FROM "BANCO_DE_DADOS"
 //       WHERE "NÚMERO DO PEDIDO" = p_pedido_id;
 //   
@@ -5937,42 +5907,39 @@ export const Constants = {
 //           RETURN;
 //       END IF;
 //   
-//       -- Get Rota Name
+//       IF v_forma ILIKE '%ajuste%' THEN
+//           DELETE FROM debitos_historico WHERE pedido_id = p_pedido_id;
+//           RETURN;
+//       END IF;
+//   
 //       SELECT "GRUPO ROTA" INTO v_rota
 //       FROM "CLIENTES"
 //       WHERE "CODIGO" = v_cliente_id;
 //   
-//       -- 3. Calculate Discount safely
 //       v_desconto_val := public.parse_currency_sql(v_desconto_str);
 //       
 //       IF v_desconto_val > 0 THEN
 //           IF v_desconto_str LIKE '%%%' THEN
 //                v_desconto_final := v_valor_venda * (public.parse_currency_sql(REPLACE(v_desconto_str, '%', '')) / 100.0);
 //           ELSIF v_desconto_val < 1 THEN 
-//                -- e.g. 0.10 -> 10%
 //                v_desconto_final := v_valor_venda * v_desconto_val;
 //           ELSIF v_desconto_val <= 100 THEN 
-//                -- e.g. 10 -> 10%
 //                v_desconto_final := v_valor_venda * (v_desconto_val / 100.0);
 //           ELSE
-//                -- Absolute values larger than 100
 //                v_desconto_final := v_desconto_val;
 //           END IF;
 //       ELSE
 //           v_desconto_final := 0;
 //       END IF;
 //   
-//       -- 4. Calculate Expected Payment (Sales - Discount)
 //       v_saldo_a_pagar := v_valor_venda - v_desconto_final;
 //       
-//       -- 5. Calculate Debt
 //       v_debito := v_saldo_a_pagar - v_total_pago;
 //       
 //       IF v_debito < 0.01 THEN 
 //           v_debito := 0; 
 //       END IF;
 //   
-//       -- Handle date formatting reliably
 //       BEGIN
 //           IF v_data_acerto_str IS NOT NULL AND v_data_acerto_str <> '' THEN
 //               IF v_hora_acerto IS NOT NULL AND v_hora_acerto <> '' THEN
@@ -5987,7 +5954,6 @@ export const Constants = {
 //           v_data_acerto_ts := NOW();
 //       END;
 //   
-//       -- 6. UPSERT into debitos_historico
 //       INSERT INTO debitos_historico (
 //           pedido_id,
 //           cliente_codigo,
@@ -6025,7 +5991,6 @@ export const Constants = {
 //           hora_acerto = EXCLUDED.hora_acerto,
 //           vendedor_nome = EXCLUDED.vendedor_nome,
 //           rota = EXCLUDED.rota;
-//           
 //   END;
 //   $function$
 //   
