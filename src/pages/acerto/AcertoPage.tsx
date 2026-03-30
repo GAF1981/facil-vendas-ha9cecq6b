@@ -57,6 +57,79 @@ import { cn } from '@/lib/utils'
 import { fechamentoService } from '@/services/fechamentoService'
 import { rotaService } from '@/services/rotaService'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { supabase } from '@/lib/supabase/client'
+
+const ensurePrices = async (
+  itemsToFix: AcertoItem[],
+): Promise<AcertoItem[]> => {
+  try {
+    const ids = itemsToFix.map((i) => i.produtoId).filter(Boolean)
+    const codigos = itemsToFix.map((i) => i.produtoCodigo).filter(Boolean)
+
+    let query = supabase.from('PRODUTOS').select('ID, CODIGO, PREÇO')
+
+    if (ids.length > 0 && codigos.length > 0) {
+      query = query.or(
+        `ID.in.(${ids.join(',')}),CODIGO.in.(${codigos.join(',')})`,
+      )
+    } else if (ids.length > 0) {
+      query = query.in('ID', ids)
+    } else if (codigos.length > 0) {
+      query = query.in('CODIGO', codigos)
+    } else {
+      return itemsToFix.map((item) => {
+        let preco = item.precoUnitario || 0
+        if (!preco && item.produtoNome) {
+          const match = item.produtoNome.match(/R\$\s*([0-9.,]+)/)
+          if (match) {
+            preco = parseCurrency(match[1])
+          }
+        }
+        return {
+          ...item,
+          precoUnitario: preco,
+          valorVendido: item.quantVendida * preco,
+        }
+      })
+    }
+
+    const { data: products } = await query
+
+    if (products) {
+      const priceMap = new Map()
+      products.forEach((p) => {
+        const price = parseCurrency(p.PREÇO)
+        if (p.ID) priceMap.set(p.ID, price)
+        if (p.CODIGO) priceMap.set(p.CODIGO, price)
+      })
+
+      return itemsToFix.map((item) => {
+        let realPrice =
+          priceMap.get(item.produtoId) ?? priceMap.get(item.produtoCodigo)
+
+        if ((!realPrice || realPrice === 0) && item.produtoNome) {
+          const match = item.produtoNome.match(/R\$\s*([0-9.,]+)/)
+          if (match) {
+            realPrice = parseCurrency(match[1])
+          }
+        }
+
+        const preco =
+          realPrice !== undefined && realPrice > 0
+            ? realPrice
+            : item.precoUnitario || 0
+        return {
+          ...item,
+          precoUnitario: preco,
+          valorVendido: item.quantVendida * preco,
+        }
+      })
+    }
+  } catch (e) {
+    console.error('Error fixing prices:', e)
+  }
+  return itemsToFix
+}
 
 export default function AcertoPage() {
   const { employee: loggedInUser } = useUserStore()
@@ -177,7 +250,11 @@ export default function AcertoPage() {
               if (!mounted.current) return
 
               loadedClientIdRef.current = clientData.CODIGO
-              setItems(details.items)
+
+              const itemsWithPrices = await ensurePrices(details.items)
+              if (!mounted.current) return
+
+              setItems(itemsWithPrices)
               setPayments(details.payments)
               setSelectedEmployeeId(details.employeeId.toString())
               setNotaFiscal(details.nfVenda)
@@ -291,9 +368,10 @@ export default function AcertoPage() {
 
       acertoService
         .getInitialItemsForClient(client.CODIGO)
-        .then((newItems) => {
+        .then(async (newItems) => {
+          const itemsWithPrices = await ensurePrices(newItems)
           if (mounted.current) {
-            setItems(newItems)
+            setItems(itemsWithPrices)
             setPendingAdjustments([])
           }
         })
