@@ -283,6 +283,37 @@ export function AcertoTable({
               items.map((item) => {
                 const isDeleteDisabled = (item.saldoInicial || 0) > 0
 
+                let displayQuantVendida = item.quantVendida
+                let displayValorVendido = item.valorVendido
+
+                // Visual override for standard Acerto as requested:
+                // Quantidade Vendida = Saldo Inicial - Contagem
+                if (
+                  !isAtivoCompra &&
+                  acertoTipo !== 'CAPTAÇÃO' &&
+                  !isCaptacao
+                ) {
+                  const computedQuantVendida = Math.max(
+                    0,
+                    (item.saldoInicial || 0) - (item.contagem || 0),
+                  )
+
+                  let precoUnitario =
+                    (item as any).preco || (item as any).precoUnitario || 0
+                  if (
+                    !precoUnitario &&
+                    item.quantVendida > 0 &&
+                    item.valorVendido > 0
+                  ) {
+                    precoUnitario = item.valorVendido / item.quantVendida
+                  }
+
+                  displayQuantVendida = computedQuantVendida
+                  if (precoUnitario > 0 || computedQuantVendida === 0) {
+                    displayValorVendido = computedQuantVendida * precoUnitario
+                  }
+                }
+
                 return (
                   <TableRow key={item.uid} className="hover:bg-muted/50">
                     <TableCell className="font-mono text-xs text-center text-muted-foreground">
@@ -343,11 +374,12 @@ export function AcertoTable({
                           className="w-20 mx-auto text-center font-bold"
                         />
                       ) : (
-                        item.quantVendida
+                        displayQuantVendida
                       )}
                     </TableCell>
                     <TableCell className="text-center font-mono text-green-600">
-                      R$ {item.valorVendido.toFixed(2).replace('.', ',')}
+                      R${' '}
+                      {(displayValorVendido || 0).toFixed(2).replace('.', ',')}
                     </TableCell>
                     {!hideSaldoFinal && (
                       <TableCell className="p-2 bg-primary/5">
