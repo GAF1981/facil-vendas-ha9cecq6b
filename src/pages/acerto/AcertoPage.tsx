@@ -794,7 +794,10 @@ export default function AcertoPage() {
 
     if (!client) return
 
-    if (client['TIPO DE CLIENTE'] !== 'ATIVO') {
+    if (
+      client['TIPO DE CLIENTE'] !== 'ATIVO' &&
+      client['TIPO DE CLIENTE'] !== 'ATIVO COMPRA'
+    ) {
       toast({
         title: 'Ação Bloqueada',
         description:
