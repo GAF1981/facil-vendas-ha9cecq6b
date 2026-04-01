@@ -310,33 +310,54 @@ export const estoqueCarroService = {
     settlementDate: Date,
     orderId: number,
     items: AcertoItem[],
+    providedSessionId?: number | null,
   ) {
-    const { data: sessions, error: sessionError } = await supabase
-      .from('ID ESTOQUE CARRO')
-      .select('*')
-      .eq('funcionario_id', employeeId)
-      .lte('data_inicio', settlementDate.toISOString())
-      .order('data_inicio', { ascending: false })
-      .limit(5)
+    let sessionId = providedSessionId
 
-    if (sessionError) {
-      console.error('Error finding stock session:', sessionError)
-      return
+    if (!sessionId) {
+      const { data: sessions, error: sessionError } = await supabase
+        .from('ID ESTOQUE CARRO')
+        .select('*')
+        .eq('funcionario_id', employeeId)
+        .order('data_inicio', { ascending: false })
+        .limit(10)
+
+      if (sessionError) {
+        console.error('Error finding stock session:', sessionError)
+        return
+      }
+
+      const targetTime = settlementDate.getTime()
+
+      // 1. Try to find the session that spans the exact timestamp
+      let validSession = sessions?.find((s) => {
+        const start = new Date(s.data_inicio).getTime()
+        const end = s.data_fim ? new Date(s.data_fim).getTime() : Infinity
+        return targetTime >= start && targetTime <= end
+      })
+
+      // 2. If not found, try to match by date (YYYY-MM-DD)
+      if (!validSession && sessions && sessions.length > 0) {
+        const targetDateStr = settlementDate.toISOString().split('T')[0]
+        validSession = sessions.find((s) =>
+          s.data_inicio.startsWith(targetDateStr),
+        )
+      }
+
+      // 3. Fallback to the latest active session
+      if (!validSession) {
+        validSession = sessions?.find((s) => !s.data_fim)
+      }
+
+      if (!validSession) {
+        console.warn(
+          `No valid stock session found for employee ${employeeId}. Stock movement skipped.`,
+        )
+        return
+      }
+      sessionId = validSession.id
     }
 
-    const validSession = sessions?.find((s) => {
-      if (!s.data_fim) return true
-      return parseISO(s.data_fim) >= settlementDate
-    })
-
-    if (!validSession) {
-      console.warn(
-        `No valid stock session found for employee ${employeeId} at ${settlementDate.toISOString()}. Stock movement skipped.`,
-      )
-      return
-    }
-
-    const sessionId = validSession.id
     const timestampStr = settlementDate.toISOString()
 
     // Delete existing movements for this order to avoid duplicates on edit
@@ -351,19 +372,20 @@ export const estoqueCarroService = {
         .eq('pedido', orderId),
     ])
 
-    const productIds = items.map((i) => i.produtoId)
-    if (productIds.length === 0) return
+    if (items.length === 0) return
 
+    // Fetch ALL products to build a robust map to avoid Foreign Key errors
     const { data: products } = await supabase
       .from('PRODUTOS')
-      .select('ID, "CÓDIGO BARRAS"')
-      .in('ID', productIds)
+      .select('ID, CODIGO, "CÓDIGO BARRAS"')
 
+    const idMap = new Map<number, number>()
     const barcodeMap = new Map<number, string>()
+
     products?.forEach((p) => {
-      if (p['CÓDIGO BARRAS']) {
-        barcodeMap.set(p.ID, String(p['CÓDIGO BARRAS']))
-      }
+      idMap.set(p.ID, p.ID)
+      if (p.CODIGO) idMap.set(p.CODIGO, p.ID)
+      if (p['CÓDIGO BARRAS']) barcodeMap.set(p.ID, String(p['CÓDIGO BARRAS']))
     })
 
     const carToClientInserts: any[] = []
@@ -375,16 +397,21 @@ export const estoqueCarroService = {
 
       if (absDiff === 0) continue
 
+      // Ensure we have a valid PRODUTOS.ID for the foreign key
+      const realProdutoId =
+        idMap.get(item.produtoId) || idMap.get(item.produtoCodigo || 0)
+      if (!realProdutoId) continue
+
       const payload = {
         id_estoque_carro: sessionId,
-        produto_id: item.produtoId,
+        produto_id: realProdutoId,
         quantidade: absDiff,
         pedido: orderId,
         data_horario: timestampStr,
         created_at: timestampStr,
         funcionario: employeeName,
         codigo_produto: item.produtoCodigo,
-        barcode: barcodeMap.get(item.produtoId) || null,
+        barcode: barcodeMap.get(realProdutoId) || null,
         produto: item.produtoNome,
         preco: item.precoUnitario,
       }

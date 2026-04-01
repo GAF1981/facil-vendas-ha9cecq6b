@@ -971,6 +971,7 @@ export default function AcertoPage() {
           orderDate,
           finalOrderNumber,
           items,
+          isEditMode ? originalSessionId : null,
         )
       } catch (stockError) {
         console.error('Failed to sync stock from settlement', stockError)
