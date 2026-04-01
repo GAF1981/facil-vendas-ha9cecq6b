@@ -187,6 +187,7 @@ export default function AcertoPage() {
 
   const [loadingAcerto, setLoadingAcerto] = useState(false)
   const [saving, setSaving] = useState(false)
+  const isSavingRef = useRef(false)
   const [generatingPdf, setGeneratingPdf] = useState(false)
 
   const [lastAcerto, setLastAcerto] = useState<{
@@ -789,6 +790,8 @@ export default function AcertoPage() {
   }
 
   const handlePreSaveValidation = async () => {
+    if (isSavingRef.current || saving) return
+
     setHideContagem(false)
     setHideSaldoFinal(false)
 
@@ -936,9 +939,11 @@ export default function AcertoPage() {
 
   const executeSave = async (flagInactivation: boolean = false) => {
     if (!client) return
+    if (isSavingRef.current) return
     const emp = employees.find((e) => e.id.toString() === selectedEmployeeId)
     if (!emp) return
 
+    isSavingRef.current = true
     setSaving(true)
     try {
       const now = new Date()
@@ -1192,6 +1197,7 @@ export default function AcertoPage() {
         })
       }
     } finally {
+      isSavingRef.current = false
       if (mounted.current) setSaving(false)
     }
   }
