@@ -606,7 +606,10 @@ export const cobrancaService = {
         forma_pagamento: syntheticData?.formaPagamento || 'Outros',
         valor_registrado: syntheticData?.valorRegistrado || 0,
         valor_pago: 0,
-        vencimento: syntheticData?.vencimento,
+        vencimento:
+          syntheticData?.vencimento && syntheticData.vencimento.length === 10
+            ? `${syntheticData.vencimento}T12:00:00-03:00`
+            : syntheticData?.vencimento,
         [field]: value,
       }
 
@@ -741,7 +744,11 @@ export const cobrancaService = {
   async addCollectionAction(action: CollectionActionInsert): Promise<void> {
     const payload = {
       acao: action.acao,
-      data_acao: action.dataAcao || getBrazilDateString(),
+      data_acao: action.dataAcao
+        ? action.dataAcao.length === 10
+          ? `${action.dataAcao}T12:00:00-03:00`
+          : action.dataAcao
+        : new Date().toISOString(),
       nova_data_combinada: action.novaDataCombinada || null,
       funcionario_nome: action.funcionarioNome,
       funcionario_id: action.funcionarioId,
@@ -807,7 +814,10 @@ export const cobrancaService = {
       forma_pagamento: payload.method,
       valor_registrado: 0,
       valor_pago: payload.value,
-      vencimento: new Date(payload.date).toISOString(),
+      vencimento:
+        payload.date && payload.date.length === 10
+          ? `${payload.date}T12:00:00-03:00`
+          : new Date(payload.date).toISOString(),
       data_pagamento: new Date().toISOString(),
       ID_da_fêmea: payload.receivableId || payload.orderId,
     }
