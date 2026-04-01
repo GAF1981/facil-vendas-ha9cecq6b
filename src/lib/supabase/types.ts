@@ -1072,6 +1072,7 @@ export type Database = {
           codigo_produto: number | null
           created_at: string | null
           data_horario: string | null
+          descricao: string | null
           funcionario: string | null
           id: number
           id_estoque_carro: number
@@ -1087,6 +1088,7 @@ export type Database = {
           codigo_produto?: number | null
           created_at?: string | null
           data_horario?: string | null
+          descricao?: string | null
           funcionario?: string | null
           id?: number
           id_estoque_carro: number
@@ -1102,6 +1104,7 @@ export type Database = {
           codigo_produto?: number | null
           created_at?: string | null
           data_horario?: string | null
+          descricao?: string | null
           funcionario?: string | null
           id?: number
           id_estoque_carro?: number
@@ -1198,6 +1201,7 @@ export type Database = {
           codigo_produto: number | null
           created_at: string | null
           data_horario: string | null
+          descricao: string | null
           ENTRADAS_cliente_carro: number | null
           funcionario: string | null
           id: number
@@ -1213,6 +1217,7 @@ export type Database = {
           codigo_produto?: number | null
           created_at?: string | null
           data_horario?: string | null
+          descricao?: string | null
           ENTRADAS_cliente_carro?: number | null
           funcionario?: string | null
           id?: number
@@ -1228,6 +1233,7 @@ export type Database = {
           codigo_produto?: number | null
           created_at?: string | null
           data_horario?: string | null
+          descricao?: string | null
           ENTRADAS_cliente_carro?: number | null
           funcionario?: string | null
           id?: number
@@ -3378,6 +3384,7 @@ export const Constants = {
 //   produto: text (nullable)
 //   preco: numeric (nullable)
 //   SAIDAS_carro_cliente: integer (nullable, default: 0)
+//   descricao: text (nullable)
 // Table: ESTOQUE CARRO: CARRO PARA O ESTOQUE
 //   id: bigint (not null)
 //   id_estoque_carro: bigint (not null)
@@ -3406,6 +3413,7 @@ export const Constants = {
 //   produto: text (nullable)
 //   preco: numeric (nullable)
 //   ENTRADAS_cliente_carro: integer (nullable, default: 0)
+//   descricao: text (nullable)
 // Table: ESTOQUE CARRO: ESTOQUE PARA O CARRO
 //   id: bigint (not null)
 //   id_estoque_carro: bigint (not null)
