@@ -975,6 +975,7 @@ export default function AcertoPage() {
           notaFiscal,
           editOrderId,
           originalSessionId,
+          isAtivoCompra,
         )
       } else {
         finalOrderNumber = await bancoDeDadosService.saveTransaction(
@@ -985,6 +986,9 @@ export default function AcertoPage() {
           saveTipo,
           payments,
           notaFiscal,
+          undefined,
+          undefined,
+          isAtivoCompra,
         )
       }
 
@@ -1000,20 +1004,6 @@ export default function AcertoPage() {
             console.error('Failed to log adjustment', adj, logError)
           }
         }
-      }
-
-      try {
-        await estoqueCarroService.syncStockFromSettlement(
-          emp.id,
-          emp.nome_completo,
-          orderDate,
-          finalOrderNumber,
-          items,
-          isEditMode ? originalSessionId : null,
-          isAtivoCompra,
-        )
-      } catch (stockError) {
-        console.error('Failed to sync stock from settlement', stockError)
       }
 
       if (flagInactivation && !isVendaMercadoria && !isAtivoCompra) {

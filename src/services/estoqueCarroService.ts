@@ -256,10 +256,12 @@ export const estoqueCarroService = {
         .eq('produto_id', productId)
       return (data || []).map((d) => ({
         id: d.id,
-        movement_type: type,
+        movement_type: d.descricao || type,
+        raw_type: type,
         data_horario: d.created_at || d.data_horario || d.timestamp,
         quantidade: d[qtyField] || d.quantidade || 0,
         pedido: d.pedido || sessionId,
+        descricao: d.descricao,
       }))
     }
 
@@ -437,11 +439,17 @@ export const estoqueCarroService = {
         carToClientInserts.push({
           ...payload,
           SAIDAS_carro_cliente: absDiff,
+          descricao: isAtivoCompra
+            ? 'venda a (cliente)'
+            : 'consignado (cliente)',
         })
       } else {
         clientToCarInserts.push({
           ...payload,
           ENTRADAS_cliente_carro: absDiff,
+          descricao: isAtivoCompra
+            ? 'recolhido (cliente) de venda'
+            : 'recolhido (cliente)',
         })
       }
     }
@@ -563,6 +571,7 @@ export const estoqueCarroService = {
 
       // Inference for ATIVO COMPRA (direct sales):
       // If saldoFinal is 0, saldoInicial is 0, and we have a quantVendida but NO recolhido/novas recorded
+      let isAtivoCompraInferred = false
       if (
         saldoFinal === 0 &&
         saldoInicial === 0 &&
@@ -570,6 +579,7 @@ export const estoqueCarroService = {
         recolhido === 0 &&
         novas === 0
       ) {
+        isAtivoCompraInferred = true
         if (quantVendida > 0) {
           novas = quantVendida // it went from car to client (sale)
         } else if (quantVendida < 0) {
@@ -595,6 +605,9 @@ export const estoqueCarroService = {
           produto: details.produto,
           preco: details.preco,
           ENTRADAS_cliente_carro: recolhido,
+          descricao: isAtivoCompraInferred
+            ? 'recolhido (cliente) de venda'
+            : 'recolhido (cliente)',
         })
       }
 
@@ -611,6 +624,9 @@ export const estoqueCarroService = {
           produto: details.produto,
           preco: details.preco,
           SAIDAS_carro_cliente: novas,
+          descricao: isAtivoCompraInferred
+            ? 'venda a (cliente)'
+            : 'consignado (cliente)',
         })
       }
     })

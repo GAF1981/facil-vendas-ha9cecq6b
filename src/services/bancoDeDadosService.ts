@@ -691,6 +691,7 @@ export const bancoDeDadosService = {
     notaFiscalVenda: string,
     orderId: number,
     sessionId?: number | null,
+    isAtivoCompra?: boolean,
   ) {
     await supabase
       .from('ESTOQUE CARRO: CARRO PARA O CLIENTE')
@@ -716,8 +717,9 @@ export const bancoDeDadosService = {
       notaFiscalVenda,
       orderId,
       sessionId,
+      isAtivoCompra,
     )
-  },
+  }
 
   async saveTransaction(
     client: ClientRow,
@@ -729,8 +731,8 @@ export const bancoDeDadosService = {
     notaFiscalVenda: string,
     customOrderNumber?: number,
     customSessionId?: number | null,
-  ): Promise<number> {
-    const nextPedido =
+    isAtivoCompra?: boolean,
+  ): Promise<number> {    const nextPedido =
       customOrderNumber ?? (await this.reserveNextOrderNumber())
     const dataAcertoStr = format(date, 'yyyy-MM-dd')
     const horaAcerto = format(date, 'HH:mm:ss')
@@ -945,6 +947,8 @@ export const bancoDeDadosService = {
         date,
         nextPedido,
         items,
+        customSessionId,
+        isAtivoCompra
       )
     } catch (stockError) {
       console.error('Error syncing stock movements:', stockError)
