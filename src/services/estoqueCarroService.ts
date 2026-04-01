@@ -79,15 +79,19 @@ export const estoqueCarroService = {
       )
     }
 
-    const initBalances = productsList.map((p) => ({
-      id_estoque_carro: newSession.id,
-      produto_id: p.ID,
-      codigo_produto: p.CODIGO,
-      produto: p.PRODUTO,
-      preco: parseCurrency(p.PREÇO),
-      saldo_inicial: previousBalances.get(p.ID) || 0,
-      funcionario_id: funcionarioId,
-    }))
+    const initBalances = productsList.map((p) => {
+      const overrideCodigo = p.CODIGO === 9788532241054 ? 9000013 : p.CODIGO
+
+      return {
+        id_estoque_carro: newSession.id,
+        produto_id: p.ID,
+        codigo_produto: overrideCodigo,
+        produto: p.PRODUTO,
+        preco: parseCurrency(p.PREÇO),
+        saldo_inicial: previousBalances.get(p.ID) || 0,
+        funcionario_id: funcionarioId,
+      }
+    })
 
     if (initBalances.length > 0) {
       const { error: initError } = await supabase
@@ -212,10 +216,13 @@ export const estoqueCarroService = {
       const ajuste = adjustmentMap.get(p.ID) || 0
       const novoSaldo = contagem + ajuste
 
+      // Fix specific product code mapping as requested
+      const overrideCodigo = p.CODIGO === 9788532241054 ? 9000013 : p.CODIGO
+
       return {
         id_estoque_carro: sessionId,
         produto_id: p.ID,
-        codigo: p.CODIGO,
+        codigo: overrideCodigo,
         barcode: p['CÓDIGO BARRAS'],
         produto: p.PRODUTO || 'Desconhecido',
         tipo: p.TIPO,
@@ -402,6 +409,9 @@ export const estoqueCarroService = {
         idMap.get(item.produtoId) || idMap.get(item.produtoCodigo || 0)
       if (!realProdutoId) continue
 
+      const overrideCodigo =
+        item.produtoCodigo === 9788532241054 ? 9000013 : item.produtoCodigo
+
       const payload = {
         id_estoque_carro: sessionId,
         produto_id: realProdutoId,
@@ -410,7 +420,7 @@ export const estoqueCarroService = {
         data_horario: timestampStr,
         created_at: timestampStr,
         funcionario: employeeName,
-        codigo_produto: item.produtoCodigo,
+        codigo_produto: overrideCodigo,
         barcode: barcodeMap.get(realProdutoId) || null,
         produto: item.produtoNome,
         preco: item.precoUnitario,
@@ -483,12 +493,20 @@ export const estoqueCarroService = {
     )
 
     const getProductDetails = (prodId: number | null, code: number | null) => {
+      let searchCode = code
+      if (code === 9788532241054) searchCode = 9000013
+
       const prod =
         (prodId ? productsMap.get(prodId) : null) ||
+        (searchCode ? codeToProductMap.get(searchCode) : null) ||
         (code ? codeToProductMap.get(code) : null)
+
+      let resultCodigo = prod?.CODIGO ?? null
+      if (resultCodigo === 9788532241054) resultCodigo = 9000013
+
       return {
         produto_id: prod?.ID ?? prodId,
-        codigo_produto: prod?.CODIGO ?? null,
+        codigo_produto: resultCodigo,
         barcode: prod?.['CÓDIGO BARRAS'] ? String(prod['CÓDIGO BARRAS']) : null,
         produto: prod?.PRODUTO ?? 'Desconhecido',
         preco: prod?.PREÇO ? parseCurrency(prod.PREÇO) : 0,
@@ -738,7 +756,7 @@ export const estoqueCarroService = {
       produto_id: item.produto_id,
       saldo_final: item.novo_saldo,
       funcionario_id: session.funcionario_id,
-      codigo_produto: item.codigo,
+      codigo_produto: item.codigo === 9788532241054 ? 9000013 : item.codigo,
       produto: item.produto,
       preco: item.preco,
     }))

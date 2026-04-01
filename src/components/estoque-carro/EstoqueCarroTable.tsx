@@ -234,7 +234,14 @@ export function EstoqueCarroTable({ items, onRefresh }: Props) {
                           </Button>
                         </div>
                         <div className="flex gap-2 text-xs text-muted-foreground">
-                          {item.codigo && <span>Cod: {item.codigo}</span>}
+                          {item.codigo && (
+                            <span>
+                              Cod:{' '}
+                              {item.codigo === 9788532241054
+                                ? 9000013
+                                : item.codigo}
+                            </span>
+                          )}
                           {item.barcode && <span>Bar: {item.barcode}</span>}
                         </div>
                       </div>
