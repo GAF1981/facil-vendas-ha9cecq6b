@@ -6,11 +6,11 @@ import { parseCurrency } from '@/lib/formatters'
 import { cobrancaService } from './cobrancaService'
 
 export const acertoService = {
-  async getInitialItemsForClient(clientId: number) {
+  async getInitialItemsForClient(clientId: number, isAtivoCompra?: boolean) {
     const { data: dbItems, error: dbError } = await supabase
       .from('BANCO_DE_DADOS')
       .select(
-        '"COD. PRODUTO", "SALDO FINAL", MERCADORIA, "PREÇO VENDIDO", TIPO, codigo_interno, codigo_barras, "ID VENDA ITENS"',
+        '"COD. PRODUTO", "SALDO FINAL", MERCADORIA, "PREÇO VENDIDO", TIPO, codigo_interno, codigo_barras, "ID VENDA ITENS", "NÚMERO DO PEDIDO"',
       )
       .eq('CÓDIGO DO CLIENTE', clientId)
       .order('ID VENDA ITENS', { ascending: false })
@@ -18,17 +18,30 @@ export const acertoService = {
     if (dbError) throw dbError
 
     const latestPerProduct = new Map<number, any>()
-    if (dbItems) {
+    let lastOrderId: number | null = null
+
+    if (dbItems && dbItems.length > 0) {
+      if (isAtivoCompra) {
+        const lastOrderRow = dbItems.find((r) => r['NÚMERO DO PEDIDO'] !== null)
+        lastOrderId = lastOrderRow ? lastOrderRow['NÚMERO DO PEDIDO'] : null
+      }
+
       for (const row of dbItems) {
         const prodId = row['COD. PRODUTO']
         if (prodId && !latestPerProduct.has(prodId)) {
-          latestPerProduct.set(prodId, row)
+          if (isAtivoCompra) {
+            if (row['NÚMERO DO PEDIDO'] === lastOrderId) {
+              latestPerProduct.set(prodId, row)
+            }
+          } else {
+            latestPerProduct.set(prodId, row)
+          }
         }
       }
     }
 
-    const activeItems = Array.from(latestPerProduct.values()).filter(
-      (row) => (row['SALDO FINAL'] || 0) > 0,
+    const activeItems = Array.from(latestPerProduct.values()).filter((row) =>
+      isAtivoCompra ? true : (row['SALDO FINAL'] || 0) > 0,
     )
 
     if (activeItems.length === 0) return []
@@ -73,7 +86,7 @@ export const acertoService = {
           ? productInfo['CÓDIGO BARRAS']
           : row['codigo_barras'] || '',
         precoUnitario,
-        saldoInicial: row['SALDO FINAL'] || 0,
+        saldoInicial: isAtivoCompra ? 0 : row['SALDO FINAL'] || 0,
         contagem: 0,
         quantVendida: 0,
         valorVendido: 0,

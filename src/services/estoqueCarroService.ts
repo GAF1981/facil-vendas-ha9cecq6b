@@ -318,6 +318,7 @@ export const estoqueCarroService = {
     orderId: number,
     items: AcertoItem[],
     providedSessionId?: number | null,
+    isAtivoCompra?: boolean,
   ) {
     let sessionId = providedSessionId
 
@@ -399,7 +400,13 @@ export const estoqueCarroService = {
     const clientToCarInserts: any[] = []
 
     for (const item of items) {
-      const diff = item.saldoFinal - item.contagem
+      let diff = 0
+      if (isAtivoCompra) {
+        diff = item.quantVendida
+      } else {
+        diff = item.saldoFinal - item.contagem
+      }
+
       const absDiff = Math.abs(diff)
 
       if (absDiff === 0) continue
@@ -548,8 +555,28 @@ export const estoqueCarroService = {
       if (!isAfter(rowDate, startDate)) return
       if (endDate && !isBefore(rowDate, endDate)) return
 
-      const recolhido = parseCurrency(row['RECOLHIDO'])
-      const novas = parseCurrency(row['NOVAS CONSIGNAÇÕES'])
+      let recolhido = parseCurrency(row['RECOLHIDO'])
+      let novas = parseCurrency(row['NOVAS CONSIGNAÇÕES'])
+      const quantVendida = parseCurrency(row['QUANTIDADE VENDIDA'])
+      const saldoFinal = parseCurrency(row['SALDO FINAL'])
+      const saldoInicial = parseCurrency(row['SALDO INICIAL'])
+
+      // Inference for ATIVO COMPRA (direct sales):
+      // If saldoFinal is 0, saldoInicial is 0, and we have a quantVendida but NO recolhido/novas recorded
+      if (
+        saldoFinal === 0 &&
+        saldoInicial === 0 &&
+        quantVendida !== 0 &&
+        recolhido === 0 &&
+        novas === 0
+      ) {
+        if (quantVendida > 0) {
+          novas = quantVendida // it went from car to client (sale)
+        } else if (quantVendida < 0) {
+          recolhido = Math.abs(quantVendida) // it went from client to car (return)
+        }
+      }
+
       const prodCode = row['COD. PRODUTO']
       const orderId = row['NÚMERO DO PEDIDO']
 

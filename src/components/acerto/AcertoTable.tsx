@@ -44,6 +44,8 @@ interface AcertoTableProps {
   isCaptacao?: boolean
   hideContagem?: boolean
   hideSaldoFinal?: boolean
+  isAtivoCompra?: boolean
+  onUpdateQuantVendida?: (uid: string, val: number) => void
 }
 
 const VerticalHeader = ({
@@ -131,6 +133,8 @@ export function AcertoTable({
   isCaptacao = false,
   hideContagem = false,
   hideSaldoFinal = false,
+  isAtivoCompra = false,
+  onUpdateQuantVendida,
 }: AcertoTableProps) {
   const { employee } = useUserStore()
   const { toast } = useToast()
@@ -142,7 +146,10 @@ export function AcertoTable({
   // Determine if Contagem is editable based on acertoTipo
   // If isCaptacao is true, force disable contagem
   const isContagemDisabled =
-    isCaptacao || acertoTipo === 'CAPTAÇÃO' || acertoTipo === 'COMPLEMENTO'
+    isCaptacao ||
+    acertoTipo === 'CAPTAÇÃO' ||
+    acertoTipo === 'COMPLEMENTO' ||
+    isAtivoCompra
 
   // Safety wrappers for callbacks
   const safeUpdateContagem = (uid: string, val: number) => {
@@ -300,14 +307,16 @@ export function AcertoTable({
                     <TableCell className="text-center font-mono">
                       <div className="flex items-center justify-center gap-2">
                         <span>{item.saldoInicial}</span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 text-muted-foreground hover:text-primary"
-                          onClick={() => openEditSaldoInicial(item)}
-                        >
-                          <Edit2 className="h-3 w-3" />
-                        </Button>
+                        {!isAtivoCompra && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-muted-foreground hover:text-primary"
+                            onClick={() => openEditSaldoInicial(item)}
+                          >
+                            <Edit2 className="h-3 w-3" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                     {!hideContagem && (
@@ -320,7 +329,22 @@ export function AcertoTable({
                       </TableCell>
                     )}
                     <TableCell className="text-center font-bold">
-                      {item.quantVendida}
+                      {isAtivoCompra ? (
+                        <Input
+                          type="number"
+                          value={item.quantVendida}
+                          onChange={(e) => {
+                            if (onUpdateQuantVendida)
+                              onUpdateQuantVendida(
+                                item.uid,
+                                parseInt(e.target.value) || 0,
+                              )
+                          }}
+                          className="w-20 mx-auto text-center font-bold"
+                        />
+                      ) : (
+                        item.quantVendida
+                      )}
                     </TableCell>
                     <TableCell className="text-center font-mono text-green-600">
                       R$ {item.valorVendido.toFixed(2).replace('.', ',')}
@@ -332,6 +356,7 @@ export function AcertoTable({
                           onChange={(val) =>
                             safeUpdateSaldoFinal(item.uid, val)
                           }
+                          disabled={isAtivoCompra}
                         />
                       </TableCell>
                     )}

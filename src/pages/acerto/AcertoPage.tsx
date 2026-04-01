@@ -165,6 +165,7 @@ export default function AcertoPage() {
   const [isCaptacao, setIsCaptacao] = useState(false)
   const [collectionDialogOpen, setCollectionDialogOpen] = useState(false)
   const [isVendaMercadoria, setIsVendaMercadoria] = useState(false)
+  const [isAtivoCompra, setIsAtivoCompra] = useState(false)
 
   const [hideContagem, setHideContagem] = useState(false)
   const [hideSaldoFinal, setHideSaldoFinal] = useState(false)
@@ -367,8 +368,16 @@ export default function AcertoPage() {
         })
         .catch((e) => console.error('Last Acerto error', e))
 
+      const isAtivoCompraMode = client['TIPO DE CLIENTE'] === 'ATIVO COMPRA'
+      setIsAtivoCompra(isAtivoCompraMode)
+      if (isAtivoCompraMode) {
+        setIsVendaMercadoria(true)
+      } else {
+        setIsVendaMercadoria(client.tipo_venda === 'venda de mercadorias')
+      }
+
       acertoService
-        .getInitialItemsForClient(client.CODIGO)
+        .getInitialItemsForClient(client.CODIGO, isAtivoCompraMode)
         .then(async (newItems) => {
           const itemsWithPrices = await ensurePrices(newItems)
           if (mounted.current) {
@@ -405,13 +414,8 @@ export default function AcertoPage() {
       } else {
         setNotaFiscal('')
       }
-
-      if (client.tipo_venda === 'venda de mercadorias') {
-        setIsVendaMercadoria(true)
-      } else {
-        setIsVendaMercadoria(false)
-      }
     } else {
+      setIsAtivoCompra(false)
       setItems([])
       setLastAcerto(null)
       setMonthlyAverage(0)
@@ -440,6 +444,30 @@ export default function AcertoPage() {
   const discountFactor = discountVal > 1 ? discountVal / 100 : discountVal
   const discountAmount = totalSalesValue * discountFactor
   const amountToPay = totalSalesValue - discountAmount
+
+  const handleUpdateQuantVendida = (uid: string, newQuant: number) => {
+    setItems((prevItems) =>
+      prevItems.map((item) => {
+        if (item.uid === uid) {
+          if (newQuant < 0 && item.quantVendida >= 0) {
+            toast({
+              title: 'Devolução de Produto',
+              description: `Produto ${item.produtoNome} com quantidade negativa. Trata-se de uma devolução (crédito).`,
+              className: 'bg-blue-600 text-white',
+            })
+          }
+          return {
+            ...item,
+            quantVendida: newQuant,
+            valorVendido: newQuant * item.precoUnitario,
+            contagem: 0,
+            saldoFinal: 0,
+          }
+        }
+        return item
+      }),
+    )
+  }
 
   const handleUpdateContagem = (uid: string, newContagem: number) => {
     setItems((prevItems) =>
@@ -916,6 +944,16 @@ export default function AcertoPage() {
       const orderDate =
         isEditMode && originalOrderDate ? new Date(originalOrderDate) : now
 
+      const isOnlyAdjustment =
+        items.length > 0 &&
+        items.every((i) => i.quantVendida === 0) &&
+        pendingAdjustments.length > 0
+      const saveTipo = isCaptacao
+        ? 'Captação'
+        : isOnlyAdjustment
+          ? 'Ajuste'
+          : 'Acerto'
+
       if (isEditMode && editOrderId) {
         if (!canEditEmployee) {
           toast({
@@ -932,7 +970,7 @@ export default function AcertoPage() {
           emp,
           items,
           orderDate,
-          isCaptacao ? 'Captação' : 'Acerto',
+          saveTipo,
           payments,
           notaFiscal,
           editOrderId,
@@ -944,7 +982,7 @@ export default function AcertoPage() {
           emp,
           items,
           now,
-          isCaptacao ? 'Captação' : 'Acerto',
+          saveTipo,
           payments,
           notaFiscal,
         )
@@ -972,12 +1010,13 @@ export default function AcertoPage() {
           finalOrderNumber,
           items,
           isEditMode ? originalSessionId : null,
+          isAtivoCompra,
         )
       } catch (stockError) {
         console.error('Failed to sync stock from settlement', stockError)
       }
 
-      if (flagInactivation && !isVendaMercadoria) {
+      if (flagInactivation && !isVendaMercadoria && !isAtivoCompra) {
         const valorPagoTotal = payments.reduce((acc, p) => acc + p.paidValue, 0)
         let totalDebt = 0
         try {
@@ -1256,11 +1295,15 @@ export default function AcertoPage() {
             <div className="flex justify-start xl:justify-end gap-2 flex-wrap flex-1 w-full">
               <Button
                 variant={isVendaMercadoria ? 'default' : 'outline'}
-                onClick={() => setIsVendaMercadoria(!isVendaMercadoria)}
+                onClick={() =>
+                  !isAtivoCompra && setIsVendaMercadoria(!isVendaMercadoria)
+                }
                 className={cn(
                   isVendaMercadoria &&
                     'bg-amber-600 hover:bg-amber-700 text-white border-amber-600',
+                  isAtivoCompra && 'opacity-50 cursor-not-allowed',
                 )}
+                disabled={isAtivoCompra}
                 title="Venda de todo o estoque"
               >
                 <Package className="mr-2 h-4 w-4" />
@@ -1324,6 +1367,7 @@ export default function AcertoPage() {
             onRemoveItem={handleRemoveItem}
             onUpdateSaldoInicial={handleUpdateSaldoInicial}
             onQueueAdjustment={handleQueueAdjustment}
+            onUpdateQuantVendida={handleUpdateQuantVendida}
             loading={loadingAcerto}
             mode={isCaptacao ? 'CAPTACAO' : 'ACERTO'}
             acertoTipo={isCaptacao ? 'Captação' : 'Acerto'}
@@ -1333,6 +1377,7 @@ export default function AcertoPage() {
             isCaptacao={isCaptacao}
             hideContagem={hideContagem}
             hideSaldoFinal={hideSaldoFinal}
+            isAtivoCompra={isAtivoCompra}
           />
 
           <div className="space-y-6">
