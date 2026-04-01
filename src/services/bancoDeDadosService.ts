@@ -719,7 +719,7 @@ export const bancoDeDadosService = {
       sessionId,
       isAtivoCompra,
     )
-  }
+  },
 
   async saveTransaction(
     client: ClientRow,
@@ -732,7 +732,8 @@ export const bancoDeDadosService = {
     customOrderNumber?: number,
     customSessionId?: number | null,
     isAtivoCompra?: boolean,
-  ): Promise<number> {    const nextPedido =
+  ): Promise<number> {
+    const nextPedido =
       customOrderNumber ?? (await this.reserveNextOrderNumber())
     const dataAcertoStr = format(date, 'yyyy-MM-dd')
     const horaAcerto = format(date, 'HH:mm:ss')
@@ -948,7 +949,7 @@ export const bancoDeDadosService = {
         nextPedido,
         items,
         customSessionId,
-        isAtivoCompra
+        isAtivoCompra,
       )
     } catch (stockError) {
       console.error('Error syncing stock movements:', stockError)
