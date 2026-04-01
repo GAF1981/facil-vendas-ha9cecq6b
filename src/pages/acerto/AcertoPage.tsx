@@ -27,6 +27,7 @@ import { employeesService } from '@/services/employeesService'
 import { inativarClientesService } from '@/services/inativarClientesService'
 import { cobrancaService } from '@/services/cobrancaService'
 import { clientsService } from '@/services/clientsService'
+import { estoqueCarroService } from '@/services/estoqueCarroService'
 import { useToast } from '@/hooks/use-toast'
 import { useUserStore } from '@/stores/useUserStore'
 import {
@@ -961,6 +962,18 @@ export default function AcertoPage() {
             console.error('Failed to log adjustment', adj, logError)
           }
         }
+      }
+
+      try {
+        await estoqueCarroService.syncStockFromSettlement(
+          emp.id,
+          emp.nome_completo,
+          orderDate,
+          finalOrderNumber,
+          items,
+        )
+      } catch (stockError) {
+        console.error('Failed to sync stock from settlement', stockError)
       }
 
       if (flagInactivation && !isVendaMercadoria) {

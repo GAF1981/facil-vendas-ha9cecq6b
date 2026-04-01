@@ -339,6 +339,18 @@ export const estoqueCarroService = {
     const sessionId = validSession.id
     const timestampStr = settlementDate.toISOString()
 
+    // Delete existing movements for this order to avoid duplicates on edit
+    await Promise.all([
+      supabase
+        .from('ESTOQUE CARRO: CARRO PARA O CLIENTE')
+        .delete()
+        .eq('pedido', orderId),
+      supabase
+        .from('ESTOQUE CARRO: CLIENTE PARA O CARRO')
+        .delete()
+        .eq('pedido', orderId),
+    ])
+
     const productIds = items.map((i) => i.produtoId)
     if (productIds.length === 0) return
 
