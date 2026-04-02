@@ -30,6 +30,9 @@ import { format, parseISO } from 'date-fns'
 import { DebtDetailsDialog } from './DebtDetailsDialog'
 import { CollectionActionsSheet } from './CollectionActionsSheet'
 import { CollectionMessageDialog } from './CollectionMessageDialog'
+import { useDividasManuaisStore } from '@/stores/useDividasManuaisStore'
+import { DividaManualModal } from '@/components/dividas/DividaManualModal'
+import { CircleDollarSign } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -150,6 +153,16 @@ export function DebtTable({
   const [localUpdates, setLocalUpdates] = useState<
     Record<string, { formaCobranca?: any; dataCombinada?: any; motivo?: any }>
   >({})
+
+  const { dividas, fetchDividas } = useDividasManuaisStore()
+  const [dividaModalClient, setDividaModalClient] = useState<{
+    id: number
+    name: string
+  } | null>(null)
+
+  useEffect(() => {
+    fetchDividas()
+  }, [fetchDividas])
 
   // Refs for dual scrolling
   const tableContainerRef = useRef<HTMLDivElement>(null)
@@ -670,7 +683,30 @@ export function DebtTable({
                       </TableCell>
                     )}
                     <TableCell className="font-medium text-sm">
-                      {row.clientName}
+                      <div className="flex items-center gap-2">
+                        <span>{row.clientName}</span>
+                        {dividas.filter(
+                          (d) =>
+                            d.cliente_id === row.clientId &&
+                            d.valor_parcela > d.valor_pago,
+                        ).length > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full shrink-0"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setDividaModalClient({
+                                id: row.clientId,
+                                name: row.clientName,
+                              })
+                            }}
+                            title="Dívida Manual Pendente"
+                          >
+                            <CircleDollarSign className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                     {!isCobrancaMode && !isSimplified && (
                       <TableCell
@@ -1134,6 +1170,13 @@ export function DebtTable({
         isOpen={!!messageData}
         onClose={() => setMessageData(null)}
         data={messageData}
+      />
+
+      <DividaManualModal
+        open={!!dividaModalClient}
+        onOpenChange={(op) => !op && setDividaModalClient(null)}
+        clientId={dividaModalClient?.id || 0}
+        clientName={dividaModalClient?.name || ''}
       />
     </>
   )

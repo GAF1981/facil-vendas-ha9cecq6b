@@ -54,6 +54,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { AcertoHistoryTable } from '@/components/acerto/AcertoHistoryTable'
+import { useDividasManuaisStore } from '@/stores/useDividasManuaisStore'
+import { DividaManualModal } from '@/components/dividas/DividaManualModal'
+import { CircleDollarSign } from 'lucide-react'
 
 interface RotaTableProps {
   rows: RotaRow[]
@@ -91,6 +94,16 @@ export function RotaTable({
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false)
   const [historyClientId, setHistoryClientId] = useState<number | null>(null)
   const [historyClientName, setHistoryClientName] = useState<string>('')
+
+  const { dividas, fetchDividas } = useDividasManuaisStore()
+  const [dividaModalClient, setDividaModalClient] = useState<{
+    id: number
+    name: string
+  } | null>(null)
+
+  React.useEffect(() => {
+    fetchDividas()
+  }, [fetchDividas])
 
   const handleOpenAlert = (row: RotaRow) => {
     setSelectedAlertRow(row)
@@ -579,9 +592,29 @@ export function RotaTable({
                                 </span>
                               </div>
                             </div>
+                            {dividas.filter(
+                              (d) =>
+                                d.cliente_id === row.client.CODIGO &&
+                                d.valor_parcela > d.valor_pago,
+                            ).length > 0 && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full shrink-0 ml-1"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setDividaModalClient({
+                                    id: row.client.CODIGO,
+                                    name: row.client['NOME CLIENTE'] || '',
+                                  })
+                                }}
+                                title="Dívida Manual Pendente"
+                              >
+                                <CircleDollarSign className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
-
                         <TableCell
                           className="truncate max-w-[120px]"
                           title={row.client.MUNICÍPIO || ''}
@@ -1065,6 +1098,13 @@ export function RotaTable({
           </DialogContent>
         </Dialog>
       )}
+
+      <DividaManualModal
+        open={!!dividaModalClient}
+        onOpenChange={(op) => !op && setDividaModalClient(null)}
+        clientId={dividaModalClient?.id || 0}
+        clientName={dividaModalClient?.name || ''}
+      />
     </>
   )
 }

@@ -52,6 +52,7 @@ import RotaMotoqueiroPage from '@/pages/rota-motoqueiro/RotaMotoqueiroPage'
 import EmailSeguroPage from '@/pages/email-seguro/EmailSeguroPage'
 import BoletosPage from '@/pages/boletos/BoletosPage'
 import DREPage from '@/pages/dre/DREPage'
+import DividasManuaisPage from '@/pages/dividas/DividasManuaisPage'
 import { AuthProvider } from '@/hooks/use-auth'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { PermissionsProvider } from '@/hooks/use-permissions'
@@ -165,6 +166,11 @@ const App = () => (
                 <Route element={<PermissionGuard module="DRE" />}>
                   <Route path="/dre" element={<DREPage />} />
                 </Route>
+
+                <Route
+                  path="/dividas-manuais"
+                  element={<DividasManuaisPage />}
+                />
 
                 <Route element={<PermissionGuard module="Backup" />}>
                   <Route path="/backup" element={<BackupPage />} />

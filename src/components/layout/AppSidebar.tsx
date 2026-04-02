@@ -146,6 +146,12 @@ export function AppSidebar() {
           module: 'Nota Fiscal',
         },
         { title: 'DRE', url: '/dre', icon: BarChart4, module: 'DRE' },
+        {
+          title: 'Dívida Manual',
+          url: '/dividas-manuais',
+          icon: CreditCard,
+          module: 'Dívida Manual',
+        },
       ],
     },
     {

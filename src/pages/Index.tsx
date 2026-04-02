@@ -136,6 +136,13 @@ export default function Index() {
           module: 'Boletos',
           color: 'bg-fuchsia-500',
         },
+        {
+          title: 'Dívida Manual',
+          icon: CreditCard,
+          href: '/dividas-manuais',
+          module: 'Dívida Manual',
+          color: 'bg-red-500',
+        },
       ],
     },
     {
