@@ -53,6 +53,7 @@ import EmailSeguroPage from '@/pages/email-seguro/EmailSeguroPage'
 import BoletosPage from '@/pages/boletos/BoletosPage'
 import DREPage from '@/pages/dre/DREPage'
 import DividasManuaisPage from '@/pages/dividas/DividasManuaisPage'
+import QuitarDividaPage from '@/pages/quitar-divida/QuitarDividaPage'
 import { AuthProvider } from '@/hooks/use-auth'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { PermissionsProvider } from '@/hooks/use-permissions'
@@ -171,6 +172,10 @@ const App = () => (
                   path="/dividas-manuais"
                   element={<DividasManuaisPage />}
                 />
+
+                <Route element={<PermissionGuard module="Quitar Dívida" />}>
+                  <Route path="/quitar-divida" element={<QuitarDividaPage />} />
+                </Route>
 
                 <Route element={<PermissionGuard module="Backup" />}>
                   <Route path="/backup" element={<BackupPage />} />

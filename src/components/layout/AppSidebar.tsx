@@ -152,6 +152,12 @@ export function AppSidebar() {
           icon: CreditCard,
           module: 'Dívida Manual',
         },
+        {
+          title: 'Quitar Dívida',
+          url: '/quitar-divida',
+          icon: CheckCircle2,
+          module: 'Quitar Dívida',
+        },
       ],
     },
     {
