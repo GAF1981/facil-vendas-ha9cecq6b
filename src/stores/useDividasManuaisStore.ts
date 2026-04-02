@@ -6,7 +6,7 @@ interface Store {
   dividas: DividaManual[]
   loading: boolean
   fetchDividas: () => Promise<void>
-  addDivida: (d: any) => Promise<void>
+  addDivida: (d: any | any[]) => Promise<void>
   updateDivida: (id: number, d: any) => Promise<void>
   deleteDivida: (id: number) => Promise<void>
 }
@@ -33,7 +33,8 @@ export const useDividasManuaisStore = create<Store>((set, get) => ({
     set({ loading: false })
   },
   addDivida: async (d) => {
-    const { error } = await supabase.from('dividas_manuais').insert([d])
+    const payload = Array.isArray(d) ? d : [d]
+    const { error } = await supabase.from('dividas_manuais').insert(payload)
     if (!error) get().fetchDividas()
     else throw error
   },
