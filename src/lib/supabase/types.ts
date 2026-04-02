@@ -739,6 +739,117 @@ export type Database = {
           },
         ]
       }
+      dividas_manuais: {
+        Row: {
+          cliente_id: number | null
+          cobranca_seq: number
+          created_at: string | null
+          data_acerto: string
+          data_combinada: string | null
+          forma_cobranca: string | null
+          forma_pagamento: string
+          funcionario_id: number | null
+          id: number
+          motivo: string | null
+          valor_pago: number
+          valor_parcela: number
+          vencimento: string
+        }
+        Insert: {
+          cliente_id?: number | null
+          cobranca_seq?: number
+          created_at?: string | null
+          data_acerto: string
+          data_combinada?: string | null
+          forma_cobranca?: string | null
+          forma_pagamento: string
+          funcionario_id?: number | null
+          id?: number
+          motivo?: string | null
+          valor_pago?: number
+          valor_parcela?: number
+          vencimento: string
+        }
+        Update: {
+          cliente_id?: number | null
+          cobranca_seq?: number
+          created_at?: string | null
+          data_acerto?: string
+          data_combinada?: string | null
+          forma_cobranca?: string | null
+          forma_pagamento?: string
+          funcionario_id?: number | null
+          id?: number
+          motivo?: string | null
+          valor_pago?: number
+          valor_parcela?: number
+          vencimento?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dividas_manuais_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "CLIENTES"
+            referencedColumns: ["CODIGO"]
+          },
+          {
+            foreignKeyName: "dividas_manuais_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "FUNCIONARIOS"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dividas_manuais_acoes: {
+        Row: {
+          acao: string
+          created_at: string | null
+          data_acao: string | null
+          divida_id: number | null
+          funcionario_id: number | null
+          id: number
+          motivo: string | null
+          nova_data_combinada: string | null
+        }
+        Insert: {
+          acao: string
+          created_at?: string | null
+          data_acao?: string | null
+          divida_id?: number | null
+          funcionario_id?: number | null
+          id?: number
+          motivo?: string | null
+          nova_data_combinada?: string | null
+        }
+        Update: {
+          acao?: string
+          created_at?: string | null
+          data_acao?: string | null
+          divida_id?: number | null
+          funcionario_id?: number | null
+          id?: number
+          motivo?: string | null
+          nova_data_combinada?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dividas_manuais_acoes_divida_id_fkey"
+            columns: ["divida_id"]
+            isOneToOne: false
+            referencedRelation: "dividas_manuais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dividas_manuais_acoes_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "FUNCIONARIOS"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dre_categorias: {
         Row: {
           created_at: string
@@ -3691,6 +3802,29 @@ export const Constants = {
 //   rota: text (nullable)
 //   hora_acerto: text (nullable)
 //   desconto: numeric (nullable, default: 0)
+// Table: dividas_manuais
+//   id: bigint (not null)
+//   cobranca_seq: bigint (not null)
+//   funcionario_id: bigint (nullable)
+//   cliente_id: bigint (nullable)
+//   data_acerto: date (not null)
+//   vencimento: date (not null)
+//   forma_pagamento: text (not null)
+//   valor_parcela: numeric (not null, default: 0)
+//   valor_pago: numeric (not null, default: 0)
+//   forma_cobranca: text (nullable)
+//   data_combinada: date (nullable)
+//   motivo: text (nullable)
+//   created_at: timestamp with time zone (nullable, default: now())
+// Table: dividas_manuais_acoes
+//   id: bigint (not null)
+//   divida_id: bigint (nullable)
+//   funcionario_id: bigint (nullable)
+//   acao: text (not null)
+//   data_acao: timestamp with time zone (nullable, default: now())
+//   nova_data_combinada: date (nullable)
+//   motivo: text (nullable)
+//   created_at: timestamp with time zone (nullable, default: now())
 // Table: dre_categorias
 //   id: bigint (not null)
 //   nome: text (not null)
@@ -3999,6 +4133,14 @@ export const Constants = {
 //   PRIMARY KEY configuracoes_pkey: PRIMARY KEY (id)
 // Table: debitos_historico
 //   PRIMARY KEY debitos_historico_pkey: PRIMARY KEY (id)
+// Table: dividas_manuais
+//   FOREIGN KEY dividas_manuais_cliente_id_fkey: FOREIGN KEY (cliente_id) REFERENCES "CLIENTES"("CODIGO") ON DELETE CASCADE
+//   FOREIGN KEY dividas_manuais_funcionario_id_fkey: FOREIGN KEY (funcionario_id) REFERENCES "FUNCIONARIOS"(id) ON DELETE SET NULL
+//   PRIMARY KEY dividas_manuais_pkey: PRIMARY KEY (id)
+// Table: dividas_manuais_acoes
+//   FOREIGN KEY dividas_manuais_acoes_divida_id_fkey: FOREIGN KEY (divida_id) REFERENCES dividas_manuais(id) ON DELETE CASCADE
+//   FOREIGN KEY dividas_manuais_acoes_funcionario_id_fkey: FOREIGN KEY (funcionario_id) REFERENCES "FUNCIONARIOS"(id) ON DELETE SET NULL
+//   PRIMARY KEY dividas_manuais_acoes_pkey: PRIMARY KEY (id)
 // Table: dre_categorias
 //   UNIQUE dre_categorias_nome_key: UNIQUE (nome)
 //   PRIMARY KEY dre_categorias_pkey: PRIMARY KEY (id)
@@ -4163,6 +4305,14 @@ export const Constants = {
 //     WITH CHECK: true
 //   Policy "Allow read access for authenticated users" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: true
+// Table: dividas_manuais
+//   Policy "Enable all access for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: dividas_manuais_acoes
+//   Policy "Enable all access for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
 // Table: dre_categorias
 //   Policy "Enable delete for authenticated users on dre_categorias" (DELETE, PERMISSIVE) roles={authenticated}
 //     USING: true
