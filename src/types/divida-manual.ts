@@ -11,6 +11,7 @@ export interface DividaManual {
   forma_cobranca: string | null
   data_combinada: string | null
   motivo: string | null
+  rota_motoqueiro?: boolean
   created_at: string
   FUNCIONARIOS?: {
     nome_completo: string

@@ -15,6 +15,8 @@ import { Plus, Search, HandCoins, DollarSign } from 'lucide-react'
 import { formatCurrency } from '@/lib/formatters'
 import { DividasManuaisTable } from '@/components/dividas/DividasManuaisTable'
 import { DividaManualFormDialog } from '@/components/dividas/DividaManualFormDialog'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Bike, List } from 'lucide-react'
 
 export default function DividasManuaisPage() {
   const [searchParams] = useSearchParams()
@@ -32,6 +34,7 @@ export default function DividasManuaisPage() {
   const [filterVencimento, setFilterVencimento] = useState('')
   const [filterDataComb, setFilterDataComb] = useState('')
   const [filterValor, setFilterValor] = useState('')
+  const [activeTab, setActiveTab] = useState('geral')
 
   useEffect(() => {
     fetchDividas()
@@ -267,7 +270,32 @@ export default function DividasManuaisPage() {
         </CardContent>
       </Card>
 
-      <DividasManuaisTable data={filteredData} loading={loading} />
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2 max-w-md mb-6">
+          <TabsTrigger value="geral" className="flex items-center gap-2">
+            <List className="h-4 w-4" />
+            Geral
+          </TabsTrigger>
+          <TabsTrigger value="rota" className="flex items-center gap-2">
+            <Bike className="h-4 w-4" />
+            Rota Motoqueiro
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="geral" className="mt-0">
+          <DividasManuaisTable
+            data={filteredData.filter((d) => !d.rota_motoqueiro)}
+            loading={loading}
+          />
+        </TabsContent>
+
+        <TabsContent value="rota" className="mt-0">
+          <DividasManuaisTable
+            data={filteredData.filter((d) => d.rota_motoqueiro)}
+            loading={loading}
+          />
+        </TabsContent>
+      </Tabs>
 
       <DividaManualFormDialog open={isFormOpen} onOpenChange={setIsFormOpen} />
     </div>

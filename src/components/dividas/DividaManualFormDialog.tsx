@@ -69,7 +69,7 @@ export function DividaManualFormDialog({ open, onOpenChange, debt }: Props) {
   )
   const [forma_cobranca, setFormaCobranca] = useState('VAZIO')
   const [data_combinada, setDataCombinada] = useState('')
-  const [motivo, setMotivo] = useState('VAZIO')
+  const [motivo, setMotivo] = useState('')
   const [payments, setPayments] = useState<Entry[]>([])
 
   useEffect(() => {
@@ -80,7 +80,7 @@ export function DividaManualFormDialog({ open, onOpenChange, debt }: Props) {
         setDataAcerto(debt.data_acerto)
         setFormaCobranca(debt.forma_cobranca || 'VAZIO')
         setDataCombinada(debt.data_combinada || '')
-        setMotivo(debt.motivo || 'VAZIO')
+        setMotivo(debt.motivo || '')
         setPayments([
           {
             method: debt.forma_pagamento,
@@ -98,7 +98,7 @@ export function DividaManualFormDialog({ open, onOpenChange, debt }: Props) {
         setDataAcerto(new Date().toISOString().split('T')[0])
         setFormaCobranca('VAZIO')
         setDataCombinada('')
-        setMotivo('VAZIO')
+        setMotivo('')
         setPayments([])
       }
     }
@@ -210,7 +210,7 @@ export function DividaManualFormDialog({ open, onOpenChange, debt }: Props) {
         data_acerto,
         forma_cobranca: forma_cobranca === 'VAZIO' ? null : forma_cobranca,
         data_combinada: data_combinada || null,
-        motivo: motivo === 'VAZIO' ? null : motivo,
+        motivo: motivo || null,
         funcionario_id: employee?.id,
       }
 
@@ -519,20 +519,11 @@ export function DividaManualFormDialog({ open, onOpenChange, debt }: Props) {
             </div>
             <div className="space-y-2">
               <Label>Motivo</Label>
-              <Select value={motivo} onValueChange={setMotivo}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="VAZIO">VAZIO</SelectItem>
-                  <SelectItem value="Autorizou ida">Autorizou ida</SelectItem>
-                  <SelectItem value="Avisou ida">Avisou ida</SelectItem>
-                  <SelectItem value="Combinou motoqueiro">
-                    Combinou motoqueiro
-                  </SelectItem>
-                  <SelectItem value="Sem Contato">Sem Contato</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input
+                placeholder="Ex: Cliente solicitou renegociação..."
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+              />
             </div>
           </div>
           <DialogFooter>

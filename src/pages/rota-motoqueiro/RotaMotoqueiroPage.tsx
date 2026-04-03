@@ -13,6 +13,10 @@ import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { useUserStore } from '@/stores/useUserStore'
 
+import { DividaManualAcoesSheet } from '@/components/dividas/DividaManualAcoesSheet'
+import { DividaManual } from '@/types/divida-manual'
+import { supabase } from '@/lib/supabase/client'
+
 interface MotoqueiroItem {
   uniqueId: string
   clientId: number
@@ -34,6 +38,7 @@ interface MotoqueiroItem {
   motivo?: string | null
   receivableId: number
   paymentHistory?: PaymentHistoryDetail[]
+  isDividaManual?: boolean
 }
 
 export default function RotaMotoqueiroPage() {
@@ -64,13 +69,17 @@ export default function RotaMotoqueiroPage() {
     clientId: number
     clientName: string
     receivableId: number
+    isDividaManual?: boolean
   }>({
     open: false,
     orderId: '',
     clientId: 0,
     clientName: '',
     receivableId: 0,
+    isDividaManual: false,
   })
+
+  const [actionsDebt, setActionsDebt] = useState<DividaManual | null>(null)
 
   const fetchData = async () => {
     setLoading(true)
@@ -107,11 +116,53 @@ export default function RotaMotoqueiroPage() {
                 motivo: inst.motivo || null,
                 receivableId: inst.id,
                 paymentHistory: inst.paymentHistory || [],
+                isDividaManual: false,
               })
             }
           })
         })
       })
+
+      // Fetch Dividas Manuais marked for Rota Motoqueiro
+      const { data: dividas } = await supabase
+        .from('dividas_manuais')
+        .select('*, CLIENTES(*)')
+        .eq('rota_motoqueiro', true)
+
+      if (dividas) {
+        dividas.forEach((d: any) => {
+          const debito = Math.max(0, d.valor_parcela - d.valor_pago)
+          if (debito > 0.05) {
+            motoqueiroItems.push({
+              uniqueId: `divida-${d.id}`,
+              clientId: d.cliente_id,
+              clientName:
+                d.CLIENTES?.['NOME CLIENTE'] || 'Cliente não encontrado',
+              orderId: d.cobranca_seq,
+              vencimento: d.vencimento,
+              valorParc: d.valor_parcela,
+              pago: d.valor_pago,
+              debito: debito,
+              dataCombinada: d.data_combinada,
+              status:
+                debito > 0 && new Date(d.vencimento) < new Date()
+                  ? 'vencido'
+                  : 'a vencer',
+              address: d.CLIENTES?.ENDEREÇO || null,
+              neighborhood: d.CLIENTES?.BAIRRO || null,
+              city: d.CLIENTES?.MUNICÍPIO || null,
+              phone: d.CLIENTES?.['FONE 1'] || null,
+              telefone_cobranca: d.CLIENTES?.telefone_cobranca || null,
+              email_cobranca: d.CLIENTES?.email_cobranca || null,
+              clientStatus: d.CLIENTES?.situacao || null,
+              motivo: d.motivo || null,
+              receivableId: d.id,
+              paymentHistory: [],
+              isDividaManual: true,
+            })
+          }
+        })
+      }
 
       motoqueiroItems.sort((a, b) => {
         const dateA = a.dataCombinada || a.vencimento || '9999-99-99'
@@ -148,14 +199,25 @@ export default function RotaMotoqueiroPage() {
     setFilteredItems(filtered)
   }, [searchTerm, items])
 
-  const handleAction = (item: MotoqueiroItem, showForm: boolean) => {
-    setActionSheet({
-      open: true,
-      orderId: item.orderId.toString(),
-      clientId: item.clientId,
-      clientName: item.clientName,
-      showForm,
-    })
+  const handleAction = async (item: MotoqueiroItem, showForm: boolean) => {
+    if (item.isDividaManual) {
+      const { data } = await supabase
+        .from('dividas_manuais')
+        .select('*, CLIENTES(*)')
+        .eq('id', item.receivableId)
+        .single()
+      if (data) {
+        setActionsDebt(data as DividaManual)
+      }
+    } else {
+      setActionSheet({
+        open: true,
+        orderId: item.orderId.toString(),
+        clientId: item.clientId,
+        clientName: item.clientName,
+        showForm,
+      })
+    }
   }
 
   const handleRegisterReceipt = (item: MotoqueiroItem) => {
@@ -165,35 +227,40 @@ export default function RotaMotoqueiroPage() {
       clientId: item.clientId,
       clientName: item.clientName,
       receivableId: item.receivableId,
+      isDividaManual: !!item.isDividaManual,
     })
   }
 
   const handleUnmark = async (item: MotoqueiroItem) => {
-    if (
-      !confirm(
-        `Deseja retirar o pedido #${item.orderId} da rota do motoqueiro?`,
-      )
-    ) {
+    const text = item.isDividaManual ? 'dívida' : `pedido #${item.orderId}`
+    if (!confirm(`Deseja retirar a ${text} da rota do motoqueiro?`)) {
       return
     }
 
     try {
-      await cobrancaService.updateReceivableField(
-        item.receivableId,
-        item.orderId,
-        'forma_cobranca',
-        null,
-      )
+      if (item.isDividaManual) {
+        await supabase
+          .from('dividas_manuais')
+          .update({ rota_motoqueiro: false })
+          .eq('id', item.receivableId)
+      } else {
+        await cobrancaService.updateReceivableField(
+          item.receivableId,
+          item.orderId,
+          'forma_cobranca',
+          null,
+        )
+      }
       toast({
         title: 'Removido',
-        description: 'Pedido retirado da rota com sucesso.',
+        description: `${item.isDividaManual ? 'Dívida' : 'Pedido'} retirado da rota com sucesso.`,
       })
       await fetchData()
     } catch (error) {
       console.error(error)
       toast({
         title: 'Erro',
-        description: 'Falha ao retirar o pedido da rota.',
+        description: 'Falha ao retirar da rota.',
         variant: 'destructive',
       })
     }
@@ -214,15 +281,38 @@ export default function RotaMotoqueiroPage() {
     }
 
     try {
-      await cobrancaService.registerReceipt({
-        orderId: Number(receiptDialog.orderId),
-        clientId: receiptDialog.clientId,
-        employeeId: employee.id,
-        value: amount,
-        method,
-        date,
-        receivableId: receiptDialog.receivableId,
-      })
+      if (receiptDialog.isDividaManual) {
+        const { data: debt } = await supabase
+          .from('dividas_manuais')
+          .select('*')
+          .eq('id', receiptDialog.receivableId)
+          .single()
+
+        if (debt) {
+          const newPago = Number(debt.valor_pago) + amount
+          await supabase
+            .from('dividas_manuais')
+            .update({ valor_pago: newPago })
+            .eq('id', debt.id)
+
+          await supabase.from('dividas_manuais_acoes').insert({
+            divida_id: debt.id,
+            funcionario_id: employee.id,
+            acao: `Pagamento recebido (Motoqueiro): R$ ${amount} via ${method}`,
+            data_acao: new Date().toISOString(),
+          })
+        }
+      } else {
+        await cobrancaService.registerReceipt({
+          orderId: Number(receiptDialog.orderId),
+          clientId: receiptDialog.clientId,
+          employeeId: employee.id,
+          value: amount,
+          method,
+          date,
+          receivableId: receiptDialog.receivableId,
+        })
+      }
 
       toast({
         title: 'Sucesso',
@@ -338,6 +428,14 @@ export default function RotaMotoqueiroPage() {
         clientName={receiptDialog.clientName}
         onConfirm={handleConfirmReceipt}
       />
+
+      {actionsDebt && (
+        <DividaManualAcoesSheet
+          open={!!actionsDebt}
+          onOpenChange={(op) => !op && setActionsDebt(null)}
+          debt={actionsDebt}
+        />
+      )}
     </div>
   )
 }
