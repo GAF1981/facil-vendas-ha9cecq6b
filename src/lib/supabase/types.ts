@@ -751,6 +751,7 @@ export type Database = {
           funcionario_id: number | null
           id: number
           motivo: string | null
+          rota_motoqueiro: boolean | null
           valor_pago: number
           valor_parcela: number
           vencimento: string
@@ -766,6 +767,7 @@ export type Database = {
           funcionario_id?: number | null
           id?: number
           motivo?: string | null
+          rota_motoqueiro?: boolean | null
           valor_pago?: number
           valor_parcela?: number
           vencimento: string
@@ -781,6 +783,7 @@ export type Database = {
           funcionario_id?: number | null
           id?: number
           motivo?: string | null
+          rota_motoqueiro?: boolean | null
           valor_pago?: number
           valor_parcela?: number
           vencimento?: string
@@ -3816,6 +3819,7 @@ export const Constants = {
 //   data_combinada: date (nullable)
 //   motivo: text (nullable)
 //   created_at: timestamp with time zone (nullable, default: now())
+//   rota_motoqueiro: boolean (nullable, default: false)
 // Table: dividas_manuais_acoes
 //   id: bigint (not null)
 //   divida_id: bigint (nullable)
