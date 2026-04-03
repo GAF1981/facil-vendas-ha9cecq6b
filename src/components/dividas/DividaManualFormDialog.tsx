@@ -22,6 +22,9 @@ import { useDividasManuaisStore } from '@/stores/useDividasManuaisStore'
 import { DividaManual } from '@/types/divida-manual'
 import { useToast } from '@/hooks/use-toast'
 import { useUserStore } from '@/stores/useUserStore'
+import { Trash2 } from 'lucide-react'
+import { supabase } from '@/lib/supabase/client'
+import { cn } from '@/lib/utils'
 
 interface Props {
   open: boolean
@@ -60,6 +63,7 @@ export function DividaManualFormDialog({ open, onOpenChange, debt }: Props) {
   const { toast } = useToast()
 
   const [cliente_id, setClienteId] = useState('')
+  const [cliente_nome, setClienteNome] = useState('')
   const [data_acerto, setDataAcerto] = useState(
     new Date().toISOString().split('T')[0],
   )
@@ -72,6 +76,7 @@ export function DividaManualFormDialog({ open, onOpenChange, debt }: Props) {
     if (open) {
       if (debt) {
         setClienteId(debt.cliente_id.toString())
+        setClienteNome(debt.CLIENTES?.['NOME CLIENTE'] || '')
         setDataAcerto(debt.data_acerto)
         setFormaCobranca(debt.forma_cobranca || 'VAZIO')
         setDataCombinada(debt.data_combinada || '')
@@ -89,6 +94,7 @@ export function DividaManualFormDialog({ open, onOpenChange, debt }: Props) {
         ])
       } else {
         setClienteId('')
+        setClienteNome('')
         setDataAcerto(new Date().toISOString().split('T')[0])
         setFormaCobranca('VAZIO')
         setDataCombinada('')
@@ -97,6 +103,27 @@ export function DividaManualFormDialog({ open, onOpenChange, debt }: Props) {
       }
     }
   }, [debt, open])
+
+  useEffect(() => {
+    if (!cliente_id) {
+      setClienteNome('')
+      return
+    }
+    const fetchNome = async () => {
+      const { data } = await supabase
+        .from('CLIENTES')
+        .select('"NOME CLIENTE"')
+        .eq('CODIGO', parseInt(cliente_id))
+        .single()
+      if (data) {
+        setClienteNome(data['NOME CLIENTE'] || '')
+      } else {
+        setClienteNome('Cliente não encontrado')
+      }
+    }
+    const timer = setTimeout(fetchNome, 500)
+    return () => clearTimeout(timer)
+  }, [cliente_id])
 
   const toggleMethod = (m: string) => {
     if (payments.some((p) => p.method === m))
@@ -114,6 +141,12 @@ export function DividaManualFormDialog({ open, onOpenChange, debt }: Props) {
           details: [],
         },
       ])
+  }
+
+  const removePayment = (idx: number) => {
+    const newP = [...payments]
+    newP.splice(idx, 1)
+    setPayments(newP)
   }
 
   const updatePayment = (idx: number, field: keyof Entry, val: any) => {
@@ -156,6 +189,20 @@ export function DividaManualFormDialog({ open, onOpenChange, debt }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    for (const p of payments) {
+      if (p.isParcelado) {
+        const sum = p.details.reduce((acc, d) => acc + (d.value || 0), 0)
+        if (Math.abs(sum - (p.value || 0)) > 0.01) {
+          return toast({
+            title: 'Atenção',
+            description: `O valor parcelado em ${p.method} não bate com o valor registrado.`,
+            variant: 'destructive',
+          })
+        }
+      }
+    }
+
     try {
       const payloads: any[] = []
       const base = {
@@ -213,7 +260,7 @@ export function DividaManualFormDialog({ open, onOpenChange, debt }: Props) {
           <DialogTitle>{debt ? 'Editar Dívida' : 'Nova Dívida'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label>Cód. Cliente *</Label>
               <Input
@@ -221,6 +268,15 @@ export function DividaManualFormDialog({ open, onOpenChange, debt }: Props) {
                 type="number"
                 value={cliente_id}
                 onChange={(e) => setClienteId(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>Nome do Cliente</Label>
+              <Input
+                readOnly
+                disabled
+                value={cliente_nome}
+                className="bg-muted"
               />
             </div>
             <div className="space-y-2">
@@ -257,145 +313,184 @@ export function DividaManualFormDialog({ open, onOpenChange, debt }: Props) {
             </div>
           )}
 
-          {payments.map((p, i) => (
-            <Card key={p.method} className="p-4 space-y-4">
-              <h4 className="font-semibold text-sm">{p.method}</h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="space-y-2">
-                  <Label>Valor Registrado</Label>
-                  <Input
-                    required
-                    type="number"
-                    step="0.01"
-                    value={p.value || ''}
-                    onChange={(e) =>
-                      updatePayment(i, 'value', parseFloat(e.target.value) || 0)
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Valor Pago (Hoje)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={p.paidValue || ''}
-                    onChange={(e) =>
-                      updatePayment(
-                        i,
-                        'paidValue',
-                        parseFloat(e.target.value) || 0,
-                      )
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Vencimento</Label>
-                  <Input
-                    required
-                    type="date"
-                    value={p.dueDate}
-                    onChange={(e) =>
-                      updatePayment(i, 'dueDate', e.target.value)
-                    }
-                  />
-                </div>
-                <div className="flex items-end pb-2 space-x-2">
-                  <Checkbox
-                    id={`parc-${i}`}
-                    checked={p.isParcelado}
-                    onCheckedChange={(c) =>
-                      updatePayment(i, 'isParcelado', !!c)
-                    }
-                  />
-                  <Label htmlFor={`parc-${i}`}>Parcelar</Label>
-                </div>
-              </div>
-              {p.isParcelado && (
-                <div className="space-y-4 pt-4 border-t">
-                  <div className="flex items-center gap-4">
-                    <Label>Parcelas:</Label>
-                    <Select
-                      value={p.installments.toString()}
-                      onValueChange={(v) =>
-                        updatePayment(i, 'installments', parseInt(v))
-                      }
+          {payments.map((p, i) => {
+            const sumParcels = p.isParcelado
+              ? p.details.reduce((acc, d) => acc + (d.value || 0), 0)
+              : 0
+            const remaining = (p.value || 0) - sumParcels
+            const hasError = p.isParcelado && Math.abs(remaining) > 0.01
+
+            return (
+              <Card key={`${p.method}-${i}`} className="p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold text-sm">{p.method}</h4>
+                  {!debt && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removePayment(i)}
+                      className="h-8 w-8 text-destructive hover:bg-destructive/10"
                     >
-                      <SelectTrigger className="w-24">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => (
-                          <SelectItem key={n} value={n.toString()}>
-                            {n}x
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="space-y-2">
+                    <Label>Valor Registrado</Label>
+                    <Input
+                      required
+                      type="number"
+                      step="0.01"
+                      value={p.value || ''}
+                      onChange={(e) =>
+                        updatePayment(
+                          i,
+                          'value',
+                          parseFloat(e.target.value) || 0,
+                        )
+                      }
+                    />
                   </div>
                   <div className="space-y-2">
-                    {p.details.map((d, dIdx) => (
-                      <div
-                        key={dIdx}
-                        className="grid grid-cols-4 gap-2 items-center bg-muted/50 p-2 rounded-md"
-                      >
-                        <span className="text-sm font-medium">
-                          {d.number}ª Parcela
-                        </span>
-                        <div>
-                          <Label className="text-xs text-muted-foreground">
-                            Valor
-                          </Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={d.value || ''}
-                            onChange={(e) =>
-                              updateDetail(
-                                i,
-                                dIdx,
-                                'value',
-                                parseFloat(e.target.value) || 0,
-                              )
-                            }
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs text-muted-foreground">
-                            Pago
-                          </Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={d.paidValue || ''}
-                            onChange={(e) =>
-                              updateDetail(
-                                i,
-                                dIdx,
-                                'paidValue',
-                                parseFloat(e.target.value) || 0,
-                              )
-                            }
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs text-muted-foreground">
-                            Vencimento
-                          </Label>
-                          <Input
-                            type="date"
-                            value={d.dueDate}
-                            onChange={(e) =>
-                              updateDetail(i, dIdx, 'dueDate', e.target.value)
-                            }
-                          />
-                        </div>
-                      </div>
-                    ))}
+                    <Label>Valor Pago (Hoje)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={p.paidValue || ''}
+                      onChange={(e) =>
+                        updatePayment(
+                          i,
+                          'paidValue',
+                          parseFloat(e.target.value) || 0,
+                        )
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Vencimento</Label>
+                    <Input
+                      required
+                      type="date"
+                      value={p.dueDate}
+                      onChange={(e) =>
+                        updatePayment(i, 'dueDate', e.target.value)
+                      }
+                    />
+                  </div>
+                  <div className="flex items-end pb-2 space-x-2">
+                    <Checkbox
+                      id={`parc-${i}`}
+                      checked={p.isParcelado}
+                      onCheckedChange={(c) =>
+                        updatePayment(i, 'isParcelado', !!c)
+                      }
+                    />
+                    <Label htmlFor={`parc-${i}`}>Parcelar</Label>
                   </div>
                 </div>
-              )}
-            </Card>
-          ))}
+                {p.isParcelado && (
+                  <div className="space-y-4 pt-4 border-t">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <Label>Parcelas:</Label>
+                        <Select
+                          value={p.installments.toString()}
+                          onValueChange={(v) =>
+                            updatePayment(i, 'installments', parseInt(v))
+                          }
+                        >
+                          <SelectTrigger className="w-24">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => (
+                              <SelectItem key={n} value={n.toString()}>
+                                {n}x
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div
+                        className={cn(
+                          'text-sm font-medium p-2 rounded-md border',
+                          hasError
+                            ? 'bg-destructive/10 text-destructive border-destructive/20'
+                            : 'bg-green-50 text-green-700 border-green-200',
+                        )}
+                      >
+                        Registrado: R$ {p.value?.toFixed(2) || '0.00'} |
+                        Incluído: R$ {sumParcels.toFixed(2)} | Restante: R${' '}
+                        {remaining.toFixed(2)}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      {p.details.map((d, dIdx) => (
+                        <div
+                          key={dIdx}
+                          className="grid grid-cols-4 gap-2 items-center bg-muted/50 p-2 rounded-md"
+                        >
+                          <span className="text-sm font-medium">
+                            {d.number}ª Parcela
+                          </span>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">
+                              Valor
+                            </Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={d.value || ''}
+                              onChange={(e) =>
+                                updateDetail(
+                                  i,
+                                  dIdx,
+                                  'value',
+                                  parseFloat(e.target.value) || 0,
+                                )
+                              }
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">
+                              Pago
+                            </Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={d.paidValue || ''}
+                              onChange={(e) =>
+                                updateDetail(
+                                  i,
+                                  dIdx,
+                                  'paidValue',
+                                  parseFloat(e.target.value) || 0,
+                                )
+                              }
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">
+                              Vencimento
+                            </Label>
+                            <Input
+                              type="date"
+                              value={d.dueDate}
+                              onChange={(e) =>
+                                updateDetail(i, dIdx, 'dueDate', e.target.value)
+                              }
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </Card>
+            )
+          })}
 
           <div className="grid grid-cols-3 gap-4 border-t pt-4">
             <div className="space-y-2">
