@@ -29,6 +29,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { useUserStore } from '@/stores/useUserStore'
+import { supabase } from '@/lib/supabase/client'
 
 const ClientsPage = () => {
   const [clients, setClients] = useState<ClientRow[]>([])
@@ -45,6 +46,7 @@ const ClientsPage = () => {
   const [groups, setGroups] = useState<string[]>([])
   const [routes, setRoutes] = useState<string[]>([])
   const [duplicates, setDuplicates] = useState<Set<number>>(new Set())
+  const [activeDebts, setActiveDebts] = useState<Record<number, boolean>>({})
 
   const [page, setPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
@@ -129,9 +131,27 @@ const ClientsPage = () => {
         debouncedCnpj,
       )
 
-      // Only client-side logic would go here if needed
       setClients(data)
       setTotalCount(count)
+
+      // Fetch active debts for these clients
+      const clientIds = data.map((c) => c.CODIGO)
+      if (clientIds.length > 0) {
+        const { data: debtsData } = await supabase
+          .from('dividas_manuais')
+          .select('cliente_id, valor_pago, valor_parcela')
+          .in('cliente_id', clientIds)
+
+        const debtsMap: Record<number, boolean> = {}
+        debtsData?.forEach((d) => {
+          if (d.valor_pago < d.valor_parcela) {
+            debtsMap[d.cliente_id] = true
+          }
+        })
+        setActiveDebts(debtsMap)
+      } else {
+        setActiveDebts({})
+      }
     } catch (error) {
       toast({
         title: 'Erro ao carregar clientes',
@@ -392,7 +412,8 @@ const ClientsPage = () => {
           <ClientTable
             clients={clients}
             onUpdate={fetchClients}
-            duplicates={duplicates} // Pass duplicate set
+            duplicates={duplicates}
+            activeDebts={activeDebts}
           />
 
           <div className="flex items-center justify-between">

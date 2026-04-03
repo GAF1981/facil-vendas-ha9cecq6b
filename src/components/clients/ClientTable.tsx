@@ -22,7 +22,9 @@ import {
   History,
   MessageCircle,
   AlertTriangle,
+  CircleDollarSign,
 } from 'lucide-react'
+import { DividaManualModal } from '@/components/dividas/DividaManualModal'
 import { Link } from 'react-router-dom'
 import { useToast } from '@/hooks/use-toast'
 import {
@@ -45,15 +47,21 @@ interface ClientTableProps {
   clients: ClientRow[]
   onUpdate: () => void
   duplicates?: Set<number>
+  activeDebts?: Record<number, boolean>
 }
 
 export function ClientTable({
   clients,
   onUpdate,
   duplicates,
+  activeDebts,
 }: ClientTableProps) {
   const { toast } = useToast()
   const [clientToDelete, setClientToDelete] = useState<number | null>(null)
+  const [debtModalClient, setDebtModalClient] = useState<{
+    id: number
+    name: string
+  } | null>(null)
 
   const handleDelete = async () => {
     if (clientToDelete) {
@@ -147,9 +155,27 @@ export function ClientTable({
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
-                      <span className="font-medium">
-                        {client['NOME CLIENTE']}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">
+                          {client['NOME CLIENTE']}
+                        </span>
+                        {activeDebts?.[client.CODIGO] && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 p-0 rounded-full hover:bg-red-50 text-red-600"
+                            onClick={() =>
+                              setDebtModalClient({
+                                id: client.CODIGO,
+                                name: client['NOME CLIENTE'] || '',
+                              })
+                            }
+                            title="Cliente possui dívida pendente"
+                          >
+                            <CircleDollarSign className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                       <span className="text-xs text-muted-foreground md:hidden">
                         {client.CNPJ || '-'}
                       </span>
@@ -258,6 +284,15 @@ export function ClientTable({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {debtModalClient && (
+        <DividaManualModal
+          open={!!debtModalClient}
+          onOpenChange={(op) => !op && setDebtModalClient(null)}
+          clientId={debtModalClient.id}
+          clientName={debtModalClient.name}
+        />
+      )}
     </>
   )
 }

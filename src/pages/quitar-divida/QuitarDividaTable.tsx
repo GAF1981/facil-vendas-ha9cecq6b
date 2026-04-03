@@ -1,6 +1,9 @@
+import { useState } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { QuitarDividaItem } from '@/services/quitarDividaService'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
+import { ArrowUpDown } from 'lucide-react'
 
 interface Props {
   loading: boolean
@@ -15,6 +18,28 @@ export function QuitarDividaTable({
   selectedId,
   onSelect,
 }: Props) {
+  const [sortCol, setSortCol] = useState<
+    'vencimento' | 'data_combinada' | 'forma_cobranca'
+  >('vencimento')
+  const [sortAsc, setSortAsc] = useState(true)
+
+  const handleSort = (
+    col: 'vencimento' | 'data_combinada' | 'forma_cobranca',
+  ) => {
+    if (sortCol === col) setSortAsc(!sortAsc)
+    else {
+      setSortCol(col)
+      setSortAsc(true)
+    }
+  }
+
+  const sortedItems = [...items].sort((a: any, b: any) => {
+    const valA = a[sortCol] || ''
+    const valB = b[sortCol] || ''
+    if (valA < valB) return sortAsc ? -1 : 1
+    if (valA > valB) return sortAsc ? 1 : -1
+    return 0
+  })
   if (loading) {
     return (
       <div className="p-4 space-y-4">
@@ -39,7 +64,7 @@ export function QuitarDividaTable({
       currency: 'BRL',
     }).format(v)
 
-  const formatDate = (d: string) => {
+  const formatDate = (d?: string | null) => {
     if (!d) return '-'
     const [y, m, day] = d.split('-')
     return `${day}/${m}/${y}`
@@ -50,17 +75,41 @@ export function QuitarDividaTable({
       <table className="w-full caption-bottom text-sm">
         <thead className="[&_tr]:border-b">
           <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+            <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground w-[50px]">
+              Sel.
+            </th>
             <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
               Dívida
             </th>
             <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
               Cliente
             </th>
-            <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
-              Vencimento
+            <th
+              className="h-12 px-4 text-left align-middle font-medium text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+              onClick={() => handleSort('vencimento')}
+            >
+              <div className="flex items-center gap-1">
+                Vencimento <ArrowUpDown className="h-3 w-3 opacity-50" />
+              </div>
             </th>
             <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
               Forma
+            </th>
+            <th
+              className="h-12 px-4 text-left align-middle font-medium text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+              onClick={() => handleSort('forma_cobranca')}
+            >
+              <div className="flex items-center gap-1">
+                Forma Cobrança <ArrowUpDown className="h-3 w-3 opacity-50" />
+              </div>
+            </th>
+            <th
+              className="h-12 px-4 text-left align-middle font-medium text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+              onClick={() => handleSort('data_combinada')}
+            >
+              <div className="flex items-center gap-1">
+                Data Combinada <ArrowUpDown className="h-3 w-3 opacity-50" />
+              </div>
             </th>
             <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
               Valor Parcela
@@ -74,7 +123,7 @@ export function QuitarDividaTable({
           </tr>
         </thead>
         <tbody className="[&_tr:last-child]:border-0">
-          {items.map((item) => {
+          {sortedItems.map((item: any) => {
             const isSelected = selectedId === item.id
             return (
               <tr
@@ -84,6 +133,13 @@ export function QuitarDividaTable({
                 }`}
                 onClick={() => onSelect(item.id)}
               >
+                <td className="p-4 align-middle text-center">
+                  <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={() => onSelect(item.id)}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </td>
                 <td className="p-4 align-middle font-medium">
                   C{item.cobranca_seq}
                 </td>
@@ -94,6 +150,12 @@ export function QuitarDividaTable({
                   {formatDate(item.vencimento)}
                 </td>
                 <td className="p-4 align-middle">{item.forma_pagamento}</td>
+                <td className="p-4 align-middle">
+                  {item.forma_cobranca || '-'}
+                </td>
+                <td className="p-4 align-middle">
+                  {formatDate(item.data_combinada)}
+                </td>
                 <td className="p-4 align-middle text-right">
                   {formatCurrency(item.valor_parcela)}
                 </td>

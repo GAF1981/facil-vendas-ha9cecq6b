@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import {
   Table,
@@ -17,6 +17,7 @@ import {
   MessageSquareText,
   Edit,
   Trash,
+  ArrowUpDown,
 } from 'lucide-react'
 import { DividaManual } from '@/types/divida-manual'
 import {
@@ -53,6 +54,52 @@ export function DividasManuaisTable({
   const [editingDebt, setEditingDebt] = useState<DividaManual | null>(null)
   const [actionsDebt, setActionsDebt] = useState<DividaManual | null>(null)
   const [counts, setCounts] = useState<Record<number, number>>({})
+
+  const topScrollRef = useRef<HTMLDivElement>(null)
+  const bottomScrollRef = useRef<HTMLDivElement>(null)
+  const innerRef = useRef<HTMLDivElement>(null)
+  const [tableWidth, setTableWidth] = useState(0)
+
+  const [sortCol, setSortCol] = useState<
+    'vencimento' | 'data_combinada' | 'forma_cobranca'
+  >('vencimento')
+  const [sortAsc, setSortAsc] = useState(true)
+
+  useEffect(() => {
+    if (!innerRef.current) return
+    const observer = new ResizeObserver((entries) => {
+      setTableWidth(entries[0].target.scrollWidth)
+    })
+    observer.observe(innerRef.current)
+    return () => observer.disconnect()
+  }, [])
+
+  const handleTopScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (bottomScrollRef.current)
+      bottomScrollRef.current.scrollLeft = e.currentTarget.scrollLeft
+  }
+  const handleBottomScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (topScrollRef.current)
+      topScrollRef.current.scrollLeft = e.currentTarget.scrollLeft
+  }
+
+  const handleSort = (
+    col: 'vencimento' | 'data_combinada' | 'forma_cobranca',
+  ) => {
+    if (sortCol === col) setSortAsc(!sortAsc)
+    else {
+      setSortCol(col)
+      setSortAsc(true)
+    }
+  }
+
+  const sortedData = [...data].sort((a: any, b: any) => {
+    const valA = a[sortCol] || ''
+    const valB = b[sortCol] || ''
+    if (valA < valB) return sortAsc ? -1 : 1
+    if (valA > valB) return sortAsc ? 1 : -1
+    return 0
+  })
 
   useEffect(() => {
     const fetchCounts = async () => {
@@ -111,286 +158,337 @@ export function DividasManuaisTable({
   }
 
   return (
-    <div className="border rounded-md bg-card overflow-x-auto">
-      <Table>
-        <TableHeader className="bg-muted/50 whitespace-nowrap">
-          <TableRow>
-            <TableHead className="text-xs">Cobrança</TableHead>
-            <TableHead className="text-xs">Funcionário</TableHead>
-            <TableHead className="text-xs">Código</TableHead>
-            <TableHead className="text-xs min-w-[150px]">Cliente</TableHead>
-            <TableHead className="text-xs text-center">Contador</TableHead>
-            <TableHead className="text-xs text-center">Rota Motoq.</TableHead>
-            <TableHead className="text-xs">Data Acerto</TableHead>
-            <TableHead className="text-xs">Vencimento</TableHead>
-            <TableHead className="text-xs">F. Pagamento</TableHead>
-            <TableHead className="text-xs text-right">Valor Parc.</TableHead>
-            <TableHead className="text-xs text-right">Pago</TableHead>
-            <TableHead className="text-xs text-right">Dívida</TableHead>
-            <TableHead className="text-xs text-center">Status</TableHead>
-            <TableHead className="text-xs min-w-[120px]">
-              Forma Cobrança
-            </TableHead>
-            <TableHead className="text-xs min-w-[120px]">
-              Data Combinada
-            </TableHead>
-            <TableHead className="text-xs min-w-[120px]">Motivo</TableHead>
-            <TableHead className="text-xs min-w-[120px]">Contato</TableHead>
-            <TableHead className="text-xs text-center">Ações</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {loading && data.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={16} className="h-24 text-center">
-                Carregando...
-              </TableCell>
-            </TableRow>
-          ) : data.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={16} className="h-24 text-center">
-                Nenhum registro encontrado.
-              </TableCell>
-            </TableRow>
-          ) : (
-            data.map((row) => {
-              const debito = Math.max(0, row.valor_parcela - row.valor_pago)
-              const isPaid = row.valor_pago >= row.valor_parcela
-              const isOverdue =
-                !isPaid &&
-                new Date(row.vencimento) <
-                  new Date(new Date().setHours(0, 0, 0, 0))
-              const status = isPaid
-                ? 'pago'
-                : isOverdue
-                  ? 'vencido'
-                  : 'a vencer'
-              const phone =
-                row.CLIENTES?.telefone_cobranca ||
-                row.CLIENTES?.['FONE 1'] ||
-                ''
+    <div className="border rounded-md bg-card flex flex-col relative">
+      <div
+        ref={topScrollRef}
+        className="overflow-x-auto overflow-y-hidden border-b custom-scrollbar"
+        onScroll={handleTopScroll}
+        style={{ height: '14px' }}
+      >
+        <div style={{ width: tableWidth, height: '1px' }}></div>
+      </div>
 
-              return (
-                <TableRow
-                  key={row.id}
-                  className="hover:bg-muted/30 whitespace-nowrap text-xs"
+      <div
+        ref={bottomScrollRef}
+        className="overflow-x-auto"
+        onScroll={handleBottomScroll}
+      >
+        <div ref={innerRef} className="min-w-max">
+          <Table>
+            <TableHeader className="bg-muted/50 whitespace-nowrap">
+              <TableRow>
+                <TableHead className="text-xs">Cobrança</TableHead>
+                <TableHead className="text-xs">Funcionário</TableHead>
+                <TableHead className="text-xs">Código</TableHead>
+                <TableHead className="text-xs min-w-[150px]">Cliente</TableHead>
+                <TableHead className="text-xs text-center">Contador</TableHead>
+                <TableHead className="text-xs text-center">
+                  Rota Motoq.
+                </TableHead>
+                <TableHead className="text-xs">Data Acerto</TableHead>
+                <TableHead
+                  className="text-xs cursor-pointer hover:text-primary transition-colors"
+                  onClick={() => handleSort('vencimento')}
                 >
-                  <TableCell className="font-mono font-bold">
-                    C{row.cobranca_seq}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground truncate max-w-[100px]">
-                    {row.FUNCIONARIOS?.nome_completo || '-'}
-                  </TableCell>
-                  <TableCell className="font-mono">{row.cliente_id}</TableCell>
-                  <TableCell className="font-medium truncate max-w-[150px]">
-                    <div className="flex items-center gap-2">
-                      <span title={row.CLIENTES?.['NOME CLIENTE']}>
-                        {row.CLIENTES?.['NOME CLIENTE'] || '-'}
-                      </span>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5 rounded-full hover:bg-muted"
-                            title="Ver Motivo e Histórico"
-                          >
-                            <Info className="h-3 w-3 text-blue-500" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-80 p-4" side="right">
-                          <div className="space-y-3">
-                            <div>
-                              <h4 className="font-semibold text-sm">
-                                Motivo da Inclusão
-                              </h4>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {row.motivo || 'Nenhum motivo registrado.'}
-                              </p>
-                            </div>
-                            <Separator />
-                            <div>
-                              <h4 className="font-semibold text-sm">
-                                Histórico
-                              </h4>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Esta dívida possui {counts[row.id] || 0} ações
-                                de cobrança registradas.
-                              </p>
-                              <Button
-                                variant="link"
-                                className="px-0 py-1 h-auto text-xs text-primary"
-                                onClick={() => setActionsDebt(row)}
-                              >
-                                Ver histórico completo
-                              </Button>
-                            </div>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-center font-mono text-xs font-semibold text-muted-foreground">
-                    {counts[row.id] || 0}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Checkbox
-                      checked={!!row.rota_motoqueiro}
-                      onCheckedChange={(c) =>
-                        handleUpdate(row.id, 'rota_motoqueiro', !!c)
-                      }
-                      className="data-[state=checked]:bg-primary"
-                    />
-                  </TableCell>
-                  <TableCell>{safeFormatDate(row.data_acerto)}</TableCell>
-                  <TableCell>{safeFormatDate(row.vencimento)}</TableCell>
-                  <TableCell>{row.forma_pagamento}</TableCell>
-                  <TableCell className="text-right font-mono">
-                    {formatCurrency(row.valor_parcela)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-green-600">
-                    {formatCurrency(row.valor_pago)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono font-bold text-red-600">
-                    {formatCurrency(debito)}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Badge
-                      variant={
-                        status === 'vencido'
-                          ? 'destructive'
-                          : status === 'pago'
-                            ? 'secondary'
-                            : 'outline'
-                      }
-                      className={cn(
-                        'text-[10px] px-2 py-0.5 h-6 capitalize',
-                        status === 'pago' &&
-                          'bg-green-100 text-green-700 hover:bg-green-200 border-transparent',
-                        status === 'a vencer' &&
-                          'bg-green-50 text-green-600 border-green-200',
-                      )}
-                    >
-                      {status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      value={row.forma_cobranca || ''}
-                      onValueChange={(val) =>
-                        handleUpdate(
-                          row.id,
-                          'forma_cobranca',
-                          val === 'VAZIO' ? null : val,
-                        )
-                      }
-                    >
-                      <SelectTrigger className="h-7 text-xs w-full">
-                        <SelectValue placeholder="-" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="VAZIO">VAZIO</SelectItem>
-                        <SelectItem value="PIX">PIX</SelectItem>
-                        <SelectItem value="MOTOQUEIRO">MOTOQUEIRO</SelectItem>
-                        <SelectItem value="BOLETO">BOLETO</SelectItem>
-                        <SelectItem value="DEPOSITO">DEPOSITO</SelectItem>
-                        <SelectItem value="MENSAGEM">MENSAGEM</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="date"
-                      className="h-7 text-xs w-full px-1"
-                      value={row.data_combinada || ''}
-                      onChange={(e) =>
-                        handleUpdate(
-                          row.id,
-                          'data_combinada',
-                          e.target.value || null,
-                        )
-                      }
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      className="h-7 text-xs w-full px-2"
-                      value={row.motivo || ''}
-                      onChange={(e) =>
-                        handleUpdate(row.id, 'motivo', e.target.value || null)
-                      }
-                      placeholder="Motivo..."
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      {phone ? (
-                        <>
-                          <span className="truncate max-w-[90px]" title={phone}>
-                            {phone}
-                          </span>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5 p-0 text-green-600 hover:bg-green-50 rounded-full"
-                            onClick={() => handleWhatsApp(phone)}
-                          >
-                            <MessageCircle className="h-3 w-3" />
-                          </Button>
-                        </>
-                      ) : (
-                        <span className="text-muted-foreground w-[90px]">
-                          -
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center justify-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-blue-600 hover:bg-blue-50"
-                        onClick={() => setActionsDebt(row)}
-                        title="Ações de Cobrança"
-                      >
-                        <PlusCircle className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-indigo-600 hover:bg-indigo-50"
-                        onClick={() => setActionsDebt(row)}
-                        title="Ver Histórico"
-                      >
-                        <MessageSquareText className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-amber-600 hover:bg-amber-50"
-                        onClick={() => setEditingDebt(row)}
-                        title="Editar Dívida"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-red-600 hover:bg-red-50"
-                        onClick={() => handleDelete(row.id)}
-                        title="Excluir"
-                      >
-                        <Trash className="h-4 w-4" />
-                      </Button>
-                    </div>
+                  <div className="flex items-center gap-1">
+                    Vencimento <ArrowUpDown className="h-3 w-3 opacity-50" />
+                  </div>
+                </TableHead>
+                <TableHead className="text-xs">F. Pagamento</TableHead>
+                <TableHead className="text-xs text-right">
+                  Valor Parc.
+                </TableHead>
+                <TableHead className="text-xs text-right">Pago</TableHead>
+                <TableHead className="text-xs text-right">Dívida</TableHead>
+                <TableHead className="text-xs text-center">Status</TableHead>
+                <TableHead
+                  className="text-xs min-w-[120px] cursor-pointer hover:text-primary transition-colors"
+                  onClick={() => handleSort('forma_cobranca')}
+                >
+                  <div className="flex items-center gap-1">
+                    Forma Cobrança{' '}
+                    <ArrowUpDown className="h-3 w-3 opacity-50" />
+                  </div>
+                </TableHead>
+                <TableHead
+                  className="text-xs min-w-[120px] cursor-pointer hover:text-primary transition-colors"
+                  onClick={() => handleSort('data_combinada')}
+                >
+                  <div className="flex items-center gap-1">
+                    Data Combinada{' '}
+                    <ArrowUpDown className="h-3 w-3 opacity-50" />
+                  </div>
+                </TableHead>
+                <TableHead className="text-xs min-w-[120px]">Motivo</TableHead>
+                <TableHead className="text-xs min-w-[120px]">Contato</TableHead>
+                <TableHead className="text-xs text-center">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading && data.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={18} className="h-24 text-center">
+                    Carregando...
                   </TableCell>
                 </TableRow>
-              )
-            })
-          )}
-        </TableBody>
-      </Table>
+              ) : sortedData.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={18} className="h-24 text-center">
+                    Nenhum registro encontrado.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                sortedData.map((row) => {
+                  const debito = Math.max(0, row.valor_parcela - row.valor_pago)
+                  const isPaid = row.valor_pago >= row.valor_parcela
+                  const isOverdue =
+                    !isPaid &&
+                    new Date(row.vencimento) <
+                      new Date(new Date().setHours(0, 0, 0, 0))
+                  const status = isPaid
+                    ? 'pago'
+                    : isOverdue
+                      ? 'vencido'
+                      : 'a vencer'
+                  const phone =
+                    row.CLIENTES?.telefone_cobranca ||
+                    row.CLIENTES?.['FONE 1'] ||
+                    ''
+
+                  return (
+                    <TableRow
+                      key={row.id}
+                      className="hover:bg-muted/30 whitespace-nowrap text-xs"
+                    >
+                      <TableCell className="font-mono font-bold">
+                        C{row.cobranca_seq}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground truncate max-w-[100px]">
+                        {row.FUNCIONARIOS?.nome_completo || '-'}
+                      </TableCell>
+                      <TableCell className="font-mono">
+                        {row.cliente_id}
+                      </TableCell>
+                      <TableCell className="font-medium truncate max-w-[150px]">
+                        <div className="flex items-center gap-2">
+                          <span title={row.CLIENTES?.['NOME CLIENTE']}>
+                            {row.CLIENTES?.['NOME CLIENTE'] || '-'}
+                          </span>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 rounded-full hover:bg-muted"
+                                title="Ver Motivo e Histórico"
+                              >
+                                <Info className="h-3 w-3 text-blue-500" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-80 p-4" side="right">
+                              <div className="space-y-3">
+                                <div>
+                                  <h4 className="font-semibold text-sm">
+                                    Motivo da Inclusão
+                                  </h4>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {row.motivo || 'Nenhum motivo registrado.'}
+                                  </p>
+                                </div>
+                                <Separator />
+                                <div>
+                                  <h4 className="font-semibold text-sm">
+                                    Histórico
+                                  </h4>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    Esta dívida possui {counts[row.id] || 0}{' '}
+                                    ações de cobrança registradas.
+                                  </p>
+                                  <Button
+                                    variant="link"
+                                    className="px-0 py-1 h-auto text-xs text-primary"
+                                    onClick={() => setActionsDebt(row)}
+                                  >
+                                    Ver histórico completo
+                                  </Button>
+                                </div>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center font-mono text-xs font-semibold text-muted-foreground">
+                        {counts[row.id] || 0}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Checkbox
+                          checked={!!row.rota_motoqueiro}
+                          onCheckedChange={(c) =>
+                            handleUpdate(row.id, 'rota_motoqueiro', !!c)
+                          }
+                          className="data-[state=checked]:bg-primary"
+                        />
+                      </TableCell>
+                      <TableCell>{safeFormatDate(row.data_acerto)}</TableCell>
+                      <TableCell>{safeFormatDate(row.vencimento)}</TableCell>
+                      <TableCell>{row.forma_pagamento}</TableCell>
+                      <TableCell className="text-right font-mono">
+                        {formatCurrency(row.valor_parcela)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-green-600">
+                        {formatCurrency(row.valor_pago)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-bold text-red-600">
+                        {formatCurrency(debito)}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge
+                          variant={
+                            status === 'vencido'
+                              ? 'destructive'
+                              : status === 'pago'
+                                ? 'secondary'
+                                : 'outline'
+                          }
+                          className={cn(
+                            'text-[10px] px-2 py-0.5 h-6 capitalize',
+                            status === 'pago' &&
+                              'bg-green-100 text-green-700 hover:bg-green-200 border-transparent',
+                            status === 'a vencer' &&
+                              'bg-green-50 text-green-600 border-green-200',
+                          )}
+                        >
+                          {status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={row.forma_cobranca || ''}
+                          onValueChange={(val) =>
+                            handleUpdate(
+                              row.id,
+                              'forma_cobranca',
+                              val === 'VAZIO' ? null : val,
+                            )
+                          }
+                        >
+                          <SelectTrigger className="h-7 text-xs w-full">
+                            <SelectValue placeholder="-" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="VAZIO">VAZIO</SelectItem>
+                            <SelectItem value="PIX">PIX</SelectItem>
+                            <SelectItem value="MOTOQUEIRO">
+                              MOTOQUEIRO
+                            </SelectItem>
+                            <SelectItem value="BOLETO">BOLETO</SelectItem>
+                            <SelectItem value="DEPOSITO">DEPOSITO</SelectItem>
+                            <SelectItem value="MENSAGEM">MENSAGEM</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="date"
+                          className="h-7 text-xs w-full px-1"
+                          value={row.data_combinada || ''}
+                          onChange={(e) =>
+                            handleUpdate(
+                              row.id,
+                              'data_combinada',
+                              e.target.value || null,
+                            )
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          className="h-7 text-xs w-full px-2"
+                          value={row.motivo || ''}
+                          onChange={(e) =>
+                            handleUpdate(
+                              row.id,
+                              'motivo',
+                              e.target.value || null,
+                            )
+                          }
+                          placeholder="Motivo..."
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          {phone ? (
+                            <>
+                              <span
+                                className="truncate max-w-[90px]"
+                                title={phone}
+                              >
+                                {phone}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 p-0 text-green-600 hover:bg-green-50 rounded-full"
+                                onClick={() => handleWhatsApp(phone)}
+                              >
+                                <MessageCircle className="h-3 w-3" />
+                              </Button>
+                            </>
+                          ) : (
+                            <span className="text-muted-foreground w-[90px]">
+                              -
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-blue-600 hover:bg-blue-50"
+                            onClick={() => setActionsDebt(row)}
+                            title="Ações de Cobrança"
+                          >
+                            <PlusCircle className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-indigo-600 hover:bg-indigo-50"
+                            onClick={() => setActionsDebt(row)}
+                            title="Ver Histórico"
+                          >
+                            <MessageSquareText className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-amber-600 hover:bg-amber-50"
+                            onClick={() => setEditingDebt(row)}
+                            title="Editar Dívida"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-red-600 hover:bg-red-50"
+                            onClick={() => handleDelete(row.id)}
+                            title="Excluir"
+                          >
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
 
       <DividaManualFormDialog
         open={!!editingDebt}
