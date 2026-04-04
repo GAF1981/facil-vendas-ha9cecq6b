@@ -318,6 +318,7 @@ export type Database = {
           conferido: boolean
           created_at: string
           id: number
+          is_divida_manual: boolean | null
           pedido_id: number | null
           status: string
           valor: number
@@ -329,6 +330,7 @@ export type Database = {
           conferido?: boolean
           created_at?: string
           id?: number
+          is_divida_manual?: boolean | null
           pedido_id?: number | null
           status?: string
           valor: number
@@ -340,6 +342,7 @@ export type Database = {
           conferido?: boolean
           created_at?: string
           id?: number
+          is_divida_manual?: boolean | null
           pedido_id?: number | null
           status?: string
           valor?: number
@@ -3751,6 +3754,7 @@ export const Constants = {
 //   pedido_id: bigint (nullable)
 //   created_at: timestamp with time zone (not null, default: now())
 //   conferido: boolean (not null, default: false)
+//   is_divida_manual: boolean (nullable, default: false)
 // Table: brinde
 //   id: bigint (not null)
 //   cliente_codigo: bigint (nullable)
@@ -4366,6 +4370,44 @@ export const Constants = {
 //     USING: true
 
 // --- DATABASE FUNCTIONS ---
+// FUNCTION auto_conferir_boletos_divida()
+//   CREATE OR REPLACE FUNCTION public.auto_conferir_boletos_divida()
+//    RETURNS trigger
+//    LANGUAGE plpgsql
+//   AS $function$
+//   BEGIN
+//       -- If inserting/updating a boleto
+//       IF TG_TABLE_NAME = 'boletos' THEN
+//           IF NEW.conferido = false THEN
+//               IF EXISTS (
+//                   SELECT 1 FROM public.dividas_manuais d 
+//                   WHERE d.cliente_id = NEW.cliente_codigo 
+//                     AND d.vencimento = NEW.vencimento 
+//                     AND d.forma_pagamento ILIKE '%boleto%'
+//               ) THEN
+//                   NEW.conferido := true;
+//                   NEW.is_divida_manual := true;
+//               END IF;
+//           END IF;
+//           RETURN NEW;
+//       END IF;
+//   
+//       -- If inserting/updating a divida_manual
+//       IF TG_TABLE_NAME = 'dividas_manuais' THEN
+//           IF NEW.forma_pagamento ILIKE '%boleto%' THEN
+//               UPDATE public.boletos
+//               SET conferido = true, is_divida_manual = true
+//               WHERE cliente_codigo = NEW.cliente_id
+//                 AND vencimento = NEW.vencimento
+//                 AND conferido = false;
+//           END IF;
+//           RETURN NEW;
+//       END IF;
+//   
+//       RETURN NEW;
+//   END;
+//   $function$
+//   
 // FUNCTION auto_confirm_despesa()
 //   CREATE OR REPLACE FUNCTION public.auto_confirm_despesa()
 //    RETURNS trigger
@@ -4425,15 +4467,6 @@ export const Constants = {
 //   END;
 //   $function$
 //   
-// FUNCTION btrim(time without time zone)
-//   CREATE OR REPLACE FUNCTION public.btrim(t time without time zone)
-//    RETURNS text
-//    LANGUAGE sql
-//    IMMUTABLE
-//   AS $function$
-//     SELECT btrim(t::text);
-//   $function$
-//   
 // FUNCTION btrim(date)
 //   CREATE OR REPLACE FUNCTION public.btrim(d date)
 //    RETURNS text
@@ -4441,6 +4474,15 @@ export const Constants = {
 //    IMMUTABLE
 //   AS $function$
 //     SELECT btrim(d::text);
+//   $function$
+//   
+// FUNCTION btrim(time without time zone)
+//   CREATE OR REPLACE FUNCTION public.btrim(t time without time zone)
+//    RETURNS text
+//    LANGUAGE sql
+//    IMMUTABLE
+//   AS $function$
+//     SELECT btrim(t::text);
 //   $function$
 //   
 // FUNCTION bulk_update_product_codes(json)
@@ -6221,8 +6263,12 @@ export const Constants = {
 // Table: ROTA_ITEMS
 //   tr_update_x_na_rota: CREATE TRIGGER tr_update_x_na_rota BEFORE UPDATE ON public."ROTA_ITEMS" FOR EACH ROW EXECUTE FUNCTION update_x_na_rota()
 //   trg_update_x_na_rota: CREATE TRIGGER trg_update_x_na_rota BEFORE INSERT OR UPDATE ON public."ROTA_ITEMS" FOR EACH ROW EXECUTE FUNCTION update_x_na_rota()
+// Table: boletos
+//   trg_auto_conferir_boletos: CREATE TRIGGER trg_auto_conferir_boletos BEFORE INSERT OR UPDATE ON public.boletos FOR EACH ROW EXECUTE FUNCTION auto_conferir_boletos_divida()
 // Table: debitos_historico
 //   trg_sync_inativo_cobranca_debito: CREATE TRIGGER trg_sync_inativo_cobranca_debito AFTER INSERT OR DELETE OR UPDATE OF debito ON public.debitos_historico FOR EACH ROW EXECUTE FUNCTION sync_inativo_cobranca_from_debito()
+// Table: dividas_manuais
+//   trg_auto_conferir_boletos_divida: CREATE TRIGGER trg_auto_conferir_boletos_divida AFTER INSERT OR UPDATE ON public.dividas_manuais FOR EACH ROW EXECUTE FUNCTION auto_conferir_boletos_divida()
 
 // --- INDEXES ---
 // Table: BANCO_DE_DADOS
