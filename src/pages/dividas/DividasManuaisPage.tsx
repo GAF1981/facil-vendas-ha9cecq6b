@@ -187,7 +187,7 @@ export default function DividasManuaisPage() {
 
     try {
       const text = await file.text()
-      const lines = text.split('\n').filter((r) => r.trim().length > 0)
+      const lines = text.split(/\r?\n/).filter((r) => r.trim().length > 0)
 
       if (lines.length <= 1) {
         toast({
@@ -195,6 +195,19 @@ export default function DividasManuaisPage() {
           description: 'Arquivo vazio ou sem dados válidos.',
         })
         return
+      }
+
+      const firstLine = lines[0] || ''
+      const delimiterOptions = [',', ';', '\t']
+      let delimiter = ','
+      let maxCols = 0
+
+      for (const d of delimiterOptions) {
+        const cols = firstLine.split(d).length
+        if (cols > maxCols) {
+          maxCols = cols
+          delimiter = d
+        }
       }
 
       const parseCSVLine = (line: string) => {
@@ -205,7 +218,7 @@ export default function DividasManuaisPage() {
           const char = line[i]
           if (char === '"') {
             inQuotes = !inQuotes
-          } else if (char === ',' && !inQuotes) {
+          } else if (char === delimiter && !inQuotes) {
             result.push(current)
             current = ''
           } else {
