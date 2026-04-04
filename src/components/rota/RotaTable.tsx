@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   TableHeader,
@@ -109,12 +109,12 @@ export function RotaTable({
   const [acoesPedidoId, setAcoesPedidoId] = useState<number | null>(null)
   const [acoesList, setAcoesList] = useState<any[]>([])
 
-  React.useEffect(() => {
-    const debits = Array.from(new Set(rows.map((r) => r.debito)))
-      .filter((d) => d > 0)
-      .sort((a, b) => a - b)
-    setUniqueDebits(debits)
-  }, [rows, setUniqueDebits])
+  const visibleRows = useMemo(() => {
+    return rows.filter((r) => {
+      const tipo = r.client['TIPO DE CLIENTE']?.toUpperCase() || ''
+      return tipo === 'ATIVO' || tipo === 'ATIVO COMPRA'
+    })
+  }, [rows])
 
   const handleOpenAcoes = async (pedidoId: number) => {
     setAcoesPedidoId(pedidoId)
@@ -130,6 +130,13 @@ export function RotaTable({
   React.useEffect(() => {
     fetchDividas()
   }, [fetchDividas])
+
+  React.useEffect(() => {
+    const debits = Array.from(new Set(visibleRows.map((r) => r.debito)))
+      .filter((d) => d > 0)
+      .sort((a, b) => a - b)
+    setUniqueDebits(debits)
+  }, [visibleRows, setUniqueDebits])
 
   const handleOpenAlert = (row: RotaRow) => {
     setSelectedAlertRow(row)
@@ -209,7 +216,7 @@ export function RotaTable({
     await onUpdateRow(clientId, 'tarefas', task)
   }
 
-  if (loading && rows.length === 0) {
+  if (loading && visibleRows.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4 border rounded-md bg-card">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -419,14 +426,16 @@ export function RotaTable({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.length === 0 ? (
+                {visibleRows.length === 0 ? (
                   <TableRow>
                     <TableCell
                       colSpan={colSpanCount}
                       className="h-32 text-center text-muted-foreground"
                     >
                       <div className="flex flex-col items-center justify-center gap-2">
-                        <p className="font-medium">Nenhum cliente encontrado</p>
+                        <p className="font-medium">
+                          Nenhum cliente ativo encontrado
+                        </p>
                         <p className="text-xs">
                           Tente ajustar os filtros de busca.
                         </p>
@@ -434,7 +443,7 @@ export function RotaTable({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  rows.map((row) => {
+                  visibleRows.map((row) => {
                     let rowClass =
                       'hover:bg-muted/30 transition-colors border-b text-xs'
                     let textClass = ''
@@ -763,8 +772,10 @@ export function RotaTable({
 
                         <TableCell
                           className={cn(
-                            'text-right font-bold text-black dark:text-white',
-                            textClass,
+                            'text-right font-bold',
+                            row.is_completed || row.x_na_rota > 3
+                              ? 'text-white'
+                              : 'text-black dark:text-white',
                           )}
                         >
                           {row.projecao

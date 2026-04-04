@@ -99,6 +99,30 @@ export function RotaFilters({
     setIsGerencialActive(isGerencialActive)
   }, [isGerencialActive, setIsGerencialActive])
 
+  React.useEffect(() => {
+    const hideAlerts = () => {
+      const alerts = document.querySelectorAll('[role="alert"]')
+      alerts.forEach((alert) => {
+        const text = alert.textContent?.toLowerCase() || ''
+        if (
+          text.includes('pendência de fechamento') ||
+          text.includes('pendencia de fechamento') ||
+          text.includes('pendência de confirmação') ||
+          text.includes('pendencia de confirmação') ||
+          text.includes('pendências de confirmação') ||
+          text.includes('pendências de fechamento')
+        ) {
+          ;(alert as HTMLElement).style.display = 'none'
+        }
+      })
+    }
+
+    hideAlerts()
+    const observer = new MutationObserver(hideAlerts)
+    observer.observe(document.body, { childList: true, subtree: true })
+    return () => observer.disconnect()
+  }, [])
+
   const handleDebitoChange = (val: string) => {
     if (val === 'todos') {
       setFilters({ ...filters, debito_min: '', debito_max: '' })

@@ -596,6 +596,16 @@ export default function CaixaPage() {
             </Button>
           </div>
           <Button
+            asChild
+            variant="outline"
+            className="border-indigo-600 text-indigo-600 hover:bg-indigo-50 flex-1 sm:flex-none bg-white"
+          >
+            <Link to="/quitar-divida">
+              <Banknote className="mr-2 h-4 w-4" />
+              Quitar Dívida
+            </Link>
+          </Button>
+          <Button
             onClick={handleOpenGeneralExpense}
             className="bg-blue-600 hover:bg-blue-700 flex-1 sm:flex-none"
           >

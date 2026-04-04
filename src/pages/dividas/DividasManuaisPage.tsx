@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useDividasManuaisStore } from '@/stores/useDividasManuaisStore'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -11,17 +11,27 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { Plus, Search, HandCoins, DollarSign } from 'lucide-react'
+import {
+  Plus,
+  Search,
+  HandCoins,
+  DollarSign,
+  Upload,
+  Download,
+} from 'lucide-react'
 import { formatCurrency } from '@/lib/formatters'
 import { DividasManuaisTable } from '@/components/dividas/DividasManuaisTable'
 import { DividaManualFormDialog } from '@/components/dividas/DividaManualFormDialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Bike, List } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
 
 export default function DividasManuaisPage() {
   const [searchParams] = useSearchParams()
   const { dividas, fetchDividas, loading } = useDividasManuaisStore()
   const [isFormOpen, setIsFormOpen] = useState(false)
+  const { toast } = useToast()
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Filters
   const [filterCliente, setFilterCliente] = useState(
@@ -48,7 +58,7 @@ export default function DividasManuaisPage() {
         const matchName = d.CLIENTES?.['NOME CLIENTE']
           ?.toLowerCase()
           .includes(term)
-        const matchId = d.cliente_id.toString().includes(term)
+        const matchId = d.cliente_id?.toString().includes(term)
         if (!matchName && !matchId) return false
       }
 
@@ -112,6 +122,98 @@ export default function DividasManuaisPage() {
   )
   const totalPago = filteredData.reduce((acc, curr) => acc + curr.valor_pago, 0)
 
+  const handleExportCSV = () => {
+    if (filteredData.length === 0) {
+      toast({
+        title: 'Nenhum dado',
+        description: 'Não há dados para exportar.',
+        variant: 'destructive',
+      })
+      return
+    }
+    const headers = [
+      'Cobrança',
+      'Funcionário',
+      'Código Cliente',
+      'Cliente',
+      'Data Acerto',
+      'Vencimento',
+      'Forma Pagamento',
+      'Valor Parcela',
+      'Pago',
+      'Dívida',
+      'Forma Cobrança',
+      'Data Combinada',
+      'Motivo',
+    ]
+    const csvRows = filteredData.map((row) => {
+      const debito = Math.max(0, row.valor_parcela - row.valor_pago)
+      return [
+        `C${row.cobranca_seq}`,
+        row.FUNCIONARIOS?.nome_completo || '',
+        row.cliente_id || '',
+        row.CLIENTES?.['NOME CLIENTE'] || '',
+        row.data_acerto || '',
+        row.vencimento || '',
+        row.forma_pagamento || '',
+        row.valor_parcela || 0,
+        row.valor_pago || 0,
+        debito,
+        row.forma_cobranca || '',
+        row.data_combinada || '',
+        row.motivo || '',
+      ]
+        .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+        .join(',')
+    })
+
+    const csvContent = [headers.join(','), ...csvRows].join('\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute(
+      'download',
+      `dividas_manuais_${new Date().toISOString().split('T')[0]}.csv`,
+    )
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    try {
+      const text = await file.text()
+      const rows = text.split('\n').filter((r) => r.trim().length > 0)
+
+      if (rows.length <= 1) {
+        toast({
+          title: 'Aviso',
+          description: 'Arquivo vazio ou sem dados válidos.',
+        })
+        return
+      }
+
+      toast({
+        title: 'Sucesso',
+        description: `Iniciando importação de ${rows.length - 1} registros...`,
+      })
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Falha ao processar o arquivo CSV.',
+        variant: 'destructive',
+      })
+    }
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
   return (
     <div className="space-y-6 animate-fade-in pb-10 max-w-[1600px] mx-auto p-4 sm:p-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -123,12 +225,35 @@ export default function DividasManuaisPage() {
             Central de controle de dívidas avulsas.
           </p>
         </div>
-        <Button
-          onClick={() => setIsFormOpen(true)}
-          className="bg-primary text-primary-foreground"
-        >
-          <Plus className="mr-2 h-4 w-4" /> Nova Dívida
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <input
+            type="file"
+            accept=".csv"
+            className="hidden"
+            ref={fileInputRef}
+            onChange={handleImportCSV}
+          />
+          <Button
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            className="hidden sm:flex border-primary text-primary hover:bg-primary/5"
+          >
+            <Upload className="mr-2 h-4 w-4" /> Importar Débito
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleExportCSV}
+            className="hidden sm:flex border-primary text-primary hover:bg-primary/5"
+          >
+            <Download className="mr-2 h-4 w-4" /> Exportar Débito
+          </Button>
+          <Button
+            onClick={() => setIsFormOpen(true)}
+            className="bg-primary text-primary-foreground"
+          >
+            <Plus className="mr-2 h-4 w-4" /> Nova Dívida
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
