@@ -4,7 +4,7 @@ import { DividasManuaisTable } from '@/components/dividas/DividasManuaisTable'
 import { useDividasManuaisStore } from '@/stores/useDividasManuaisStore'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { RotateCcw, FilterX } from 'lucide-react'
+import { RotateCcw, FilterX, Plus } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { formatCurrency } from '@/lib/formatters'
+import { NovaDividaModal } from '@/components/dividas/NovaDividaModal'
 
 export default function DividasManuaisPage() {
   const [searchParams] = useSearchParams()
@@ -25,6 +26,7 @@ export default function DividasManuaisPage() {
   const [filterValorParcela, setFilterValorParcela] = useState('todos')
   const [filterFormaCobranca, setFilterFormaCobranca] = useState('todos')
   const [filterDataCombinada, setFilterDataCombinada] = useState('')
+  const [isNovaDividaOpen, setIsNovaDividaOpen] = useState(false)
 
   useEffect(() => {
     fetchDividas()
@@ -93,6 +95,13 @@ export default function DividasManuaisPage() {
             Gerencie dívidas manuais e acompanhe boletos conferidos.
           </p>
         </div>
+        <Button
+          onClick={() => setIsNovaDividaOpen(true)}
+          className="w-full sm:w-auto"
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Nova Dívida
+        </Button>
       </div>
 
       <div className="flex flex-col gap-4 bg-muted/20 p-4 rounded-lg border">
@@ -194,6 +203,12 @@ export default function DividasManuaisPage() {
       </div>
 
       <DividasManuaisTable data={filtered} loading={loading} />
+
+      <NovaDividaModal
+        open={isNovaDividaOpen}
+        onOpenChange={setIsNovaDividaOpen}
+        onSuccess={fetchDividas}
+      />
     </div>
   )
 }
