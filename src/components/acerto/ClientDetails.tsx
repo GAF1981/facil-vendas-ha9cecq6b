@@ -237,7 +237,21 @@ export function ClientDetails({
       <Dialog open={infoDialogOpen} onOpenChange={setInfoDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Informações do Cliente</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              Informações do Cliente
+              {client['TIPO DE CLIENTE'] && (
+                <Badge
+                  variant={
+                    client['TIPO DE CLIENTE'] === 'ATIVO'
+                      ? 'default'
+                      : 'secondary'
+                  }
+                  className="text-xs"
+                >
+                  {client['TIPO DE CLIENTE']}
+                </Badge>
+              )}
+            </DialogTitle>
           </DialogHeader>
           <div className="py-4 space-y-6">
             {/* Observações Gerais */}

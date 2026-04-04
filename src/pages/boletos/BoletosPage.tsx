@@ -1,128 +1,36 @@
-import { useState, useEffect, useMemo } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
+import { useState, useEffect } from 'react'
+import { boletoService } from '@/services/boletoService'
+import { Boleto } from '@/types/boleto'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  Barcode,
-  Plus,
-  Search,
-  Loader2,
-  Download,
-  AlertCircle,
-  RefreshCw,
-} from 'lucide-react'
-import { Boleto, BoletoWithConferido } from '@/types/boleto'
-import { boletoService } from '@/services/boletoService'
-import { cobrancaService } from '@/services/cobrancaService'
 import { useToast } from '@/hooks/use-toast'
-import { BoletoCard } from '@/components/boletos/BoletoCard'
-import { BoletoFormDialog } from '@/components/boletos/BoletoFormDialog'
-import { BoletoImportDialog } from '@/components/boletos/BoletoImportDialog'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-
-interface FlatDebt {
-  cliente_codigo: number
-  vencimento: string | null
-  debito: number
-}
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
+import { formatCurrency, safeFormatDate } from '@/lib/formatters'
+import { cn } from '@/lib/utils'
+import { Upload, RotateCcw, Download } from 'lucide-react'
 
 export default function BoletosPage() {
-  const [loading, setLoading] = useState(true)
   const [boletos, setBoletos] = useState<Boleto[]>([])
-  const [flatDebts, setFlatDebts] = useState<FlatDebt[]>([])
-  const [searchTerm, setSearchTerm] = useState('')
-  const [conferidoFilter, setConferidoFilter] = useState<
-    'SIM' | 'NÃO' | 'VAZIO'
-  >('NÃO')
-
-  // Dialogs
-  const [isFormOpen, setIsFormOpen] = useState(false)
-  const [editingBoleto, setEditingBoleto] = useState<Boleto | null>(null)
-  const [deleteId, setDeleteId] = useState<number | null>(null)
-
+  const [loading, setLoading] = useState(true)
   const { toast } = useToast()
 
   const loadData = async () => {
     setLoading(true)
     try {
-      const [fetchedBoletos, allDebts] = await Promise.all([
-        boletoService.getAll(),
-        cobrancaService.getDebts(),
-      ])
-
-      // Flatten debts to easily match conditions
-      const flattened = allDebts.flatMap((client) =>
-        client.orders.flatMap((order) =>
-          order.installments.map((inst) => {
-            const debito = Math.max(0, inst.valorRegistrado - inst.valorPago)
-            const vencimento = inst.vencimento
-              ? inst.vencimento.substring(0, 10)
-              : null
-            return {
-              cliente_codigo: client.clientId,
-              vencimento,
-              debito,
-            }
-          }),
-        ),
-      )
-
-      const boletosToUpdate: number[] = []
-
-      const finalBoletos = fetchedBoletos.map((boleto) => {
-        if (!boleto.conferido) {
-          const bDate = boleto.vencimento
-            ? boleto.vencimento.substring(0, 10)
-            : null
-
-          // Automatic Matching Logic
-          const isMatch = flattened.some(
-            (debt) =>
-              debt.cliente_codigo === boleto.cliente_codigo &&
-              debt.vencimento === bDate &&
-              Math.abs(debt.debito - boleto.valor) < 0.01,
-          )
-
-          if (isMatch) {
-            boletosToUpdate.push(boleto.id)
-            return { ...boleto, conferido: true }
-          }
-        }
-        return boleto
-      })
-
-      setBoletos(finalBoletos)
-      setFlatDebts(flattened)
-
-      // Persist automatic matches in background
-      if (boletosToUpdate.length > 0) {
-        Promise.all(
-          boletosToUpdate.map((id) =>
-            boletoService.update(id, { conferido: true }),
-          ),
-        ).catch((err) => console.error('Failed to update conferido:', err))
-      }
-    } catch (error) {
-      console.error('Error fetching boletos data:', error)
+      const data = await boletoService.getAll()
+      setBoletos(data)
+    } catch (e) {
       toast({
         title: 'Erro',
-        description: 'Não foi possível carregar os dados.',
+        description: 'Falha ao carregar boletos.',
         variant: 'destructive',
       })
     } finally {
@@ -134,213 +42,167 @@ export default function BoletosPage() {
     loadData()
   }, [])
 
-  const handleRevert = async (id: number) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setLoading(true)
     try {
-      await boletoService.update(id, { conferido: false })
-      setBoletos((prev) =>
-        prev.map((b) => (b.id === id ? { ...b, conferido: false } : b)),
-      )
-      toast({
-        title: 'Boleto Revertido',
-        description: 'O status foi alterado para NÃO conferido.',
-      })
-    } catch (error) {
+      const parsed = await boletoService.parseCSV(file)
+      const res = await boletoService.importBoletos(parsed)
+      if (res.success) {
+        toast({
+          title: 'Sucesso',
+          description: res.message,
+          className: 'bg-green-600 text-white',
+        })
+        await loadData()
+      } else {
+        toast({
+          title: 'Aviso',
+          description: res.message,
+          variant: 'destructive',
+        })
+      }
+    } catch {
       toast({
         title: 'Erro',
-        description: 'Falha ao reverter status do boleto.',
-        variant: 'destructive',
-      })
-    }
-  }
-
-  const boletosWithConferido: BoletoWithConferido[] = useMemo(() => {
-    return boletos.map((boleto) => ({
-      ...boleto,
-      conferido: boleto.conferido ? 'SIM' : 'NÃO',
-      originalConferido: boleto.conferido,
-    }))
-  }, [boletos])
-
-  const filteredBoletos = useMemo(() => {
-    let filtered = boletosWithConferido
-
-    if (conferidoFilter !== 'VAZIO') {
-      filtered = filtered.filter((b) => b.conferido === conferidoFilter)
-    }
-
-    if (searchTerm.trim()) {
-      const lower = searchTerm.toLowerCase()
-      filtered = filtered.filter(
-        (b) =>
-          b.cliente_nome.toLowerCase().includes(lower) ||
-          b.cliente_codigo.toString().includes(lower) ||
-          (b.pedido_id && b.pedido_id.toString().includes(lower)),
-      )
-    }
-
-    return filtered
-  }, [searchTerm, conferidoFilter, boletosWithConferido])
-
-  const handleEdit = (boleto: Boleto) => {
-    setEditingBoleto(boleto)
-    setIsFormOpen(true)
-  }
-
-  const handleDelete = async () => {
-    if (!deleteId) return
-    try {
-      await boletoService.delete(deleteId)
-      toast({ title: 'Sucesso', description: 'Boleto excluído.' })
-      loadData()
-    } catch (error) {
-      toast({
-        title: 'Erro',
-        description: 'Falha ao excluir.',
+        description: 'Falha ao importar o arquivo CSV.',
         variant: 'destructive',
       })
     } finally {
-      setDeleteId(null)
+      if (e.target) e.target.value = ''
+      setLoading(false)
     }
   }
 
   const handleExport = () => {
-    boletoService.generateCSV(filteredBoletos)
-    toast({
-      title: 'Exportação Concluída',
-      description: 'O download iniciará em breve.',
-    })
+    if (boletos.length === 0) return
+    boletoService.generateCSV(
+      boletos.map((b) => ({
+        ...b,
+        conferido: b.conferido ? 'SIM' : 'NÃO',
+        originalConferido: b.conferido,
+      })),
+    )
   }
 
   return (
-    <div className="space-y-6 animate-fade-in p-4 sm:p-6 pb-20 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 space-y-6 animate-fade-in pb-20">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Barcode className="h-8 w-8 text-primary" />
+          <h1 className="text-3xl font-bold tracking-tight">
             Gestão de Boletos
           </h1>
-          <p className="text-muted-foreground">
-            Acompanhamento e conferência automatizada de boletos.
+          <p className="text-muted-foreground mt-1">
+            Gerencie a importação e o status dos boletos.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <BoletoImportDialog onSuccess={loadData} />
+        <div className="flex flex-wrap gap-2 items-center">
+          <div className="relative">
+            <Input
+              type="file"
+              accept=".csv"
+              onChange={handleFileUpload}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              disabled={loading}
+            />
+            <Button variant="outline" disabled={loading}>
+              <Upload className="mr-2 h-4 w-4" /> Importar CSV
+            </Button>
+          </div>
           <Button
-            variant="outline"
             onClick={handleExport}
-            disabled={filteredBoletos.length === 0}
+            variant="secondary"
+            disabled={loading || boletos.length === 0}
           >
-            <Download className="mr-2 h-4 w-4" /> Exportar CSV
+            <Download className="mr-2 h-4 w-4" /> Exportar
           </Button>
-          <Button
-            onClick={() => {
-              setEditingBoleto(null)
-              setIsFormOpen(true)
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" /> Novo Boleto
+          <Button onClick={loadData} disabled={loading}>
+            <RotateCcw
+              className={cn('mr-2 h-4 w-4', loading && 'animate-spin')}
+            />
+            Atualizar
           </Button>
         </div>
       </div>
 
-      <Card>
-        <CardContent className="p-4 flex flex-col md:flex-row gap-4">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por cliente, código ou pedido..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-
-          <div className="w-full md:w-56">
-            <Select
-              value={conferidoFilter}
-              onValueChange={(val: any) => setConferidoFilter(val)}
-            >
-              <SelectTrigger>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  Filtro Conferido:{' '}
-                  <span className="font-medium text-foreground">
-                    {conferidoFilter === 'VAZIO' ? 'Todos' : conferidoFilter}
-                  </span>
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="VAZIO">Todos</SelectItem>
-                <SelectItem value="SIM">SIM</SelectItem>
-                <SelectItem value="NÃO">NÃO</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={loadData}
-            disabled={loading}
-            title="Atualizar Dados"
-          >
-            <RefreshCw className={loading ? 'animate-spin' : ''} />
-          </Button>
-        </CardContent>
-      </Card>
-
-      {loading ? (
-        <div className="flex justify-center p-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="border rounded-md bg-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader className="bg-muted/50">
+              <TableRow>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Código</TableHead>
+                <TableHead>Vencimento</TableHead>
+                <TableHead className="text-right">Valor</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-center">Conferido</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading && boletos.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-24 text-center">
+                    Carregando...
+                  </TableCell>
+                </TableRow>
+              ) : boletos.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-24 text-center">
+                    Nenhum boleto encontrado.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                boletos.map((b) => (
+                  <TableRow
+                    key={b.id}
+                    className={cn(
+                      'hover:bg-muted/50',
+                      b.is_divida_manual &&
+                        'border-l-4 border-l-blue-500 bg-blue-50/30 dark:bg-blue-900/10',
+                    )}
+                  >
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {b.cliente_nome}
+                        {b.is_divida_manual && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] border-blue-200 text-blue-700 bg-blue-50"
+                          >
+                            Dívida Manual
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {b.cliente_codigo}
+                    </TableCell>
+                    <TableCell>
+                      {safeFormatDate(b.vencimento, 'dd/MM/yyyy')}
+                    </TableCell>
+                    <TableCell className="text-right font-mono font-medium">
+                      R$ {formatCurrency(b.valor)}
+                    </TableCell>
+                    <TableCell>{b.status}</TableCell>
+                    <TableCell className="text-center">
+                      <Badge
+                        variant={b.conferido ? 'default' : 'destructive'}
+                        className={cn(
+                          b.conferido &&
+                            'bg-green-600 hover:bg-green-700 text-white',
+                        )}
+                      >
+                        {b.conferido ? 'SIM' : 'NÃO'}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
-      ) : filteredBoletos.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-lg bg-muted/10 text-center">
-          <AlertCircle className="h-10 w-10 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold">Nenhum boleto encontrado</h3>
-          <p className="text-muted-foreground">
-            Verifique os filtros ou cadastre um novo boleto.
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredBoletos.map((boleto) => (
-            <BoletoCard
-              key={boleto.id}
-              boleto={boleto}
-              onEdit={handleEdit}
-              onDelete={setDeleteId}
-              onRevert={handleRevert}
-            />
-          ))}
-        </div>
-      )}
-
-      <BoletoFormDialog
-        isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
-        onSuccess={loadData}
-        initialData={editingBoleto}
-      />
-
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-            <AlertDialogDescription>
-              Deseja realmente excluir este boleto? Esta ação não pode ser
-              desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive hover:bg-destructive/90"
-            >
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      </div>
     </div>
   )
 }

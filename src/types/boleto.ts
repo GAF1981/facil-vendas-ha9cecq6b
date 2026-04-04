@@ -8,9 +8,13 @@ export interface Boleto {
   pedido_id?: number | null
   created_at?: string
   conferido: boolean
+  is_divida_manual?: boolean
 }
 
-export type BoletoInsert = Omit<Boleto, 'id' | 'created_at' | 'conferido'> & {
+export type BoletoInsert = Omit<
+  Boleto,
+  'id' | 'created_at' | 'conferido' | 'is_divida_manual'
+> & {
   conferido?: boolean
 }
 export type BoletoUpdate = Partial<BoletoInsert>

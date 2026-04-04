@@ -54,6 +54,17 @@ export function DividasManuaisTable({
   const [editingDebt, setEditingDebt] = useState<DividaManual | null>(null)
   const [actionsDebt, setActionsDebt] = useState<DividaManual | null>(null)
   const [counts, setCounts] = useState<Record<number, number>>({})
+  const [boletos, setBoletos] = useState<any[]>([])
+
+  useEffect(() => {
+    const fetchBoletos = async () => {
+      const { data: b } = await supabase
+        .from('boletos')
+        .select('cliente_codigo, vencimento, conferido')
+      if (b) setBoletos(b)
+    }
+    fetchBoletos()
+  }, [data])
 
   const topScrollRef = useRef<HTMLDivElement>(null)
   const bottomScrollRef = useRef<HTMLDivElement>(null)
@@ -181,6 +192,9 @@ export function DividasManuaisTable({
                 <TableHead className="text-xs">Funcionário</TableHead>
                 <TableHead className="text-xs">Código</TableHead>
                 <TableHead className="text-xs min-w-[150px]">Cliente</TableHead>
+                <TableHead className="text-xs min-w-[120px]">
+                  Tipo Cliente
+                </TableHead>
                 <TableHead className="text-xs text-center">Contador</TableHead>
                 <TableHead className="text-xs text-center">
                   Rota Motoq.
@@ -255,6 +269,20 @@ export function DividasManuaisTable({
                     row.CLIENTES?.['FONE 1'] ||
                     ''
 
+                  const isBoleto = row.forma_pagamento
+                    ?.toUpperCase()
+                    .includes('BOLETO')
+                  const matchingBoleto = isBoleto
+                    ? boletos.find(
+                        (b) =>
+                          b.cliente_codigo === row.cliente_id &&
+                          b.vencimento === row.vencimento,
+                      )
+                    : null
+                  const boletoStatus = matchingBoleto?.conferido
+                    ? 'Boleto conferido'
+                    : 'Boleto a conferir'
+
                   return (
                     <TableRow
                       key={row.id}
@@ -317,6 +345,9 @@ export function DividasManuaisTable({
                           </Popover>
                         </div>
                       </TableCell>
+                      <TableCell className="text-xs font-medium">
+                        {row.CLIENTES?.['TIPO DE CLIENTE'] || '-'}
+                      </TableCell>
                       <TableCell className="text-center font-mono text-xs font-semibold text-muted-foreground">
                         {counts[row.id] || 0}
                       </TableCell>
@@ -331,7 +362,28 @@ export function DividasManuaisTable({
                       </TableCell>
                       <TableCell>{safeFormatDate(row.data_acerto)}</TableCell>
                       <TableCell>{safeFormatDate(row.vencimento)}</TableCell>
-                      <TableCell>{row.forma_pagamento}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <span>{row.forma_pagamento}</span>
+                          {isBoleto && (
+                            <Badge
+                              variant={
+                                matchingBoleto?.conferido
+                                  ? 'default'
+                                  : 'destructive'
+                              }
+                              className={cn(
+                                'text-[9px] px-1 py-0 uppercase max-w-max border-transparent',
+                                matchingBoleto?.conferido
+                                  ? 'bg-green-600 hover:bg-green-700 text-white'
+                                  : 'bg-red-600 hover:bg-red-700 text-white',
+                              )}
+                            >
+                              {boletoStatus}
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-right font-mono">
                         {formatCurrency(row.valor_parcela)}
                       </TableCell>

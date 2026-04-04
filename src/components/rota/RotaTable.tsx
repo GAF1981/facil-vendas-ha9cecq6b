@@ -13,6 +13,11 @@ import { Employee } from '@/types/employee'
 import { formatCurrency, safeFormatDate } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -634,21 +639,44 @@ export function RotaTable({
                                 d.cliente_id === row.client.CODIGO &&
                                 d.valor_parcela > d.valor_pago,
                             ).length > 0 && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full shrink-0 ml-1"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setDividaModalClient({
-                                    id: row.client.CODIGO,
-                                    name: row.client['NOME CLIENTE'] || '',
-                                  })
-                                }}
-                                title="Dívida Manual Pendente"
-                              >
-                                <CircleDollarSign className="h-4 w-4" />
-                              </Button>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full shrink-0 ml-1"
+                                    onClick={(e) => e.stopPropagation()}
+                                    title="Dívida Manual Pendente"
+                                  >
+                                    <CircleDollarSign className="h-4 w-4 animate-pulse" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent
+                                  className="w-64 p-3 shadow-md"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <div className="space-y-3">
+                                    <p className="text-sm font-semibold text-red-700">
+                                      Dívida Identificada
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      Este cliente possui dívidas manuais
+                                      pendentes.
+                                    </p>
+                                    <Button
+                                      size="sm"
+                                      className="w-full text-xs bg-red-600 hover:bg-red-700"
+                                      onClick={() =>
+                                        navigate(
+                                          `/dividas-manuais?cliente=${row.client.CODIGO}`,
+                                        )
+                                      }
+                                    >
+                                      Ir para a Dívida
+                                    </Button>
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
                             )}
                           </div>
                         </TableCell>
