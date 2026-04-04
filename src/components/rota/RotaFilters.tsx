@@ -9,6 +9,9 @@ import {
 import { Label } from '@/components/ui/label'
 import { RotaFilterState } from '@/types/rota'
 import { Employee } from '@/types/employee'
+import { formatCurrency } from '@/lib/formatters'
+import { useRotaFilterStore } from '@/stores/useRotaFilterStore'
+import React from 'react'
 import { Button } from '@/components/ui/button'
 import { Eraser, Search, Check, ChevronsUpDown, Star } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -89,6 +92,31 @@ export function RotaFilters({
       prioridade_apenas: false,
     })
   }
+
+  const { setIsGerencialActive, uniqueDebits } = useRotaFilterStore()
+
+  React.useEffect(() => {
+    setIsGerencialActive(isGerencialActive)
+  }, [isGerencialActive, setIsGerencialActive])
+
+  const handleDebitoChange = (val: string) => {
+    if (val === 'todos') {
+      setFilters({ ...filters, debito_min: '', debito_max: '' })
+    } else if (val === '0') {
+      setFilters({ ...filters, debito_min: '', debito_max: '0' })
+    } else if (val === '>0') {
+      setFilters({ ...filters, debito_min: '0.01', debito_max: '' })
+    } else {
+      setFilters({ ...filters, debito_min: val, debito_max: val })
+    }
+  }
+
+  let currentDebito = 'todos'
+  if (filters.debito_max === '0') currentDebito = '0'
+  else if (filters.debito_min === '0.01' && !filters.debito_max)
+    currentDebito = '>0'
+  else if (filters.debito_min && filters.debito_min === filters.debito_max)
+    currentDebito = filters.debito_min
 
   const toggleSeller = (sellerId: string) => {
     const current = filters.vendedor
@@ -416,6 +444,28 @@ export function RotaFilters({
                     {municipios.map((m) => (
                       <SelectItem key={m} value={m}>
                         {m}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Valor a Pagar (Débito) */}
+              <div className="w-[130px]">
+                <Select
+                  value={currentDebito}
+                  onValueChange={handleDebitoChange}
+                >
+                  <SelectTrigger className="h-8 text-xs px-2">
+                    <SelectValue placeholder="Valor a Pagar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Valor: Todos</SelectItem>
+                    <SelectItem value="0">Valor: R$ 0,00</SelectItem>
+                    <SelectItem value=">0">Com Débito</SelectItem>
+                    {uniqueDebits.map((d) => (
+                      <SelectItem key={d} value={d.toString()}>
+                        R$ {formatCurrency(d)}
                       </SelectItem>
                     ))}
                   </SelectContent>

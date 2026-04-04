@@ -56,7 +56,9 @@ import {
 import { AcertoHistoryTable } from '@/components/acerto/AcertoHistoryTable'
 import { useDividasManuaisStore } from '@/stores/useDividasManuaisStore'
 import { DividaManualModal } from '@/components/dividas/DividaManualModal'
-import { CircleDollarSign } from 'lucide-react'
+import { CircleDollarSign, FileText } from 'lucide-react'
+import { useRotaFilterStore } from '@/stores/useRotaFilterStore'
+import { supabase } from '@/lib/supabase/client'
 
 interface RotaTableProps {
   rows: RotaRow[]
@@ -100,6 +102,28 @@ export function RotaTable({
     id: number
     name: string
   } | null>(null)
+
+  const { isGerencialActive, setUniqueDebits } = useRotaFilterStore()
+
+  const [acoesDialogOpen, setAcoesDialogOpen] = useState(false)
+  const [acoesPedidoId, setAcoesPedidoId] = useState<number | null>(null)
+  const [acoesList, setAcoesList] = useState<any[]>([])
+
+  React.useEffect(() => {
+    const debits = Array.from(new Set(rows.map(r => r.debito))).filter(d => d > 0).sort((a, b) => a - b)
+    setUniqueDebits(debits)
+  }, [rows, setUniqueDebits])
+
+  const handleOpenAcoes = async (pedidoId: number) => {
+    setAcoesPedidoId(pedidoId)
+    setAcoesDialogOpen(true)
+    const { data } = await supabase
+      .from('acoes_cobranca')
+      .select('*')
+      .eq('pedido_id', pedidoId)
+      .order('data_acao', { ascending: false })
+    setAcoesList(data || [])
+  }
 
   React.useEffect(() => {
     fetchDividas()
@@ -194,7 +218,7 @@ export function RotaTable({
 
   const today = new Date()
 
-  const colSpanCount = 22 - (isSelectionMode ? 7 : 0)
+  const colSpanCount = (isGerencialActive ? 22 : 21) - (isSelectionMode ? 7 : 0)
 
   return (
     <>
@@ -263,46 +287,48 @@ export function RotaTable({
                     className="min-w-[140px] font-bold text-xs"
                   />
 
-                  <TableHead className="min-w-[200px] font-bold text-xs bg-muted/30">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate">Próxima</span>
-                      <div className="flex items-center gap-1">
-                        {onBulkFill && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5 text-blue-600 hover:bg-blue-100 hover:text-blue-800"
-                            onClick={onBulkFill}
-                            title="Preencher Todos"
-                          >
-                            <Users className="h-3 w-3" />
-                          </Button>
-                        )}
-                        {onBulkTransfer && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5 text-purple-600 hover:bg-purple-100 hover:text-purple-800"
-                            onClick={onBulkTransfer}
-                            title="Transferir Todos (Batch)"
-                          >
-                            <ArrowRightLeft className="h-3 w-3" />
-                          </Button>
-                        )}
-                        {onBulkClear && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5 text-red-400 hover:bg-red-100 hover:text-red-600"
-                            onClick={onBulkClear}
-                            title="Limpar Todos (Batch)"
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        )}
+                  {isGerencialActive && (
+                    <TableHead className="min-w-[200px] font-bold text-xs bg-muted/30">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate">Próxima</span>
+                        <div className="flex items-center gap-1">
+                          {onBulkFill && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5 text-blue-600 hover:bg-blue-100 hover:text-blue-800"
+                              onClick={onBulkFill}
+                              title="Preencher Todos"
+                            >
+                              <Users className="h-3 w-3" />
+                            </Button>
+                          )}
+                          {onBulkTransfer && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5 text-purple-600 hover:bg-purple-100 hover:text-purple-800"
+                              onClick={onBulkTransfer}
+                              title="Transferir Todos (Batch)"
+                            >
+                              <ArrowRightLeft className="h-3 w-3" />
+                            </Button>
+                          )}
+                          {onBulkClear && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5 text-red-400 hover:bg-red-100 hover:text-red-600"
+                              onClick={onBulkClear}
+                              title="Limpar Todos (Batch)"
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </TableHead>
+                    </TableHead>
+                  )}
 
                   <SortableHeader
                     column="grupo_rota"
@@ -667,29 +693,45 @@ export function RotaTable({
                         <TableCell className="text-center text-[10px]">
                           {row.debito > 0 && row.vencimento_cobranca ? (
                             <div className="flex flex-col items-center">
-                              <span
-                                className={cn('font-semibold', {
-                                  'text-red-600':
-                                    row.vencimento_status === 'VENCIDO' &&
-                                    !row.is_completed &&
-                                    row.x_na_rota <= 3,
-                                  'text-green-600':
-                                    row.vencimento_status === 'A VENCER' &&
-                                    !row.is_completed &&
-                                    row.x_na_rota <= 3,
-                                  'text-white':
-                                    row.is_completed || row.x_na_rota > 3,
-                                  'text-red-900':
-                                    row.vencimento_status === 'VENCIDO' &&
-                                    !row.is_completed &&
-                                    row.x_na_rota <= 3,
-                                })}
-                              >
-                                {safeFormatDate(
-                                  row.vencimento_cobranca,
-                                  'dd/MM/yy',
+                              <div className="flex items-center gap-1">
+                                <span
+                                  className={cn('font-semibold', {
+                                    'text-red-600':
+                                      row.vencimento_status === 'VENCIDO' &&
+                                      !row.is_completed &&
+                                      row.x_na_rota <= 3,
+                                    'text-green-600':
+                                      row.vencimento_status === 'A VENCER' &&
+                                      !row.is_completed &&
+                                      row.x_na_rota <= 3,
+                                    'text-white':
+                                      row.is_completed || row.x_na_rota > 3,
+                                    'text-red-900':
+                                      row.vencimento_status === 'VENCIDO' &&
+                                      !row.is_completed &&
+                                      row.x_na_rota <= 3,
+                                  })}
+                                >
+                                  {safeFormatDate(
+                                    row.vencimento_cobranca,
+                                    'dd/MM/yy',
+                                  )}
+                                </span>
+                                {row.numero_pedido && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-4 w-4 hover:bg-muted"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleOpenAcoes(row.numero_pedido!)
+                                    }}
+                                    title="Ver Ações de Cobrança"
+                                  >
+                                    <FileText className="h-3 w-3 text-muted-foreground" />
+                                  </Button>
                                 )}
-                              </span>
+                              </div>
                               <span
                                 className={cn(
                                   'text-[9px] font-bold uppercase',
@@ -719,8 +761,8 @@ export function RotaTable({
 
                         <TableCell
                           className={cn(
-                            'text-right',
-                            textClass || 'text-muted-foreground',
+                            'text-right font-bold text-black dark:text-white',
+                            textClass,
                           )}
                         >
                           {row.projecao
@@ -769,9 +811,97 @@ export function RotaTable({
                           </Select>
                         </TableCell>
 
-                        <TableCell className="bg-muted/10 p-1">
-                          <div className="flex items-center gap-1">
-                            <Select
+                        {isGerencialActive && (
+                          <TableCell className="bg-muted/10 p-1">
+                            <div className="flex items-center gap-1">
+                              <Select
+                                disabled={disabled}
+                                value={
+                                  row.proximo_vendedor_id?.toString() || 'none'
+                                }
+                                onValueChange={(val) =>
+                                  onUpdateRow(
+                                    row.client.CODIGO,
+                                    'proximo_vendedor_id',
+                                    val === 'none' ? null : parseInt(val),
+                                  )
+                                }
+                              >
+                                <SelectTrigger
+                                  className={cn(
+                                    'h-7 w-full text-xs truncate border-dashed flex-1',
+                                    row.proximo_vendedor_id
+                                      ? 'font-medium text-purple-600 bg-purple-50 border-purple-200'
+                                      : 'text-muted-foreground/70',
+                                    row.is_completed || row.x_na_rota > 3
+                                      ? 'bg-white/10 border-white/30 text-white/90 placeholder:text-white/50'
+                                      : '',
+                                  )}
+                                >
+                                  <SelectValue placeholder="Próximo..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem
+                                    value="none"
+                                    className="text-muted-foreground"
+                                  >
+                                    Manter Atual
+                                  </SelectItem>
+                                  {sellers.map((s) => (
+                                    <SelectItem
+                                      key={s.id}
+                                      value={s.id.toString()}
+                                    >
+                                      {s.nome_completo}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {row.proximo_vendedor_id && (
+                                <div className="flex items-center gap-0.5">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={cn(
+                                      'h-6 w-6',
+                                      row.is_completed || row.x_na_rota > 3
+                                        ? 'text-white/70 hover:bg-white/20 hover:text-white'
+                                        : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50',
+                                    )}
+                                    onClick={() =>
+                                      onTransferRow && onTransferRow(row)
+                                    }
+                                    title="Transferir para Vendedor Atual"
+                                  >
+                                    <ArrowLeft className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={cn(
+                                      'h-6 w-6',
+                                      row.is_completed || row.x_na_rota > 3
+                                        ? 'text-white/70 hover:bg-white/20 hover:text-white'
+                                        : 'text-red-400 hover:text-red-600 hover:bg-red-50',
+                                    )}
+                                    onClick={() =>
+                                      onUpdateRow(
+                                        row.client.CODIGO,
+                                        'proximo_vendedor_id',
+                                        null,
+                                      )
+                                    }
+                                    title="Limpar (Manter Atual)"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                        )}
+
+                        <TableCell
                               disabled={disabled}
                               value={
                                 row.proximo_vendedor_id?.toString() || 'none'
@@ -1105,6 +1235,33 @@ export function RotaTable({
         clientId={dividaModalClient?.id || 0}
         clientName={dividaModalClient?.name || ''}
       />
+
+      <Dialog open={acoesDialogOpen} onOpenChange={setAcoesDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Ações de Cobrança - Pedido #{acoesPedidoId}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            {acoesList.length === 0 ? (
+              <p className="text-center text-muted-foreground text-sm">Nenhuma ação registrada.</p>
+            ) : (
+              <div className="space-y-4">
+                {acoesList.map((acao) => (
+                  <div key={acao.id} className="p-3 border rounded-md bg-muted/30">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-bold text-sm">{acao.acao}</span>
+                      <span className="text-xs text-muted-foreground">{safeFormatDate(acao.data_acao, 'dd/MM/yyyy HH:mm')}</span>
+                    </div>
+                    {acao.motivo && <p className="text-sm mb-1"><span className="font-medium">Motivo:</span> {acao.motivo}</p>}
+                    {acao.nova_data_combinada && <p className="text-sm"><span className="font-medium">Nova Data Combinada:</span> {safeFormatDate(acao.nova_data_combinada, 'dd/MM/yyyy')}</p>}
+                    <p className="text-xs text-muted-foreground mt-2">Registrado por: {acao.funcionario_nome || 'N/D'}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
