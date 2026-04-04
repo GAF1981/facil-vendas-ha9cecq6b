@@ -28,7 +28,7 @@ import { useToast } from '@/hooks/use-toast'
 
 export default function DividasManuaisPage() {
   const [searchParams] = useSearchParams()
-  const { dividas, fetchDividas, loading } = useDividasManuaisStore()
+  const { dividas, fetchDividas, loading, addDivida } = useDividasManuaisStore()
   const [isFormOpen, setIsFormOpen] = useState(false)
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -187,9 +187,9 @@ export default function DividasManuaisPage() {
 
     try {
       const text = await file.text()
-      const rows = text.split('\n').filter((r) => r.trim().length > 0)
+      const lines = text.split('\n').filter((r) => r.trim().length > 0)
 
-      if (rows.length <= 1) {
+      if (lines.length <= 1) {
         toast({
           title: 'Aviso',
           description: 'Arquivo vazio ou sem dados válidos.',
@@ -197,14 +197,193 @@ export default function DividasManuaisPage() {
         return
       }
 
+      const parseCSVLine = (line: string) => {
+        const result = []
+        let current = ''
+        let inQuotes = false
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i]
+          if (char === '"') {
+            inQuotes = !inQuotes
+          } else if (char === ',' && !inQuotes) {
+            result.push(current)
+            current = ''
+          } else {
+            current += char
+          }
+        }
+        result.push(current)
+        return result.map((s) =>
+          s.trim().replace(/^"|"$/g, '').replace(/""/g, '"'),
+        )
+      }
+
+      const headers = parseCSVLine(lines[0])
+      const headerIndex = headers.map((h) => h.toLowerCase().trim())
+
+      const getIdx = (names: string[]) => {
+        for (const name of names) {
+          const idx = headerIndex.findIndex((h) => h === name.toLowerCase())
+          if (idx !== -1) return idx
+        }
+        return -1
+      }
+
+      const idxCliente = getIdx([
+        'código cliente',
+        'codigo cliente',
+        'cliente_id',
+        'código',
+        'codigo',
+        'cod cliente',
+        'cód cliente',
+        'id',
+      ])
+      const idxDataAcerto = getIdx([
+        'data acerto',
+        'data_acerto',
+        'data',
+        'data do acerto',
+        'criado em',
+      ])
+      const idxVenc = getIdx([
+        'vencimento',
+        'data vencimento',
+        'data de vencimento',
+        'venc',
+      ])
+      const idxFormaPgto = getIdx(['forma pagamento', 'forma_pagamento'])
+      const idxValor = getIdx([
+        'valor parcela',
+        'valor_parcela',
+        'valor',
+        'valor da divida',
+        'valor da dívida',
+        'dívida',
+        'divida',
+        'debito',
+        'débito',
+        'valor devido',
+      ])
+      const idxPago = getIdx(['pago', 'valor_pago', 'valor pago'])
+      const idxFormaCob = getIdx([
+        'forma cobrança',
+        'forma cobranca',
+        'forma_cobranca',
+      ])
+      const idxDataComb = getIdx(['data combinada', 'data_combinada'])
+      const idxMotivo = getIdx(['motivo', 'observacao', 'observação'])
+
+      if (idxCliente === -1 || idxValor === -1) {
+        toast({
+          title: 'Erro de Layout',
+          description:
+            'Não foi possível encontrar as colunas obrigatórias (Código Cliente, Valor Parcela/Dívida).',
+          variant: 'destructive',
+        })
+        if (fileInputRef.current) fileInputRef.current.value = ''
+        return
+      }
+
+      toast({
+        title: 'Processando',
+        description: 'Analisando arquivo...',
+      })
+
+      const parseDate = (val: string) => {
+        if (!val) return null
+        if (val.includes('/')) {
+          const parts = val.split('/')
+          if (parts.length === 3) {
+            return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`
+          }
+        }
+        if (val.match(/^\d{4}-\d{2}-\d{2}/)) return val.substring(0, 10)
+        return null
+      }
+
+      const parseNum = (val: string) => {
+        if (!val) return 0
+        const str = val.replace(/[R$\s]/gi, '')
+        const lastComma = str.lastIndexOf(',')
+        const lastDot = str.lastIndexOf('.')
+        if (lastComma > lastDot) {
+          return parseFloat(str.replace(/\./g, '').replace(',', '.'))
+        } else if (lastDot > lastComma) {
+          return parseFloat(str.replace(/,/g, ''))
+        } else {
+          if (str.includes(',')) {
+            return parseFloat(str.replace(',', '.'))
+          }
+          return parseFloat(str) || 0
+        }
+      }
+
+      let maxSeq = dividas.reduce(
+        (max, d) => Math.max(max, d.cobranca_seq || 0),
+        0,
+      )
+      const newDividas: any[] = []
+
+      for (let i = 1; i < lines.length; i++) {
+        const row = parseCSVLine(lines[i])
+        if (
+          row.length < Math.max(idxCliente, idxValor) ||
+          row.join('').trim() === ''
+        )
+          continue
+
+        const cliente_id = parseInt(row[idxCliente])
+        if (isNaN(cliente_id) || cliente_id <= 0) continue
+
+        maxSeq++
+
+        const dataAcerto =
+          idxDataAcerto !== -1 ? parseDate(row[idxDataAcerto]) : null
+        const vencimento = idxVenc !== -1 ? parseDate(row[idxVenc]) : null
+        const forma_pagamento = idxFormaPgto !== -1 ? row[idxFormaPgto] : ''
+        const valor_parcela = parseNum(row[idxValor])
+        const valor_pago = idxPago !== -1 ? parseNum(row[idxPago]) : 0
+        const forma_cobranca = idxFormaCob !== -1 ? row[idxFormaCob] : null
+        const data_combinada =
+          idxDataComb !== -1 ? parseDate(row[idxDataComb]) : null
+        const motivo = idxMotivo !== -1 ? row[idxMotivo] : null
+
+        newDividas.push({
+          cliente_id,
+          cobranca_seq: maxSeq,
+          data_acerto: dataAcerto || new Date().toISOString().split('T')[0],
+          vencimento: vencimento || new Date().toISOString().split('T')[0],
+          forma_pagamento: forma_pagamento || 'OUTROS',
+          valor_parcela,
+          valor_pago,
+          forma_cobranca: forma_cobranca || null,
+          data_combinada: data_combinada || null,
+          motivo: motivo || null,
+          rota_motoqueiro: false,
+        })
+      }
+
+      if (newDividas.length === 0) {
+        toast({
+          title: 'Aviso',
+          description: 'Nenhuma dívida válida encontrada para importar.',
+        })
+        if (fileInputRef.current) fileInputRef.current.value = ''
+        return
+      }
+
+      await addDivida(newDividas)
+
       toast({
         title: 'Sucesso',
-        description: `Iniciando importação de ${rows.length - 1} registros...`,
+        description: `${newDividas.length} registros importados com sucesso!`,
       })
     } catch (error) {
+      console.error(error)
       toast({
         title: 'Erro',
-        description: 'Falha ao processar o arquivo CSV.',
+        description: 'Falha ao importar o arquivo CSV.',
         variant: 'destructive',
       })
     }
