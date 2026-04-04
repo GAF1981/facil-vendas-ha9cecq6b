@@ -16,10 +16,18 @@ import { Badge } from '@/components/ui/badge'
 import { formatCurrency, safeFormatDate } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
 import { Upload, RotateCcw, Download } from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 export default function BoletosPage() {
   const [boletos, setBoletos] = useState<Boleto[]>([])
   const [loading, setLoading] = useState(true)
+  const [filterConferido, setFilterConferido] = useState<string>('nao')
   const { toast } = useToast()
 
   const loadData = async () => {
@@ -75,10 +83,17 @@ export default function BoletosPage() {
     }
   }
 
+  const filteredBoletos = boletos.filter((b) => {
+    if (filterConferido === 'todos') return true
+    if (filterConferido === 'sim') return b.conferido === true
+    if (filterConferido === 'nao') return b.conferido === false
+    return true
+  })
+
   const handleExport = () => {
-    if (boletos.length === 0) return
+    if (filteredBoletos.length === 0) return
     boletoService.generateCSV(
-      boletos.map((b) => ({
+      filteredBoletos.map((b) => ({
         ...b,
         conferido: b.conferido ? 'SIM' : 'NÃO',
         originalConferido: b.conferido,
@@ -98,6 +113,17 @@ export default function BoletosPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
+          <Select value={filterConferido} onValueChange={setFilterConferido}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Conferido" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              <SelectItem value="sim">Conferido: SIM</SelectItem>
+              <SelectItem value="nao">Conferido: NÃO</SelectItem>
+            </SelectContent>
+          </Select>
+
           <div className="relative">
             <Input
               type="file"
@@ -140,20 +166,20 @@ export default function BoletosPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {loading && boletos.length === 0 ? (
+              {loading && filteredBoletos.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="h-24 text-center">
                     Carregando...
                   </TableCell>
                 </TableRow>
-              ) : boletos.length === 0 ? (
+              ) : filteredBoletos.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="h-24 text-center">
                     Nenhum boleto encontrado.
                   </TableCell>
                 </TableRow>
               ) : (
-                boletos.map((b) => (
+                filteredBoletos.map((b) => (
                   <TableRow
                     key={b.id}
                     className={cn(
