@@ -110,7 +110,9 @@ export function RotaTable({
   const [acoesList, setAcoesList] = useState<any[]>([])
 
   React.useEffect(() => {
-    const debits = Array.from(new Set(rows.map(r => r.debito))).filter(d => d > 0).sort((a, b) => a - b)
+    const debits = Array.from(new Set(rows.map((r) => r.debito)))
+      .filter((d) => d > 0)
+      .sort((a, b) => a - b)
     setUniqueDebits(debits)
   }, [rows, setUniqueDebits])
 
@@ -902,92 +904,6 @@ export function RotaTable({
                         )}
 
                         <TableCell
-                              disabled={disabled}
-                              value={
-                                row.proximo_vendedor_id?.toString() || 'none'
-                              }
-                              onValueChange={(val) =>
-                                onUpdateRow(
-                                  row.client.CODIGO,
-                                  'proximo_vendedor_id',
-                                  val === 'none' ? null : parseInt(val),
-                                )
-                              }
-                            >
-                              <SelectTrigger
-                                className={cn(
-                                  'h-7 w-full text-xs truncate border-dashed flex-1',
-                                  row.proximo_vendedor_id
-                                    ? 'font-medium text-purple-600 bg-purple-50 border-purple-200'
-                                    : 'text-muted-foreground/70',
-                                  row.is_completed || row.x_na_rota > 3
-                                    ? 'bg-white/10 border-white/30 text-white/90 placeholder:text-white/50'
-                                    : '',
-                                )}
-                              >
-                                <SelectValue placeholder="Próximo..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem
-                                  value="none"
-                                  className="text-muted-foreground"
-                                >
-                                  Manter Atual
-                                </SelectItem>
-                                {sellers.map((s) => (
-                                  <SelectItem
-                                    key={s.id}
-                                    value={s.id.toString()}
-                                  >
-                                    {s.nome_completo}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            {row.proximo_vendedor_id && (
-                              <div className="flex items-center gap-0.5">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className={cn(
-                                    'h-6 w-6',
-                                    row.is_completed || row.x_na_rota > 3
-                                      ? 'text-white/70 hover:bg-white/20 hover:text-white'
-                                      : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50',
-                                  )}
-                                  onClick={() =>
-                                    onTransferRow && onTransferRow(row)
-                                  }
-                                  title="Transferir para Vendedor Atual"
-                                >
-                                  <ArrowLeft className="h-3 w-3" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className={cn(
-                                    'h-6 w-6',
-                                    row.is_completed || row.x_na_rota > 3
-                                      ? 'text-white/70 hover:bg-white/20 hover:text-white'
-                                      : 'text-red-400 hover:text-red-600 hover:bg-red-50',
-                                  )}
-                                  onClick={() =>
-                                    onUpdateRow(
-                                      row.client.CODIGO,
-                                      'proximo_vendedor_id',
-                                      null,
-                                    )
-                                  }
-                                  title="Limpar (Manter Atual)"
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-
-                        <TableCell
                           className={cn(
                             'truncate max-w-[120px]',
                             textClass || 'text-muted-foreground',
@@ -1239,22 +1155,45 @@ export function RotaTable({
       <Dialog open={acoesDialogOpen} onOpenChange={setAcoesDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Ações de Cobrança - Pedido #{acoesPedidoId}</DialogTitle>
+            <DialogTitle>
+              Ações de Cobrança - Pedido #{acoesPedidoId}
+            </DialogTitle>
           </DialogHeader>
           <div className="py-4">
             {acoesList.length === 0 ? (
-              <p className="text-center text-muted-foreground text-sm">Nenhuma ação registrada.</p>
+              <p className="text-center text-muted-foreground text-sm">
+                Nenhuma ação registrada.
+              </p>
             ) : (
               <div className="space-y-4">
                 {acoesList.map((acao) => (
-                  <div key={acao.id} className="p-3 border rounded-md bg-muted/30">
+                  <div
+                    key={acao.id}
+                    className="p-3 border rounded-md bg-muted/30"
+                  >
                     <div className="flex justify-between items-center mb-2">
                       <span className="font-bold text-sm">{acao.acao}</span>
-                      <span className="text-xs text-muted-foreground">{safeFormatDate(acao.data_acao, 'dd/MM/yyyy HH:mm')}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {safeFormatDate(acao.data_acao, 'dd/MM/yyyy HH:mm')}
+                      </span>
                     </div>
-                    {acao.motivo && <p className="text-sm mb-1"><span className="font-medium">Motivo:</span> {acao.motivo}</p>}
-                    {acao.nova_data_combinada && <p className="text-sm"><span className="font-medium">Nova Data Combinada:</span> {safeFormatDate(acao.nova_data_combinada, 'dd/MM/yyyy')}</p>}
-                    <p className="text-xs text-muted-foreground mt-2">Registrado por: {acao.funcionario_nome || 'N/D'}</p>
+                    {acao.motivo && (
+                      <p className="text-sm mb-1">
+                        <span className="font-medium">Motivo:</span>{' '}
+                        {acao.motivo}
+                      </p>
+                    )}
+                    {acao.nova_data_combinada && (
+                      <p className="text-sm">
+                        <span className="font-medium">
+                          Nova Data Combinada:
+                        </span>{' '}
+                        {safeFormatDate(acao.nova_data_combinada, 'dd/MM/yyyy')}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Registrado por: {acao.funcionario_nome || 'N/D'}
+                    </p>
                   </div>
                 ))}
               </div>
