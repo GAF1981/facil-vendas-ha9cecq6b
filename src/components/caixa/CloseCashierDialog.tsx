@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -41,6 +41,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { supabase } from '@/lib/supabase/client'
+import { AnotacoesDialog } from '@/components/pendencias/AnotacoesDialog'
+import { ResolvePendenciaDialog } from '@/components/pendencias/ResolvePendenciaDialog'
+import { Pendencia } from '@/types/pendencia'
 
 interface CloseCashierDialogProps {
   open: boolean
@@ -51,11 +54,13 @@ interface CloseCashierDialogProps {
 }
 
 interface Blocker {
+  id?: number
   clientId: number
   clientName: string
   type: 'pendencia' | 'debito' | 'divida'
   description: string
   actionDone: boolean
+  rawItem?: Pendencia
 }
 
 export function CloseCashierDialog({
@@ -74,6 +79,15 @@ export function CloseCashierDialog({
   const [expenses, setExpenses] = useState<ExpenseDetail[]>([])
   const [blockers, setBlockers] = useState<Blocker[]>([])
 
+  const [anotacoesDialogState, setAnotacoesDialogState] = useState<{
+    open: boolean
+    pendencia: Pendencia | null
+  }>({ open: false, pendencia: null })
+  const [resolveDialogState, setResolveDialogState] = useState<{
+    open: boolean
+    pendencia: Pendencia | null
+  }>({ open: false, pendencia: null })
+
   const { toast } = useToast()
   const { employee: loggedInUser } = useUserStore()
 
@@ -91,164 +105,205 @@ export function CloseCashierDialog({
     }
   }, [open, loggedInUser, targetEmployeeId])
 
-  async function checkBlockers(empId: number, route: Rota): Promise<Blocker[]> {
-    const routeStart = route.data_inicio
-    const routeEnd = route.data_fim || new Date().toISOString()
+  const checkBlockers = useCallback(
+    async (empId: number, route: Rota): Promise<Blocker[]> => {
+      const routeStart = route.data_inicio
+      const routeEnd = route.data_fim || new Date().toISOString()
+      const today = new Date().toISOString().split('T')[0]
 
-    const { data: routeItems } = await supabase
-      .from('ROTA_ITEMS')
-      .select(
-        `
+      const { data: routeItems } = await supabase
+        .from('ROTA_ITEMS')
+        .select(
+          `
         cliente_id,
         CLIENTES (
           CODIGO,
           "NOME CLIENTE"
         )
       `,
+        )
+        .eq('rota_id', route.id)
+        .eq('vendedor_id', empId)
+
+      if (!routeItems?.length) return []
+      const clientIds = routeItems
+        .map((ri) => ri.cliente_id)
+        .filter(Boolean) as number[]
+      const clientsMap = new Map(
+        routeItems.map((ri) => [
+          ri.cliente_id,
+          (ri.CLIENTES as any)?.['NOME CLIENTE'] || 'Unknown',
+        ]),
       )
-      .eq('rota_id', route.id)
-      .eq('vendedor_id', empId)
 
-    if (!routeItems?.length) return []
-    const clientIds = routeItems
-      .map((ri) => ri.cliente_id)
-      .filter(Boolean) as number[]
-    const clientsMap = new Map(
-      routeItems.map((ri) => [
-        ri.cliente_id,
-        (ri.CLIENTES as any)?.['NOME CLIENTE'] || 'Unknown',
-      ]),
-    )
+      const blockersList: Blocker[] = []
 
-    const blockersList: Blocker[] = []
+      // 1. Pendencies
+      const { data: pendencies } = await supabase
+        .from('PENDENCIAS')
+        .select(`*, CLIENTES (CODIGO, "NOME CLIENTE", "TIPO DE CLIENTE")`)
+        .in('cliente_id', clientIds)
+        .eq('resolvida', false)
 
-    // Pendencies
-    const { data: pendencies } = await supabase
-      .from('PENDENCIAS')
-      .select('id, cliente_id, descricao_pendencia')
-      .in('cliente_id', clientIds)
-      .eq('resolvida', false)
+      if (pendencies?.length) {
+        const pendIds = pendencies.map((p) => p.id)
+        const { data: annotations } = await supabase
+          .from('pendencia_anotacoes')
+          .select('pendencia_id')
+          .in('pendencia_id', pendIds)
+          .eq('funcionario_id', empId)
+          .gte('created_at', routeStart)
+          .lte('created_at', routeEnd)
 
-    if (pendencies?.length) {
-      const pendIds = pendencies.map((p) => p.id)
-      const { data: annotations } = await supabase
-        .from('pendencia_anotacoes')
-        .select('pendencia_id')
-        .in('pendencia_id', pendIds)
-        .eq('funcionario_id', empId)
-        .gte('created_at', routeStart)
-        .lte('created_at', routeEnd)
+        const annotatedIds = new Set(annotations?.map((a) => a.pendencia_id))
 
-      const annotatedIds = new Set(annotations?.map((a) => a.pendencia_id))
-
-      for (const p of pendencies) {
-        blockersList.push({
-          clientId: p.cliente_id,
-          clientName: clientsMap.get(p.cliente_id) || '',
-          type: 'pendencia',
-          description: 'Pendência: ' + p.descricao_pendencia,
-          actionDone: annotatedIds.has(p.id),
-        })
+        for (const p of pendencies) {
+          blockersList.push({
+            id: p.id,
+            clientId: p.cliente_id,
+            clientName: clientsMap.get(p.cliente_id) || '',
+            type: 'pendencia',
+            description: 'Pendência: ' + p.descricao_pendencia,
+            actionDone: annotatedIds.has(p.id) || p.resolvida,
+            rawItem: p as any,
+          })
+        }
       }
-    }
 
-    // Debits
-    const { data: debits } = await supabase
-      .from('debitos_historico')
-      .select('cliente_codigo, debito')
-      .in('cliente_codigo', clientIds)
-      .gt('debito', 0)
+      // 2. Debits (Overdue only)
+      const { data: debits } = await supabase
+        .from('debitos_historico')
+        .select('cliente_codigo, debito')
+        .in('cliente_codigo', clientIds)
+        .gt('debito', 0)
 
-    if (debits?.length) {
-      const clientsWithDebits = Array.from(
-        new Set(debits.map((d) => d.cliente_codigo).filter(Boolean)),
-      ) as number[]
-      const { data: actions } = await supabase
-        .from('acoes_cobranca')
-        .select('cliente_id')
-        .in('cliente_id', clientsWithDebits)
-        .eq('funcionario_id', empId)
-        .gte('data_acao', routeStart)
-        .lte('data_acao', routeEnd)
+      if (debits?.length) {
+        const clientsWithDebits = Array.from(
+          new Set(debits.map((d) => d.cliente_codigo).filter(Boolean)),
+        ) as number[]
 
-      const actionedClients = new Set(actions?.map((a) => a.cliente_id))
+        const overdueClientIds = new Set<number>()
 
-      for (const cid of clientsWithDebits) {
-        blockersList.push({
-          clientId: cid,
-          clientName: clientsMap.get(cid) || '',
-          type: 'debito',
-          description: 'Débito pendente',
-          actionDone: actionedClients.has(cid),
+        // RECEBIMENTOS vencidos e não pagos integralmente
+        const { data: recTodos } = await supabase
+          .from('RECEBIMENTOS')
+          .select('cliente_id, valor_pago, valor_registrado')
+          .in('cliente_id', clientsWithDebits)
+          .lt('vencimento', today)
+
+        recTodos?.forEach((r) => {
+          if ((r.valor_registrado || 0) > r.valor_pago) {
+            overdueClientIds.add(r.cliente_id)
+          }
         })
+
+        // Boletos vencidos e não pagos
+        const { data: bolVencidos } = await supabase
+          .from('boletos')
+          .select('cliente_codigo')
+          .in('cliente_codigo', clientsWithDebits)
+          .lt('vencimento', today)
+          .neq('status', 'Pago')
+
+        bolVencidos?.forEach((b) => overdueClientIds.add(b.cliente_codigo))
+
+        const overdueClientsList = Array.from(overdueClientIds)
+
+        if (overdueClientsList.length > 0) {
+          const { data: actions } = await supabase
+            .from('acoes_cobranca')
+            .select('cliente_id')
+            .in('cliente_id', overdueClientsList)
+            .eq('funcionario_id', empId)
+            .gte('data_acao', routeStart)
+            .lte('data_acao', routeEnd)
+
+          const actionedClients = new Set(actions?.map((a) => a.cliente_id))
+
+          for (const cid of overdueClientsList) {
+            blockersList.push({
+              id: cid,
+              clientId: cid,
+              clientName: clientsMap.get(cid) || '',
+              type: 'debito',
+              description: 'Débito Vencido',
+              actionDone: actionedClients.has(cid),
+            })
+          }
+        }
       }
-    }
 
-    // Manual Debts
-    const { data: mDebtsAll } = await supabase
-      .from('dividas_manuais')
-      .select('id, cliente_id, valor_parcela, valor_pago')
-      .in('cliente_id', clientIds)
+      // 3. Manual Debts (Overdue only)
+      const { data: mDebtsAll } = await supabase
+        .from('dividas_manuais')
+        .select('id, cliente_id, valor_parcela, valor_pago, vencimento')
+        .in('cliente_id', clientIds)
 
-    const pendingMDebts =
-      mDebtsAll?.filter((d) => d.valor_parcela > d.valor_pago) || []
+      const pendingMDebts =
+        mDebtsAll?.filter(
+          (d) => d.valor_parcela > d.valor_pago && d.vencimento < today,
+        ) || []
 
-    if (pendingMDebts.length) {
-      const debtIds = pendingMDebts.map((d) => d.id)
-      const { data: mActions } = await supabase
-        .from('dividas_manuais_acoes')
-        .select('divida_id')
-        .in('divida_id', debtIds)
-        .eq('funcionario_id', empId)
-        .gte('data_acao', routeStart)
-        .lte('data_acao', routeEnd)
+      if (pendingMDebts.length) {
+        const debtIds = pendingMDebts.map((d) => d.id)
+        const { data: mActions } = await supabase
+          .from('dividas_manuais_acoes')
+          .select('divida_id')
+          .in('divida_id', debtIds)
+          .eq('funcionario_id', empId)
+          .gte('data_acao', routeStart)
+          .lte('data_acao', routeEnd)
 
-      const actionedDebts = new Set(mActions?.map((a) => a.divida_id))
+        const actionedDebts = new Set(mActions?.map((a) => a.divida_id))
 
-      for (const d of pendingMDebts) {
-        blockersList.push({
-          clientId: d.cliente_id!,
-          clientName: clientsMap.get(d.cliente_id!) || '',
-          type: 'divida',
-          description: 'Dívida manual pendente',
-          actionDone: actionedDebts.has(d.id),
-        })
+        for (const d of pendingMDebts) {
+          blockersList.push({
+            id: d.id,
+            clientId: d.cliente_id!,
+            clientName: clientsMap.get(d.cliente_id!) || '',
+            type: 'divida',
+            description: 'Dívida manual vencida',
+            actionDone: actionedDebts.has(d.id),
+          })
+        }
       }
-    }
 
-    return blockersList
-  }
+      return blockersList
+    },
+    [],
+  )
 
-  useEffect(() => {
-    if (
-      open &&
-      selectedEmployeeId &&
-      selectedEmployeeId !== 'all' &&
-      currentRoute
-    ) {
-      setDataLoading(true)
-      setLoadingBlockers(true)
-      const empId = parseInt(selectedEmployeeId)
-      Promise.all([
+  const loadData = useCallback(async () => {
+    if (!selectedEmployeeId || selectedEmployeeId === 'all' || !currentRoute)
+      return
+
+    setDataLoading(true)
+    setLoadingBlockers(true)
+    const empId = parseInt(selectedEmployeeId)
+    try {
+      const [recs, exps, blks] = await Promise.all([
         caixaService.getEmployeeReceipts(empId, currentRoute),
         caixaService.getEmployeeExpenses(empId, currentRoute),
         checkBlockers(empId, currentRoute),
       ])
-        .then(([recs, exps, blks]) => {
-          setReceipts(recs)
-          setExpenses(exps)
-          setBlockers(blks)
-        })
-        .finally(() => {
-          setDataLoading(false)
-          setLoadingBlockers(false)
-        })
+      setReceipts(recs)
+      setExpenses(exps)
+      setBlockers(blks)
+    } finally {
+      setDataLoading(false)
+      setLoadingBlockers(false)
+    }
+  }, [selectedEmployeeId, currentRoute, checkBlockers])
+
+  useEffect(() => {
+    if (open) {
+      loadData()
     } else {
       setReceipts([])
       setExpenses([])
       setBlockers([])
     }
-  }, [open, selectedEmployeeId, currentRoute])
+  }, [open, loadData])
 
   const canChangeEmployee = useMemo(() => {
     if (!loggedInUser) return false
@@ -351,305 +406,362 @@ export function CloseCashierDialog({
   const unresolvedBlockers = blockers.filter((b) => !b.actionDone)
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Fechar Caixa Detalhado</DialogTitle>
-          <DialogDescription>
-            Confira os lançamentos antes de enviar o caixa para conferência na{' '}
-            <strong>Rota #{currentRoute?.id}</strong>.
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Fechar Caixa Detalhado</DialogTitle>
+            <DialogDescription>
+              Confira os lançamentos antes de enviar o caixa para conferência na{' '}
+              <strong>Rota #{currentRoute?.id}</strong>.
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="py-4 space-y-4">
-          <div className="space-y-2">
-            <Label>Funcionário</Label>
-            <Select
-              value={selectedEmployeeId}
-              onValueChange={setSelectedEmployeeId}
-              disabled={!canChangeEmployee}
-            >
-              <SelectTrigger className="bg-background font-medium w-full sm:w-1/2">
-                <SelectValue placeholder="Selecione um funcionário..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all" disabled>
-                  Selecione um funcionário
-                </SelectItem>
-                {employees.map((emp) => (
-                  <SelectItem key={emp.id} value={emp.id.toString()}>
-                    {emp.nome_completo}
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <Label>Funcionário</Label>
+              <Select
+                value={selectedEmployeeId}
+                onValueChange={setSelectedEmployeeId}
+                disabled={!canChangeEmployee}
+              >
+                <SelectTrigger className="bg-background font-medium w-full sm:w-1/2">
+                  <SelectValue placeholder="Selecione um funcionário..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" disabled>
+                    Selecione um funcionário
                   </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+                  {employees.map((emp) => (
+                    <SelectItem key={emp.id} value={emp.id.toString()}>
+                      {emp.nome_completo}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          {selectedEmployeeId === 'all' || !selectedEmployeeId ? (
-            <div className="h-40 flex flex-col items-center justify-center text-muted-foreground bg-muted/20 rounded-md border border-dashed">
-              <Label>Selecione um funcionário para visualizar os dados.</Label>
-            </div>
-          ) : dataLoading ? (
-            <div className="h-40 flex items-center justify-center bg-muted/20 rounded-md">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : (
-            <Tabs defaultValue="receipts" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="receipts">
-                  Recebimentos ({receipts.length})
-                </TabsTrigger>
-                <TabsTrigger value="expenses">
-                  Despesas ({expenses.filter((e) => e.saiuDoCaixa).length})
-                </TabsTrigger>
-                <TabsTrigger
-                  value="blockers"
-                  className={
-                    unresolvedBlockers.length > 0
-                      ? 'text-red-600 font-bold'
-                      : ''
-                  }
-                >
-                  Ações Pendentes ({unresolvedBlockers.length})
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="receipts" className="mt-2">
-                <div className="rounded-md border h-64 overflow-auto">
-                  <Table>
-                    <TableHeader className="bg-muted/50 sticky top-0">
-                      <TableRow>
-                        <TableHead className="w-[80px]">ID</TableHead>
-                        <TableHead>Data</TableHead>
-                        <TableHead>Cliente</TableHead>
-                        <TableHead>Forma</TableHead>
-                        <TableHead className="text-right">Valor</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {receipts.length === 0 ? (
+            {selectedEmployeeId === 'all' || !selectedEmployeeId ? (
+              <div className="h-40 flex flex-col items-center justify-center text-muted-foreground bg-muted/20 rounded-md border border-dashed">
+                <Label>
+                  Selecione um funcionário para visualizar os dados.
+                </Label>
+              </div>
+            ) : dataLoading ? (
+              <div className="h-40 flex items-center justify-center bg-muted/20 rounded-md">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <Tabs defaultValue="receipts" className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="receipts">
+                    Recebimentos ({receipts.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="expenses">
+                    Despesas ({expenses.filter((e) => e.saiuDoCaixa).length})
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="blockers"
+                    className={
+                      unresolvedBlockers.length > 0
+                        ? 'text-red-600 font-bold'
+                        : ''
+                    }
+                  >
+                    Ações Pendentes ({unresolvedBlockers.length})
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="receipts" className="mt-2">
+                  <div className="rounded-md border h-64 overflow-auto">
+                    <Table>
+                      <TableHeader className="bg-muted/50 sticky top-0">
                         <TableRow>
-                          <TableCell
-                            colSpan={5}
-                            className="text-center h-24 text-muted-foreground"
-                          >
-                            Nenhum recebimento encontrado.
-                          </TableCell>
+                          <TableHead className="w-[80px]">ID</TableHead>
+                          <TableHead>Data</TableHead>
+                          <TableHead>Cliente</TableHead>
+                          <TableHead>Forma</TableHead>
+                          <TableHead className="text-right">Valor</TableHead>
                         </TableRow>
-                      ) : (
-                        receipts.map((r) => (
-                          <TableRow key={r.id}>
-                            <TableCell className="font-mono text-xs">
-                              {r.id}
-                            </TableCell>
-                            <TableCell className="text-xs">
-                              {safeFormatDate(r.data, 'dd/MM HH:mm')}
-                            </TableCell>
-                            <TableCell className="text-xs truncate max-w-[150px]">
-                              {r.clienteNome}
-                            </TableCell>
-                            <TableCell className="text-xs">{r.forma}</TableCell>
-                            <TableCell className="text-right font-mono text-xs font-medium text-green-600">
-                              {formatCurrency(r.valor)}
+                      </TableHeader>
+                      <TableBody>
+                        {receipts.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={5}
+                              className="text-center h-24 text-muted-foreground"
+                            >
+                              Nenhum recebimento encontrado.
                             </TableCell>
                           </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-                <div className="flex justify-end mt-2">
-                  <span className="font-bold text-sm">
-                    Total Recebido: R$ {formatCurrency(totalReceipts)}
-                  </span>
-                </div>
-              </TabsContent>
-              <TabsContent value="expenses" className="mt-2">
-                <div className="rounded-md border h-64 overflow-auto">
-                  <Table>
-                    <TableHeader className="bg-muted/50 sticky top-0">
-                      <TableRow>
-                        <TableHead className="w-[80px]">ID</TableHead>
-                        <TableHead>Data</TableHead>
-                        <TableHead>Grupo</TableHead>
-                        <TableHead>Detalhes</TableHead>
-                        <TableHead className="text-right">
-                          Valor (Dinheiro)
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {expenses.filter((e) => e.saiuDoCaixa).length === 0 ? (
-                        <TableRow>
-                          <TableCell
-                            colSpan={5}
-                            className="text-center h-24 text-muted-foreground"
-                          >
-                            Nenhuma despesa no caixa encontrada.
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        expenses
-                          .filter((e) => e.saiuDoCaixa)
-                          .map((e) => (
-                            <TableRow key={e.id}>
+                        ) : (
+                          receipts.map((r) => (
+                            <TableRow key={r.id}>
                               <TableCell className="font-mono text-xs">
-                                {e.id}
+                                {r.id}
                               </TableCell>
                               <TableCell className="text-xs">
-                                {safeFormatDate(e.data, 'dd/MM HH:mm')}
-                              </TableCell>
-                              <TableCell className="text-xs">
-                                {e.grupo}
+                                {safeFormatDate(r.data, 'dd/MM HH:mm')}
                               </TableCell>
                               <TableCell className="text-xs truncate max-w-[150px]">
-                                {e.detalhamento}
+                                {r.clienteNome}
                               </TableCell>
-                              <TableCell className="text-right font-mono text-xs font-medium text-red-600">
-                                {formatCurrency(e.valor)}
+                              <TableCell className="text-xs">
+                                {r.forma}
+                              </TableCell>
+                              <TableCell className="text-right font-mono text-xs font-medium text-green-600">
+                                {formatCurrency(r.valor)}
                               </TableCell>
                             </TableRow>
                           ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-                <div className="flex justify-end mt-2">
-                  <span className="font-bold text-sm text-red-600">
-                    Total Despesas (Dinheiro): R${' '}
-                    {formatCurrency(totalExpenses)}
-                  </span>
-                </div>
-              </TabsContent>
-              <TabsContent value="blockers" className="mt-2">
-                {unresolvedBlockers.length > 0 && (
-                  <Alert variant="destructive" className="mb-2 py-2 bg-red-50">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle className="text-xs font-bold">
-                      Fechamento Bloqueado
-                    </AlertTitle>
-                    <AlertDescription className="text-xs">
-                      É necessário registrar as ações exigidas
-                      (anotação/resolução ou ação de cobrança) para os clientes
-                      abaixo na rota atual para permitir o fechamento.
-                    </AlertDescription>
-                  </Alert>
-                )}
-                <div className="rounded-md border h-64 overflow-auto">
-                  <Table>
-                    <TableHeader className="bg-muted/50 sticky top-0">
-                      <TableRow>
-                        <TableHead>Cliente</TableHead>
-                        <TableHead>Tipo</TableHead>
-                        <TableHead className="w-[80px]">Status</TableHead>
-                        <TableHead className="w-[50px]"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {loadingBlockers ? (
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <div className="flex justify-end mt-2">
+                    <span className="font-bold text-sm">
+                      Total Recebido: R$ {formatCurrency(totalReceipts)}
+                    </span>
+                  </div>
+                </TabsContent>
+                <TabsContent value="expenses" className="mt-2">
+                  <div className="rounded-md border h-64 overflow-auto">
+                    <Table>
+                      <TableHeader className="bg-muted/50 sticky top-0">
                         <TableRow>
-                          <TableCell colSpan={4} className="h-24 text-center">
-                            <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
-                          </TableCell>
+                          <TableHead className="w-[80px]">ID</TableHead>
+                          <TableHead>Data</TableHead>
+                          <TableHead>Grupo</TableHead>
+                          <TableHead>Detalhes</TableHead>
+                          <TableHead className="text-right">
+                            Valor (Dinheiro)
+                          </TableHead>
                         </TableRow>
-                      ) : blockers.length === 0 ? (
-                        <TableRow>
-                          <TableCell
-                            colSpan={4}
-                            className="text-center h-24 text-muted-foreground"
-                          >
-                            Nenhuma ação pendente na rota encontrada.
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        blockers.map((b, i) => (
-                          <TableRow
-                            key={i}
-                            className={!b.actionDone ? 'bg-red-50/50' : ''}
-                          >
-                            <TableCell className="text-xs font-medium">
-                              {b.clientName} ({b.clientId})
-                            </TableCell>
+                      </TableHeader>
+                      <TableBody>
+                        {expenses.filter((e) => e.saiuDoCaixa).length === 0 ? (
+                          <TableRow>
                             <TableCell
-                              className="text-xs truncate max-w-[200px]"
-                              title={b.description}
+                              colSpan={5}
+                              className="text-center h-24 text-muted-foreground"
                             >
-                              {b.description}
-                            </TableCell>
-                            <TableCell>
-                              {b.actionDone ? (
-                                <Badge
-                                  variant="outline"
-                                  className="bg-green-50 text-green-700 border-green-200 text-[10px]"
-                                >
-                                  Ok
-                                </Badge>
-                              ) : (
-                                <Badge
-                                  variant="destructive"
-                                  className="text-[10px]"
-                                >
-                                  Pendente
-                                </Badge>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {!b.actionDone && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6"
-                                  onClick={() => {
-                                    if (b.type === 'pendencia')
-                                      window.open(
-                                        `/pendencias?search=${b.clientId}`,
-                                        '_blank',
-                                      )
-                                    else if (b.type === 'debito')
-                                      window.open(
-                                        `/cobranca?cliente=${b.clientId}`,
-                                        '_blank',
-                                      )
-                                    else if (b.type === 'divida')
-                                      window.open(
-                                        `/dividas-manuais?cliente=${b.clientId}`,
-                                        '_blank',
-                                      )
-                                  }}
-                                  title="Ir para ação"
-                                >
-                                  <ArrowRight className="h-4 w-4 text-red-600" />
-                                </Button>
-                              )}
+                              Nenhuma despesa no caixa encontrada.
                             </TableCell>
                           </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </TabsContent>
-            </Tabs>
-          )}
-        </div>
+                        ) : (
+                          expenses
+                            .filter((e) => e.saiuDoCaixa)
+                            .map((e) => (
+                              <TableRow key={e.id}>
+                                <TableCell className="font-mono text-xs">
+                                  {e.id}
+                                </TableCell>
+                                <TableCell className="text-xs">
+                                  {safeFormatDate(e.data, 'dd/MM HH:mm')}
+                                </TableCell>
+                                <TableCell className="text-xs">
+                                  {e.grupo}
+                                </TableCell>
+                                <TableCell className="text-xs truncate max-w-[150px]">
+                                  {e.detalhamento}
+                                </TableCell>
+                                <TableCell className="text-right font-mono text-xs font-medium text-red-600">
+                                  {formatCurrency(e.valor)}
+                                </TableCell>
+                              </TableRow>
+                            ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <div className="flex justify-end mt-2">
+                    <span className="font-bold text-sm text-red-600">
+                      Total Despesas (Dinheiro): R${' '}
+                      {formatCurrency(totalExpenses)}
+                    </span>
+                  </div>
+                </TabsContent>
+                <TabsContent value="blockers" className="mt-2">
+                  {unresolvedBlockers.length > 0 && (
+                    <Alert
+                      variant="destructive"
+                      className="mb-2 py-2 bg-red-50"
+                    >
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle className="text-xs font-bold">
+                        Fechamento Bloqueado
+                      </AlertTitle>
+                      <AlertDescription className="text-xs">
+                        É necessário registrar as ações exigidas ou resolver as
+                        pendências para os clientes abaixo na rota atual para
+                        permitir o fechamento.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  <div className="rounded-md border h-64 overflow-auto">
+                    <Table>
+                      <TableHeader className="bg-muted/50 sticky top-0">
+                        <TableRow>
+                          <TableHead>Cliente</TableHead>
+                          <TableHead>Tipo</TableHead>
+                          <TableHead className="w-[80px]">Status</TableHead>
+                          <TableHead className="w-[180px] text-right">
+                            Ação
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {loadingBlockers ? (
+                          <TableRow>
+                            <TableCell colSpan={4} className="h-24 text-center">
+                              <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
+                            </TableCell>
+                          </TableRow>
+                        ) : blockers.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={4}
+                              className="text-center h-24 text-muted-foreground"
+                            >
+                              Nenhuma ação pendente na rota encontrada.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          blockers.map((b, i) => (
+                            <TableRow
+                              key={i}
+                              className={!b.actionDone ? 'bg-red-50/50' : ''}
+                            >
+                              <TableCell className="text-xs font-medium">
+                                {b.clientName} ({b.clientId})
+                              </TableCell>
+                              <TableCell
+                                className="text-xs truncate max-w-[200px]"
+                                title={b.description}
+                              >
+                                {b.description}
+                              </TableCell>
+                              <TableCell>
+                                {b.actionDone ? (
+                                  <Badge
+                                    variant="outline"
+                                    className="bg-green-50 text-green-700 border-green-200 text-[10px]"
+                                  >
+                                    Ok
+                                  </Badge>
+                                ) : (
+                                  <Badge
+                                    variant="destructive"
+                                    className="text-[10px]"
+                                  >
+                                    Pendente
+                                  </Badge>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {!b.actionDone && b.type === 'pendencia' && (
+                                  <div className="flex items-center justify-end gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 text-xs"
+                                      onClick={() =>
+                                        setAnotacoesDialogState({
+                                          open: true,
+                                          pendencia: b.rawItem!,
+                                        })
+                                      }
+                                    >
+                                      Anotar
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="default"
+                                      className="h-7 text-xs bg-green-600 hover:bg-green-700 text-white"
+                                      onClick={() =>
+                                        setResolveDialogState({
+                                          open: true,
+                                          pendencia: b.rawItem!,
+                                        })
+                                      }
+                                    >
+                                      Resolver
+                                    </Button>
+                                  </div>
+                                )}
+                                {!b.actionDone &&
+                                  (b.type === 'debito' ||
+                                    b.type === 'divida') && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 text-xs"
+                                      onClick={() => {
+                                        if (b.type === 'debito')
+                                          window.open(
+                                            `/cobranca?cliente=${b.clientId}`,
+                                            '_blank',
+                                          )
+                                        else if (b.type === 'divida')
+                                          window.open(
+                                            `/dividas-manuais?cliente=${b.clientId}`,
+                                            '_blank',
+                                          )
+                                      }}
+                                    >
+                                      Ação de Cobrança
+                                    </Button>
+                                  )}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            )}
+          </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button
-            onClick={handleConfirm}
-            disabled={
-              loading ||
-              !selectedEmployeeId ||
-              selectedEmployeeId === 'all' ||
-              unresolvedBlockers.length > 0
-            }
-          >
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Confirmar e Enviar
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleConfirm}
+              disabled={
+                loading ||
+                !selectedEmployeeId ||
+                selectedEmployeeId === 'all' ||
+                unresolvedBlockers.length > 0
+              }
+            >
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirmar e Enviar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AnotacoesDialog
+        open={anotacoesDialogState.open}
+        onOpenChange={(open) => {
+          setAnotacoesDialogState((prev) => ({ ...prev, open }))
+          if (!open) loadData()
+        }}
+        pendencia={anotacoesDialogState.pendencia}
+      />
+
+      <ResolvePendenciaDialog
+        open={resolveDialogState.open}
+        onOpenChange={(open) =>
+          setResolveDialogState((prev) => ({ ...prev, open }))
+        }
+        onSuccess={() => {
+          loadData()
+        }}
+        pendencia={resolveDialogState.pendencia}
+      />
+    </>
   )
 }
