@@ -592,6 +592,7 @@ export default function CobrancaPage() {
     { label: 'Vencido', value: 'VENCIDO' },
     { label: 'A Vencer', value: 'A VENCER' },
     { label: 'Pago', value: 'PAGO' },
+    { label: 'Suspenso', value: 'SUSPENSO' },
   ]
 
   const resetFilters = () => {

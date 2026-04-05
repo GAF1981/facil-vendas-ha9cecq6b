@@ -140,9 +140,7 @@ export function QuitarDividaTable({
                     onClick={(e) => e.stopPropagation()}
                   />
                 </td>
-                <td className="p-4 align-middle font-medium">
-                  C{item.cobranca_seq}
-                </td>
+                <td className="p-4 align-middle font-medium">#{item.id}</td>
                 <td className="p-4 align-middle">
                   {item.cliente_id} - {item.cliente_nome}
                 </td>

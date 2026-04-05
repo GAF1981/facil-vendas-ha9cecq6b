@@ -91,7 +91,7 @@ interface FlatRow {
   valorRegistrado: number
   valorPago: number
   debito: number
-  status: 'VENCIDO' | 'A VENCER' | 'PAGO'
+  status: 'VENCIDO' | 'A VENCER' | 'PAGO' | 'SUSPENSO'
   formaCobranca: string | null
   dataCombinada: string | null
   motivo: string | null
@@ -919,13 +919,17 @@ export function DebtTable({
                             'bg-green-100 text-green-700 hover:bg-green-200 border-transparent',
                           row.status === 'A VENCER' &&
                             'bg-green-50 text-green-600 border-green-200 hover:bg-green-100 font-bold',
+                          row.status === 'SUSPENSO' &&
+                            'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300 font-bold',
                         )}
                       >
                         {row.status === 'VENCIDO'
                           ? 'vencido'
                           : row.status === 'A VENCER'
                             ? 'a vencer'
-                            : row.status.toLowerCase()}
+                            : row.status === 'SUSPENSO'
+                              ? 'suspenso'
+                              : row.status.toLowerCase()}
                       </Badge>
                     </TableCell>
                     <TableCell>

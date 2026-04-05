@@ -13,7 +13,7 @@ export interface Receivable {
   valorRegistrado: number
   valorPago: number
   formaPagamento: string
-  status: 'VENCIDO' | 'A VENCER' | 'PAGO'
+  status: 'VENCIDO' | 'A VENCER' | 'PAGO' | 'SUSPENSO'
   // New granular fields for collection control
   formaCobranca?: string | null
   dataCombinada?: string | null
@@ -73,7 +73,7 @@ export interface OrderDebt {
   netValue: number // total - discount
   paidValue: number // from RECEBIMENTOS
   remainingValue: number // Debito (Consistent with debitos_historico)
-  status: 'VENCIDO' | 'A VENCER' | 'SEM DÉBITO'
+  status: 'VENCIDO' | 'A VENCER' | 'SEM DÉBITO' | 'SUSPENSO'
   paymentDetails: PaymentEntry[] // From BANCO_DE_DADOS (Legacy/Reference)
   paymentsMade: { date: string; value: number }[] // From RECEBIMENTOS (History)
   installments: Receivable[] // Granular rows for display
