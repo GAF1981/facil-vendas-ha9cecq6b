@@ -408,7 +408,7 @@ export const rotaService = {
     }
     
     return assignments.length;
-  }
+  },
 
   async applyDiasParaAcertoRoutine(activeRotaId: number) {
     if (!activeRotaId) return 0;
