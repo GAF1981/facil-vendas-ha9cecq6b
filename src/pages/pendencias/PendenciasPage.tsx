@@ -33,8 +33,13 @@ import {
   RefreshCw,
   Users,
   MessageSquare,
+  Pencil,
+  Trash2,
 } from 'lucide-react'
 import { PendenciaFormDialog } from '@/components/pendencias/PendenciaFormDialog'
+import { Textarea } from '@/components/ui/textarea'
+import { DialogFooter } from '@/components/ui/dialog'
+import { supabase } from '@/lib/supabase/client'
 import { ResolvePendenciaDialog } from '@/components/pendencias/ResolvePendenciaDialog'
 import { AnotacoesDialog } from '@/components/pendencias/AnotacoesDialog'
 import { Pendencia } from '@/types/pendencia'
@@ -69,6 +74,12 @@ export default function PendenciasPage() {
     null,
   )
   const [viewResolution, setViewResolution] = useState<Pendencia | null>(null)
+
+  // Edit state
+  const [pendenciaToEdit, setPendenciaToEdit] = useState<Pendencia | null>(null)
+  const [editDescricao, setEditDescricao] = useState('')
+  const [editResponsavel, setEditResponsavel] = useState('TODOS')
+  const [savingEdit, setSavingEdit] = useState(false)
 
   // Filters
   const [filterExiste, setFilterExiste] = useState('SIM')
@@ -166,6 +177,76 @@ export default function PendenciasPage() {
   const handleAnotacoesClick = (pendencia: Pendencia) => {
     setSelectedPendencia(pendencia)
     setOpenAnotacoes(true)
+  }
+
+  const handleEditClick = (pendencia: Pendencia) => {
+    setPendenciaToEdit(pendencia)
+    setEditDescricao(pendencia.descricao_pendencia)
+    setEditResponsavel(
+      pendencia.responsavel_id ? pendencia.responsavel_id.toString() : 'TODOS',
+    )
+  }
+
+  const handleSaveEdit = async () => {
+    if (!pendenciaToEdit) return
+    setSavingEdit(true)
+    try {
+      const respId =
+        editResponsavel === 'TODOS' ? null : Number(editResponsavel)
+      const { error } = await supabase
+        .from('PENDENCIAS')
+        .update({
+          descricao_pendencia: editDescricao,
+          responsavel_id: respId,
+        })
+        .eq('id', pendenciaToEdit.id)
+
+      if (error) throw error
+
+      toast({
+        title: 'Sucesso',
+        description: 'Pendência atualizada com sucesso.',
+        className: 'bg-green-600 text-white',
+      })
+      setPendenciaToEdit(null)
+      fetchPendencias()
+    } catch (e: any) {
+      console.error(e)
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível atualizar a pendência.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  const handleDeleteClick = async (pendencia: Pendencia) => {
+    if (window.confirm('Tem certeza que deseja excluir esta pendência?')) {
+      try {
+        const { error } = await supabase
+          .from('PENDENCIAS')
+          .delete()
+          .eq('id', pendencia.id)
+
+        if (error) throw error
+
+        toast({
+          title: 'Sucesso',
+          description: 'Pendência excluída com sucesso.',
+          className: 'bg-green-600 text-white',
+        })
+        fetchPendencias()
+      } catch (e: any) {
+        console.error(e)
+        toast({
+          title: 'Erro',
+          description: 'Não foi possível excluir a pendência.',
+          variant: 'destructive',
+        })
+      }
+    }
   }
 
   const handleRefresh = () => {
@@ -430,6 +511,24 @@ export default function PendenciasPage() {
                                     size="sm"
                                     variant="outline"
                                     className="h-8 text-blue-600 border-blue-200 hover:bg-blue-50"
+                                    onClick={() => handleEditClick(pendencia)}
+                                    title="Editar"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 text-red-600 border-red-200 hover:bg-red-50"
+                                    onClick={() => handleDeleteClick(pendencia)}
+                                    title="Excluir"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 text-blue-600 border-blue-200 hover:bg-blue-50"
                                     onClick={() =>
                                       handleAnotacoesClick(pendencia)
                                     }
@@ -451,14 +550,25 @@ export default function PendenciasPage() {
                                 </>
                               )}
                               {pendencia.resolvida && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-8 text-muted-foreground"
-                                  onClick={() => setViewResolution(pendencia)}
-                                >
-                                  Ver Detalhes
-                                </Button>
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 text-red-600 border-red-200 hover:bg-red-50"
+                                    onClick={() => handleDeleteClick(pendencia)}
+                                    title="Excluir"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-8 text-muted-foreground"
+                                    onClick={() => setViewResolution(pendencia)}
+                                  >
+                                    Ver Detalhes
+                                  </Button>
+                                </>
                               )}
                             </div>
                           </TableCell>
@@ -478,6 +588,59 @@ export default function PendenciasPage() {
         onOpenChange={setOpenCreate}
         onSuccess={fetchPendencias}
       />
+
+      <Dialog
+        open={!!pendenciaToEdit}
+        onOpenChange={(open) => !open && setPendenciaToEdit(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Pendência</DialogTitle>
+            <DialogDescription>
+              Altere os detalhes da pendência.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                Descrição da Pendência
+              </label>
+              <Textarea
+                value={editDescricao}
+                onChange={(e) => setEditDescricao(e.target.value)}
+                rows={4}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Responsável</label>
+              <Select
+                value={editResponsavel}
+                onValueChange={setEditResponsavel}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="TODOS">Todos</SelectItem>
+                  {employees.map((e) => (
+                    <SelectItem key={e.id} value={e.id.toString()}>
+                      {e.nome_completo}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendenciaToEdit(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={savingEdit}>
+              {savingEdit ? 'Salvando...' : 'Salvar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ResolvePendenciaDialog
         open={openResolve}

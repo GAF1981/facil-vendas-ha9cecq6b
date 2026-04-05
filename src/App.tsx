@@ -116,6 +116,9 @@ const App = () => (
 
                 <Route element={<PermissionGuard module="Recebimento" />}>
                   <Route path="/recebimento" element={<RecebimentoPage />} />
+                </Route>
+
+                <Route element={<PermissionGuard module="Confirmação" />}>
                   <Route
                     path="/confirmacao-recebimentos"
                     element={<ConfirmacaoRecebimentosPage />}
@@ -168,10 +171,12 @@ const App = () => (
                   <Route path="/dre" element={<DREPage />} />
                 </Route>
 
-                <Route
-                  path="/dividas-manuais"
-                  element={<DividasManuaisPage />}
-                />
+                <Route element={<PermissionGuard module="Dívida Manual" />}>
+                  <Route
+                    path="/dividas-manuais"
+                    element={<DividasManuaisPage />}
+                  />
+                </Route>
 
                 <Route element={<PermissionGuard module="Quitar Dívida" />}>
                   <Route path="/quitar-divida" element={<QuitarDividaPage />} />
@@ -283,7 +288,9 @@ const App = () => (
                   <Route path="/boletos" element={<BoletosPage />} />
                 </Route>
 
-                <Route path="/email-seguro" element={<EmailSeguroPage />} />
+                <Route element={<PermissionGuard module="E-mail Seguro" />}>
+                  <Route path="/email-seguro" element={<EmailSeguroPage />} />
+                </Route>
 
                 <Route path="/complemento" element={<PlaceholderModule />} />
                 <Route path="/vendas" element={<PlaceholderModule />} />
