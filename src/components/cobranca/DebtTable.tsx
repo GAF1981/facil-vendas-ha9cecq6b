@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Table,
   TableBody,
@@ -150,6 +151,7 @@ export function DebtTable({
   const [messageData, setMessageData] = useState<FlatRow | null>(null)
 
   const { toast } = useToast()
+  const navigate = useNavigate()
 
   const [localUpdates, setLocalUpdates] = useState<
     Record<string, { formaCobranca?: any; dataCombinada?: any; motivo?: any }>
@@ -711,21 +713,43 @@ export function DebtTable({
                             d.cliente_id === row.clientId &&
                             d.valor_parcela > d.valor_pago,
                         ).length > 0 && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full shrink-0"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setDividaModalClient({
-                                id: row.clientId,
-                                name: row.clientName,
-                              })
-                            }}
-                            title="Dívida Manual Pendente"
-                          >
-                            <CircleDollarSign className="h-4 w-4" />
-                          </Button>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full shrink-0 ml-1"
+                                onClick={(e) => e.stopPropagation()}
+                                title="Dívida Manual Pendente"
+                              >
+                                <CircleDollarSign className="h-4 w-4 animate-pulse" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent
+                              className="w-64 p-3 shadow-md"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="space-y-3">
+                                <p className="text-sm font-semibold text-red-700">
+                                  Dívida Identificada
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  Este cliente possui dívidas manuais pendentes.
+                                </p>
+                                <Button
+                                  size="sm"
+                                  className="w-full text-xs bg-red-600 hover:bg-red-700"
+                                  onClick={() =>
+                                    navigate(
+                                      `/dividas-manuais?cliente=${row.clientId}`,
+                                    )
+                                  }
+                                >
+                                  Ir para a Dívida
+                                </Button>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
                         )}
                       </div>
                     </TableCell>

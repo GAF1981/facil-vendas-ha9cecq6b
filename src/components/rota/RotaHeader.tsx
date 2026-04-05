@@ -26,6 +26,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useEffect, useState } from 'react'
 import { caixaService, CaixaSummaryRow } from '@/services/caixaService'
 import { rotaService } from '@/services/rotaService'
@@ -225,62 +231,59 @@ export function RotaHeader({
               />
             )}
 
-            {onToggleMap && (
-              <Button
-                onClick={onToggleMap}
-                variant="outline"
-                className="w-full sm:w-auto text-blue-600 border-blue-200 hover:bg-blue-50"
-                title="Alternar Visualização"
-              >
-                {isMapView ? (
-                  <>
-                    <List className="mr-2 h-4 w-4" />
-                    Visualizar Lista
-                  </>
-                ) : (
-                  <>
-                    <MapIcon className="mr-2 h-4 w-4" />
-                    Visualizar Mapa
-                  </>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto text-blue-700 border-blue-200 hover:bg-blue-50"
+                >
+                  <MapIcon className="mr-2 h-4 w-4" />
+                  Rotas e Mapas
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                {onToggleMap && (
+                  <DropdownMenuItem
+                    onClick={onToggleMap}
+                    className="cursor-pointer"
+                  >
+                    {isMapView ? (
+                      <List className="mr-2 h-4 w-4 text-blue-600" />
+                    ) : (
+                      <MapIcon className="mr-2 h-4 w-4 text-blue-600" />
+                    )}
+                    {isMapView ? 'Visualizar Lista' : 'Ver mapa'}
+                  </DropdownMenuItem>
                 )}
-              </Button>
-            )}
-
-            {onMyLocation && (
-              <Button
-                onClick={onMyLocation}
-                variant="outline"
-                className="w-full sm:w-auto text-green-600 border-green-200 hover:bg-green-50"
-                title="Minha Localização"
-              >
-                <LocateFixed className="mr-2 h-4 w-4" />
-                Minha Localização
-              </Button>
-            )}
-
-            {onGoogleMapsPriority && (
-              <Button
-                onClick={onGoogleMapsPriority}
-                variant="outline"
-                className="w-full sm:w-auto text-amber-600 border-amber-200 hover:bg-amber-50"
-                title="Rota Google Maps (Prioritários)"
-              >
-                <MapPinned className="mr-2 h-4 w-4" />
-                Rota Prioritários
-              </Button>
-            )}
-
-            {onGoogleMapsSuggested && (
-              <Button
-                onClick={onGoogleMapsSuggested}
-                variant="outline"
-                className="w-full sm:w-auto text-indigo-600 border-indigo-200 hover:bg-indigo-50"
-                title="Sugerir Rota Google Maps"
-              >
-                <RouteIcon className="mr-2 h-4 w-4" />
-                Sugerir Rota
-              </Button>
-            )}
+                {onGoogleMapsPriority && (
+                  <DropdownMenuItem
+                    onClick={onGoogleMapsPriority}
+                    className="cursor-pointer"
+                  >
+                    <MapPinned className="mr-2 h-4 w-4 text-amber-600" />
+                    Rota Prioritária
+                  </DropdownMenuItem>
+                )}
+                {onGoogleMapsSuggested && (
+                  <DropdownMenuItem
+                    onClick={onGoogleMapsSuggested}
+                    className="cursor-pointer"
+                  >
+                    <RouteIcon className="mr-2 h-4 w-4 text-indigo-600" />
+                    Sugerir Rota
+                  </DropdownMenuItem>
+                )}
+                {onMyLocation && (
+                  <DropdownMenuItem
+                    onClick={onMyLocation}
+                    className="cursor-pointer"
+                  >
+                    <LocateFixed className="mr-2 h-4 w-4 text-green-600" />
+                    Minha Localização
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             <Button
               onClick={onExport}

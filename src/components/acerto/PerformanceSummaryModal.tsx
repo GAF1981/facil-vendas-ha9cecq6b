@@ -15,6 +15,7 @@ import {
   CheckCircle,
   PieChart,
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useUserStore } from '@/stores/useUserStore'
 import { rotaService } from '@/services/rotaService'
 import { metasService } from '@/services/metasService'
@@ -37,6 +38,7 @@ export function PerformanceSummaryModal({
 }: PerformanceSummaryModalProps) {
   const { employee } = useUserStore()
   const [isOpen, setIsOpen] = useState(true)
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [metrics, setMetrics] = useState({
     totalMetas: 0,
@@ -263,10 +265,19 @@ export function PerformanceSummaryModal({
               "{message}"
             </div>
 
-            <AlertDialogFooter className="sm:justify-center mt-2">
+            <AlertDialogFooter className="sm:justify-center mt-2 flex-col sm:flex-row gap-2">
+              <AlertDialogAction
+                onClick={() => {
+                  handleClose()
+                  navigate('/relatorio/metas')
+                }}
+                className="w-full sm:w-auto px-8 bg-black hover:bg-black/80 text-white"
+              >
+                Ver metas
+              </AlertDialogAction>
               <AlertDialogAction
                 onClick={handleClose}
-                className="w-full sm:w-auto px-8"
+                className="w-full sm:w-auto px-8 bg-red-600 hover:bg-red-700 text-white"
               >
                 Ok
               </AlertDialogAction>
