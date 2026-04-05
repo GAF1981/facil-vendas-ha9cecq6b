@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Card,
   CardContent,
@@ -74,6 +75,10 @@ const normalizeName = (name: string | null | undefined) => {
 }
 
 const MetasReportPage = () => {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const urlEmployeeId = searchParams.get('employee_id')
+  const autoSearchTriggered = useRef(false)
+
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date()),
@@ -127,6 +132,20 @@ const MetasReportPage = () => {
   }, [fetchExceptions])
 
   useEffect(() => {
+    if (urlEmployeeId && employees.length > 0 && !autoSearchTriggered.current) {
+      setSelectedEmployeeId(urlEmployeeId)
+      autoSearchTriggered.current = true
+
+      setTimeout(() => {
+        const btn = document.getElementById('btn-buscar-metas')
+        if (btn) btn.click()
+      }, 300)
+
+      setSearchParams(new URLSearchParams())
+    }
+  }, [urlEmployeeId, employees, setSearchParams])
+
+  useEffect(() => {
     if (isDialogOpen && dialogEmployeeId) {
       const empId = parseInt(dialogEmployeeId, 10)
       metasService.getMeta(empId).then((res) => {
@@ -171,8 +190,6 @@ const MetasReportPage = () => {
       const periodos = await metasService.getMetasPeriodos(funcId)
       setPeriodGoals(periodos)
 
-      // Pagination fetching to bypass the 1000-row Supabase limit.
-      // This guarantees we don't miss older data (e.g. earlier in the month) that gets truncated.
       let dbData: any[] = []
       let hasMore = true
       let offset = 0
@@ -496,7 +513,6 @@ const MetasReportPage = () => {
       const captacao = dailyCaptacao.get(dateStr) || 0
       const totalGeral = acertos + captacao
 
-      // Apuração: Acertos Regulares - Total Metas
       const apuracao = isFutureDate ? 0 : acertos - metaForDay
 
       return {
@@ -539,10 +555,7 @@ const MetasReportPage = () => {
       }
     })
 
-    // Apuração de Metas calculation: Acertos Regulares - Total Metas
     const totalApuracao = totalAcertos - totalMetas
-
-    // Atingimento: Acertos Regulares / Total Metas (como a apuração dos acertos dividida pela meta)
     const atingimento = totalMetas > 0 ? (totalAcertos / totalMetas) * 100 : 0
 
     return {
@@ -772,6 +785,7 @@ const MetasReportPage = () => {
               </Select>
             </div>
             <Button
+              id="btn-buscar-metas"
               onClick={handleSearch}
               disabled={isLoading}
               className="w-full md:w-auto"

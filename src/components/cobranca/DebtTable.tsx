@@ -742,6 +742,7 @@ export function DebtTable({
                                   onClick={() =>
                                     navigate(
                                       `/dividas-manuais?cliente=${row.clientId}`,
+                                      { state: { clienteId: row.clientId } },
                                     )
                                   }
                                 >

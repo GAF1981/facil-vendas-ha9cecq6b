@@ -449,6 +449,12 @@ export function RotaTable({
                   </TableRow>
                 ) : (
                   visibleRows.map((row) => {
+                    const hasDivida = dividas.some(
+                      (d) =>
+                        d.cliente_id === row.client.CODIGO &&
+                        d.valor_parcela > d.valor_pago,
+                    )
+
                     let rowClass =
                       'hover:bg-muted/30 transition-colors border-b text-xs'
                     let textClass = ''
@@ -457,7 +463,10 @@ export function RotaTable({
                       rowClass =
                         'bg-green-800 hover:bg-green-700 text-white dark:bg-green-900 dark:hover:bg-green-800 border-b text-xs'
                       textClass = 'text-green-100'
-                    } else if (row.vencimento_status === 'VENCIDO') {
+                    } else if (
+                      row.vencimento_status === 'VENCIDO' ||
+                      hasDivida
+                    ) {
                       rowClass =
                         'bg-red-200 hover:bg-red-300 dark:bg-red-900/50 dark:hover:bg-red-900/70 border-b text-xs'
                       textClass = 'text-red-900 dark:text-red-100'
@@ -634,11 +643,7 @@ export function RotaTable({
                                 </span>
                               </div>
                             </div>
-                            {dividas.filter(
-                              (d) =>
-                                d.cliente_id === row.client.CODIGO &&
-                                d.valor_parcela > d.valor_pago,
-                            ).length > 0 && (
+                            {hasDivida && (
                               <Popover>
                                 <PopoverTrigger asChild>
                                   <Button
@@ -669,6 +674,11 @@ export function RotaTable({
                                       onClick={() =>
                                         navigate(
                                           `/dividas-manuais?cliente=${row.client.CODIGO}`,
+                                          {
+                                            state: {
+                                              clienteId: row.client.CODIGO,
+                                            },
+                                          },
                                         )
                                       }
                                     >

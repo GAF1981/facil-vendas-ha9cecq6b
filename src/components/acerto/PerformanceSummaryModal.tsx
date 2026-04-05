@@ -269,7 +269,7 @@ export function PerformanceSummaryModal({
               <AlertDialogAction
                 onClick={() => {
                   handleClose()
-                  navigate('/relatorio/metas')
+                  navigate(`/relatorio/metas?employee_id=${employee?.id}`)
                 }}
                 className="w-full sm:w-auto px-8 bg-black hover:bg-black/80 text-white"
               >
