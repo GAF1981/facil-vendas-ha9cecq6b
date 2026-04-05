@@ -410,8 +410,7 @@ export const rotaService = {
     return assignments.length;
   },
 
-  async applyDiasParaAcertoRoutine(activeRotaId: number) {
-    if (!activeRotaId) return 0;
+  async applyDiasParaAcertoRoutine(activeRotaId: number) {    if (!activeRotaId) return 0;
 
     const { data: stats } = await supabase.from('client_stats_view' as any).select('*');
     if (!stats || stats.length === 0) return 0;
@@ -473,7 +472,7 @@ export const rotaService = {
     }
 
     return assignments.length;
-  }
+  },
 
   async bulkTransferNextSellers(rotaId: number) {
     const items = await this.getRotaItems(rotaId)
