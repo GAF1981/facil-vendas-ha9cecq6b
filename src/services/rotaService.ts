@@ -345,6 +345,136 @@ export const rotaService = {
     if (error) throw error
   },
 
+  async applyPrimeiroAcertoRoutine(activeRotaId: number, diasPrimeiroAcerto: number) {
+    if (!activeRotaId) return 0;
+    
+    const { data: stats } = await supabase.from('client_stats_view' as any).select('*');
+    if (!stats || stats.length === 0) return 0;
+
+    const orderIds = stats.map((s: any) => s.max_pedido).filter(Boolean);
+    if (orderIds.length === 0) return 0;
+
+    const ordersMap = new Map();
+    for (let i = 0; i < orderIds.length; i += 1000) {
+      const chunk = orderIds.slice(i, i + 1000);
+      const { data: orders } = await supabase.from('BANCO_DE_DADOS')
+        .select('NÚMERO DO PEDIDO, TIPO, DATA DO ACERTO, CODIGO FUNCIONARIO, CÓDIGO DO CLIENTE')
+        .in('NÚMERO DO PEDIDO', chunk);
+      
+      if (orders) {
+        orders.forEach(o => {
+          if (o['CÓDIGO DO CLIENTE']) {
+            ordersMap.set(o['CÓDIGO DO CLIENTE'], o);
+          }
+        });
+      }
+    }
+
+    const { data: clients } = await supabase.from('CLIENTES')
+      .select('CODIGO, "TIPO DE CLIENTE"')
+      .in('TIPO DE CLIENTE', ['ATIVO', 'ATIVO COMPRA']);
+    
+    if (!clients) return 0;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const assignments = [];
+
+    for (const client of clients) {
+      const order = ordersMap.get(client.CODIGO);
+      if (!order) continue;
+
+      if (order.TIPO === 'CAPTAÇÃO' || order.TIPO === 'Captação') {
+        const dataAcerto = order['DATA DO ACERTO'] ? new Date(order['DATA DO ACERTO']) : null;
+        if (!dataAcerto) continue;
+
+        const diffTime = today.getTime() - dataAcerto.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays < diasPrimeiroAcerto) {
+          if (order['CODIGO FUNCIONARIO']) {
+            assignments.push({
+              clientId: client.CODIGO,
+              sellerId: order['CODIGO FUNCIONARIO']
+            });
+          }
+        }
+      }
+    }
+
+    if (assignments.length > 0) {
+      await this.bulkUpdateNextSellersVariable(activeRotaId, assignments);
+    }
+    
+    return assignments.length;
+  }
+
+  async applyDiasParaAcertoRoutine(activeRotaId: number) {
+    if (!activeRotaId) return 0;
+
+    const { data: stats } = await supabase.from('client_stats_view' as any).select('*');
+    if (!stats || stats.length === 0) return 0;
+
+    const orderIds = stats.map((s: any) => s.max_pedido).filter(Boolean);
+    if (orderIds.length === 0) return 0;
+
+    const ordersMap = new Map();
+    for (let i = 0; i < orderIds.length; i += 1000) {
+      const chunk = orderIds.slice(i, i + 1000);
+      const { data: orders } = await supabase.from('BANCO_DE_DADOS')
+        .select('NÚMERO DO PEDIDO, TIPO, DATA DO ACERTO, CODIGO FUNCIONARIO, CÓDIGO DO CLIENTE')
+        .in('NÚMERO DO PEDIDO', chunk);
+      
+      if (orders) {
+        orders.forEach(o => {
+          if (o['CÓDIGO DO CLIENTE']) {
+            ordersMap.set(o['CÓDIGO DO CLIENTE'], o);
+          }
+        });
+      }
+    }
+
+    const { data: clients } = await supabase.from('CLIENTES')
+      .select('CODIGO, dias_para_acerto')
+      .not('dias_para_acerto', 'is', null);
+    
+    if (!clients) return 0;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const assignments = [];
+
+    for (const client of clients) {
+      if (!client.dias_para_acerto) continue;
+
+      const order = ordersMap.get(client.CODIGO);
+      if (!order) continue;
+
+      const dataAcerto = order['DATA DO ACERTO'] ? new Date(order['DATA DO ACERTO']) : null;
+      if (!dataAcerto) continue;
+
+      const diffTime = today.getTime() - dataAcerto.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays > client.dias_para_acerto) {
+        if (order['CODIGO FUNCIONARIO']) {
+          assignments.push({
+            clientId: client.CODIGO,
+            sellerId: order['CODIGO FUNCIONARIO']
+          });
+        }
+      }
+    }
+
+    if (assignments.length > 0) {
+      await this.bulkUpdateNextSellersVariable(activeRotaId, assignments);
+    }
+
+    return assignments.length;
+  }
+
   async bulkTransferNextSellers(rotaId: number) {
     const items = await this.getRotaItems(rotaId)
     const updates = []

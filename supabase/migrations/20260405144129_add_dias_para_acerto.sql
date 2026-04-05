@@ -1,0 +1,1 @@
+ALTER TABLE public."CLIENTES" ADD COLUMN IF NOT EXISTS dias_para_acerto INTEGER;

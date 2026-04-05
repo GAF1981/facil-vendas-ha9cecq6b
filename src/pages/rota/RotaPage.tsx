@@ -48,6 +48,14 @@ export default function RotaPage() {
   const [isParametrosModalOpen, setIsParametrosModalOpen] = useState(false)
   const [isFirstLoad, setIsFirstLoad] = useState(true)
 
+  const [diasPrimeiroAcerto, setDiasPrimeiroAcerto] = useState(() => {
+    return parseInt(localStorage.getItem('diasPrimeiroAcerto') || '30')
+  })
+
+  useEffect(() => {
+    localStorage.setItem('diasPrimeiroAcerto', String(diasPrimeiroAcerto))
+  }, [diasPrimeiroAcerto])
+
   const [googleMapsDialog, setGoogleMapsDialog] = useState<{
     open: boolean
     type: 'priority' | 'suggested'
@@ -438,6 +446,16 @@ export default function RotaPage() {
     if (!confirm('Tem certeza que deseja finalizar a rota atual?')) return
 
     try {
+      toast({
+        title: 'Aguarde',
+        description: 'Processando rotinas de acerto...',
+      })
+      await rotaService.applyPrimeiroAcertoRoutine(
+        activeRota.id,
+        diasPrimeiroAcerto,
+      )
+      await rotaService.applyDiasParaAcertoRoutine(activeRota.id)
+
       await rotaService.finishAndStartNewRoute(activeRota.id)
 
       toast({
@@ -1011,6 +1029,8 @@ export default function RotaPage() {
         rows={sortedRows}
         activeRotaId={activeRota?.id}
         onComplete={loadData}
+        diasPrimeiroAcerto={diasPrimeiroAcerto}
+        setDiasPrimeiroAcerto={setDiasPrimeiroAcerto}
       />
 
       <Dialog

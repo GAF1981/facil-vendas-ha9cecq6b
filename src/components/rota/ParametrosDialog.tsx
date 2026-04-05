@@ -23,6 +23,8 @@ interface ParametrosDialogProps {
   rows: RotaRow[]
   activeRotaId?: number
   onComplete: () => void
+  diasPrimeiroAcerto: number
+  setDiasPrimeiroAcerto: (val: number) => void
 }
 
 export function ParametrosDialog({
@@ -31,13 +33,59 @@ export function ParametrosDialog({
   rows,
   activeRotaId,
   onComplete,
+  diasPrimeiroAcerto,
+  setDiasPrimeiroAcerto,
 }: ParametrosDialogProps) {
   const [projecao, setProjecao] = useState('350,00')
   const [data, setData] = useState(
     format(subDays(new Date(), 30), 'yyyy-MM-dd'),
   )
   const [loading, setLoading] = useState(false)
+  const [localDias, setLocalDias] = useState(String(diasPrimeiroAcerto))
   const { toast } = useToast()
+
+  useEffect(() => {
+    if (open) {
+      setLocalDias(String(diasPrimeiroAcerto))
+    }
+  }, [diasPrimeiroAcerto, open])
+
+  const handle1Acerto = async () => {
+    if (!activeRotaId) return
+    setLoading(true)
+    try {
+      const dias = parseInt(localDias)
+      if (isNaN(dias) || dias < 15 || dias > 90) {
+        toast({
+          title: 'Aviso',
+          description: 'Dias deve ser entre 15 e 90',
+          variant: 'destructive',
+        })
+        setLoading(false)
+        return
+      }
+      setDiasPrimeiroAcerto(dias)
+      const count = await rotaService.applyPrimeiroAcertoRoutine(
+        activeRotaId,
+        dias,
+      )
+      toast({
+        title: 'Sucesso',
+        description: `Rotina concluída. ${count} clientes atualizados.`,
+        className: 'bg-green-600 text-white',
+      })
+      onComplete()
+    } catch (e) {
+      console.error(e)
+      toast({
+        title: 'Erro',
+        description: 'Falha ao executar rotina',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleAplicar = async () => {
     if (!activeRotaId) return
@@ -164,7 +212,28 @@ export function ParametrosDialog({
               onChange={(e) => setData(e.target.value)}
             />
           </div>
-          <p className="text-xs text-muted-foreground leading-relaxed">
+          <div className="space-y-2 pt-2 border-t mt-2">
+            <Label>Dias para primeiro Acerto (15-90)</Label>
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                min="15"
+                max="90"
+                value={localDias}
+                onChange={(e) => setLocalDias(e.target.value)}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handle1Acerto}
+                disabled={loading}
+              >
+                1 ACERTO
+              </Button>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed mt-2">
             Clientes com projeção maior ou igual ao valor e último acerto
             anterior ou igual à data selecionada terão o{' '}
             <strong>próximo vendedor</strong> atribuído automaticamente com base

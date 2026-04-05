@@ -16,6 +16,7 @@ interface AdditionalFields {
   latitude?: number | null
   longitude?: number | null
   favorito?: boolean | null
+  dias_para_acerto?: number | null
 }
 
 export type ClientRow = Database['public']['Tables']['CLIENTES']['Row'] &
@@ -88,6 +89,11 @@ export const clientSchema = z.object({
   latitude: z.coerce.number().optional().nullable(),
   longitude: z.coerce.number().optional().nullable(),
   favorito: z.boolean().optional().nullable().default(false),
+  dias_para_acerto: z.preprocess((val) => {
+    if (val === '' || val === null || val === undefined) return null
+    const num = Number(val)
+    return isNaN(num) ? null : num
+  }, z.number().min(15, 'Mínimo 15').max(90, 'Máximo 90').nullable().optional()),
 })
 
 export type ClientFormData = z.infer<typeof clientSchema>

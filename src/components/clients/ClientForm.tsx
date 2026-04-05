@@ -126,6 +126,7 @@ export function ClientForm({
           longitude:
             initialData.longitude != null ? String(initialData.longitude) : '',
           favorito: initialData.favorito || false,
+          dias_para_acerto: initialData.dias_para_acerto || null,
         }
       : {
           CODIGO: 0,
@@ -162,6 +163,7 @@ export function ClientForm({
           latitude: '',
           longitude: '',
           favorito: false,
+          dias_para_acerto: null,
         },
     mode: 'onChange',
   })
@@ -1146,6 +1148,30 @@ export function ClientForm({
                           </SelectItem>
                         </SelectContent>
                       </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="md:col-span-4">
+                <FormField
+                  control={form.control}
+                  name="dias_para_acerto"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Dias para Acerto (15 - 90)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="15"
+                          max="90"
+                          placeholder="Ex: 30"
+                          {...field}
+                          value={field.value || ''}
+                          onChange={(e) => field.onChange(e.target.value)}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}

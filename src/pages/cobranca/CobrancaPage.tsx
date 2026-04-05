@@ -58,7 +58,10 @@ export default function CobrancaPage() {
   const [clientFilter, setClientFilter] = useState('')
   const [orderFilter, setOrderFilter] = useState('')
 
-  const [clientTypeFilter, setClientTypeFilter] = useState<string>('ATIVO')
+  const [clientTypeFilter, setClientTypeFilter] = useState<string[]>([
+    'ATIVO',
+    'ATIVO COMPRA',
+  ])
   const [formaPagamentoFilter, setFormaPagamentoFilter] =
     useState<string>('todos')
 
@@ -287,8 +290,8 @@ export default function CobrancaPage() {
       result = result.filter((d) => d.city === cityFilter)
     }
 
-    if (clientTypeFilter !== 'all') {
-      result = result.filter((d) => d.clientType === clientTypeFilter)
+    if (clientTypeFilter.length > 0 && !clientTypeFilter.includes('all')) {
+      result = result.filter((d) => clientTypeFilter.includes(d.clientType))
     }
 
     const shouldIgnoreMotoqueiroFilter = activeTab === 'motoqueiro'
@@ -604,7 +607,7 @@ export default function CobrancaPage() {
     setStatusFilter(['VENCIDO', 'A VENCER'])
     setCityFilter('todos')
     setMotoqueiroFilter('todos')
-    setClientTypeFilter('ATIVO')
+    setClientTypeFilter(['ATIVO', 'ATIVO COMPRA'])
     setFormaPagamentoFilter('todos')
     setDataCombinadaRange(undefined)
     setVencimentoRange(undefined)
@@ -949,25 +952,22 @@ export default function CobrancaPage() {
               </div>
             </div>
 
-            <div className="w-full md:w-[150px]">
-              <Select
-                value={clientTypeFilter}
-                onValueChange={setClientTypeFilter}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Tipo de Cliente" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="ATIVO">Ativo</SelectItem>
-                  <SelectItem value="INATIVO">Inativo</SelectItem>
-                  <SelectItem value="INATIVO - ROTA">Inativo - Rota</SelectItem>
-                  <SelectItem value="INATIVO-COBRANÇA">
-                    Inativo - Cobrança
-                  </SelectItem>
-                  <SelectItem value="BLOQUEADO">Bloqueado</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="w-full md:w-[200px]">
+              <MultiSelect
+                options={[
+                  { label: 'Todos', value: 'all' },
+                  { label: 'Ativo', value: 'ATIVO' },
+                  { label: 'Ativo Compra', value: 'ATIVO COMPRA' },
+                  { label: 'Inativo', value: 'INATIVO' },
+                  { label: 'Inativo - Rota', value: 'INATIVO - ROTA' },
+                  { label: 'Inativo - Cobrança', value: 'INATIVO-COBRANÇA' },
+                  { label: 'Bloqueado', value: 'BLOQUEADO' },
+                ]}
+                selected={clientTypeFilter}
+                onChange={setClientTypeFilter}
+                placeholder="Tipo de Cliente"
+                className="w-full"
+              />
             </div>
 
             <div className="w-full md:w-[180px]">
