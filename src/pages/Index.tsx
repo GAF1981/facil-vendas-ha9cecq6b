@@ -31,6 +31,7 @@ import {
   Mail,
   Database,
   PieChart,
+  PackageSearch,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -45,6 +46,19 @@ export default function Index() {
           path: '/acerto',
           desc: 'Acerto com clientes',
         },
+        { title: 'Rota', icon: Map, path: '/rota', desc: 'Gestão de rotas' },
+        {
+          title: 'Resumo Acertos',
+          icon: List,
+          path: '/resumo-acertos',
+          desc: 'Relatório consolidado',
+        },
+        {
+          title: 'Caixa',
+          icon: Wallet,
+          path: '/caixa',
+          desc: 'Fluxo de caixa',
+        },
         {
           title: 'Recebimento',
           icon: ArrowDownCircle,
@@ -52,29 +66,40 @@ export default function Index() {
           desc: 'Entrada de valores',
         },
         {
-          title: 'Confirmação',
-          icon: CheckCircle,
-          path: '/confirmacao-recebimentos',
-          desc: 'Confirmação financeira',
+          title: 'Pendências',
+          icon: AlertCircle,
+          path: '/pendencias',
+          desc: 'Anotações e pendências',
         },
         {
-          title: 'Fechamentos',
-          icon: Lock,
-          path: '/fechamentos',
-          desc: 'Fechamento de caixa',
+          title: 'Rota Motoqueiro',
+          icon: Navigation,
+          path: '/rota-motoqueiro',
+          desc: 'Rotas de cobrança',
         },
-        { title: 'Pix', icon: QrCode, path: '/pix', desc: 'Validação de Pix' },
-        {
-          title: 'Controle',
-          icon: Settings,
-          path: '/controle',
-          desc: 'Painel de controle',
-        },
+      ],
+    },
+    {
+      title: 'Financeiro',
+      items: [
         {
           title: 'Cobrança',
           icon: Megaphone,
           path: '/cobranca',
           desc: 'Gestão de inadimplência',
+        },
+        {
+          title: 'Dívida Manual',
+          icon: CreditCard,
+          path: '/dividas-manuais',
+          desc: 'Central de Dívida',
+        },
+        { title: 'Pix', icon: QrCode, path: '/pix', desc: 'Validação de Pix' },
+        {
+          title: 'Fechamentos',
+          icon: Lock,
+          path: '/fechamentos',
+          desc: 'Fechamento de caixa',
         },
         {
           title: 'Nota Fiscal',
@@ -83,18 +108,22 @@ export default function Index() {
           desc: 'Emissão de NFe',
         },
         {
-          title: 'Pendências',
-          icon: AlertCircle,
-          path: '/pendencias',
-          desc: 'Anotações e pendências',
+          title: 'Boletos',
+          icon: Barcode,
+          path: '/boletos',
+          desc: 'Controle de boletos',
         },
-        { title: 'Rota', icon: Map, path: '/rota', desc: 'Gestão de rotas' },
         {
-          title: 'Rota Motoqueiro',
-          icon: Navigation,
-          path: '/rota-motoqueiro',
-          desc: 'Rotas de cobrança',
+          title: 'Quita Dívida',
+          icon: CheckSquare,
+          path: '/quitar-divida',
+          desc: 'Gerenciar pagamentos',
         },
+      ],
+    },
+    {
+      title: 'Estoque e Frota',
+      items: [
         {
           title: 'Inventário',
           icon: ClipboardList,
@@ -102,15 +131,21 @@ export default function Index() {
           desc: 'Contagem de estoque',
         },
         {
-          title: 'Resumo Acertos',
-          icon: List,
-          path: '/resumo-acertos',
-          desc: 'Relatório consolidado',
+          title: 'Estoque Carro',
+          icon: PackageSearch,
+          path: '/estoque-carro',
+          desc: 'Estoque nos veículos',
+        },
+        {
+          title: 'INATIVAR CLIENTES',
+          icon: UserX,
+          path: '/inativar-clientes',
+          desc: 'Gerenciar inativos',
         },
       ],
     },
     {
-      title: 'Financeiro',
+      title: 'Gerencial',
       items: [
         {
           title: 'DRE',
@@ -119,56 +154,22 @@ export default function Index() {
           desc: 'Resultados (DRE)',
         },
         {
-          title: 'Dívidas Manuais',
-          icon: CreditCard,
-          path: '/dividas-manuais',
-          desc: 'Central de Dívida',
-        },
-        {
-          title: 'Quitar Dívida',
-          icon: CheckSquare,
-          path: '/quitar-divida',
-          desc: 'Gerenciar pagamentos',
-        },
-        {
-          title: 'Boletos',
-          icon: Barcode,
-          path: '/boletos',
-          desc: 'Controle de boletos',
-        },
-        {
-          title: 'Caixa',
-          icon: Wallet,
-          path: '/caixa',
-          desc: 'Fluxo de caixa',
-        },
-      ],
-    },
-    {
-      title: 'Relatórios',
-      items: [
-        {
-          title: 'Painel Geral',
-          icon: LayoutDashboard,
-          path: '/dashboard',
-          desc: 'Visão geral do sistema',
-        },
-        {
           title: 'Relatórios',
           icon: PieChart,
           path: '/relatorio',
           desc: 'Central de relatórios',
         },
-      ],
-    },
-    {
-      title: 'Configurações',
-      items: [
         {
-          title: 'Permissões',
-          icon: Shield,
-          path: '/permissoes',
-          desc: 'Controle de acessos',
+          title: 'Controles',
+          icon: LayoutDashboard,
+          path: '/dashboard',
+          desc: 'Visão geral do sistema',
+        },
+        {
+          title: 'Confirmação',
+          icon: CheckCircle,
+          path: '/confirmacao-recebimentos',
+          desc: 'Confirmação financeira',
         },
         {
           title: 'Indicadores',
@@ -176,17 +177,22 @@ export default function Index() {
           path: '/indicadores',
           desc: 'KPIs e metas',
         },
+      ],
+    },
+    {
+      title: 'Sistema',
+      items: [
         {
-          title: 'Inativar Clientes',
-          icon: UserX,
-          path: '/inativar-clientes',
-          desc: 'Gerenciar inativos',
-        },
-        {
-          title: 'Email Seguro',
+          title: 'E-mail Seguro',
           icon: Mail,
           path: '/email-seguro',
           desc: 'Configurações de envio',
+        },
+        {
+          title: 'Permissões',
+          icon: Shield,
+          path: '/permissoes',
+          desc: 'Controle de acessos',
         },
         {
           title: 'Backup',
@@ -194,10 +200,16 @@ export default function Index() {
           path: '/backup',
           desc: 'Exportação de dados',
         },
+        {
+          title: 'Controle',
+          icon: Settings,
+          path: '/controle',
+          desc: 'Painel de controle',
+        },
       ],
     },
     {
-      title: 'Cadastros',
+      title: 'Cadastro',
       items: [
         {
           title: 'Clientes',
@@ -235,15 +247,16 @@ export default function Index() {
 
   const sectionColors: Record<string, string> = {
     Operacional:
-      'border-blue-500/20 hover:border-blue-500/50 shadow-blue-500/5',
+      'border-blue-500/40 hover:border-blue-500/70 shadow-blue-500/10',
     Financeiro:
-      'border-emerald-500/20 hover:border-emerald-500/50 shadow-emerald-500/5',
-    Relatórios:
-      'border-purple-500/20 hover:border-purple-500/50 shadow-purple-500/5',
-    Configurações:
-      'border-orange-500/20 hover:border-orange-500/50 shadow-orange-500/5',
-    Cadastros:
-      'border-slate-500/20 hover:border-slate-500/50 shadow-slate-500/5',
+      'border-orange-500/40 hover:border-orange-500/70 shadow-orange-500/10',
+    'Estoque e Frota':
+      'border-orange-500/40 hover:border-orange-500/70 shadow-orange-500/10',
+    Gerencial:
+      'border-zinc-800/40 hover:border-zinc-800/70 shadow-zinc-800/10 dark:border-zinc-300/40 dark:hover:border-zinc-300/70',
+    Sistema:
+      'border-slate-500/40 hover:border-slate-500/70 shadow-slate-500/10',
+    Cadastro: 'border-red-500/40 hover:border-red-500/70 shadow-red-500/10',
   }
 
   return (
@@ -264,9 +277,9 @@ export default function Index() {
                 <Link key={c.path} to={c.path}>
                   <Card
                     className={cn(
-                      'hover:shadow-md transition-shadow cursor-pointer h-full group flex flex-col bg-card/50 hover:bg-card border',
+                      'hover:shadow-md transition-shadow cursor-pointer h-full group flex flex-col bg-card/50 hover:bg-card border-2',
                       sectionColors[section.title] ||
-                        'border-primary/10 hover:border-primary/30',
+                        'border-primary/20 hover:border-primary/50',
                     )}
                   >
                     <CardHeader className="p-4 pb-2 flex-row items-center gap-3 space-y-0">
