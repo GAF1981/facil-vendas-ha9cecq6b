@@ -93,7 +93,12 @@ export function RotaFilters({
     })
   }
 
-  const { setIsGerencialActive, uniqueDebits } = useRotaFilterStore()
+  const {
+    setIsGerencialActive,
+    uniqueDebits,
+    isLinhaVermelhaActive,
+    setIsLinhaVermelhaActive,
+  } = useRotaFilterStore()
 
   React.useEffect(() => {
     setIsGerencialActive(isGerencialActive)
@@ -221,6 +226,21 @@ export function RotaFilters({
                 className="text-xs cursor-pointer flex items-center gap-1 text-yellow-600"
               >
                 <Star className="h-3 w-3 fill-current" /> Prioritários
+              </Label>
+            </div>
+
+            <div className="flex items-center space-x-2 border-l pl-4">
+              <Switch
+                id="red-line-mode"
+                checked={isLinhaVermelhaActive}
+                onCheckedChange={setIsLinhaVermelhaActive}
+                className="scale-75 data-[state=checked]:bg-red-600"
+              />
+              <Label
+                htmlFor="red-line-mode"
+                className="text-xs cursor-pointer font-bold text-red-600"
+              >
+                Linhas Vermelhas
               </Label>
             </div>
 

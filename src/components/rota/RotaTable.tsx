@@ -108,7 +108,8 @@ export function RotaTable({
     name: string
   } | null>(null)
 
-  const { isGerencialActive, setUniqueDebits } = useRotaFilterStore()
+  const { isGerencialActive, setUniqueDebits, isLinhaVermelhaActive } =
+    useRotaFilterStore()
 
   const [acoesDialogOpen, setAcoesDialogOpen] = useState(false)
   const [acoesPedidoId, setAcoesPedidoId] = useState<number | null>(null)
@@ -117,9 +118,25 @@ export function RotaTable({
   const visibleRows = useMemo(() => {
     return rows.filter((r) => {
       const tipo = r.client['TIPO DE CLIENTE']?.toUpperCase() || ''
-      return tipo === 'ATIVO' || tipo === 'ATIVO COMPRA'
+      const isActive = tipo === 'ATIVO' || tipo === 'ATIVO COMPRA'
+      if (!isActive) return false
+
+      if (isLinhaVermelhaActive) {
+        const hasDivida = dividas.some(
+          (d) =>
+            d.cliente_id === r.client.CODIGO && d.valor_parcela > d.valor_pago,
+        )
+        const isRed =
+          !r.is_completed &&
+          (r.vencimento_status === 'VENCIDO' ||
+            hasDivida ||
+            r.debito > 0 ||
+            r.has_pendency)
+        if (!isRed) return false
+      }
+      return true
     })
-  }, [rows])
+  }, [rows, dividas, isLinhaVermelhaActive])
 
   const handleOpenAcoes = async (pedidoId: number) => {
     setAcoesPedidoId(pedidoId)
@@ -232,7 +249,7 @@ export function RotaTable({
 
   const today = new Date()
 
-  const colSpanCount = (isGerencialActive ? 22 : 21) - (isSelectionMode ? 7 : 0)
+  const colSpanCount = (isGerencialActive ? 21 : 20) - (isSelectionMode ? 7 : 0)
 
   return (
     <>
@@ -242,10 +259,6 @@ export function RotaTable({
             <table className="w-full caption-bottom text-sm">
               <TableHeader className="bg-muted/50 sticky top-0 z-10 shadow-sm">
                 <TableRow>
-                  <TableHead className="w-[50px] text-center font-bold text-xs">
-                    #
-                  </TableHead>
-
                   <SortableHeader
                     column="client_nome"
                     label="Cliente"
@@ -298,14 +311,14 @@ export function RotaTable({
                     column="vendedor_nome"
                     label="Vendedor"
                     align="left"
-                    className="min-w-[140px] font-bold text-xs"
+                    className="min-w-[70px] font-bold text-xs"
                   />
 
                   {isGerencialActive && (
-                    <TableHead className="min-w-[200px] font-bold text-xs bg-muted/30">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="truncate">Próxima</span>
-                        <div className="flex items-center gap-1">
+                    <TableHead className="min-w-[100px] font-bold text-xs bg-muted/30 px-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="truncate">Prox</span>
+                        <div className="flex items-center gap-0.5">
                           {onBulkFill && (
                             <Button
                               variant="ghost"
@@ -465,7 +478,9 @@ export function RotaTable({
                       textClass = 'text-green-100'
                     } else if (
                       row.vencimento_status === 'VENCIDO' ||
-                      hasDivida
+                      hasDivida ||
+                      row.debito > 0 ||
+                      row.has_pendency
                     ) {
                       rowClass =
                         'bg-red-200 hover:bg-red-300 dark:bg-red-900/50 dark:hover:bg-red-900/70 border-b text-xs'
@@ -494,15 +509,6 @@ export function RotaTable({
 
                     return (
                       <TableRow key={row.client.CODIGO} className={rowClass}>
-                        <TableCell
-                          className={cn(
-                            'text-center font-mono',
-                            textClass || 'text-muted-foreground',
-                          )}
-                        >
-                          {row.rowNumber}
-                        </TableCell>
-
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Button
@@ -649,11 +655,11 @@ export function RotaTable({
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full shrink-0 ml-1"
+                                    className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full shrink-0 ml-1"
                                     onClick={(e) => e.stopPropagation()}
                                     title="Dívida Manual Pendente"
                                   >
-                                    <CircleDollarSign className="h-4 w-4 animate-pulse" />
+                                    <CircleDollarSign className="h-6 w-6 animate-pulse" />
                                   </Button>
                                 </PopoverTrigger>
                                 <PopoverContent
