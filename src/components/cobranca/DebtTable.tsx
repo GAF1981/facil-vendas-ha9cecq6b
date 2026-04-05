@@ -22,6 +22,7 @@ import {
   CircleAlert,
   Send,
   Printer,
+  Ban,
 } from 'lucide-react'
 import { ClientDebt, PaymentHistoryDetail } from '@/types/cobranca'
 import { Boleto } from '@/types/boleto'
@@ -266,6 +267,10 @@ export function DebtTable({
           const currentMotivo =
             updates.motivo !== undefined ? updates.motivo : inst.motivo
 
+          const derivedStatus = currentMotivo?.includes('[SUSPENSO]')
+            ? 'SUSPENSO'
+            : inst.status
+
           const debito = Number(
             Math.max(0, inst.valorRegistrado - inst.valorPago).toFixed(2),
           )
@@ -306,7 +311,7 @@ export function DebtTable({
             valorRegistrado: inst.valorRegistrado,
             valorPago: inst.valorPago,
             debito,
-            status: inst.status,
+            status: derivedStatus as any,
             formaCobranca: currentFormaCobranca,
             dataCombinada: currentDataCombinada,
             motivo: currentMotivo,
@@ -442,6 +447,22 @@ export function DebtTable({
       direction = 'desc'
     }
     setSortConfig({ key, direction })
+  }
+
+  const handleSuspendToggle = async (row: FlatRow) => {
+    const isSuspended = row.motivo?.includes('[SUSPENSO]')
+    let newMotivo = row.motivo || ''
+    if (isSuspended) {
+      newMotivo = newMotivo.replace('[SUSPENSO]', '').trim()
+    } else {
+      newMotivo = `${newMotivo} [SUSPENSO]`.trim()
+    }
+
+    await handleUpdateField(row, 'motivo', newMotivo || null)
+
+    setTimeout(() => {
+      if (onRefresh) onRefresh()
+    }, 500)
   }
 
   const handleUpdateField = async (
@@ -905,32 +926,57 @@ export function DebtTable({
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
-                      <Badge
-                        variant={
-                          row.status === 'VENCIDO'
-                            ? 'destructive'
-                            : row.status === 'PAGO'
-                              ? 'secondary'
-                              : 'outline'
-                        }
-                        className={cn(
-                          'text-[10px] px-2 py-0.5 h-6 whitespace-nowrap capitalize',
-                          row.status === 'PAGO' &&
-                            'bg-green-100 text-green-700 hover:bg-green-200 border-transparent',
-                          row.status === 'A VENCER' &&
-                            'bg-green-50 text-green-600 border-green-200 hover:bg-green-100 font-bold',
-                          row.status === 'SUSPENSO' &&
-                            'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300 font-bold',
+                      <div className="flex items-center justify-center gap-1">
+                        <Badge
+                          variant={
+                            row.status === 'VENCIDO'
+                              ? 'destructive'
+                              : row.status === 'PAGO'
+                                ? 'secondary'
+                                : 'outline'
+                          }
+                          className={cn(
+                            'text-[10px] px-2 py-0.5 h-6 whitespace-nowrap capitalize',
+                            row.status === 'PAGO' &&
+                              'bg-green-100 text-green-700 hover:bg-green-200 border-transparent',
+                            row.status === 'A VENCER' &&
+                              'bg-green-50 text-green-600 border-green-200 hover:bg-green-100 font-bold',
+                            row.status === 'SUSPENSO' &&
+                              'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300 font-bold',
+                          )}
+                        >
+                          {row.status === 'VENCIDO'
+                            ? 'vencido'
+                            : row.status === 'A VENCER'
+                              ? 'a vencer'
+                              : row.status === 'SUSPENSO'
+                                ? 'suspenso'
+                                : row.status.toLowerCase()}
+                        </Badge>
+                        {row.status !== 'PAGO' && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn(
+                              'h-6 w-6 shrink-0',
+                              row.status === 'SUSPENSO'
+                                ? 'text-amber-600 hover:text-amber-700 bg-amber-50 hover:bg-amber-100'
+                                : 'text-muted-foreground hover:text-amber-600 hover:bg-amber-50',
+                            )}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleSuspendToggle(row)
+                            }}
+                            title={
+                              row.status === 'SUSPENSO'
+                                ? 'Remover Suspensão'
+                                : 'Suspender Cobrança'
+                            }
+                          >
+                            <Ban className="h-3 w-3" />
+                          </Button>
                         )}
-                      >
-                        {row.status === 'VENCIDO'
-                          ? 'vencido'
-                          : row.status === 'A VENCER'
-                            ? 'a vencer'
-                            : row.status === 'SUSPENSO'
-                              ? 'suspenso'
-                              : row.status.toLowerCase()}
-                      </Badge>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">

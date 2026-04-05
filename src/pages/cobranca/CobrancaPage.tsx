@@ -451,8 +451,11 @@ export default function CobrancaPage() {
 
         order.installments.forEach((inst) => {
           let matches = true
+          const instStatus = inst.motivo?.includes('[SUSPENSO]')
+            ? 'SUSPENSO'
+            : inst.status
 
-          if (statusFilter.length > 0 && !statusFilter.includes(inst.status))
+          if (statusFilter.length > 0 && !statusFilter.includes(instStatus))
             matches = false
 
           if (!shouldIgnoreMotoqueiroFilter && motoqueiroFilter !== 'todos') {
@@ -633,8 +636,11 @@ export default function CobrancaPage() {
 
         order.installments.forEach((inst, index) => {
           let matches = true
+          const instStatus = inst.motivo?.includes('[SUSPENSO]')
+            ? 'SUSPENSO'
+            : inst.status
 
-          if (statusFilter.length > 0 && !statusFilter.includes(inst.status))
+          if (statusFilter.length > 0 && !statusFilter.includes(instStatus))
             matches = false
 
           if (!shouldIgnoreMotoqueiroFilter && motoqueiroFilter !== 'todos') {

@@ -32,44 +32,10 @@ import {
   Database,
   PieChart,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 export default function Index() {
   const sections = [
-    {
-      title: 'Cadastros',
-      items: [
-        {
-          title: 'Clientes',
-          icon: Users,
-          path: '/clientes',
-          desc: 'Base de clientes',
-        },
-        {
-          title: 'Funcionários',
-          icon: Briefcase,
-          path: '/funcionarios',
-          desc: 'Gestão da equipe',
-        },
-        {
-          title: 'Produtos',
-          icon: Package,
-          path: '/produtos',
-          desc: 'Catálogo de produtos',
-        },
-        {
-          title: 'Fornecedores',
-          icon: Truck,
-          path: '/fornecedores',
-          desc: 'Gestão de fornecedores',
-        },
-        {
-          title: 'Veículos',
-          icon: Car,
-          path: '/veiculos',
-          desc: 'Controle de frota',
-        },
-      ],
-    },
     {
       title: 'Operacional',
       items: [
@@ -230,7 +196,55 @@ export default function Index() {
         },
       ],
     },
+    {
+      title: 'Cadastros',
+      items: [
+        {
+          title: 'Clientes',
+          icon: Users,
+          path: '/clientes',
+          desc: 'Base de clientes',
+        },
+        {
+          title: 'Funcionários',
+          icon: Briefcase,
+          path: '/funcionarios',
+          desc: 'Gestão da equipe',
+        },
+        {
+          title: 'Produtos',
+          icon: Package,
+          path: '/produtos',
+          desc: 'Catálogo de produtos',
+        },
+        {
+          title: 'Fornecedores',
+          icon: Truck,
+          path: '/fornecedores',
+          desc: 'Gestão de fornecedores',
+        },
+        {
+          title: 'Veículos',
+          icon: Car,
+          path: '/veiculos',
+          desc: 'Controle de frota',
+        },
+      ],
+    },
   ]
+
+  const sectionColors: Record<string, string> = {
+    Operacional:
+      'border-blue-500/20 hover:border-blue-500/50 shadow-blue-500/5',
+    Financeiro:
+      'border-emerald-500/20 hover:border-emerald-500/50 shadow-emerald-500/5',
+    Relatórios:
+      'border-purple-500/20 hover:border-purple-500/50 shadow-purple-500/5',
+    Configurações:
+      'border-orange-500/20 hover:border-orange-500/50 shadow-orange-500/5',
+    Cadastros:
+      'border-slate-500/20 hover:border-slate-500/50 shadow-slate-500/5',
+  }
 
   return (
     <div className="p-6 animate-fade-in pb-20 max-w-[1400px] mx-auto">
@@ -248,7 +262,13 @@ export default function Index() {
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {section.items.map((c) => (
                 <Link key={c.path} to={c.path}>
-                  <Card className="hover:shadow-md transition-shadow cursor-pointer border-primary/10 hover:border-primary/30 h-full group flex flex-col bg-card/50 hover:bg-card">
+                  <Card
+                    className={cn(
+                      'hover:shadow-md transition-shadow cursor-pointer h-full group flex flex-col bg-card/50 hover:bg-card border',
+                      sectionColors[section.title] ||
+                        'border-primary/10 hover:border-primary/30',
+                    )}
+                  >
                     <CardHeader className="p-4 pb-2 flex-row items-center gap-3 space-y-0">
                       <div className="p-2 bg-muted rounded-md group-hover:bg-primary/10 transition-colors shrink-0">
                         <c.icon className="h-5 w-5 text-primary" />

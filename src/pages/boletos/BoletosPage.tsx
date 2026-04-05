@@ -15,7 +15,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency, safeFormatDate } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
-import { Upload, RotateCcw, Download } from 'lucide-react'
+import { Upload, RotateCcw, Download, Search, Eraser } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -27,7 +27,12 @@ import {
 export default function BoletosPage() {
   const [boletos, setBoletos] = useState<Boleto[]>([])
   const [loading, setLoading] = useState(true)
+
   const [filterConferido, setFilterConferido] = useState<string>('nao')
+  const [filterValor, setFilterValor] = useState<string>('todos')
+  const [filterCodigo, setFilterCodigo] = useState<string>('')
+  const [filterNome, setFilterNome] = useState<string>('')
+
   const { toast } = useToast()
 
   const loadData = async () => {
@@ -83,12 +88,37 @@ export default function BoletosPage() {
     }
   }
 
+  const uniqueValores = Array.from(new Set(boletos.map((b) => b.valor))).sort(
+    (a, b) => a - b,
+  )
+
   const filteredBoletos = boletos.filter((b) => {
-    if (filterConferido === 'todos') return true
-    if (filterConferido === 'sim') return b.conferido === true
-    if (filterConferido === 'nao') return b.conferido === false
+    if (filterConferido !== 'todos') {
+      if (filterConferido === 'sim' && !b.conferido) return false
+      if (filterConferido === 'nao' && b.conferido) return false
+    }
+
+    if (filterValor !== 'todos' && b.valor.toString() !== filterValor)
+      return false
+
+    if (filterCodigo && !b.cliente_codigo.toString().includes(filterCodigo))
+      return false
+
+    if (
+      filterNome &&
+      !b.cliente_nome.toLowerCase().includes(filterNome.toLowerCase())
+    )
+      return false
+
     return true
   })
+
+  const resetFilters = () => {
+    setFilterConferido('nao')
+    setFilterValor('todos')
+    setFilterCodigo('')
+    setFilterNome('')
+  }
 
   const handleExport = () => {
     if (filteredBoletos.length === 0) return
@@ -113,17 +143,6 @@ export default function BoletosPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
-          <Select value={filterConferido} onValueChange={setFilterConferido}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Conferido" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos</SelectItem>
-              <SelectItem value="sim">Conferido: SIM</SelectItem>
-              <SelectItem value="nao">Conferido: NÃO</SelectItem>
-            </SelectContent>
-          </Select>
-
           <div className="relative">
             <Input
               type="file"
@@ -152,6 +171,63 @@ export default function BoletosPage() {
         </div>
       </div>
 
+      <div className="bg-muted/30 p-4 rounded-md border flex flex-wrap gap-4 items-center">
+        <div className="w-full sm:w-[150px] relative">
+          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Cód. Cliente"
+            className="pl-9"
+            value={filterCodigo}
+            onChange={(e) => setFilterCodigo(e.target.value)}
+          />
+        </div>
+        <div className="flex-1 min-w-[200px] relative">
+          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Nome do Cliente"
+            className="pl-9"
+            value={filterNome}
+            onChange={(e) => setFilterNome(e.target.value)}
+          />
+        </div>
+        <div className="w-full sm:w-[180px]">
+          <Select value={filterValor} onValueChange={setFilterValor}>
+            <SelectTrigger>
+              <SelectValue placeholder="Valor Boleto" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os Valores</SelectItem>
+              {uniqueValores.map((v) => (
+                <SelectItem key={v} value={v.toString()}>
+                  R$ {formatCurrency(v)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="w-full sm:w-[180px]">
+          <Select value={filterConferido} onValueChange={setFilterConferido}>
+            <SelectTrigger>
+              <SelectValue placeholder="Status Conferido" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos Status</SelectItem>
+              <SelectItem value="sim">Conferido: SIM</SelectItem>
+              <SelectItem value="nao">Conferido: NÃO</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={resetFilters}
+          title="Limpar filtros"
+          className="text-muted-foreground hover:text-foreground shrink-0"
+        >
+          <Eraser className="h-5 w-5" />
+        </Button>
+      </div>
+
       <div className="border rounded-md bg-card overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
@@ -175,7 +251,7 @@ export default function BoletosPage() {
               ) : filteredBoletos.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="h-24 text-center">
-                    Nenhum boleto encontrado.
+                    Nenhum boleto encontrado para os filtros atuais.
                   </TableCell>
                 </TableRow>
               ) : (

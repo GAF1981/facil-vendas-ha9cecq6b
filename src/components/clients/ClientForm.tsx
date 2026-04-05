@@ -22,6 +22,7 @@ import {
   MapPin,
   ArrowRight,
   Globe,
+  AlertTriangle,
 } from 'lucide-react'
 import {
   Select,
@@ -93,6 +94,12 @@ export function ClientForm({
     open: boolean
     data: { name: string; debt?: number } | null
     resolve: (proceed: boolean) => void
+  } | null>(null)
+
+  const [debtWarning, setDebtWarning] = useState<{
+    name: string
+    code: number
+    debt: number
   } | null>(null)
 
   const { toast } = useToast()
@@ -339,6 +346,32 @@ export function ClientForm({
         variant: 'destructive',
       })
       setCapturingLocation(false)
+    }
+  }
+
+  const handleCpfCnpjBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
+    const val = unmask(e.target.value)
+    if (val.length === 11 || val.length === 14) {
+      try {
+        const duplicate = await clientsService.checkDuplicateCpfCnpj(
+          e.target.value,
+          initialData?.CODIGO,
+        )
+        if (duplicate) {
+          const debt = await cobrancaService.getClientDebtSummary(
+            duplicate.CODIGO,
+          )
+          if (debt > 0) {
+            setDebtWarning({
+              name: duplicate['NOME CLIENTE'],
+              code: duplicate.CODIGO,
+              debt: debt,
+            })
+          }
+        }
+      } catch (err) {
+        console.error(err)
+      }
     }
   }
 
@@ -593,6 +626,10 @@ export function ClientForm({
                             } else {
                               field.onChange(maskCPF(v))
                             }
+                          }}
+                          onBlur={(e) => {
+                            field.onBlur()
+                            handleCpfCnpjBlur(e)
                           }}
                         />
                       </FormControl>
@@ -1557,6 +1594,42 @@ export function ClientForm({
         onConfirm={() => duplicateWarning?.resolve(true)}
         duplicateData={duplicateWarning?.data || null}
       />
+
+      <Dialog
+        open={!!debtWarning}
+        onOpenChange={(o) => !o && setDebtWarning(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-red-600 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" /> Atenção: Cliente com Débito
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              O CPF/CNPJ informado pertence a um cliente que já possui cadastro
+              e tem dívidas pendentes no sistema.
+            </p>
+            <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
+              <p className="font-bold text-red-800 text-lg">
+                {debtWarning?.name}
+              </p>
+              <p className="text-red-700 text-sm">
+                Código: {debtWarning?.code}
+              </p>
+              <p className="text-red-600 font-bold mt-2 text-lg">
+                Débito Total: R${' '}
+                {debtWarning?.debt ? formatCurrency(debtWarning.debt) : '0,00'}
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setDebtWarning(null)} variant="destructive">
+              Estou Ciente
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={newGroupOpen} onOpenChange={setNewGroupOpen}>
         <DialogContent>
