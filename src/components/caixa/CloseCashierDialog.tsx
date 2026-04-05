@@ -452,7 +452,7 @@ export function CloseCashierDialog({
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : (
-              <Tabs defaultValue="receipts" className="w-full">
+              <Tabs defaultValue="blockers" className="w-full">
                 <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="receipts">
                     Recebimentos ({receipts.length})
@@ -730,10 +730,7 @@ export function CloseCashierDialog({
             <Button
               onClick={handleConfirm}
               disabled={
-                loading ||
-                !selectedEmployeeId ||
-                selectedEmployeeId === 'all' ||
-                unresolvedBlockers.length > 0
+                loading || !selectedEmployeeId || selectedEmployeeId === 'all'
               }
             >
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
