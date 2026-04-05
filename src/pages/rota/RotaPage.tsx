@@ -99,15 +99,7 @@ export default function RotaPage() {
     try {
       // Safely auto finalize overdue routes first
       try {
-        const autoFinalizeRes = await rotaService.autoFinalizeRota()
-        if (autoFinalizeRes && !autoFinalizeRes.success) {
-          toast({
-            title: 'Aviso do Sistema',
-            description:
-              'Não foi possível verificar as rotas pendentes automaticamente. O serviço pode estar indisponível.',
-            duration: 5000,
-          })
-        }
+        await rotaService.autoFinalizeRota()
       } catch (autoFinalizeError) {
         console.error('Auto finalize error:', autoFinalizeError)
       }

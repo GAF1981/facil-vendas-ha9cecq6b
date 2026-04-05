@@ -384,7 +384,7 @@ export const rotaService = {
     const { data: clients, error: clientsError } = await supabase
       .from('CLIENTES')
       .select('*')
-      .in('TIPO DE CLIENTE', ['ATIVO', 'INATIVO - ROTA'])
+      .in('TIPO DE CLIENTE', ['ATIVO', 'ATIVO COMPRA'])
       .order('CODIGO', { ascending: false })
       .limit(100000)
 
