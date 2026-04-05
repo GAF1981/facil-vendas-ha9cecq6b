@@ -419,6 +419,7 @@ export type Database = {
           "DESCONTO ACESSORIO CELULAR": string | null
           "DESCONTO BRINQUEDO": string | null
           "DESCONTO OUTROS": string | null
+          dias_para_acerto: number | null
           EMAIL: string | null
           email_cobranca: string | null
           ENDEREÇO: string | null
@@ -456,6 +457,7 @@ export type Database = {
           "DESCONTO ACESSORIO CELULAR"?: string | null
           "DESCONTO BRINQUEDO"?: string | null
           "DESCONTO OUTROS"?: string | null
+          dias_para_acerto?: number | null
           EMAIL?: string | null
           email_cobranca?: string | null
           ENDEREÇO?: string | null
@@ -493,6 +495,7 @@ export type Database = {
           "DESCONTO ACESSORIO CELULAR"?: string | null
           "DESCONTO BRINQUEDO"?: string | null
           "DESCONTO OUTROS"?: string | null
+          dias_para_acerto?: number | null
           EMAIL?: string | null
           email_cobranca?: string | null
           ENDEREÇO?: string | null
@@ -3405,6 +3408,7 @@ export const Constants = {
 //   latitude: numeric (nullable)
 //   longitude: numeric (nullable)
 //   favorito: boolean (nullable, default: false)
+//   dias_para_acerto: integer (nullable)
 // Table: CONTAGEM DE ESTOQUE FINAL
 //   id: integer (not null, default: nextval('"CONTAGEM DE ESTOQUE FINAL_id_seq"'::regclass))
 //   session_id: integer (nullable)
