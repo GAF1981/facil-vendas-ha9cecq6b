@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ClientSearch } from '@/components/acerto/ClientSearch'
 import { ClientDetails } from '@/components/acerto/ClientDetails'
@@ -435,7 +435,33 @@ export default function AcertoPage() {
     }
   }, [client, isEditMode, toast])
 
-  const totalSalesValue = items.reduce(
+  const effectiveItems = useMemo(() => {
+    return items.map((item) => {
+      if (!isAtivoCompra && !isCaptacao) {
+        const computedQuantVendida = Math.max(
+          0,
+          (item.saldoInicial || 0) - (item.contagem || 0),
+        )
+
+        let precoUnitario = item.precoUnitario || 0
+        if (!precoUnitario && item.quantVendida > 0 && item.valorVendido > 0) {
+          precoUnitario = item.valorVendido / item.quantVendida
+        }
+
+        const computedValorVendido = computedQuantVendida * precoUnitario
+
+        return {
+          ...item,
+          quantVendida: computedQuantVendida,
+          valorVendido: computedValorVendido,
+          precoUnitario,
+        }
+      }
+      return item
+    })
+  }, [items, isAtivoCompra, isCaptacao])
+
+  const totalSalesValue = effectiveItems.reduce(
     (acc, item) => acc + item.valorVendido,
     0,
   )
@@ -689,16 +715,16 @@ export default function AcertoPage() {
           ]
         })
 
-      const totalItemsSold = items.reduce(
+      const totalItemsSold = effectiveItems.reduce(
         (acc, i) => acc + (i.quantVendida > 0 ? 1 : 0),
         0,
       )
-      const totalQuantitySold = items.reduce(
+      const totalQuantitySold = effectiveItems.reduce(
         (acc, i) => acc + i.quantVendida,
         0,
       )
 
-      const sortedItemsForPdf = [...items].sort((a, b) =>
+      const sortedItemsForPdf = [...effectiveItems].sort((a, b) =>
         a.produtoNome.localeCompare(b.produtoNome),
       )
 
@@ -905,7 +931,7 @@ export default function AcertoPage() {
       return
     }
 
-    const totalStock = items.reduce(
+    const totalStock = effectiveItems.reduce(
       (acc, item) => acc + (item.saldoFinal || 0),
       0,
     )
@@ -953,8 +979,8 @@ export default function AcertoPage() {
         isEditMode && originalOrderDate ? new Date(originalOrderDate) : now
 
       const isOnlyAdjustment =
-        items.length > 0 &&
-        items.every((i) => i.quantVendida === 0) &&
+        effectiveItems.length > 0 &&
+        effectiveItems.every((i) => i.quantVendida === 0) &&
         pendingAdjustments.length > 0
       const saveTipo = isCaptacao
         ? 'Captação'
@@ -976,7 +1002,7 @@ export default function AcertoPage() {
         finalOrderNumber = await bancoDeDadosService.editTransaction(
           client,
           emp,
-          items,
+          effectiveItems,
           orderDate,
           saveTipo,
           payments,
@@ -989,7 +1015,7 @@ export default function AcertoPage() {
         finalOrderNumber = await bancoDeDadosService.saveTransaction(
           client,
           emp,
-          items,
+          effectiveItems,
           now,
           saveTipo,
           payments,
@@ -1089,16 +1115,16 @@ export default function AcertoPage() {
           ]
         })
 
-      const totalItemsSold = items.reduce(
+      const totalItemsSold = effectiveItems.reduce(
         (acc, i) => acc + (i.quantVendida > 0 ? 1 : 0),
         0,
       )
-      const totalQuantitySold = items.reduce(
+      const totalQuantitySold = effectiveItems.reduce(
         (acc, i) => acc + i.quantVendida,
         0,
       )
 
-      const sortedItemsForPdf = [...items].sort((a, b) =>
+      const sortedItemsForPdf = [...effectiveItems].sort((a, b) =>
         a.produtoNome.localeCompare(b.produtoNome),
       )
 
@@ -1360,7 +1386,7 @@ export default function AcertoPage() {
           )}
 
           <AcertoTable
-            items={items}
+            items={effectiveItems}
             onUpdateContagem={handleUpdateContagem}
             onUpdateSaldoFinal={handleUpdateSaldoFinal}
             onRemoveItem={handleRemoveItem}
@@ -1381,8 +1407,8 @@ export default function AcertoPage() {
 
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <AcertoStockSummary items={items} />
-              <AcertoSalesSummary items={items} client={client} />
+              <AcertoStockSummary items={effectiveItems} />
+              <AcertoSalesSummary items={effectiveItems} client={client} />
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
@@ -1435,7 +1461,7 @@ export default function AcertoPage() {
               onClickCapture={(e) => {
                 if (
                   isVendaMercadoria &&
-                  items.some((i) => (i.saldoFinal || 0) > 0)
+                  effectiveItems.some((i) => (i.saldoFinal || 0) > 0)
                 ) {
                   e.stopPropagation()
                   e.preventDefault()
@@ -1453,14 +1479,14 @@ export default function AcertoPage() {
                 onClick={handlePreSaveValidation}
                 disabled={
                   saving ||
-                  items.length === 0 ||
+                  effectiveItems.length === 0 ||
                   (isVendaMercadoria &&
-                    items.some((i) => (i.saldoFinal || 0) > 0))
+                    effectiveItems.some((i) => (i.saldoFinal || 0) > 0))
                 }
                 className={cn(
                   'min-w-[200px]',
                   isVendaMercadoria &&
-                    items.some((i) => (i.saldoFinal || 0) > 0) &&
+                    effectiveItems.some((i) => (i.saldoFinal || 0) > 0) &&
                     'opacity-50 cursor-not-allowed',
                 )}
               >
