@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase/client'
 import {
   InventoryGeneralSession,
   InventoryGeneralItem,
+  InventoryMovementType,
 } from '@/types/inventory_general'
 
 export const inventoryGeneralService = {
@@ -177,5 +178,104 @@ export const inventoryGeneralService = {
     )
     if (startError) throw startError
     return data
+  },
+
+  async registerMovement(
+    sessionId: number,
+    type: InventoryMovementType,
+    items: { productId: number; quantity: number; extra?: any }[],
+  ): Promise<void> {
+    for (const item of items) {
+      if (type === 'COMPRA') {
+        const { error } = await supabase.from('ESTOQUE GERAL COMPRAS').insert({
+          id_inventario: sessionId,
+          produto_id: item.productId,
+          fornecedor_id: item.extra?.fornecedorId,
+          valor_unitario: item.extra?.valorUnitario,
+          compras_quantidade: item.quantity,
+        })
+        if (error) throw error
+      } else if (type === 'PERDA') {
+        const { error } = await supabase
+          .from('ESTOQUE GERAL SAÍDAS PERDAS')
+          .insert({
+            id_inventario: sessionId,
+            produto_id: item.productId,
+            quantidade: item.quantity,
+            motivo: item.extra?.motivo,
+          })
+        if (error) throw error
+      } else if (type === 'CARRO_PARA_ESTOQUE') {
+        const { error: err1 } = await supabase
+          .from('ESTOQUE GERAL CARRO PARA ESTOQUE')
+          .insert({
+            id_inventario: sessionId,
+            produto_id: item.productId,
+            quantidade: item.quantity,
+            funcionario_id: item.extra?.funcionarioId,
+          })
+        if (err1) throw err1
+
+        const { error: err2 } = await supabase
+          .from('REPOSIÇÃO E DEVOLUÇÃO')
+          .insert({
+            session_id: sessionId,
+            produto_id: item.productId,
+            quantidade: item.quantity,
+            funcionario_id: item.extra?.funcionarioId,
+            id_estoque_carro: item.extra?.id_estoque_carro,
+            TIPO: 'DEVOLUCAO',
+          })
+        if (err2) throw err2
+      } else if (type === 'ESTOQUE_PARA_CARRO') {
+        const { error: err1 } = await supabase
+          .from('ESTOQUE GERAL ESTOQUE PARA CARRO')
+          .insert({
+            id_inventario: sessionId,
+            produto_id: item.productId,
+            quantidade: item.quantity,
+            funcionario_id: item.extra?.funcionarioId,
+          })
+        if (err1) throw err1
+
+        const { error: err2 } = await supabase
+          .from('REPOSIÇÃO E DEVOLUÇÃO')
+          .insert({
+            session_id: sessionId,
+            produto_id: item.productId,
+            quantidade: item.quantity,
+            funcionario_id: item.extra?.funcionarioId,
+            id_estoque_carro: item.extra?.id_estoque_carro,
+            TIPO: 'REPOSICAO',
+          })
+        if (err2) throw err2
+      } else if (type === 'CONTAGEM') {
+        const { error: err1 } = await supabase
+          .from('ESTOQUE GERAL CONTAGEM')
+          .insert({
+            id_inventario: sessionId,
+            produto_id: item.productId,
+            quantidade: item.quantity,
+          })
+        if (err1) throw err1
+
+        const { data: existing } = await supabase
+          .from('CONTAGEM DE ESTOQUE FINAL')
+          .select('quantidade')
+          .eq('session_id', sessionId)
+          .eq('produto_id', item.productId)
+          .maybeSingle()
+
+        const currentQty = existing?.quantidade || 0
+        const newQty = currentQty + item.quantity
+
+        await this.updateItemQuantity(
+          sessionId,
+          item.productId,
+          'CONTAGEM',
+          newQty,
+        )
+      }
+    }
   },
 }
