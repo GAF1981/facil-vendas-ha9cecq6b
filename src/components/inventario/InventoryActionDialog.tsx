@@ -808,9 +808,13 @@ export function InventoryActionDialog({
               <Input
                 ref={quantityRef}
                 type="number"
+                min="0"
+                step="1"
                 value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
+                onChange={(e) => setQuantity(e.target.value.replace(/\D/g, ''))}
                 onKeyDown={(e) => {
+                  if (['.', ',', 'e', 'E', '+', '-'].includes(e.key))
+                    e.preventDefault()
                   if (e.key === 'Enter' && type !== 'COMPRA') {
                     e.preventDefault()
                     handleSubmit()

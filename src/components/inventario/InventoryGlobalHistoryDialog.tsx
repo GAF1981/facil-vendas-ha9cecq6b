@@ -49,6 +49,11 @@ export function InventoryGlobalHistoryDialog({
   const loadMovements = async () => {
     setLoading(true)
     try {
+      const { data: products } = await supabase
+        .from('PRODUTOS')
+        .select('ID, PRODUTO')
+      const productMap = new Map(products?.map((p) => [p.ID, p.PRODUTO]) || [])
+
       const fetchTable = async (
         table: string,
         type: string,
@@ -56,16 +61,16 @@ export function InventoryGlobalHistoryDialog({
       ) => {
         const { data } = await supabase
           .from(table)
-          .select('*, PRODUTOS(PRODUTO)')
+          .select('*')
           .eq('id_inventario', sessionId)
-        return (data || []).map((d) => ({
+        return (data || []).map((d: any) => ({
           uniqueId: `${type}_${d.id}`,
           id: d.id,
           movement_type: type,
           data_horario: d.created_at,
           quantidade: d[qtyField] || d.quantidade || 0,
           produto_id: d.produto_id,
-          produto_nome: d.PRODUTOS?.PRODUTO || 'Desconhecido',
+          produto_nome: productMap.get(d.produto_id) || 'Desconhecido',
         }))
       }
 
