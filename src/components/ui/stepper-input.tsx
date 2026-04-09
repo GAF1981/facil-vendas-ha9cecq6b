@@ -36,8 +36,13 @@ export const StepperInput = React.forwardRef<
     }
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const val = parseFloat(e.target.value)
-      if (isNaN(val)) return
+      // Force integer constraint on StepperInput as requested globally for quantities
+      const cleanVal = e.target.value.replace(/\D/g, '')
+      const val = parseInt(cleanVal, 10)
+      if (isNaN(val)) {
+        if (cleanVal === '') onValueChange(0) // or handled by parent
+        return
+      }
       onValueChange(val)
     }
 
@@ -59,6 +64,10 @@ export const StepperInput = React.forwardRef<
           type="number"
           value={value}
           onChange={handleChange}
+          onKeyDown={(e) => {
+            if (['.', ',', 'e', 'E', '+', '-'].includes(e.key))
+              e.preventDefault()
+          }}
           className="h-8 w-16 px-1 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           min={min}
           max={max}

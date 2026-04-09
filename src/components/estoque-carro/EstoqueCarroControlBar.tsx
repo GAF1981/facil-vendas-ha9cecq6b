@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Gift,
   Lock,
+  History,
 } from 'lucide-react'
 import { usePermissions } from '@/hooks/use-permissions'
 
@@ -19,6 +20,7 @@ interface Props {
   onCount: () => void
   onFinalize: () => void
   onBrinde: () => void
+  onHistory?: () => void
   loading: boolean
   disableFinalize?: boolean
   canFinalize?: boolean
@@ -32,6 +34,7 @@ export function EstoqueCarroControlBar({
   onCount,
   onFinalize,
   onBrinde,
+  onHistory,
   loading,
   disableFinalize = false,
   canFinalize = true,
@@ -91,6 +94,16 @@ export function EstoqueCarroControlBar({
             >
               <Gift className="mr-2 h-4 w-4" /> Brinde
             </Button>
+
+            {onHistory && (
+              <Button
+                variant="secondary"
+                onClick={onHistory}
+                disabled={loading}
+              >
+                <History className="mr-2 h-4 w-4" /> Lançamentos
+              </Button>
+            )}
 
             <div className="flex-1" />
 

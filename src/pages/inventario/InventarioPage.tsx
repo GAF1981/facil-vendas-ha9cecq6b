@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button'
 import { ArrowLeft, Lock } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase/client'
+import { InventoryGlobalHistoryDialog } from '@/components/inventario/InventoryGlobalHistoryDialog'
 
 export default function InventarioPage() {
   const [sessions, setSessions] = useState<InventoryGeneralSession[]>([])
@@ -37,6 +38,7 @@ export default function InventarioPage() {
   const [isEditMode, setIsEditMode] = useState(false)
   const [persistedEmployeeId, setPersistedEmployeeId] = useState<string>('')
   const [persistedSupplierId, setPersistedSupplierId] = useState<string>('')
+  const [isGlobalHistoryOpen, setIsGlobalHistoryOpen] = useState(false)
   const { toast } = useToast()
   const { employee } = useUserStore()
 
@@ -294,6 +296,7 @@ export default function InventarioPage() {
           setIsEditMode={setIsEditMode}
           onStartSession={handleStartSession}
           onResetInitial={handleResetInitial}
+          onOpenGlobalHistory={() => setIsGlobalHistoryOpen(true)}
           onOpenAction={(type) => {
             setActionType(type)
             setIsActionDialogOpen(true)
@@ -366,6 +369,15 @@ export default function InventarioPage() {
         setPersistedEmployeeId={setPersistedEmployeeId}
         persistedSupplierId={persistedSupplierId}
         setPersistedSupplierId={setPersistedSupplierId}
+      />
+
+      <InventoryGlobalHistoryDialog
+        open={isGlobalHistoryOpen}
+        onOpenChange={setIsGlobalHistoryOpen}
+        sessionId={selectedSession ? selectedSession.id : 0}
+        onRefresh={() =>
+          selectedSessionId && loadItems(Number(selectedSessionId))
+        }
       />
     </div>
   )

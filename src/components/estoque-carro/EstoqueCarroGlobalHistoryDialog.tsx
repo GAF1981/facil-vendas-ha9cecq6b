@@ -13,71 +13,142 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { estoqueCarroService } from '@/services/estoqueCarroService'
 import { safeFormatDate } from '@/lib/formatters'
-import { Loader2, Edit2, Trash2, Check, X } from 'lucide-react'
+import { Loader2, Edit2, Trash2, Check, X, History } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
+import { supabase } from '@/lib/supabase/client'
+import { estoqueCarroService } from '@/services/estoqueCarroService'
 
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   sessionId: number
-  productId: number
-  productName: string
   onRefresh?: () => void
 }
 
-export function EstoqueCarroMovementDetailsDialog({
+export function EstoqueCarroGlobalHistoryDialog({
   open,
   onOpenChange,
   sessionId,
-  productId,
-  productName,
   onRefresh,
 }: Props) {
   const [loading, setLoading] = useState(false)
   const [movements, setMovements] = useState<any[]>([])
-  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState<string>('')
   const { toast } = useToast()
 
   useEffect(() => {
-    if (open && sessionId && productId) {
+    if (open && sessionId) {
       loadMovements()
     }
-  }, [open, sessionId, productId])
+  }, [open, sessionId])
 
   const loadMovements = async () => {
     setLoading(true)
     try {
-      const data = await estoqueCarroService.getMovementDetails(
-        sessionId,
-        productId,
+      const fetchTable = async (
+        table: string,
+        type: string,
+        qtyField: string,
+      ) => {
+        const { data } = await supabase
+          .from(table)
+          .select('*, PRODUTOS(PRODUTO)')
+          .eq('id_estoque_carro', sessionId)
+        return (data || []).map((d) => ({
+          uniqueId: `${type}_${d.id}`,
+          id: d.id,
+          movement_type: d.descricao || type,
+          raw_type: type,
+          data_horario: d.created_at || d.data_horario || d.timestamp,
+          quantidade: d[qtyField] || d.quantidade || 0,
+          produto_id: d.produto_id,
+          produto_nome: d.PRODUTOS?.PRODUTO || d.produto || 'Desconhecido',
+          pedido: d.pedido || '-',
+        }))
+      }
+
+      const clientToCar = await fetchTable(
+        'ESTOQUE CARRO: CLIENTE PARA O CARRO',
+        'ENTRADAS_cliente_carro',
+        'ENTRADAS_cliente_carro',
       )
-      setMovements(data)
+      const carToClient = await fetchTable(
+        'ESTOQUE CARRO: CARRO PARA O CLIENTE',
+        'SAIDAS_carro_cliente',
+        'SAIDAS_carro_cliente',
+      )
+
+      const { data: repoData } = await supabase
+        .from('REPOSIÇÃO E DEVOLUÇÃO')
+        .select('*, PRODUTOS(PRODUTO)')
+        .eq('id_estoque_carro', sessionId)
+      const inventoryMovements = (repoData || []).map((d) => {
+        const isReposicao = d.TIPO === 'REPOSIÇÃO' || d.TIPO === 'REPOSICAO'
+        const typeKey = isReposicao
+          ? 'ENTRADAS_estoque_carro'
+          : 'SAIDAS_carro_estoque'
+        return {
+          uniqueId: `${typeKey}_${d.id}`,
+          id: d.id,
+          movement_type: typeKey,
+          raw_type: typeKey,
+          data_horario: d.created_at,
+          quantidade: d.quantidade,
+          produto_id: d.produto_id,
+          produto_nome: d.PRODUTOS?.PRODUTO || 'Desconhecido',
+          pedido: '-',
+        }
+      })
+
+      const contagens = await fetchTable(
+        'ESTOQUE CARRO CONTAGEM',
+        'contagem',
+        'quantidade',
+      )
+
+      const all = [
+        ...clientToCar,
+        ...carToClient,
+        ...inventoryMovements,
+        ...contagens,
+      ]
+      all.sort(
+        (a, b) =>
+          new Date(b.data_horario).getTime() -
+          new Date(a.data_horario).getTime(),
+      )
+
+      setMovements(all)
     } catch (error) {
       console.error('Failed to load details', error)
+      toast({
+        title: 'Erro',
+        description: 'Falha ao carregar lançamentos',
+        variant: 'destructive',
+      })
     } finally {
       setLoading(false)
     }
   }
 
   const handleEditStart = (mov: any) => {
-    setEditingId(mov.id)
+    setEditingId(mov.uniqueId)
     setEditValue(mov.quantidade?.toString() || '0')
   }
 
   const handleEditSave = async (mov: any) => {
     try {
-      const newQtd = Number(editValue)
-      if (isNaN(newQtd) || newQtd < 0) return
+      const newQtd = parseInt(editValue.replace(/\D/g, '')) || 0
+      if (newQtd < 0) return
       await estoqueCarroService.updateCount(
         mov.id,
         newQtd,
         sessionId,
-        productId,
+        mov.produto_id,
       )
       toast({ title: 'Contagem atualizada' })
       setEditingId(null)
@@ -95,7 +166,7 @@ export function EstoqueCarroMovementDetailsDialog({
   const handleDelete = async (mov: any) => {
     if (!confirm('Tem certeza que deseja remover esta contagem?')) return
     try {
-      await estoqueCarroService.deleteCount(mov.id, sessionId, productId)
+      await estoqueCarroService.deleteCount(mov.id, sessionId, mov.produto_id)
       toast({ title: 'Contagem removida' })
       loadMovements()
       if (onRefresh) onRefresh()
@@ -127,9 +198,11 @@ export function EstoqueCarroMovementDetailsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Detalhes: {productName}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <History className="w-5 h-5" /> Últimos Lançamentos (Estoque Carro)
+          </DialogTitle>
         </DialogHeader>
 
         {loading ? (
@@ -140,8 +213,9 @@ export function EstoqueCarroMovementDetailsDialog({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Data</TableHead>
+                <TableHead>Data/Hora</TableHead>
                 <TableHead>Tipo</TableHead>
+                <TableHead>Produto</TableHead>
                 <TableHead>Pedido</TableHead>
                 <TableHead className="text-right">Qtd</TableHead>
               </TableRow>
@@ -150,28 +224,27 @@ export function EstoqueCarroMovementDetailsDialog({
               {movements.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={4}
+                    colSpan={5}
                     className="text-center text-muted-foreground"
                   >
-                    Nenhuma movimentação detalhada encontrada.
+                    Nenhum lançamento encontrado.
                   </TableCell>
                 </TableRow>
               ) : (
-                movements.map((mov, idx) => {
+                movements.map((mov) => {
                   const { label, color } = getTypeLabel(mov.movement_type)
-                  const isContagem = mov.movement_type === 'contagem'
+                  const isContagem = mov.raw_type === 'contagem'
 
                   return (
-                    <TableRow key={idx}>
+                    <TableRow key={mov.uniqueId}>
                       <TableCell>
-                        {safeFormatDate(mov.data_horario, 'dd/MM HH:mm')}
+                        {safeFormatDate(mov.data_horario, 'dd/MM/yyyy HH:mm')}
                       </TableCell>
                       <TableCell className={color}>{label}</TableCell>
-                      <TableCell>
-                        {mov.pedido ? `#${mov.pedido}` : '-'}
-                      </TableCell>
+                      <TableCell>{mov.produto_nome}</TableCell>
+                      <TableCell>{mov.pedido}</TableCell>
                       <TableCell className="text-right font-mono font-bold">
-                        {editingId === mov.id && isContagem ? (
+                        {editingId === mov.uniqueId && isContagem ? (
                           <div className="flex items-center justify-end gap-2">
                             <Input
                               type="number"

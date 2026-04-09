@@ -427,7 +427,16 @@ export function BrindeDialog({
               <Input
                 type="number"
                 min="1"
+                step="1"
                 {...qtyRest}
+                onChange={(e) => {
+                  e.target.value = e.target.value.replace(/\D/g, '')
+                  qtyRest.onChange(e)
+                }}
+                onKeyDown={(e) => {
+                  if (['.', ',', 'e', 'E', '+', '-'].includes(e.key))
+                    e.preventDefault()
+                }}
                 ref={(e) => {
                   qtyRegisterRef(e)
                   quantityRef.current = e

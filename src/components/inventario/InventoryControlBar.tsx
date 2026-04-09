@@ -9,6 +9,7 @@ import {
   CheckSquare,
   Edit,
   Check,
+  History,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -31,6 +32,7 @@ interface Props {
   onOpenAction: (type: string) => void
   onFinalize: () => void
   allItemsCounted: boolean
+  onOpenGlobalHistory?: () => void
 }
 
 export function InventoryControlBar({
@@ -44,6 +46,7 @@ export function InventoryControlBar({
   onOpenAction,
   onFinalize,
   allItemsCounted,
+  onOpenGlobalHistory,
 }: Props) {
   const { canAccess } = usePermissions()
   const canReset = canAccess('Botão Reset Inventário')
@@ -121,6 +124,11 @@ export function InventoryControlBar({
                 >
                   <CheckSquare className="mr-2 h-4 w-4" /> Contagem
                 </Button>
+                {onOpenGlobalHistory && (
+                  <Button variant="secondary" onClick={onOpenGlobalHistory}>
+                    <History className="mr-2 h-4 w-4" /> Lançamentos
+                  </Button>
+                )}
               </>
             )}
 

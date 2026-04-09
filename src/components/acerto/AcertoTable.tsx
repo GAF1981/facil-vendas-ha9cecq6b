@@ -101,8 +101,14 @@ const NumberInputControl = ({
     <Input
       type="number"
       min="0"
+      step="1"
       value={value}
-      onChange={(e) => onChange(Math.max(0, parseInt(e.target.value) || 0))}
+      onChange={(e) =>
+        onChange(Math.max(0, parseInt(e.target.value.replace(/\D/g, '')) || 0))
+      }
+      onKeyDown={(e) => {
+        if (['.', ',', 'e', 'E', '+', '-'].includes(e.key)) e.preventDefault()
+      }}
       className="h-9 w-full text-center px-0 py-1 rounded-none z-10 focus-visible:ring-1 focus-visible:ring-inset border-input"
       disabled={disabled}
     />
@@ -335,13 +341,20 @@ export function AcertoTable({
                       {isAtivoCompra ? (
                         <Input
                           type="number"
+                          min="0"
+                          step="1"
                           value={item.quantVendida}
                           onChange={(e) => {
                             if (onUpdateQuantVendida)
                               onUpdateQuantVendida(
                                 item.uid,
-                                parseInt(e.target.value) || 0,
+                                parseInt(e.target.value.replace(/\D/g, '')) ||
+                                  0,
                               )
+                          }}
+                          onKeyDown={(e) => {
+                            if (['.', ',', 'e', 'E', '+', '-'].includes(e.key))
+                              e.preventDefault()
                           }}
                           className="w-20 mx-auto text-center font-bold"
                         />

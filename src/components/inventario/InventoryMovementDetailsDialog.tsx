@@ -180,8 +180,18 @@ export function InventoryMovementDetailsDialog({
                           <div className="flex items-center justify-end gap-2">
                             <Input
                               type="number"
+                              min="0"
+                              step="1"
                               value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
+                              onChange={(e) =>
+                                setEditValue(e.target.value.replace(/\D/g, ''))
+                              }
+                              onKeyDown={(e) => {
+                                if (
+                                  ['.', ',', 'e', 'E', '+', '-'].includes(e.key)
+                                )
+                                  e.preventDefault()
+                              }}
                               className="w-20 h-8 text-right"
                             />
                             <Button

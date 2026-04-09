@@ -33,6 +33,7 @@ import {
 import { Label } from '@/components/ui/label'
 import { safeFormatDate } from '@/lib/formatters'
 import { usePermissions } from '@/hooks/use-permissions'
+import { EstoqueCarroGlobalHistoryDialog } from '@/components/estoque-carro/EstoqueCarroGlobalHistoryDialog'
 
 export default function EstoqueCarroPage() {
   const { employee } = useUserStore()
@@ -53,6 +54,7 @@ export default function EstoqueCarroPage() {
   const [isCountDialogOpen, setIsCountDialogOpen] = useState(false)
   const [isFinalizeDialogOpen, setIsFinalizeDialogOpen] = useState(false)
   const [isBrindeDialogOpen, setIsBrindeDialogOpen] = useState(false)
+  const [isGlobalHistoryOpen, setIsGlobalHistoryOpen] = useState(false)
 
   // Employee Filter & Permissions
   const [employees, setEmployees] = useState<Employee[]>([])
@@ -349,6 +351,7 @@ export default function EstoqueCarroPage() {
             onCount={() => setIsCountDialogOpen(true)}
             onFinalize={handleFinalize}
             onBrinde={() => setIsBrindeDialogOpen(true)}
+            onHistory={() => setIsGlobalHistoryOpen(true)}
             loading={loading}
             disableFinalize={hasPendingItems}
             canFinalize={hasPermission}
@@ -378,6 +381,15 @@ export default function EstoqueCarroPage() {
                 onSuccess={() => {
                   if (viewedSession) loadSessionData(viewedSession)
                 }}
+              />
+              <EstoqueCarroGlobalHistoryDialog
+                open={isGlobalHistoryOpen}
+                onOpenChange={(open) => {
+                  setIsGlobalHistoryOpen(open)
+                  if (!open && viewedSession) loadSessionData(viewedSession)
+                }}
+                sessionId={viewedSession.id}
+                onRefresh={() => loadSessionData(viewedSession)}
               />
             </>
           )}
