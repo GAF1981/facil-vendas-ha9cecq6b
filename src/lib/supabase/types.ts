@@ -4730,6 +4730,60 @@ export const Constants = {
 //     END;
 //     $function$
 //   
+// FUNCTION fix_id_estoque_carro_on_devolucao()
+//   CREATE OR REPLACE FUNCTION public.fix_id_estoque_carro_on_devolucao()
+//    RETURNS trigger
+//    LANGUAGE plpgsql
+//   AS $function$
+//   DECLARE
+//     v_correct_id BIGINT;
+//   BEGIN
+//     -- Procura o registro correspondente inserido há poucos segundos na tabela REPOSIÇÃO E DEVOLUÇÃO
+//     SELECT id_estoque_carro INTO v_correct_id
+//     FROM public."REPOSIÇÃO E DEVOLUÇÃO"
+//     WHERE produto_id = NEW.produto_id
+//       AND quantidade = NEW.quantidade
+//       AND funcionario_id = NEW.funcionario_id
+//       AND "TIPO" = 'DEVOLUCAO'
+//       AND created_at >= NOW() - INTERVAL '30 seconds'
+//     ORDER BY created_at DESC
+//     LIMIT 1;
+//   
+//     IF v_correct_id IS NOT NULL THEN
+//       NEW.id_estoque_carro := v_correct_id;
+//     END IF;
+//   
+//     RETURN NEW;
+//   END;
+//   $function$
+//   
+// FUNCTION fix_id_estoque_carro_on_reposicao()
+//   CREATE OR REPLACE FUNCTION public.fix_id_estoque_carro_on_reposicao()
+//    RETURNS trigger
+//    LANGUAGE plpgsql
+//   AS $function$
+//   DECLARE
+//     v_correct_id BIGINT;
+//   BEGIN
+//     -- Procura o registro correspondente inserido há poucos segundos na tabela REPOSIÇÃO E DEVOLUÇÃO
+//     SELECT id_estoque_carro INTO v_correct_id
+//     FROM public."REPOSIÇÃO E DEVOLUÇÃO"
+//     WHERE produto_id = NEW.produto_id
+//       AND quantidade = NEW.quantidade
+//       AND funcionario_id = NEW.funcionario_id
+//       AND "TIPO" = 'REPOSICAO'
+//       AND created_at >= NOW() - INTERVAL '30 seconds'
+//     ORDER BY created_at DESC
+//     LIMIT 1;
+//   
+//     IF v_correct_id IS NOT NULL THEN
+//       NEW.id_estoque_carro := v_correct_id;
+//     END IF;
+//   
+//     RETURN NEW;
+//   END;
+//   $function$
+//   
 // FUNCTION get_client_projections()
 //   CREATE OR REPLACE FUNCTION public.get_client_projections()
 //    RETURNS TABLE(client_id bigint, projecao numeric, dias_entre_acertos integer)
@@ -5849,6 +5903,33 @@ export const Constants = {
 //   END;
 //   $function$
 //   
+// FUNCTION sync_id_estoque_carro_from_reposicao_devolucao()
+//   CREATE OR REPLACE FUNCTION public.sync_id_estoque_carro_from_reposicao_devolucao()
+//    RETURNS trigger
+//    LANGUAGE plpgsql
+//   AS $function$
+//   BEGIN
+//     -- Atualiza o registro caso a tabela principal já tenha sido gravada previamente
+//     IF NEW."TIPO" = 'DEVOLUCAO' AND NEW.id_estoque_carro IS NOT NULL THEN
+//       UPDATE public."ESTOQUE CARRO: CARRO PARA O ESTOQUE"
+//       SET id_estoque_carro = NEW.id_estoque_carro
+//       WHERE produto_id = NEW.produto_id
+//         AND quantidade = NEW.quantidade
+//         AND funcionario_id = NEW.funcionario_id
+//         AND created_at >= NOW() - INTERVAL '30 seconds';
+//     ELSIF NEW."TIPO" = 'REPOSICAO' AND NEW.id_estoque_carro IS NOT NULL THEN
+//       UPDATE public."ESTOQUE CARRO: ESTOQUE PARA O CARRO"
+//       SET id_estoque_carro = NEW.id_estoque_carro
+//       WHERE produto_id = NEW.produto_id
+//         AND quantidade = NEW.quantidade
+//         AND funcionario_id = NEW.funcionario_id
+//         AND created_at >= NOW() - INTERVAL '30 seconds';
+//     END IF;
+//     
+//     RETURN NEW;
+//   END;
+//   $function$
+//   
 // FUNCTION sync_inativo_cobranca_from_debito()
 //   CREATE OR REPLACE FUNCTION public.sync_inativo_cobranca_from_debito()
 //    RETURNS trigger
@@ -6259,11 +6340,17 @@ export const Constants = {
 //   trg_check_inativo_cobranca: CREATE TRIGGER trg_check_inativo_cobranca BEFORE INSERT OR UPDATE OF situacao ON public."CLIENTES" FOR EACH ROW EXECUTE FUNCTION check_inativo_cobranca()
 // Table: DESPESAS
 //   on_despesa_auto_confirm: CREATE TRIGGER on_despesa_auto_confirm BEFORE INSERT OR UPDATE OF saiu_do_caixa, status ON public."DESPESAS" FOR EACH ROW EXECUTE FUNCTION auto_confirm_despesa()
+// Table: ESTOQUE CARRO: CARRO PARA O ESTOQUE
+//   trg_fix_id_estoque_carro_devolucao: CREATE TRIGGER trg_fix_id_estoque_carro_devolucao BEFORE INSERT ON public."ESTOQUE CARRO: CARRO PARA O ESTOQUE" FOR EACH ROW EXECUTE FUNCTION fix_id_estoque_carro_on_devolucao()
+// Table: ESTOQUE CARRO: ESTOQUE PARA O CARRO
+//   trg_fix_id_estoque_carro_reposicao: CREATE TRIGGER trg_fix_id_estoque_carro_reposicao BEFORE INSERT ON public."ESTOQUE CARRO: ESTOQUE PARA O CARRO" FOR EACH ROW EXECUTE FUNCTION fix_id_estoque_carro_on_reposicao()
 // Table: RECEBIMENTOS
 //   trg_reset_x_na_rota_rec: CREATE TRIGGER trg_reset_x_na_rota_rec AFTER INSERT ON public."RECEBIMENTOS" FOR EACH ROW EXECUTE FUNCTION reset_x_na_rota_on_activity()
 //   trg_sync_pix_receipt: CREATE TRIGGER trg_sync_pix_receipt AFTER INSERT OR UPDATE OF forma_pagamento ON public."RECEBIMENTOS" FOR EACH ROW EXECUTE FUNCTION sync_pix_receipt_on_insert()
 //   trg_update_debito_historico_recebimentos: CREATE TRIGGER trg_update_debito_historico_recebimentos AFTER INSERT OR DELETE OR UPDATE ON public."RECEBIMENTOS" FOR EACH ROW EXECUTE FUNCTION trigger_update_debito_historico()
 //   trigger_clear_cobranca_info: CREATE TRIGGER trigger_clear_cobranca_info BEFORE INSERT OR UPDATE ON public."RECEBIMENTOS" FOR EACH ROW EXECUTE FUNCTION clear_cobranca_info_if_paid()
+// Table: REPOSIÇÃO E DEVOLUÇÃO
+//   trg_sync_id_estoque_carro: CREATE TRIGGER trg_sync_id_estoque_carro AFTER INSERT ON public."REPOSIÇÃO E DEVOLUÇÃO" FOR EACH ROW EXECUTE FUNCTION sync_id_estoque_carro_from_reposicao_devolucao()
 // Table: ROTA_ITEMS
 //   tr_update_x_na_rota: CREATE TRIGGER tr_update_x_na_rota BEFORE UPDATE ON public."ROTA_ITEMS" FOR EACH ROW EXECUTE FUNCTION update_x_na_rota()
 //   trg_update_x_na_rota: CREATE TRIGGER trg_update_x_na_rota BEFORE INSERT OR UPDATE ON public."ROTA_ITEMS" FOR EACH ROW EXECUTE FUNCTION update_x_na_rota()
