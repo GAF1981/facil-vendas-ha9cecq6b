@@ -34,7 +34,7 @@ export default function InventarioPage() {
   const [actionType, setActionType] = useState<any>(null)
   const [isActionDialogOpen, setIsActionDialogOpen] = useState(false)
   const [saldoFinalFilter, setSaldoFinalFilter] = useState('all')
-  const [frequentesFilter, setFrequentesFilter] = useState('SIM')
+  const [frequentesFilter, setFrequentesFilter] = useState('TODOS')
   const [isEditMode, setIsEditMode] = useState(false)
   const [persistedEmployeeId, setPersistedEmployeeId] = useState<string>('')
   const [persistedSupplierId, setPersistedSupplierId] = useState<string>('')
@@ -105,12 +105,15 @@ export default function InventarioPage() {
     async (id: number) => {
       setLoading(true)
       try {
-        const { data: freqData } = await supabase
-          .from('PRODUTOS')
-          .select('ID, FREQUENTES')
-        const freqMap = new Map(
-          freqData?.map((p) => [p.ID, p.FREQUENTES]) || [],
-        )
+        let freqMap = new Map()
+        try {
+          const { data: freqData } = await supabase
+            .from('PRODUTOS')
+            .select('ID, FREQUENTES')
+          freqMap = new Map(freqData?.map((p) => [p.ID, p.FREQUENTES]) || [])
+        } catch (e) {
+          console.warn('Erro ao carregar frequentes', e)
+        }
 
         const inventoryData = await inventoryGeneralService.getInventoryData(id)
         const enhancedData = inventoryData.map((i: any) => ({
@@ -120,6 +123,7 @@ export default function InventarioPage() {
 
         setItems(enhancedData)
       } catch (error) {
+        console.error(error)
         toast({
           title: 'Erro',
           description: 'Falha ao carregar dados.',

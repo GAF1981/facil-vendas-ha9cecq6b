@@ -59,16 +59,21 @@ export const inventoryGeneralService = {
 
         if (dbError) throw dbError
 
-        return rawData.map((item: any) => ({
+        return (rawData || []).map((item: any) => ({
           id: item['ID VENDA ITENS'],
           produto_id: item['COD. PRODUTO'],
           codigo_barras: '',
           mercadoria: item['MERCADORIA'] || 'Produto N/D',
+          produto: item['MERCADORIA'] || 'Produto N/D',
           tipo: item['TIPO'] || 'OUTROS',
           preco: 0,
           saldo_inicial: item['SALDO INICIAL'] || 0,
           saldo_final: item['SALDO FINAL'] || 0,
           contagem: item['CONTAGEM'] || 0,
+          entrada_estoque_carro: 0,
+          saida_carro_estoque: 0,
+          entrada_cliente_carro: 0,
+          saida_carro_cliente: 0,
           has_count_record: (item['CONTAGEM'] || 0) > 0,
           is_mandatory: false,
           frequentes: 'NÃO',
@@ -79,7 +84,8 @@ export const inventoryGeneralService = {
         id: item.id,
         produto_id: item.codigo_produto || item.id,
         codigo_barras: item.codigo_barras,
-        mercadoria: item.mercadoria || 'Produto N/D',
+        mercadoria: item.mercadoria || item.produto || 'Produto N/D',
+        produto: item.mercadoria || item.produto || 'Produto N/D',
         tipo: item.tipo || 'OUTROS',
         preco: item.preco || 0,
         saldo_inicial: item.saldo_inicial || 0,
