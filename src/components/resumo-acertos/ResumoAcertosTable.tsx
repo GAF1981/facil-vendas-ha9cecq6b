@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { formatCurrency, safeFormatDate } from '@/lib/formatters'
-import { Loader2, Edit3, Printer, Trash2 } from 'lucide-react'
+import { Loader2, Edit3, Printer, Trash2, CircleDollarSign } from 'lucide-react'
 import { SettlementSummary } from '@/services/resumoAcertosService'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -21,9 +21,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { useEffect, useState } from 'react'
-import { useUserStore } from '@/stores/useUserStore'
-import { supabase } from '@/lib/supabase/client'
+import { useState } from 'react'
+import { usePermissions } from '@/hooks/use-permissions'
 
 interface ResumoAcertosTableProps {
   loading: boolean
@@ -45,25 +44,11 @@ export function ResumoAcertosTable({
   const navigate = useNavigate()
   const [deleteStep1, setDeleteStep1] = useState<number | null>(null)
   const [deleteStep2, setDeleteStep2] = useState<number | null>(null)
-  const [canDelete, setCanDelete] = useState(false)
-  const { employee } = useUserStore()
+  const { canAccess } = usePermissions()
 
-  useEffect(() => {
-    const checkPermission = async () => {
-      if (employee?.setor?.[0]) {
-        const { data } = await supabase
-          .from('permissoes')
-          .select('acesso')
-          .eq('setor', employee.setor[0])
-          .eq('modulo', 'Ícone excluir pedido')
-          .single()
-        if (data) {
-          setCanDelete(data.acesso)
-        }
-      }
-    }
-    checkPermission()
-  }, [employee])
+  const canDelete = canAccess('Ícone excluir pedido')
+  const canEditAcerto = canAccess('Ícone editar acerto')
+  const canEditPagamento = canAccess('Ícone editar pagamento')
 
   return (
     <div className="rounded-md border overflow-hidden">
@@ -159,26 +144,30 @@ export function ResumoAcertosTable({
                 </TableCell>
                 <TableCell className="text-center">
                   <div className="flex items-center justify-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-amber-600"
-                      onClick={() =>
-                        navigate(`/acerto?editOrderId=${row.orderId}`)
-                      }
-                      title="Editar Pedido"
-                    >
-                      <Edit3 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-blue-600"
-                      onClick={() => onEditPayment(row)}
-                      title="Editar Pagamento"
-                    >
-                      <Edit3 className="h-4 w-4" />
-                    </Button>
+                    {canEditAcerto && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-amber-600"
+                        onClick={() =>
+                          navigate(`/acerto?editOrderId=${row.orderId}`)
+                        }
+                        title="Editar Pedido"
+                      >
+                        <Edit3 className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {canEditPagamento && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-blue-600"
+                        onClick={() => onEditPayment(row)}
+                        title="Editar Pagamento"
+                      >
+                        <CircleDollarSign className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"
