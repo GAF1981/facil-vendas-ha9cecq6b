@@ -18,6 +18,9 @@ import {
   Edit,
   Trash,
   ArrowUpDown,
+  Search,
+  Send,
+  Info,
 } from 'lucide-react'
 import { DividaManual } from '@/types/divida-manual'
 import {
@@ -39,8 +42,8 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Separator } from '@/components/ui/separator'
-import { Info } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
+import { CollectionMessageDialog } from '@/components/cobranca/CollectionMessageDialog'
 
 export function DividasManuaisTable({
   data,
@@ -53,6 +56,7 @@ export function DividasManuaisTable({
   const { toast } = useToast()
   const [editingDebt, setEditingDebt] = useState<DividaManual | null>(null)
   const [actionsDebt, setActionsDebt] = useState<DividaManual | null>(null)
+  const [messageData, setMessageData] = useState<any | null>(null)
   const [counts, setCounts] = useState<Record<number, number>>({})
   const [boletos, setBoletos] = useState<any[]>([])
 
@@ -234,20 +238,22 @@ export function DividasManuaisTable({
                   </div>
                 </TableHead>
                 <TableHead className="text-xs min-w-[120px]">Motivo</TableHead>
-                <TableHead className="text-xs min-w-[120px]">Contato</TableHead>
-                <TableHead className="text-xs text-center">Ações</TableHead>
+                <TableHead className="text-xs min-w-[120px]">
+                  Telefone Cobrança
+                </TableHead>
+                <TableHead className="text-xs text-center">Registros</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading && data.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={18} className="h-24 text-center">
+                  <TableCell colSpan={19} className="h-24 text-center">
                     Carregando...
                   </TableCell>
                 </TableRow>
               ) : sortedData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={18} className="h-24 text-center">
+                  <TableCell colSpan={19} className="h-24 text-center">
                     Nenhum registro encontrado.
                   </TableCell>
                 </TableRow>
@@ -491,6 +497,26 @@ export function DividasManuaisTable({
                               -
                             </span>
                           )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full"
+                            onClick={() =>
+                              setMessageData({
+                                uniqueId: row.id.toString(),
+                                clientId: row.cliente_id,
+                                clientName:
+                                  row.CLIENTES?.['NOME CLIENTE'] || '',
+                                telefoneCobranca: phone,
+                                debito: debito,
+                                vencimento: row.vencimento,
+                                orderId: row.id,
+                              })
+                            }
+                            title="Mensagem de Cobrança"
+                          >
+                            <Send className="h-3 w-3" />
+                          </Button>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -500,9 +526,18 @@ export function DividasManuaisTable({
                             size="icon"
                             className="h-6 w-6 text-blue-600 hover:bg-blue-50"
                             onClick={() => setActionsDebt(row)}
-                            title="Ações de Cobrança"
+                            title="Incluir Ações"
                           >
                             <PlusCircle className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-green-600 hover:bg-green-50"
+                            onClick={() => setEditingDebt(row)}
+                            title="Ver Pagamento"
+                          >
+                            <Search className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
@@ -512,15 +547,6 @@ export function DividasManuaisTable({
                             title="Ver Histórico"
                           >
                             <MessageSquareText className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-amber-600 hover:bg-amber-50"
-                            onClick={() => setEditingDebt(row)}
-                            title="Editar Dívida"
-                          >
-                            <Edit className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
@@ -554,6 +580,12 @@ export function DividasManuaisTable({
           debt={actionsDebt}
         />
       )}
+
+      <CollectionMessageDialog
+        isOpen={!!messageData}
+        onClose={() => setMessageData(null)}
+        data={messageData}
+      />
     </div>
   )
 }

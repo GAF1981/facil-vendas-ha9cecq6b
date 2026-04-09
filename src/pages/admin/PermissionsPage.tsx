@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { permissionsService, Permission } from '@/services/permissionsService'
 import { Loader2, Shield, Save, CheckSquare, Square } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
@@ -26,6 +27,7 @@ export default function PermissionsPage() {
   const [permissions, setPermissions] = useState<Permission[]>([])
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
   const { toast } = useToast()
 
   // Initial load
@@ -158,6 +160,61 @@ export default function PermissionsPage() {
     }
   }
 
+  const filteredPermissions = permissions.filter((p) =>
+    p.modulo.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
+
+  const botoes = filteredPermissions.filter((p) =>
+    p.modulo.toLowerCase().startsWith('botão'),
+  )
+  const icones = filteredPermissions.filter((p) =>
+    p.modulo.toLowerCase().startsWith('ícone'),
+  )
+  const cards = filteredPermissions.filter(
+    (p) =>
+      !p.modulo.toLowerCase().startsWith('botão') &&
+      !p.modulo.toLowerCase().startsWith('ícone'),
+  )
+
+  const renderSection = (title: string, items: Permission[]) => {
+    if (items.length === 0) return null
+    return (
+      <div className="mb-6 animate-fade-in">
+        <h3 className="text-lg font-semibold mb-3 border-b pb-2">{title}</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {items.map((perm) => (
+            <div
+              key={perm.id}
+              className="flex items-center justify-between p-4 border rounded-lg bg-card hover:bg-muted/20 transition-colors"
+            >
+              <div className="flex flex-col gap-1">
+                <span className="font-medium">{perm.modulo}</span>
+                <Badge
+                  variant={perm.acesso ? 'default' : 'secondary'}
+                  className={
+                    perm.acesso
+                      ? 'bg-green-100 text-green-800 hover:bg-green-200 border-transparent w-fit'
+                      : 'bg-red-100 text-red-800 hover:bg-red-200 border-transparent w-fit'
+                  }
+                >
+                  {perm.acesso ? 'Acesso Permitido' : 'Acesso Bloqueado'}
+                </Badge>
+              </div>
+              <Switch
+                checked={perm.acesso}
+                onCheckedChange={() => handleToggle(perm)}
+                disabled={
+                  perm.modulo === 'Permissões' &&
+                  selectedSector === 'Administrador'
+                }
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6 animate-fade-in p-2 pb-20 sm:p-6">
       <div className="flex items-center gap-4">
@@ -203,7 +260,7 @@ export default function PermissionsPage() {
 
       {selectedSector && (
         <Card className="animate-fade-in-up">
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle>Módulos do Sistema</CardTitle>
               <CardDescription>
@@ -211,7 +268,13 @@ export default function PermissionsPage() {
                 <strong>{selectedSector}</strong>
               </CardDescription>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 items-center">
+              <Input
+                placeholder="Buscar permissão..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full sm:w-[200px]"
+              />
               <Button
                 variant="outline"
                 size="sm"
@@ -238,35 +301,16 @@ export default function PermissionsPage() {
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {permissions.map((perm) => (
-                  <div
-                    key={perm.id}
-                    className="flex items-center justify-between p-4 border rounded-lg bg-card hover:bg-muted/20 transition-colors"
-                  >
-                    <div className="flex flex-col gap-1">
-                      <span className="font-medium">{perm.modulo}</span>
-                      <Badge
-                        variant={perm.acesso ? 'default' : 'secondary'}
-                        className={
-                          perm.acesso
-                            ? 'bg-green-100 text-green-800 hover:bg-green-200 border-transparent w-fit'
-                            : 'bg-red-100 text-red-800 hover:bg-red-200 border-transparent w-fit'
-                        }
-                      >
-                        {perm.acesso ? 'Acesso Permitido' : 'Acesso Bloqueado'}
-                      </Badge>
-                    </div>
-                    <Switch
-                      checked={perm.acesso}
-                      onCheckedChange={() => handleToggle(perm)}
-                      disabled={
-                        perm.modulo === 'Permissões' &&
-                        selectedSector === 'Administrador'
-                      }
-                    />
+              <div>
+                {renderSection('Cards', cards)}
+                {renderSection('Botões', botoes)}
+                {renderSection('Ícones', icones)}
+
+                {filteredPermissions.length === 0 && (
+                  <div className="text-center text-muted-foreground py-12">
+                    Nenhuma permissão encontrada para a busca "{searchTerm}".
                   </div>
-                ))}
+                )}
               </div>
             )}
           </CardContent>

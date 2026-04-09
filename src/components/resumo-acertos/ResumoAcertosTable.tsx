@@ -11,6 +11,19 @@ import { formatCurrency, safeFormatDate } from '@/lib/formatters'
 import { Loader2, Edit3, Printer, Trash2 } from 'lucide-react'
 import { SettlementSummary } from '@/services/resumoAcertosService'
 import { useNavigate } from 'react-router-dom'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { useEffect, useState } from 'react'
+import { useUserStore } from '@/stores/useUserStore'
+import { supabase } from '@/lib/supabase/client'
 
 interface ResumoAcertosTableProps {
   loading: boolean
@@ -30,6 +43,27 @@ export function ResumoAcertosTable({
   reprintingId,
 }: ResumoAcertosTableProps) {
   const navigate = useNavigate()
+  const [deleteStep1, setDeleteStep1] = useState<number | null>(null)
+  const [deleteStep2, setDeleteStep2] = useState<number | null>(null)
+  const [canDelete, setCanDelete] = useState(false)
+  const { employee } = useUserStore()
+
+  useEffect(() => {
+    const checkPermission = async () => {
+      if (employee?.setor?.[0]) {
+        const { data } = await supabase
+          .from('permissoes')
+          .select('acesso')
+          .eq('setor', employee.setor[0])
+          .eq('modulo', 'Ícone excluir pedido')
+          .single()
+        if (data) {
+          setCanDelete(data.acesso)
+        }
+      }
+    }
+    checkPermission()
+  }, [employee])
 
   return (
     <div className="rounded-md border overflow-hidden">
@@ -159,15 +193,17 @@ export function ResumoAcertosTable({
                         <Printer className="h-4 w-4" />
                       )}
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-red-600"
-                      onClick={() => onDelete(row.orderId)}
-                      title="Excluir Pedido Permanentemente"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {canDelete && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-red-600"
+                        onClick={() => setDeleteStep1(row.orderId)}
+                        title="Excluir Pedido Permanentemente"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
@@ -175,6 +211,58 @@ export function ResumoAcertosTable({
           )}
         </TableBody>
       </Table>
+
+      <AlertDialog
+        open={!!deleteStep1}
+        onOpenChange={(op) => !op && setDeleteStep1(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Pedido</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja realmente excluir o pedido #{deleteStep1}?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteStep1) setDeleteStep2(deleteStep1)
+                setDeleteStep1(null)
+              }}
+            >
+              Sim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={!!deleteStep2}
+        onOpenChange={(op) => !op && setDeleteStep2(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmação Final</AlertDialogTitle>
+            <AlertDialogDescription className="text-red-600 font-bold">
+              Esta ação é irreversível e não haverá como recuperar o pedido
+              novamente. Deseja excluir permanentemente?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => {
+                if (deleteStep2) onDelete(deleteStep2)
+                setDeleteStep2(null)
+              }}
+            >
+              Excluir Permanentemente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

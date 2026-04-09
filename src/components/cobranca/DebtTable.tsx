@@ -53,6 +53,16 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { DateRange } from 'react-day-picker'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 interface DebtTableProps {
   data: ClientDebt[]
@@ -149,6 +159,9 @@ export function DebtTable({
   } | null>(null)
 
   const [messageData, setMessageData] = useState<FlatRow | null>(null)
+  const [suspendConfirmData, setSuspendConfirmData] = useState<FlatRow | null>(
+    null,
+  )
 
   const { toast } = useToast()
   const navigate = useNavigate()
@@ -990,7 +1003,7 @@ export function DebtTable({
                             )}
                             onClick={(e) => {
                               e.stopPropagation()
-                              handleSuspendToggle(row)
+                              setSuspendConfirmData(row)
                             }}
                             title={
                               row.status === 'SUSPENSO'
@@ -1253,6 +1266,35 @@ export function DebtTable({
         clientId={dividaModalClient?.id || 0}
         clientName={dividaModalClient?.name || ''}
       />
+
+      <AlertDialog
+        open={!!suspendConfirmData}
+        onOpenChange={(op) => !op && setSuspendConfirmData(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Suspensão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja{' '}
+              {suspendConfirmData?.status === 'SUSPENSO'
+                ? 'remover a suspensão'
+                : 'suspender a cobrança'}{' '}
+              deste registro?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (suspendConfirmData) handleSuspendToggle(suspendConfirmData)
+                setSuspendConfirmData(null)
+              }}
+            >
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }
