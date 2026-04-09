@@ -216,10 +216,22 @@ export const inventoryGeneralService = {
           })
         if (err1) throw err1
 
+        let validSessionId = null
+        if (item.extra?.funcionarioId) {
+          const { data: dtInv } = await supabase
+            .from('DATAS DE INVENTÁRIO')
+            .select('ID INVENTÁRIO')
+            .eq('CODIGO FUNCIONARIO', item.extra.funcionarioId)
+            .order('ID INVENTÁRIO', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          if (dtInv) validSessionId = dtInv['ID INVENTÁRIO']
+        }
+
         const { error: err2 } = await supabase
           .from('REPOSIÇÃO E DEVOLUÇÃO')
           .insert({
-            session_id: sessionId,
+            session_id: validSessionId,
             produto_id: item.productId,
             quantidade: item.quantity,
             funcionario_id: item.extra?.funcionarioId,
@@ -238,10 +250,22 @@ export const inventoryGeneralService = {
           })
         if (err1) throw err1
 
+        let validSessionId = null
+        if (item.extra?.funcionarioId) {
+          const { data: dtInv } = await supabase
+            .from('DATAS DE INVENTÁRIO')
+            .select('ID INVENTÁRIO')
+            .eq('CODIGO FUNCIONARIO', item.extra.funcionarioId)
+            .order('ID INVENTÁRIO', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          if (dtInv) validSessionId = dtInv['ID INVENTÁRIO']
+        }
+
         const { error: err2 } = await supabase
           .from('REPOSIÇÃO E DEVOLUÇÃO')
           .insert({
-            session_id: sessionId,
+            session_id: validSessionId,
             produto_id: item.productId,
             quantidade: item.quantity,
             funcionario_id: item.extra?.funcionarioId,
