@@ -203,6 +203,7 @@ export type Database = {
           FORMA: string | null
           forma_cobranca: string | null
           FUNCIONÁRIO: string | null
+          funcionario_id: number | null
           "HORA DO ACERTO": string | null
           "ID VENDA ITENS": number
           MERCADORIA: string | null
@@ -241,6 +242,7 @@ export type Database = {
           FORMA?: string | null
           forma_cobranca?: string | null
           FUNCIONÁRIO?: string | null
+          funcionario_id?: number | null
           "HORA DO ACERTO"?: string | null
           "ID VENDA ITENS"?: number
           MERCADORIA?: string | null
@@ -279,6 +281,7 @@ export type Database = {
           FORMA?: string | null
           forma_cobranca?: string | null
           FUNCIONÁRIO?: string | null
+          funcionario_id?: number | null
           "HORA DO ACERTO"?: string | null
           "ID VENDA ITENS"?: number
           MERCADORIA?: string | null
@@ -1194,6 +1197,7 @@ export type Database = {
           data_horario: string | null
           descricao: string | null
           funcionario: string | null
+          funcionario_id: number | null
           id: number
           id_estoque_carro: number
           pedido: number | null
@@ -1210,6 +1214,7 @@ export type Database = {
           data_horario?: string | null
           descricao?: string | null
           funcionario?: string | null
+          funcionario_id?: number | null
           id?: number
           id_estoque_carro: number
           pedido?: number | null
@@ -1226,6 +1231,7 @@ export type Database = {
           data_horario?: string | null
           descricao?: string | null
           funcionario?: string | null
+          funcionario_id?: number | null
           id?: number
           id_estoque_carro?: number
           pedido?: number | null
@@ -1259,6 +1265,7 @@ export type Database = {
           created_at: string | null
           data_horario: string | null
           funcionario: string | null
+          funcionario_id: number | null
           id: number
           id_estoque_carro: number
           pedido: number | null
@@ -1274,6 +1281,7 @@ export type Database = {
           created_at?: string | null
           data_horario?: string | null
           funcionario?: string | null
+          funcionario_id?: number | null
           id?: number
           id_estoque_carro: number
           pedido?: number | null
@@ -1289,6 +1297,7 @@ export type Database = {
           created_at?: string | null
           data_horario?: string | null
           funcionario?: string | null
+          funcionario_id?: number | null
           id?: number
           id_estoque_carro?: number
           pedido?: number | null
@@ -1324,6 +1333,7 @@ export type Database = {
           descricao: string | null
           ENTRADAS_cliente_carro: number | null
           funcionario: string | null
+          funcionario_id: number | null
           id: number
           id_estoque_carro: number
           pedido: number | null
@@ -1340,6 +1350,7 @@ export type Database = {
           descricao?: string | null
           ENTRADAS_cliente_carro?: number | null
           funcionario?: string | null
+          funcionario_id?: number | null
           id?: number
           id_estoque_carro: number
           pedido?: number | null
@@ -1356,6 +1367,7 @@ export type Database = {
           descricao?: string | null
           ENTRADAS_cliente_carro?: number | null
           funcionario?: string | null
+          funcionario_id?: number | null
           id?: number
           id_estoque_carro?: number
           pedido?: number | null
@@ -1389,6 +1401,7 @@ export type Database = {
           data_horario: string | null
           ENTRADAS_estoque_carro: number | null
           funcionario: string | null
+          funcionario_id: number | null
           id: number
           id_estoque_carro: number
           pedido: number | null
@@ -1404,6 +1417,7 @@ export type Database = {
           data_horario?: string | null
           ENTRADAS_estoque_carro?: number | null
           funcionario?: string | null
+          funcionario_id?: number | null
           id?: number
           id_estoque_carro: number
           pedido?: number | null
@@ -1419,6 +1433,7 @@ export type Database = {
           data_horario?: string | null
           ENTRADAS_estoque_carro?: number | null
           funcionario?: string | null
+          funcionario_id?: number | null
           id?: number
           id_estoque_carro?: number
           pedido?: number | null
@@ -3372,6 +3387,7 @@ export const Constants = {
 //   DATA E HORA: timestamp with time zone (nullable)
 //   codigo_interno: text (nullable)
 //   codigo_barras: text (nullable)
+//   funcionario_id: bigint (nullable)
 // Table: CLIENTES
 //   CODIGO: bigint (not null)
 //   NOME CLIENTE: text (nullable)
@@ -3506,6 +3522,7 @@ export const Constants = {
 //   preco: numeric (nullable)
 //   SAIDAS_carro_cliente: integer (nullable, default: 0)
 //   descricao: text (nullable)
+//   funcionario_id: bigint (nullable)
 // Table: ESTOQUE CARRO: CARRO PARA O ESTOQUE
 //   id: bigint (not null)
 //   id_estoque_carro: bigint (not null)
@@ -3520,6 +3537,7 @@ export const Constants = {
 //   produto: text (nullable)
 //   preco: numeric (nullable)
 //   SAIDAS_carro_estoque: integer (nullable, default: 0)
+//   funcionario_id: bigint (nullable)
 // Table: ESTOQUE CARRO: CLIENTE PARA O CARRO
 //   id: bigint (not null)
 //   id_estoque_carro: bigint (not null)
@@ -3535,6 +3553,7 @@ export const Constants = {
 //   preco: numeric (nullable)
 //   ENTRADAS_cliente_carro: integer (nullable, default: 0)
 //   descricao: text (nullable)
+//   funcionario_id: bigint (nullable)
 // Table: ESTOQUE CARRO: ESTOQUE PARA O CARRO
 //   id: bigint (not null)
 //   id_estoque_carro: bigint (not null)
@@ -3549,6 +3568,7 @@ export const Constants = {
 //   produto: text (nullable)
 //   preco: numeric (nullable)
 //   ENTRADAS_estoque_carro: integer (nullable, default: 0)
+//   funcionario_id: bigint (nullable)
 // Table: ESTOQUE GERAL AJUSTES
 //   id: bigint (not null)
 //   id_inventario: bigint (nullable)
@@ -5903,6 +5923,38 @@ export const Constants = {
 //   END;
 //   $function$
 //   
+// FUNCTION sync_funcionario_fields()
+//   CREATE OR REPLACE FUNCTION public.sync_funcionario_fields()
+//    RETURNS trigger
+//    LANGUAGE plpgsql
+//   AS $function$
+//   BEGIN
+//     -- For ESTOQUE CARRO tables
+//     IF TG_TABLE_NAME IN (
+//       'ESTOQUE CARRO: CARRO PARA O ESTOQUE', 
+//       'ESTOQUE CARRO: ESTOQUE PARA O CARRO',
+//       'ESTOQUE CARRO: CARRO PARA O CLIENTE',
+//       'ESTOQUE CARRO: CLIENTE PARA O CARRO'
+//     ) THEN
+//       IF NEW.funcionario_id IS NOT NULL AND (NEW.funcionario IS NULL OR NEW.funcionario = '') THEN
+//         SELECT nome_completo INTO NEW.funcionario FROM public."FUNCIONARIOS" WHERE id = NEW.funcionario_id;
+//       END IF;
+//     END IF;
+//   
+//     -- For BANCO_DE_DADOS
+//     IF TG_TABLE_NAME = 'BANCO_DE_DADOS' THEN
+//       IF NEW.funcionario_id IS NOT NULL THEN
+//         NEW."CODIGO FUNCIONARIO" := NEW.funcionario_id;
+//         IF NEW."FUNCIONÁRIO" IS NULL OR NEW."FUNCIONÁRIO" = '' THEN
+//           SELECT nome_completo INTO NEW."FUNCIONÁRIO" FROM public."FUNCIONARIOS" WHERE id = NEW.funcionario_id;
+//         END IF;
+//       END IF;
+//     END IF;
+//     
+//     RETURN NEW;
+//   END;
+//   $function$
+//   
 // FUNCTION sync_id_estoque_carro_from_reposicao_devolucao()
 //   CREATE OR REPLACE FUNCTION public.sync_id_estoque_carro_from_reposicao_devolucao()
 //    RETURNS trigger
@@ -6335,15 +6387,22 @@ export const Constants = {
 //   fix_brinquedo_codigo_trigger: CREATE TRIGGER fix_brinquedo_codigo_trigger BEFORE INSERT OR UPDATE ON public."BANCO_DE_DADOS" FOR EACH ROW EXECUTE FUNCTION fix_brinquedo_codigo()
 //   trg_protect_captacao: CREATE TRIGGER trg_protect_captacao BEFORE INSERT ON public."BANCO_DE_DADOS" FOR EACH ROW EXECUTE FUNCTION protect_captacao_status()
 //   trg_reset_x_na_rota_bd: CREATE TRIGGER trg_reset_x_na_rota_bd AFTER INSERT ON public."BANCO_DE_DADOS" FOR EACH ROW EXECUTE FUNCTION reset_x_na_rota_on_activity()
+//   trg_sync_funcionario_banco_dados: CREATE TRIGGER trg_sync_funcionario_banco_dados BEFORE INSERT OR UPDATE ON public."BANCO_DE_DADOS" FOR EACH ROW EXECUTE FUNCTION sync_funcionario_fields()
 //   trg_update_debito_historico_sales: CREATE TRIGGER trg_update_debito_historico_sales AFTER INSERT OR UPDATE ON public."BANCO_DE_DADOS" FOR EACH ROW EXECUTE FUNCTION trigger_update_debito_historico_sales()
 // Table: CLIENTES
 //   trg_check_inativo_cobranca: CREATE TRIGGER trg_check_inativo_cobranca BEFORE INSERT OR UPDATE OF situacao ON public."CLIENTES" FOR EACH ROW EXECUTE FUNCTION check_inativo_cobranca()
 // Table: DESPESAS
 //   on_despesa_auto_confirm: CREATE TRIGGER on_despesa_auto_confirm BEFORE INSERT OR UPDATE OF saiu_do_caixa, status ON public."DESPESAS" FOR EACH ROW EXECUTE FUNCTION auto_confirm_despesa()
+// Table: ESTOQUE CARRO: CARRO PARA O CLIENTE
+//   trg_sync_funcionario_carro_cliente: CREATE TRIGGER trg_sync_funcionario_carro_cliente BEFORE INSERT OR UPDATE ON public."ESTOQUE CARRO: CARRO PARA O CLIENTE" FOR EACH ROW EXECUTE FUNCTION sync_funcionario_fields()
 // Table: ESTOQUE CARRO: CARRO PARA O ESTOQUE
 //   trg_fix_id_estoque_carro_devolucao: CREATE TRIGGER trg_fix_id_estoque_carro_devolucao BEFORE INSERT ON public."ESTOQUE CARRO: CARRO PARA O ESTOQUE" FOR EACH ROW EXECUTE FUNCTION fix_id_estoque_carro_on_devolucao()
+//   trg_sync_funcionario_carro_estoque: CREATE TRIGGER trg_sync_funcionario_carro_estoque BEFORE INSERT OR UPDATE ON public."ESTOQUE CARRO: CARRO PARA O ESTOQUE" FOR EACH ROW EXECUTE FUNCTION sync_funcionario_fields()
+// Table: ESTOQUE CARRO: CLIENTE PARA O CARRO
+//   trg_sync_funcionario_cliente_carro: CREATE TRIGGER trg_sync_funcionario_cliente_carro BEFORE INSERT OR UPDATE ON public."ESTOQUE CARRO: CLIENTE PARA O CARRO" FOR EACH ROW EXECUTE FUNCTION sync_funcionario_fields()
 // Table: ESTOQUE CARRO: ESTOQUE PARA O CARRO
 //   trg_fix_id_estoque_carro_reposicao: CREATE TRIGGER trg_fix_id_estoque_carro_reposicao BEFORE INSERT ON public."ESTOQUE CARRO: ESTOQUE PARA O CARRO" FOR EACH ROW EXECUTE FUNCTION fix_id_estoque_carro_on_reposicao()
+//   trg_sync_funcionario_estoque_carro: CREATE TRIGGER trg_sync_funcionario_estoque_carro BEFORE INSERT OR UPDATE ON public."ESTOQUE CARRO: ESTOQUE PARA O CARRO" FOR EACH ROW EXECUTE FUNCTION sync_funcionario_fields()
 // Table: RECEBIMENTOS
 //   trg_reset_x_na_rota_rec: CREATE TRIGGER trg_reset_x_na_rota_rec AFTER INSERT ON public."RECEBIMENTOS" FOR EACH ROW EXECUTE FUNCTION reset_x_na_rota_on_activity()
 //   trg_sync_pix_receipt: CREATE TRIGGER trg_sync_pix_receipt AFTER INSERT OR UPDATE OF forma_pagamento ON public."RECEBIMENTOS" FOR EACH ROW EXECUTE FUNCTION sync_pix_receipt_on_insert()
