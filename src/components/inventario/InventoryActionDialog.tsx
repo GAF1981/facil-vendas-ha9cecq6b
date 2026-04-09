@@ -19,6 +19,8 @@ import {
 import { Loader2, Barcode, Search, X } from 'lucide-react'
 import { formatCurrency, parseCurrency } from '@/lib/formatters'
 import { suppliersService, Supplier } from '@/services/suppliersService'
+import { supabase } from '@/lib/supabase/client'
+import { safeFormatDate } from '@/lib/formatters'
 import { employeesService } from '@/services/employeesService'
 import { inventoryGeneralService } from '@/services/inventoryGeneralService'
 import { productsService } from '@/services/productsService'
@@ -81,6 +83,10 @@ export function InventoryActionDialog({
   const [costValue, setCostValue] = useState<string>('')
   const [reason, setReason] = useState<string>('')
 
+  const [estoqueCarroSessions, setEstoqueCarroSessions] = useState<any[]>([])
+  const [selectedEstoqueCarro, setSelectedEstoqueCarro] = useState<string>('')
+  const [isOldEstoque, setIsOldEstoque] = useState(false)
+
   const quantityRef = useRef<HTMLInputElement>(null)
   const barcodeRef = useRef<HTMLInputElement>(null)
 
@@ -126,6 +132,58 @@ export function InventoryActionDialog({
       }
     }
   }, [inputMode, open, preselectedProduct])
+
+  // Effect for Estoque Carro ID based on selected employee
+  useEffect(() => {
+    if (
+      (type === 'CARRO_PARA_ESTOQUE' || type === 'ESTOQUE_PARA_CARRO') &&
+      selectedEmployee
+    ) {
+      supabase
+        .from('ID ESTOQUE CARRO')
+        .select('id, data_inicio, status:data_fim')
+        .eq('funcionario_id', selectedEmployee)
+        .order('id', { ascending: false })
+        .limit(10)
+        .then(({ data }) => {
+          if (data) {
+            setEstoqueCarroSessions(data)
+            if (data.length > 0) {
+              setSelectedEstoqueCarro(data[0].id.toString())
+              setIsOldEstoque(false)
+            } else {
+              setSelectedEstoqueCarro('')
+              setIsOldEstoque(false)
+            }
+          }
+        })
+    } else {
+      setEstoqueCarroSessions([])
+      setSelectedEstoqueCarro('')
+      setIsOldEstoque(false)
+    }
+  }, [selectedEmployee, type])
+
+  const handleEstoqueChange = (val: string) => {
+    if (
+      estoqueCarroSessions.length > 0 &&
+      val !== estoqueCarroSessions[0].id.toString()
+    ) {
+      const confirmAlert = confirm(
+        'ATENÇÃO: Você está fazendo a movimentação em um estoque ANTERIOR do carro e não do atual. Deseja prosseguir?',
+      )
+      if (!confirmAlert) {
+        setSelectedEstoqueCarro(estoqueCarroSessions[0].id.toString())
+        setIsOldEstoque(false)
+        return
+      }
+      setIsOldEstoque(true)
+      setSelectedEstoqueCarro(val)
+    } else {
+      setIsOldEstoque(false)
+      setSelectedEstoqueCarro(val)
+    }
+  }
 
   // Initial Data and Focus
   useEffect(() => {
@@ -260,7 +318,16 @@ export function InventoryActionDialog({
           })
           return
         }
+        if (!selectedEstoqueCarro) {
+          toast({
+            title: 'Erro',
+            description: 'Estoque Carro é obrigatório.',
+            variant: 'destructive',
+          })
+          return
+        }
         extra.funcionarioId = parseInt(selectedEmployee)
+        extra.id_estoque_carro = parseInt(selectedEstoqueCarro)
         setPersistedEmployeeId(selectedEmployee)
       }
 
@@ -451,7 +518,16 @@ export function InventoryActionDialog({
         })
         return
       }
+      if (!selectedEstoqueCarro) {
+        toast({
+          title: 'Erro',
+          description: 'Estoque Carro é obrigatório.',
+          variant: 'destructive',
+        })
+        return
+      }
       extra.funcionarioId = parseInt(selectedEmployee)
+      extra.id_estoque_carro = parseInt(selectedEstoqueCarro)
       setPersistedEmployeeId(selectedEmployee)
     }
 
@@ -655,27 +731,66 @@ export function InventoryActionDialog({
           )}
 
           {(type === 'CARRO_PARA_ESTOQUE' || type === 'ESTOQUE_PARA_CARRO') && (
-            <div className="space-y-2">
-              <Label>
-                Funcionário (Motorista/Responsável){' '}
-                <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={selectedEmployee}
-                onValueChange={setSelectedEmployee}
-                disabled={submitting}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o funcionário" />
-                </SelectTrigger>
-                <SelectContent>
-                  {employees.map((e) => (
-                    <SelectItem key={e.id} value={e.id.toString()}>
-                      {e.nome_completo}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>
+                  Funcionário (Motorista/Responsável){' '}
+                  <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={selectedEmployee}
+                  onValueChange={setSelectedEmployee}
+                  disabled={submitting}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o funcionário" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {employees.map((e) => (
+                      <SelectItem key={e.id} value={e.id.toString()}>
+                        {e.nome_completo}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedEmployee && estoqueCarroSessions.length > 0 && (
+                <div className="space-y-2 animate-fade-in-up">
+                  <Label
+                    className={cn(isOldEstoque && 'text-red-600 font-bold')}
+                  >
+                    Estoque Carro <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={selectedEstoqueCarro}
+                    onValueChange={handleEstoqueChange}
+                    disabled={submitting}
+                  >
+                    <SelectTrigger
+                      className={cn(
+                        isOldEstoque &&
+                          'border-red-500 text-red-600 ring-red-500 bg-red-50',
+                      )}
+                    >
+                      <SelectValue placeholder="Selecione o estoque do carro" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {estoqueCarroSessions.map((s, idx) => (
+                        <SelectItem key={s.id} value={s.id.toString()}>
+                          #{s.id} - {safeFormatDate(s.data_inicio)}{' '}
+                          {idx === 0 ? '(Atual)' : '(Anterior)'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {isOldEstoque && (
+                    <p className="text-xs text-red-600 font-medium">
+                      ⚠️ Atenção: Você selecionou um estoque antigo.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

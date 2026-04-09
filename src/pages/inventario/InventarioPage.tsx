@@ -23,6 +23,7 @@ import { useUserStore } from '@/stores/useUserStore'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Lock } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { supabase } from '@/lib/supabase/client'
 
 export default function InventarioPage() {
   const [sessions, setSessions] = useState<InventoryGeneralSession[]>([])
@@ -32,6 +33,7 @@ export default function InventarioPage() {
   const [actionType, setActionType] = useState<any>(null)
   const [isActionDialogOpen, setIsActionDialogOpen] = useState(false)
   const [saldoFinalFilter, setSaldoFinalFilter] = useState('all')
+  const [frequentesFilter, setFrequentesFilter] = useState('SIM')
   const [isEditMode, setIsEditMode] = useState(false)
   const [persistedEmployeeId, setPersistedEmployeeId] = useState<string>('')
   const [persistedSupplierId, setPersistedSupplierId] = useState<string>('')
@@ -68,12 +70,19 @@ export default function InventarioPage() {
 
   // Moved up before early return to comply with React Hooks rules
   const filteredItems = useMemo(() => {
+    let result = items
     if (saldoFinalFilter === 'zero')
-      return items.filter((i) => i.saldo_final === 0)
+      result = result.filter((i) => i.saldo_final === 0)
     if (saldoFinalFilter === 'positive')
-      return items.filter((i) => i.saldo_final > 0)
-    return items
-  }, [items, saldoFinalFilter])
+      result = result.filter((i) => i.saldo_final > 0)
+
+    if (frequentesFilter !== 'TODOS') {
+      result = result.filter(
+        (i: any) => (i.frequentes || 'NÃO') === frequentesFilter,
+      )
+    }
+    return result
+  }, [items, saldoFinalFilter, frequentesFilter])
 
   const loadSessions = useCallback(async () => {
     try {
@@ -94,8 +103,20 @@ export default function InventarioPage() {
     async (id: number) => {
       setLoading(true)
       try {
+        const { data: freqData } = await supabase
+          .from('PRODUTOS')
+          .select('ID, FREQUENTES')
+        const freqMap = new Map(
+          freqData?.map((p) => [p.ID, p.FREQUENTES]) || [],
+        )
+
         const inventoryData = await inventoryGeneralService.getInventoryData(id)
-        setItems(inventoryData)
+        const enhancedData = inventoryData.map((i: any) => ({
+          ...i,
+          frequentes: freqMap.get(i.produto_id || i.id) || 'NÃO',
+        }))
+
+        setItems(enhancedData)
       } catch (error) {
         toast({
           title: 'Erro',
@@ -282,7 +303,23 @@ export default function InventarioPage() {
         />
 
         {selectedSession && (
-          <div className="flex justify-end mb-2">
+          <div className="flex justify-end mb-2 gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">Mais Frequentes:</span>
+              <Select
+                value={frequentesFilter}
+                onValueChange={setFrequentesFilter}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="SIM">Sim</SelectItem>
+                  <SelectItem value="NÃO">Não</SelectItem>
+                  <SelectItem value="TODOS">Todos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">Filtrar Saldo Final:</span>
               <Select

@@ -155,6 +155,12 @@ export function DividasManuaisTable({
 
   const handleDelete = async (id: number) => {
     if (!confirm('Deseja realmente excluir esta dívida?')) return
+    if (
+      !confirm(
+        'ATENÇÃO: A dívida será excluída de forma PERMANENTE. Tem certeza absoluta?',
+      )
+    )
+      return
     try {
       await deleteDivida(id)
       toast({ title: 'Sucesso', description: 'Dívida excluída.' })
