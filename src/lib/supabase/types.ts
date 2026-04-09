@@ -4491,15 +4491,6 @@ export const Constants = {
 //   END;
 //   $function$
 //   
-// FUNCTION btrim(date)
-//   CREATE OR REPLACE FUNCTION public.btrim(d date)
-//    RETURNS text
-//    LANGUAGE sql
-//    IMMUTABLE
-//   AS $function$
-//     SELECT btrim(d::text);
-//   $function$
-//   
 // FUNCTION btrim(time without time zone)
 //   CREATE OR REPLACE FUNCTION public.btrim(t time without time zone)
 //    RETURNS text
@@ -4507,6 +4498,15 @@ export const Constants = {
 //    IMMUTABLE
 //   AS $function$
 //     SELECT btrim(t::text);
+//   $function$
+//   
+// FUNCTION btrim(date)
+//   CREATE OR REPLACE FUNCTION public.btrim(d date)
+//    RETURNS text
+//    LANGUAGE sql
+//    IMMUTABLE
+//   AS $function$
+//     SELECT btrim(d::text);
 //   $function$
 //   
 // FUNCTION bulk_update_product_codes(json)
@@ -4961,9 +4961,9 @@ export const Constants = {
 //       COALESCE(p."PRODUTO", bd."MERCADORIA", 'Produto Não Identificado') as mercadoria,
 //       COALESCE(p."TIPO", 'OUTROS') as tipo,
 //       COALESCE(parse_currency_sql(p."PREÇO"::TEXT), 0) as preco,
-//       COALESCE(bd."SALDO INICIAL", 0) as saldo_inicial,
-//       COALESCE(bd."SALDO FINAL", 0) as saldo_final,
-//       COALESCE(cfe.quantidade, bd."CONTAGEM", 0) as contagem,
+//       COALESCE(bd."SALDO INICIAL", 0)::NUMERIC as saldo_inicial,
+//       COALESCE(bd."SALDO FINAL", 0)::NUMERIC as saldo_final,
+//       COALESCE(cfe.quantidade, bd."CONTAGEM", 0)::NUMERIC as contagem,
 //       parse_currency_sql(bd."NOVAS CONSIGNAÇÕES") as entrada_estoque_carro,
 //       parse_currency_sql(bd."RECOLHIDO") as saida_carro_estoque,
 //       0::NUMERIC as entrada_cliente_carro,
@@ -5016,7 +5016,7 @@ export const Constants = {
 //       COALESCE(p."TIPO", 'OUTROS') as tipo,
 //       -- Safe numeric parsing
 //       COALESCE(parse_currency_sql(p."PREÇO"::TEXT), 0) as preco,
-//       COALESCE(bd."SALDO INICIAL", 0) as saldo_inicial,
+//       COALESCE(bd."SALDO INICIAL", 0)::NUMERIC as saldo_inicial,
 //       
 //       -- Simplified Movement Logic (Direct from BD Snapshot)
 //       parse_currency_sql(bd."NOVAS CONSIGNAÇÕES") as entrada_estoque_carro,
@@ -5029,10 +5029,10 @@ export const Constants = {
 //       -- Client movements forced to 0
 //       0::NUMERIC as saida_carro_cliente,
 //       
-//       COALESCE(bd."SALDO FINAL", 0) as saldo_final,
+//       COALESCE(bd."SALDO FINAL", 0)::NUMERIC as saldo_final,
 //       
 //       -- Priority to Physical Count Table, fallback to BD
-//       COALESCE(cfe.quantidade, bd."CONTAGEM", 0) as estoque_contagem_carro,
+//       COALESCE(cfe.quantidade, bd."CONTAGEM", 0)::NUMERIC as estoque_contagem_carro,
 //       
 //       v_total_count
 //     FROM "BANCO_DE_DADOS" bd
@@ -5063,9 +5063,9 @@ export const Constants = {
 //     RETURN QUERY
 //     WITH calculated_rows AS (
 //       SELECT
-//         COALESCE(bd."SALDO INICIAL", 0) as qtd_inicial,
-//         COALESCE(bd."SALDO FINAL", 0) as qtd_final,
-//         COALESCE(cfe.quantidade, bd."CONTAGEM", 0) as qtd_contagem,
+//         COALESCE(bd."SALDO INICIAL", 0)::NUMERIC as qtd_inicial,
+//         COALESCE(bd."SALDO FINAL", 0)::NUMERIC as qtd_final,
+//         COALESCE(cfe.quantidade, bd."CONTAGEM", 0)::NUMERIC as qtd_contagem,
 //         COALESCE(parse_currency_sql(p."PREÇO"::TEXT), 0) as preco_unit
 //       FROM "BANCO_DE_DADOS" bd
 //       LEFT JOIN "PRODUTOS" p ON bd."COD. PRODUTO" = p."ID"
@@ -5475,8 +5475,8 @@ export const Constants = {
 //   END;
 //   $function$
 //   
-// FUNCTION parse_currency_sql(text)
-//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str text)
+// FUNCTION parse_currency_sql(character varying)
+//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str character varying)
 //    RETURNS numeric
 //    LANGUAGE plpgsql
 //   AS $function$
@@ -5504,8 +5504,8 @@ export const Constants = {
 //   END;
 //   $function$
 //   
-// FUNCTION parse_currency_sql(character varying)
-//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str character varying)
+// FUNCTION parse_currency_sql(text)
+//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str text)
 //    RETURNS numeric
 //    LANGUAGE plpgsql
 //   AS $function$
