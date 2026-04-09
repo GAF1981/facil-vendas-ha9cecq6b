@@ -32,8 +32,6 @@ export const inventoryGeneralService = {
 
   async getInventoryData(sessionId: number): Promise<InventoryGeneralItem[]> {
     try {
-      // Usamos a tipagem forçada null as unknown as number para satisfazer o TypeScript
-      // O Supabase lida corretamente com o null no backend usando a condição (p_funcionario_id IS NULL)
       const { data, error } = await supabase.rpc('get_inventory_data', {
         p_session_id: sessionId,
         p_funcionario_id: null as unknown as number,
@@ -41,65 +39,133 @@ export const inventoryGeneralService = {
 
       if (error) {
         console.error('Erro ao executar RPC get_inventory_data:', error)
-
-        // Fallback robusto direto na tabela BANCO_DE_DADOS
-        const { data: rawData, error: dbError } = await supabase
-          .from('BANCO_DE_DADOS')
-          .select(
-            `
-            "ID VENDA ITENS",
-            "COD. PRODUTO",
-            "MERCADORIA",
-            "TIPO",
-            "SALDO INICIAL",
-            "SALDO FINAL",
-            "CONTAGEM"
-          `,
-          )
-          .eq('session_id', sessionId)
-
-        if (dbError) throw dbError
-
-        return (rawData || []).map((item: any) => ({
-          id: item['ID VENDA ITENS'],
-          produto_id: item['COD. PRODUTO'],
-          codigo_barras: '',
-          mercadoria: item['MERCADORIA'] || 'Produto N/D',
-          produto: item['MERCADORIA'] || 'Produto N/D',
-          tipo: item['TIPO'] || 'OUTROS',
-          preco: 0,
-          saldo_inicial: item['SALDO INICIAL'] || 0,
-          saldo_final: item['SALDO FINAL'] || 0,
-          contagem: item['CONTAGEM'] || 0,
-          entrada_estoque_carro: 0,
-          saida_carro_estoque: 0,
-          entrada_cliente_carro: 0,
-          saida_carro_cliente: 0,
-          has_count_record: (item['CONTAGEM'] || 0) > 0,
-          is_mandatory: false,
-          frequentes: 'NÃO',
-        })) as InventoryGeneralItem[]
+        throw error
       }
 
-      return (data || []).map((item: any) => ({
-        id: item.id,
-        produto_id: item.codigo_produto || item.id,
-        codigo_barras: item.codigo_barras,
-        mercadoria: item.mercadoria || item.produto || 'Produto N/D',
-        produto: item.mercadoria || item.produto || 'Produto N/D',
-        tipo: item.tipo || 'OUTROS',
-        preco: item.preco || 0,
-        saldo_inicial: item.saldo_inicial || 0,
-        saldo_final: item.saldo_final || 0,
-        contagem: item.contagem || 0,
-        entrada_estoque_carro: item.entrada_estoque_carro || 0,
-        saida_carro_estoque: item.saida_carro_estoque || 0,
-        entrada_cliente_carro: item.entrada_cliente_carro || 0,
-        saida_carro_cliente: item.saida_carro_cliente || 0,
-        has_count_record: (item.contagem || 0) > 0,
-        is_mandatory: false,
-        frequentes: 'NÃO',
-      })) as InventoryGeneralItem[]
+      const [
+        { data: compras },
+        { data: perdas },
+        { data: carroEstoque },
+        { data: estoqueCarro },
+        { data: contagens },
+      ] = await Promise.all([
+        supabase
+          .from('ESTOQUE GERAL COMPRAS')
+          .select('produto_id, compras_quantidade')
+          .eq('id_inventario', sessionId),
+        supabase
+          .from('ESTOQUE GERAL SAÍDAS PERDAS')
+          .select('produto_id, quantidade')
+          .eq('id_inventario', sessionId),
+        supabase
+          .from('ESTOQUE GERAL CARRO PARA ESTOQUE')
+          .select(
+            'produto_id, quantidade, created_at, funcionario_id, FUNCIONARIOS(nome_completo)',
+          )
+          .eq('id_inventario', sessionId),
+        supabase
+          .from('ESTOQUE GERAL ESTOQUE PARA CARRO')
+          .select(
+            'produto_id, quantidade, created_at, funcionario_id, FUNCIONARIOS(nome_completo)',
+          )
+          .eq('id_inventario', sessionId),
+        supabase
+          .from('CONTAGEM DE ESTOQUE FINAL')
+          .select('produto_id')
+          .eq('session_id', sessionId),
+      ])
+
+      const comprasMap = new Map()
+      compras?.forEach((c: any) =>
+        comprasMap.set(
+          c.produto_id,
+          (comprasMap.get(c.produto_id) || 0) +
+            Number(c.compras_quantidade || 0),
+        ),
+      )
+
+      const perdasMap = new Map()
+      perdas?.forEach((p: any) =>
+        perdasMap.set(
+          p.produto_id,
+          (perdasMap.get(p.produto_id) || 0) + Number(p.quantidade || 0),
+        ),
+      )
+
+      const carroEstoqueMap = new Map()
+      const carroEstoqueDetails = new Map()
+      carroEstoque?.forEach((c: any) => {
+        carroEstoqueMap.set(
+          c.produto_id,
+          (carroEstoqueMap.get(c.produto_id) || 0) + Number(c.quantidade || 0),
+        )
+        const details = carroEstoqueDetails.get(c.produto_id) || []
+        details.push(c)
+        carroEstoqueDetails.set(c.produto_id, details)
+      })
+
+      const estoqueCarroMap = new Map()
+      const estoqueCarroDetails = new Map()
+      estoqueCarro?.forEach((e: any) => {
+        estoqueCarroMap.set(
+          e.produto_id,
+          (estoqueCarroMap.get(e.produto_id) || 0) + Number(e.quantidade || 0),
+        )
+        const details = estoqueCarroDetails.get(e.produto_id) || []
+        details.push(e)
+        estoqueCarroDetails.set(e.produto_id, details)
+      })
+
+      const contagemSet = new Set()
+      contagens?.forEach((c: any) => contagemSet.add(c.produto_id))
+
+      return (data || []).map((item: any) => {
+        const prodId = item.codigo_produto || item.id
+        const saldoInicial = item.saldo_inicial || 0
+        const contagem = item.contagem || 0
+        const preco = item.preco || 0
+
+        const comprasQty = comprasMap.get(prodId) || 0
+        const perdasQty = perdasMap.get(prodId) || 0
+        const carroEstoqueQty = carroEstoqueMap.get(prodId) || 0
+        const estoqueCarroQty = estoqueCarroMap.get(prodId) || 0
+
+        const saldoFinalCalc =
+          saldoInicial +
+          comprasQty +
+          carroEstoqueQty -
+          perdasQty -
+          estoqueCarroQty
+        const diferencaQty = contagem - saldoFinalCalc
+        const diferencaVal = diferencaQty * preco
+
+        return {
+          id: item.id,
+          produto_id: prodId,
+          codigo: prodId,
+          barcode: item.codigo_barras,
+          codigo_barras: item.codigo_barras,
+          mercadoria: item.mercadoria || item.produto || 'Produto N/D',
+          produto: item.mercadoria || item.produto || 'Produto N/D',
+          tipo: item.tipo || 'OUTROS',
+          preco: preco,
+          saldo_inicial: saldoInicial,
+          saldo_final: saldoFinalCalc,
+          contagem: contagem,
+          compras: comprasQty,
+          saidas_perdas: perdasQty,
+          carro_para_estoque: carroEstoqueQty,
+          estoque_para_carro: estoqueCarroQty,
+          details_carro_para_estoque: carroEstoqueDetails.get(prodId) || [],
+          details_estoque_para_carro: estoqueCarroDetails.get(prodId) || [],
+          novo_saldo_final: contagemSet.has(prodId) ? contagem : saldoFinalCalc,
+          diferenca_qty: diferencaQty,
+          diferenca_val: diferencaVal,
+          has_count_record: contagemSet.has(prodId),
+          is_mandatory: false,
+          frequentes: 'NÃO',
+        }
+      }) as InventoryGeneralItem[]
     } catch (err) {
       console.error('Erro crítico ao carregar itens do inventário:', err)
       return []
