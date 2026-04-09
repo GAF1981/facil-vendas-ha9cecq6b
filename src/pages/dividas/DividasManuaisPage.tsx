@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/select'
 import { useDividasManuaisStore } from '@/stores/useDividasManuaisStore'
 import { DividaManualFormDialog } from '@/components/dividas/DividaManualFormDialog'
+import { DividasManuaisTable } from '@/components/dividas/DividasManuaisTable'
 import { formatCurrency } from '@/lib/formatters'
 import {
   CreditCard,
@@ -19,24 +20,10 @@ import {
   FileText,
   Banknote,
   Eraser,
-  Pencil,
-  Trash2,
 } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { parseISO, format } from 'date-fns'
-import { useToast } from '@/hooks/use-toast'
 
 export default function DividasManuaisPage() {
-  const { dividas, fetchDividas, deleteDivida } = useDividasManuaisStore()
-  const { toast } = useToast()
+  const { dividas, fetchDividas } = useDividasManuaisStore()
 
   const [search, setSearch] = useState('')
   const [tipoClienteFilter, setTipoClienteFilter] = useState('todos')
@@ -45,7 +32,6 @@ export default function DividasManuaisPage() {
   const [dataCombinadaFilter, setDataCombinadaFilter] = useState('')
 
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [selectedDebt, setSelectedDebt] = useState<any>(null)
 
   useEffect(() => {
     fetchDividas()
@@ -134,36 +120,8 @@ export default function DividasManuaisPage() {
     setDataCombinadaFilter('')
   }
 
-  const handleDelete = async (id: number) => {
-    if (confirm('Deseja realmente excluir esta dívida?')) {
-      try {
-        await deleteDivida(id)
-        toast({ title: 'Sucesso', description: 'Dívida excluída.' })
-      } catch (e: any) {
-        toast({
-          title: 'Erro',
-          description: e.message,
-          variant: 'destructive',
-        })
-      }
-    }
-  }
-
-  const openEdit = (debt: any) => {
-    setSelectedDebt(debt)
-    setIsModalOpen(true)
-  }
-
   const openNew = () => {
-    setSelectedDebt(null)
     setIsModalOpen(true)
-  }
-
-  const getStatus = (d: any) => {
-    if (d.valor_pago >= d.valor_parcela) return 'PAGO'
-    if (d.vencimento < new Date().toISOString().substring(0, 10))
-      return 'VENCIDO'
-    return 'A VENCER'
   }
 
   return (
@@ -293,143 +251,14 @@ export default function DividasManuaisPage() {
             </Button>
           </div>
 
-          <div className="border rounded-md overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Dívida ID</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Tipo Cliente</TableHead>
-                  <TableHead>Vencimento</TableHead>
-                  <TableHead>Forma (Pagamento)</TableHead>
-                  <TableHead>Forma Cobrança</TableHead>
-                  <TableHead>Data Comb.</TableHead>
-                  <TableHead className="text-right">Valor Parc.</TableHead>
-                  <TableHead className="text-right">Pago</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
-                  <TableHead className="text-center">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredData.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={11}
-                      className="text-center text-muted-foreground h-24"
-                    >
-                      Nenhuma dívida encontrada.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredData.map((d) => {
-                    const status = getStatus(d)
-                    const isBoletoConferir = d.forma_pagamento
-                      ?.toLowerCase()
-                      .includes('a conferir')
-                    const isBoletoConferido = d.forma_pagamento
-                      ?.toLowerCase()
-                      .includes('conferido')
-
-                    return (
-                      <TableRow key={d.id}>
-                        <TableCell className="font-mono text-xs">
-                          #{d.id}
-                        </TableCell>
-                        <TableCell
-                          className="font-medium max-w-[200px] truncate"
-                          title={d.CLIENTES?.['NOME CLIENTE']}
-                        >
-                          {d.cliente_id} - {d.CLIENTES?.['NOME CLIENTE']}
-                        </TableCell>
-                        <TableCell>
-                          {d.CLIENTES?.['TIPO DE CLIENTE'] || '-'}
-                        </TableCell>
-                        <TableCell>
-                          {d.vencimento
-                            ? format(parseISO(d.vencimento), 'dd/MM/yyyy')
-                            : '-'}
-                        </TableCell>
-                        <TableCell>
-                          {isBoletoConferir ? (
-                            <span className="text-red-600 font-bold">
-                              {d.forma_pagamento}
-                            </span>
-                          ) : isBoletoConferido ? (
-                            <span className="text-green-600 font-bold">
-                              {d.forma_pagamento}
-                            </span>
-                          ) : (
-                            <span>{d.forma_pagamento}</span>
-                          )}
-                        </TableCell>
-                        <TableCell>{d.forma_cobranca || '-'}</TableCell>
-                        <TableCell>
-                          {d.data_combinada
-                            ? format(parseISO(d.data_combinada), 'dd/MM/yyyy')
-                            : '-'}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-xs">
-                          {formatCurrency(d.valor_parcela)}
-                        </TableCell>
-                        <TableCell className="text-right text-green-600 font-mono text-xs">
-                          {formatCurrency(d.valor_pago)}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge
-                            variant={
-                              status === 'VENCIDO'
-                                ? 'destructive'
-                                : status === 'PAGO'
-                                  ? 'default'
-                                  : 'secondary'
-                            }
-                            className={
-                              status === 'A VENCER'
-                                ? 'bg-green-100 text-green-800 hover:bg-green-200 border-transparent font-bold'
-                                : ''
-                            }
-                          >
-                            {status === 'A VENCER'
-                              ? 'a vencer'
-                              : status.toLowerCase()}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex justify-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-blue-600 hover:bg-blue-50"
-                              onClick={() => openEdit(d)}
-                              title="Editar"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-red-600 hover:bg-red-50"
-                              onClick={() => handleDelete(d.id)}
-                              title="Excluir"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
+          <DividasManuaisTable data={filteredData as any} loading={false} />
         </CardContent>
       </Card>
 
       <DividaManualFormDialog
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
-        debt={selectedDebt}
+        debt={null}
       />
     </div>
   )

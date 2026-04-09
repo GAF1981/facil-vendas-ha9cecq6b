@@ -200,9 +200,7 @@ export function DividasManuaisTable({
                   Tipo Cliente
                 </TableHead>
                 <TableHead className="text-xs text-center">Contador</TableHead>
-                <TableHead className="text-xs text-center">
-                  Rota Motoq.
-                </TableHead>
+                <TableHead className="text-xs text-center">Rota</TableHead>
                 <TableHead className="text-xs">Data Acerto</TableHead>
                 <TableHead
                   className="text-xs cursor-pointer hover:text-primary transition-colors"
@@ -241,7 +239,9 @@ export function DividasManuaisTable({
                 <TableHead className="text-xs min-w-[120px]">
                   Telefone Cobrança
                 </TableHead>
-                <TableHead className="text-xs text-center">Registros</TableHead>
+                <TableHead className="text-xs text-center">
+                  Ações em Dívidas
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -535,9 +535,9 @@ export function DividasManuaisTable({
                             size="icon"
                             className="h-6 w-6 text-green-600 hover:bg-green-50"
                             onClick={() => setEditingDebt(row)}
-                            title="Ver Pagamento"
+                            title="Editar Dívida"
                           >
-                            <Search className="h-4 w-4" />
+                            <Edit className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
