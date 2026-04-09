@@ -63,7 +63,8 @@ export function InventoryGlobalHistoryDialog({
           .from(table)
           .select('*')
           .eq('id_inventario', sessionId)
-        return (data || []).map((d: any) => ({
+
+        let results = (data || []).map((d: any) => ({
           uniqueId: `${type}_${d.id}`,
           id: d.id,
           movement_type: type,
@@ -71,7 +72,38 @@ export function InventoryGlobalHistoryDialog({
           quantidade: d[qtyField] || d.quantidade || 0,
           produto_id: d.produto_id,
           produto_nome: productMap.get(d.produto_id) || 'Desconhecido',
+          id_estoque_carro: d.id_estoque_carro || '-',
+          funcionario_id: d.funcionario_id,
         }))
+
+        // Aprimora a busca do id_estoque_carro verificando na tabela REPOSIÇÃO E DEVOLUÇÃO
+        if (type === 'devolucao_carro' || type === 'reposicao_carro') {
+          const tType = type === 'devolucao_carro' ? 'DEVOLUCAO' : 'REPOSICAO'
+          const { data: repData } = await supabase
+            .from('REPOSIÇÃO E DEVOLUÇÃO')
+            .select('produto_id, funcionario_id, id_estoque_carro, created_at')
+            .eq('session_id', sessionId)
+            .eq('TIPO', tType)
+
+          if (repData) {
+            results = results.map((r: any) => {
+              const match = repData.find(
+                (rep) =>
+                  rep.produto_id === r.produto_id &&
+                  rep.funcionario_id === r.funcionario_id &&
+                  Math.abs(
+                    new Date(rep.created_at).getTime() -
+                      new Date(r.data_horario).getTime(),
+                  ) < 10000,
+              )
+              if (match && match.id_estoque_carro) {
+                r.id_estoque_carro = match.id_estoque_carro
+              }
+              return r
+            })
+          }
+        }
+        return results
       }
 
       const compras = await fetchTable(
@@ -133,7 +165,7 @@ export function InventoryGlobalHistoryDialog({
 
   const handleEditSave = async (mov: any) => {
     try {
-      const newQtd = parseInt(editValue.replace(/\D/g, '')) || 0
+      const newQtd = parseInt(editValue.replace(/\D/g, ''), 10) || 0
       if (newQtd < 0) return
       await inventoryGeneralService.updateMovementQty(
         mov.id,
@@ -195,7 +227,7 @@ export function InventoryGlobalHistoryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <History className="w-5 h-5" /> Últimos Lançamentos (Inventário)
@@ -212,6 +244,7 @@ export function InventoryGlobalHistoryDialog({
               <TableRow>
                 <TableHead>Data/Hora</TableHead>
                 <TableHead>Tipo</TableHead>
+                <TableHead>ID Estoque Carro</TableHead>
                 <TableHead>Produto</TableHead>
                 <TableHead className="text-right">Qtd</TableHead>
               </TableRow>
@@ -220,8 +253,8 @@ export function InventoryGlobalHistoryDialog({
               {movements.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={4}
-                    className="text-center text-muted-foreground"
+                    colSpan={5}
+                    className="text-center text-muted-foreground py-8"
                   >
                     Nenhum lançamento encontrado.
                   </TableCell>
@@ -235,6 +268,9 @@ export function InventoryGlobalHistoryDialog({
                         {safeFormatDate(mov.data_horario, 'dd/MM/yyyy HH:mm')}
                       </TableCell>
                       <TableCell className={color}>{label}</TableCell>
+                      <TableCell className="font-mono text-muted-foreground">
+                        {mov.id_estoque_carro}
+                      </TableCell>
                       <TableCell>{mov.produto_nome}</TableCell>
                       <TableCell className="text-right font-mono font-bold">
                         {editingId === mov.uniqueId ? (
