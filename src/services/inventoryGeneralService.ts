@@ -120,7 +120,8 @@ export const inventoryGeneralService = {
       contagens?.forEach((c: any) => contagemSet.add(c.produto_id))
 
       return (data || []).map((item: any) => {
-        const prodId = item.codigo_produto || item.id
+        const prodId = item.id
+        const codigoProd = item.codigo_produto
         const saldoInicial = item.saldo_inicial || 0
         const contagem = item.contagem || 0
         const preco = item.preco || 0
@@ -142,7 +143,7 @@ export const inventoryGeneralService = {
         return {
           id: item.id,
           produto_id: prodId,
-          codigo: prodId,
+          codigo: codigoProd,
           barcode: item.codigo_barras,
           codigo_barras: item.codigo_barras,
           mercadoria: item.mercadoria || item.produto || 'Produto N/D',
