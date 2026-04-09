@@ -1,6 +1,99 @@
 import { supabase } from '@/lib/supabase/client'
 
 export const inventoryGeneralService = {
+  async getSessions() {
+    const { data, error } = await supabase
+      .from('ID Inventário')
+      .select('id, data_inicio, data_fim, status')
+      .order('id', { ascending: false })
+
+    if (error) {
+      console.error('Error loading sessions:', error)
+      throw error
+    }
+    return data || []
+  },
+
+  async getInventoryData(sessionId: number) {
+    const { data, error } = await supabase.rpc('get_inventory_data', {
+      p_session_id: sessionId,
+      p_funcionario_id: null as any,
+    })
+
+    if (error) {
+      console.error('Error loading inventory data:', error)
+      throw error
+    }
+    return data || []
+  },
+
+  async startNewSession() {
+    const { data, error } = await supabase.rpc('start_new_inventory_session')
+    if (error) throw error
+    return data
+  },
+
+  async resetInitialBalances(sessionId: number) {
+    const { error } = await supabase
+      .from('BANCO_DE_DADOS')
+      .update({ 'SALDO INICIAL': 0 })
+      .eq('session_id', sessionId)
+    if (error) throw error
+  },
+
+  async finalizeAdjustments(sessionId: number, items: any[]) {
+    const { error } = await supabase.rpc('start_new_inventory_session')
+    if (error) throw error
+  },
+
+  async updateItemQuantity(
+    sessionId: number,
+    productId: number,
+    type: string,
+    value: number,
+  ) {
+    if (type === 'CONTAGEM') {
+      const { data: existing } = await supabase
+        .from('CONTAGEM DE ESTOQUE FINAL')
+        .select('id')
+        .eq('session_id', sessionId)
+        .eq('produto_id', productId)
+        .maybeSingle()
+
+      if (existing) {
+        const { error } = await supabase
+          .from('CONTAGEM DE ESTOQUE FINAL')
+          .update({ quantidade: value })
+          .eq('id', existing.id)
+        if (error) throw error
+      } else {
+        const { error } = await supabase
+          .from('CONTAGEM DE ESTOQUE FINAL')
+          .insert({
+            session_id: sessionId,
+            produto_id: productId,
+            quantidade: value,
+          })
+        if (error) throw error
+      }
+
+      // Update BANCO_DE_DADOS
+      const { data: bdRecord } = await supabase
+        .from('BANCO_DE_DADOS')
+        .select('"ID VENDA ITENS"')
+        .eq('session_id', sessionId)
+        .eq('COD. PRODUTO', productId)
+        .maybeSingle()
+
+      if (bdRecord) {
+        await supabase
+          .from('BANCO_DE_DADOS')
+          .update({ CONTAGEM: value })
+          .eq('ID VENDA ITENS', bdRecord['ID VENDA ITENS'])
+      }
+    }
+  },
+
   async getMovementDetails(sessionId: number, productId: number) {
     const movements: any[] = []
 
@@ -55,6 +148,7 @@ export const inventoryGeneralService = {
           movement_type: 'devolucao_carro',
           data_horario: d.data_horario || d.created_at,
           quantidade: d.quantidade,
+          id_estoque_carro: d.id_estoque_carro,
         }),
       )
     if (reposicoes)
@@ -64,6 +158,7 @@ export const inventoryGeneralService = {
           movement_type: 'reposicao_carro',
           data_horario: r.data_horario || r.created_at,
           quantidade: r.quantidade,
+          id_estoque_carro: r.id_estoque_carro,
         }),
       )
 
