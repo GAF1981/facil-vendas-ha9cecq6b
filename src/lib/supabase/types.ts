@@ -304,15 +304,7 @@ export type Database = {
           "VALOR VENDA PRODUTO"?: string | null
           "VALOR VENDIDO"?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "BANCO_DE_DADOS_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "DATAS DE INVENTÁRIO"
-            referencedColumns: ["ID INVENTÁRIO"]
-          },
-        ]
+        Relationships: []
       }
       boletos: {
         Row: {
@@ -4019,7 +4011,6 @@ export const Constants = {
 //   PRIMARY KEY AÇOES DE COBRANÇA_pkey: PRIMARY KEY ("ID AÇÃO")
 // Table: BANCO_DE_DADOS
 //   PRIMARY KEY BANCO_DE_DADOS_pkey: PRIMARY KEY ("ID VENDA ITENS")
-//   FOREIGN KEY BANCO_DE_DADOS_session_id_fkey: FOREIGN KEY (session_id) REFERENCES "DATAS DE INVENTÁRIO"("ID INVENTÁRIO")
 // Table: CLIENTES
 //   PRIMARY KEY CLIENTES_pkey: PRIMARY KEY ("CODIGO")
 // Table: CONTAGEM DE ESTOQUE FINAL
