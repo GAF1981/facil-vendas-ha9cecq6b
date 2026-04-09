@@ -148,6 +148,7 @@ export function InventoryMovementDetailsDialog({
               <TableRow>
                 <TableHead>Data</TableHead>
                 <TableHead>Tipo</TableHead>
+                <TableHead>ID Estoque</TableHead>
                 <TableHead>Pedido</TableHead>
                 <TableHead className="text-right">Qtd</TableHead>
               </TableRow>
@@ -156,7 +157,7 @@ export function InventoryMovementDetailsDialog({
               {movements.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={4}
+                    colSpan={5}
                     className="text-center text-muted-foreground"
                   >
                     Nenhuma movimentação detalhada encontrada.
@@ -172,6 +173,11 @@ export function InventoryMovementDetailsDialog({
                         {safeFormatDate(mov.data_horario, 'dd/MM HH:mm')}
                       </TableCell>
                       <TableCell className={color}>{label}</TableCell>
+                      <TableCell className="font-mono text-muted-foreground">
+                        {mov.id_estoque_carro
+                          ? `#${mov.id_estoque_carro}`
+                          : '-'}
+                      </TableCell>
                       <TableCell>
                         {mov.pedido ? `#${mov.pedido}` : '-'}
                       </TableCell>
