@@ -4217,180 +4217,432 @@ export const Constants = {
 
 // --- ROW LEVEL SECURITY POLICIES ---
 // Table: AJUSTE_SALDO_INICIAL
-//   Policy "Enable insert access for authenticated users" (INSERT, PERMISSIVE) roles={authenticated}
-//     WITH CHECK: true
-//   Policy "Enable read access for authenticated users" (SELECT, PERMISSIVE) roles={authenticated}
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
 //     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: AÇOES DE COBRANÇA_BACKUP
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
 // Table: BANCO_DE_DADOS
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
 //   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
 // Table: CLIENTES
-//   Policy "Allow public access to CLIENTES" (ALL, PERMISSIVE) roles={public}
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
 //     USING: true
 //     WITH CHECK: true
-//   Policy "Enable delete access for authenticated users" (DELETE, PERMISSIVE) roles={authenticated}
-//     USING: true
-//   Policy "Enable insert access for authenticated users" (INSERT, PERMISSIVE) roles={authenticated}
-//     WITH CHECK: true
-//   Policy "Enable read access for authenticated users" (SELECT, PERMISSIVE) roles={authenticated}
-//     USING: true
-//   Policy "Enable update access for authenticated users" (UPDATE, PERMISSIVE) roles={authenticated}
-//     USING: true
-//   Policy "authenticated_delete_clientes" (DELETE, PERMISSIVE) roles={authenticated}
-//     USING: true
-//   Policy "authenticated_insert_clientes" (INSERT, PERMISSIVE) roles={authenticated}
-//     WITH CHECK: true
-//   Policy "authenticated_select_clientes" (SELECT, PERMISSIVE) roles={authenticated}
-//     USING: true
-//   Policy "authenticated_update_clientes" (UPDATE, PERMISSIVE) roles={authenticated}
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
 // Table: CONTAGEM DE ESTOQUE FINAL
-//   Policy "authenticated_all" (ALL, PERMISSIVE) roles={authenticated}
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: CRIAR_NOVA_ROTA
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
 // Table: DATAS DE INVENTÁRIO
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
 //   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
 // Table: DESPESAS
-//   Policy "Enable delete access for all users" (DELETE, PERMISSIVE) roles={public}
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
 //     USING: true
-//   Policy "Enable insert access for all users" (INSERT, PERMISSIVE) roles={public}
 //     WITH CHECK: true
-//   Policy "Enable read access for all users" (SELECT, PERMISSIVE) roles={public}
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
-//   Policy "Enable update access for all users" (UPDATE, PERMISSIVE) roles={public}
+//     WITH CHECK: true
+// Table: ESTOQUE CARRO AJUSTES
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
 //     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: ESTOQUE CARRO CONTAGEM
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: ESTOQUE CARRO DIFERENÇAS
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: ESTOQUE CARRO SALDO FINAL
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: ESTOQUE CARRO SALDO INICIAL
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: ESTOQUE CARRO: CARRO PARA O CLIENTE
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: ESTOQUE CARRO: CARRO PARA O ESTOQUE
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: ESTOQUE CARRO: CLIENTE PARA O CARRO
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: ESTOQUE CARRO: ESTOQUE PARA O CARRO
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: ESTOQUE GERAL AJUSTES
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: ESTOQUE GERAL CARRO PARA ESTOQUE
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: ESTOQUE GERAL COMPRAS
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: ESTOQUE GERAL CONTAGEM
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: ESTOQUE GERAL ESTOQUE PARA CARRO
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: ESTOQUE GERAL SALDO INICIAL
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: ESTOQUE GERAL SAÍDAS PERDAS
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: FORNECEDORES
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
 // Table: FUNCIONARIOS
-//   Policy "Allow public access to FUNCIONARIOS" (ALL, PERMISSIVE) roles={public}
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
 //     USING: true
 //     WITH CHECK: true
-//   Policy "Enable delete access for all users" (DELETE, PERMISSIVE) roles={public}
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
-//   Policy "Enable insert access for all users" (INSERT, PERMISSIVE) roles={public}
 //     WITH CHECK: true
-//   Policy "Enable read access for all users" (SELECT, PERMISSIVE) roles={public}
+// Table: ID ESTOQUE CARRO
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
 //     USING: true
-//   Policy "Enable update access for all users" (UPDATE, PERMISSIVE) roles={public}
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
+//     WITH CHECK: true
+// Table: ID Inventário
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: NOTA_FISCAL
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
 // Table: PENDENCIAS
-//   Policy "Enable delete access for authenticated users" (DELETE, PERMISSIVE) roles={authenticated}
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
 //     USING: true
-//   Policy "Enable insert access for authenticated users" (INSERT, PERMISSIVE) roles={authenticated}
 //     WITH CHECK: true
-//   Policy "Enable read access for authenticated users" (SELECT, PERMISSIVE) roles={authenticated}
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
-//   Policy "Enable update access for authenticated users" (UPDATE, PERMISSIVE) roles={authenticated}
-//     USING: true
+//     WITH CHECK: true
 // Table: PIX
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
 //   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
-//   Policy "Enable insert for authenticated users" (INSERT, PERMISSIVE) roles={authenticated}
-//     WITH CHECK: true
-//   Policy "Enable read access for authenticated users" (SELECT, PERMISSIVE) roles={authenticated}
-//     USING: true
-//   Policy "Enable update for authenticated users" (UPDATE, PERMISSIVE) roles={authenticated}
-//     USING: true
 // Table: PRODUTOS
-//   Policy "Enable delete for authenticated users" (DELETE, PERMISSIVE) roles={authenticated}
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
 //     USING: true
-//   Policy "Enable insert for authenticated users" (INSERT, PERMISSIVE) roles={authenticated}
 //     WITH CHECK: true
-//   Policy "Enable read access for authenticated users" (SELECT, PERMISSIVE) roles={authenticated}
-//     USING: true
-//   Policy "Enable update for authenticated users" (UPDATE, PERMISSIVE) roles={authenticated}
-//     USING: true
-// Table: RECEBIMENTOS
 //   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
-//   Policy "Enable read access for authenticated users" (SELECT, PERMISSIVE) roles={authenticated}
+// Table: RECEBIMENTOS
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
 //     USING: true
-//   Policy "Enable update for authenticated users" (UPDATE, PERMISSIVE) roles={authenticated}
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
+//     WITH CHECK: true
+// Table: RELATORIO_DE_ESTOQUE
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
 // Table: REPOSIÇÃO E DEVOLUÇÃO
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: ROTA
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: ROTA_ITEMS
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: VEICULOS
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
 //   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
 // Table: acoes_cobranca
-//   Policy "Enable insert access for authenticated users" (INSERT, PERMISSIVE) roles={authenticated}
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
 //     WITH CHECK: true
-//   Policy "Enable read access for authenticated users" (SELECT, PERMISSIVE) roles={authenticated}
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
-//   Policy "Enable update access for authenticated users" (UPDATE, PERMISSIVE) roles={authenticated}
+//     WITH CHECK: true
+// Table: acoes_cobranca_vencimentos
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
 //     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
 // Table: boletos
-//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={public}
-//     USING: (auth.role() = 'authenticated'::text)
-//     WITH CHECK: (auth.role() = 'authenticated'::text)
-// Table: configuracoes
-//   Policy "Allow insert/update access for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
 //     USING: true
 //     WITH CHECK: true
-//   Policy "Allow read access for authenticated users" (SELECT, PERMISSIVE) roles={authenticated}
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
+//     WITH CHECK: true
+// Table: brinde
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: configuracoes
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
 // Table: debitos_historico
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
 //   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
 // Table: dividas_manuais
-//   Policy "Enable all access for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
 // Table: dividas_manuais_acoes
-//   Policy "Enable all access for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
 // Table: dre_categorias
-//   Policy "Enable delete for authenticated users on dre_categorias" (DELETE, PERMISSIVE) roles={authenticated}
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
 //     USING: true
-//   Policy "Enable insert for authenticated users on dre_categorias" (INSERT, PERMISSIVE) roles={authenticated}
 //     WITH CHECK: true
-//   Policy "Enable select for authenticated users on dre_categorias" (SELECT, PERMISSIVE) roles={authenticated}
-//     USING: true
-//   Policy "Enable update for authenticated users on dre_categorias" (UPDATE, PERMISSIVE) roles={authenticated}
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
 // Table: dre_lancamentos
-//   Policy "Enable all for authenticated users on dre_lancamentos" (ALL, PERMISSIVE) roles={authenticated}
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
 // Table: fechamento_caixa
-//   Policy "Enable all access for all users" (ALL, PERMISSIVE) roles={public}
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
 //     USING: true
 //     WITH CHECK: true
-//   Policy "Enable all access for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: inativar_clientes
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: kit_items
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: kits
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: meta_excecoes
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
 // Table: metas_funcionarios
-//   Policy "Enable all access for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
 // Table: metas_periodos
-//   Policy "Enable all access for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: notas_fiscais_emitidas
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
 // Table: pendencia_anotacoes
-//   Policy "Enable all access for all users" (ALL, PERMISSIVE) roles={public}
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: permissoes
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
 // Table: rota_motoqueiro_km
-//   Policy "Enable delete for authenticated users" (DELETE, PERMISSIVE) roles={public}
-//     USING: (auth.role() = 'authenticated'::text)
-//   Policy "Enable insert for authenticated users" (INSERT, PERMISSIVE) roles={public}
-//     WITH CHECK: (auth.role() = 'authenticated'::text)
-//   Policy "Enable read access for all users" (SELECT, PERMISSIVE) roles={public}
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
 //     USING: true
-//   Policy "Enable update for authenticated users" (UPDATE, PERMISSIVE) roles={public}
-//     USING: (auth.role() = 'authenticated'::text)
-// Table: system_logs
-//   Policy "Enable insert for authenticated users" (INSERT, PERMISSIVE) roles={public}
 //     WITH CHECK: true
-//   Policy "Enable read for authenticated users" (SELECT, PERMISSIVE) roles={public}
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
+//     WITH CHECK: true
+// Table: sessoes_inventario
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: system_logs
+//   Policy "Enable all for anon users" (ALL, PERMISSIVE) roles={anon}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
 
 // --- DATABASE FUNCTIONS ---
 // FUNCTION auto_conferir_boletos_divida()
