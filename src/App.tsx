@@ -65,7 +65,9 @@ const AcertoRouteGuard = () => {
   if (
     canAccess('Acerto') ||
     canAccess('Ícone Editar Acerto') ||
-    canAccess('Editar Acerto')
+    canAccess('Editar Acerto') ||
+    canAccess('Botão Editar Acerto') ||
+    canAccess('Edição de Acerto')
   ) {
     return <Outlet />
   }
@@ -78,7 +80,8 @@ const EstoqueCarroRouteGuard = () => {
   if (
     canAccess('Inventário') ||
     canAccess('Estoque Carro') ||
-    canAccess('Card Estoque Carro')
+    canAccess('Card Estoque Carro') ||
+    canAccess('Acesso Estoque Carro')
   ) {
     return <Outlet />
   }
