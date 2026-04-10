@@ -4221,6 +4221,10 @@ export const Constants = {
 //     WITH CHECK: true
 //   Policy "Enable read access for authenticated users" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: true
+// Table: BANCO_DE_DADOS
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
 // Table: CLIENTES
 //   Policy "Allow public access to CLIENTES" (ALL, PERMISSIVE) roles={public}
 //     USING: true
@@ -4328,6 +4332,10 @@ export const Constants = {
 //     WITH CHECK: true
 //   Policy "Allow read access for authenticated users" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: true
+// Table: debitos_historico
+//   Policy "Enable all for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
 // Table: dividas_manuais
 //   Policy "Enable all access for authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
