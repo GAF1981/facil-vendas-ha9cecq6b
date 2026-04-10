@@ -56,8 +56,34 @@ import DividasManuaisPage from '@/pages/dividas/DividasManuaisPage'
 import QuitarDividaPage from '@/pages/quitar-divida/QuitarDividaPage'
 import { AuthProvider } from '@/hooks/use-auth'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
-import { PermissionsProvider } from '@/hooks/use-permissions'
+import { PermissionsProvider, usePermissions } from '@/hooks/use-permissions'
 import { PermissionGuard } from '@/components/auth/PermissionGuard'
+
+const AcertoRouteGuard = () => {
+  const { canAccess, loading } = usePermissions()
+  if (loading) return null
+  if (
+    canAccess('Acerto') ||
+    canAccess('Ícone Editar Acerto') ||
+    canAccess('Editar Acerto')
+  ) {
+    return <Outlet />
+  }
+  return <Navigate to="/dashboard" replace />
+}
+
+const EstoqueCarroRouteGuard = () => {
+  const { canAccess, loading } = usePermissions()
+  if (loading) return null
+  if (
+    canAccess('Inventário') ||
+    canAccess('Estoque Carro') ||
+    canAccess('Card Estoque Carro')
+  ) {
+    return <Outlet />
+  }
+  return <Navigate to="/dashboard" replace />
+}
 
 const App = () => (
   <BrowserRouter
@@ -110,7 +136,7 @@ const App = () => (
 
                 <Route path="/fornecedores" element={<SuppliersPage />} />
 
-                <Route element={<PermissionGuard module="Acerto" />}>
+                <Route element={<AcertoRouteGuard />}>
                   <Route path="/acerto" element={<AcertoPage />} />
                 </Route>
 
@@ -262,6 +288,9 @@ const App = () => (
                     path="/inventario/contagem"
                     element={<ContagemPage />}
                   />
+                </Route>
+
+                <Route element={<EstoqueCarroRouteGuard />}>
                   <Route path="/estoque-carro" element={<EstoqueCarroPage />} />
                 </Route>
 
