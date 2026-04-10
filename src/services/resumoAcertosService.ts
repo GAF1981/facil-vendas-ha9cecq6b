@@ -253,15 +253,15 @@ export const resumoAcertosService = {
         ? options.rota.data_fim.split('T')[0]
         : null
 
-      // Margem de segurança de timezone (1 dia para trás e para frente)
+      // Margem de segurança de timezone (2 dias para trás e para frente)
       const dStart = new Date(`${datePartStart}T12:00:00`)
-      dStart.setDate(dStart.getDate() - 1)
+      dStart.setDate(dStart.getDate() - 2)
       const startExtended = dStart.toISOString().split('T')[0]
 
       let endExtended = datePartEnd
       if (datePartEnd) {
         const dEnd = new Date(`${datePartEnd}T12:00:00`)
-        dEnd.setDate(dEnd.getDate() + 1)
+        dEnd.setDate(dEnd.getDate() + 2)
         endExtended = dEnd.toISOString().split('T')[0]
       }
 
@@ -273,11 +273,11 @@ export const resumoAcertosService = {
         query = query.or(startCond)
       }
     } else if (options.startDate && options.endDate) {
-      // Margem de segurança de timezone (1 dia para trás e para frente)
+      // Margem de segurança de timezone (2 dias para trás e para frente)
       const dStart = new Date(`${options.startDate}T12:00:00`)
-      dStart.setDate(dStart.getDate() - 1)
+      dStart.setDate(dStart.getDate() - 2)
       const dEnd = new Date(`${options.endDate}T12:00:00`)
-      dEnd.setDate(dEnd.getDate() + 1)
+      dEnd.setDate(dEnd.getDate() + 2)
 
       const startExtended = dStart.toISOString().split('T')[0]
       const endExtended = dEnd.toISOString().split('T')[0]
@@ -298,7 +298,8 @@ export const resumoAcertosService = {
         return
 
       let dateStr = row['DATA DO ACERTO']
-      let timeStr = row['HORA DO ACERTO'] || '00:00:00'
+      const hasExplicitTime = !!row['HORA DO ACERTO'] || !!row['DATA E HORA']
+      let timeStr = row['HORA DO ACERTO'] || '12:00:00'
 
       if (dateStr) {
         const parsed = parseDateSafe(dateStr)
@@ -332,13 +333,26 @@ export const resumoAcertosService = {
           return
         }
 
-        const isAfterOrEqualStart =
-          isAfter(rowDateTime, routeStart!) || isEqual(rowDateTime, routeStart!)
-        const isBeforeOrEqualEnd =
-          isBefore(rowDateTime, routeEnd!) || isEqual(rowDateTime, routeEnd!)
+        const startStr = format(routeStart!, 'yyyy-MM-dd')
+        const endStr = routeEnd ? format(routeEnd, 'yyyy-MM-dd') : null
 
-        if (!isAfterOrEqualStart) return
-        if (options.rota.data_fim && !isBeforeOrEqualEnd) return
+        if (hasExplicitTime) {
+          const isAfterOrEqualStart =
+            isAfter(rowDateTime, routeStart!) ||
+            isEqual(rowDateTime, routeStart!)
+          const isBeforeOrEqualEnd =
+            isBefore(rowDateTime, routeEnd!) || isEqual(rowDateTime, routeEnd!)
+
+          if (!isAfterOrEqualStart) {
+            if (dateStr < startStr) return
+          }
+          if (options.rota.data_fim && !isBeforeOrEqualEnd) {
+            if (endStr && dateStr > endStr) return
+          }
+        } else {
+          if (dateStr < startStr) return
+          if (endStr && dateStr > endStr) return
+        }
       } else if (options.startDate && options.endDate && !options.clientId) {
         // Filtragem estrita baseada nas datas recebidas (sem extensão) garantida pelo formato yyyy-MM-dd
         if (dateStr < options.startDate || dateStr > options.endDate) return
