@@ -243,19 +243,31 @@ export const estoqueCarroService = {
     })
   },
 
-  async getMovementDetails(sessionId: number, productId: number) {
+  async getMovementDetails(sessionId: number, productId?: number | null) {
+    const { data: products } = await supabase
+      .from('PRODUTOS')
+      .select('ID, PRODUTO')
+    const productMap = new Map(products?.map((p) => [p.ID, p.PRODUTO]) || [])
+
     const fetchTable = async (
       table: string,
       type: string,
       qtyField: string,
     ) => {
-      const { data } = await supabase
+      let query = supabase
         .from(table)
         .select('*')
         .eq('id_estoque_carro', sessionId)
-        .eq('produto_id', productId)
-      return (data || []).map((d) => ({
+      if (productId) {
+        query = query.eq('produto_id', productId)
+      }
+
+      const { data } = await query
+      return (data || []).map((d: any) => ({
         id: d.id,
+        produto_id: d.produto_id,
+        produto_nome:
+          productMap.get(d.produto_id) || d.produto || 'Desconhecido',
         movement_type: d.descricao || type,
         raw_type: type,
         data_horario: d.created_at || d.data_horario || d.timestamp,
@@ -276,20 +288,28 @@ export const estoqueCarroService = {
       'SAIDAS_carro_cliente',
     )
 
-    const { data: repoData } = await supabase
+    let repoQuery = supabase
       .from('REPOSIÇÃO E DEVOLUÇÃO')
       .select('*')
       .eq('id_estoque_carro', sessionId)
-      .eq('produto_id', productId)
 
-    const inventoryMovements = (repoData || []).map((d) => {
+    if (productId) {
+      repoQuery = repoQuery.eq('produto_id', productId)
+    }
+
+    const { data: repoData } = await repoQuery
+
+    const inventoryMovements = (repoData || []).map((d: any) => {
       const isReposicao = d.TIPO === 'REPOSIÇÃO' || d.TIPO === 'REPOSICAO'
       const typeKey = isReposicao
         ? 'ENTRADAS_estoque_carro'
         : 'SAIDAS_carro_estoque'
       return {
         id: d.id,
+        produto_id: d.produto_id,
+        produto_nome: productMap.get(d.produto_id) || 'Desconhecido',
         movement_type: typeKey,
+        raw_type: typeKey,
         data_horario: d.created_at,
         quantidade: d.quantidade,
         pedido: sessionId,
@@ -777,6 +797,107 @@ export const estoqueCarroService = {
           })
           .eq('ID VENDA ITENS', bdRecord['ID VENDA ITENS'])
       }
+    }
+  },
+
+  async updateMovementRecord(
+    movId: number,
+    rawType: string,
+    newQuantity: number,
+    sessionId: number,
+    productId: number,
+  ) {
+    if (
+      rawType === 'ENTRADAS_estoque_carro' ||
+      rawType === 'SAIDAS_carro_estoque'
+    ) {
+      const { data: existing } = await supabase
+        .from('REPOSIÇÃO E DEVOLUÇÃO')
+        .select('quantidade, TIPO')
+        .eq('id', movId)
+        .single()
+
+      if (!existing) return
+      const oldQty = existing.quantidade || 0
+      const diff = newQuantity - oldQty
+
+      if (diff === 0) return
+
+      const { error } = await supabase
+        .from('REPOSIÇÃO E DEVOLUÇÃO')
+        .update({ quantidade: newQuantity })
+        .eq('id', movId)
+      if (error) throw error
+
+      const multiplier =
+        existing.TIPO === 'REPOSICAO' || existing.TIPO === 'REPOSIÇÃO' ? 1 : -1
+
+      const { data: bdRecord } = await supabase
+        .from('ESTOQUE CARRO SALDO FINAL')
+        .select('saldo_final, id')
+        .eq('id_estoque_carro', sessionId)
+        .eq('produto_id', productId)
+        .maybeSingle()
+
+      if (bdRecord) {
+        await supabase
+          .from('ESTOQUE CARRO SALDO FINAL')
+          .update({
+            saldo_final: Number(bdRecord.saldo_final || 0) + diff * multiplier,
+          })
+          .eq('id', bdRecord.id)
+      }
+    } else {
+      throw new Error('Edição não suportada para este tipo de lançamento.')
+    }
+  },
+
+  async deleteMovementRecord(
+    movId: number,
+    rawType: string,
+    sessionId: number,
+    productId: number,
+  ) {
+    if (
+      rawType === 'ENTRADAS_estoque_carro' ||
+      rawType === 'SAIDAS_carro_estoque'
+    ) {
+      const { data: existing } = await supabase
+        .from('REPOSIÇÃO E DEVOLUÇÃO')
+        .select('quantidade, TIPO')
+        .eq('id', movId)
+        .single()
+
+      if (!existing) return
+      const oldQty = existing.quantidade || 0
+
+      const { error } = await supabase
+        .from('REPOSIÇÃO E DEVOLUÇÃO')
+        .delete()
+        .eq('id', movId)
+      if (error) throw error
+
+      const multiplier =
+        existing.TIPO === 'REPOSICAO' || existing.TIPO === 'REPOSIÇÃO' ? -1 : 1
+
+      const { data: bdRecord } = await supabase
+        .from('ESTOQUE CARRO SALDO FINAL')
+        .select('saldo_final, id')
+        .eq('id_estoque_carro', sessionId)
+        .eq('produto_id', productId)
+        .maybeSingle()
+
+      if (bdRecord) {
+        await supabase
+          .from('ESTOQUE CARRO SALDO FINAL')
+          .update({
+            saldo_final:
+              Number(bdRecord.saldo_final || 0) + oldQty * multiplier,
+          })
+          .eq('id', bdRecord.id)
+      }
+    } else {
+      throw new Error('Exclusão não suportada para este tipo de lançamento.')
     }
   },
 
