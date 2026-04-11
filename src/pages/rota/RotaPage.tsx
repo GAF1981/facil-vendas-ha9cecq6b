@@ -22,7 +22,17 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
+import { supabase } from '@/lib/supabase/client'
+import { Loader2 } from 'lucide-react'
 
 export default function RotaPage() {
   const [activeRota, setActiveRota] = useState<Rota | null>(null)
@@ -47,6 +57,12 @@ export default function RotaPage() {
   const [isBulkFillOpen, setIsBulkFillOpen] = useState(false)
   const [isParametrosModalOpen, setIsParametrosModalOpen] = useState(false)
   const [isFirstLoad, setIsFirstLoad] = useState(true)
+
+  const [isDiferencasOpen, setIsDiferencasOpen] = useState(false)
+  const [verificandoDiferencas, setVerificandoDiferencas] = useState(false)
+  const [diferencasData, setDiferencasData] = useState<
+    { codigo: number; nome: string; valorPagar: number; cobranca: number }[]
+  >([])
 
   const [diasPrimeiroAcerto, setDiasPrimeiroAcerto] = useState(() => {
     return parseInt(localStorage.getItem('diasPrimeiroAcerto') || '30')
@@ -920,6 +936,56 @@ export default function RotaPage() {
     setGoogleMapsDialog((prev) => ({ ...prev, open: false }))
   }
 
+  const totalDebito = useMemo(
+    () => filteredRows.reduce((sum, r) => sum + (r.debito || 0), 0),
+    [filteredRows],
+  )
+
+  const handleVerificarDiferencas = async () => {
+    setVerificandoDiferencas(true)
+    setIsDiferencasOpen(true)
+    try {
+      const { data, error } = await supabase
+        .from('debitos_historico')
+        .select('cliente_codigo, debito')
+        .gt('debito', 0)
+
+      if (error) throw error
+
+      const debtsMap = new Map<number, number>()
+      data?.forEach((d) => {
+        if (d.cliente_codigo != null) {
+          debtsMap.set(
+            d.cliente_codigo,
+            (debtsMap.get(d.cliente_codigo) || 0) + Number(d.debito || 0),
+          )
+        }
+      })
+
+      const diffs = []
+      for (const row of sortedRows) {
+        if (!row.client?.CODIGO) continue
+        const cobrancaVal = debtsMap.get(row.client.CODIGO) || 0
+        const valorPagar = row.debito || 0
+
+        if (valorPagar - cobrancaVal > 0.05) {
+          diffs.push({
+            codigo: row.client.CODIGO,
+            nome: row.client['NOME CLIENTE'] || 'N/D',
+            valorPagar: valorPagar,
+            cobranca: cobrancaVal,
+          })
+        }
+      }
+      setDiferencasData(diffs)
+    } catch (error) {
+      console.error(error)
+      toast({ title: 'Erro ao verificar diferenças', variant: 'destructive' })
+    } finally {
+      setVerificandoDiferencas(false)
+    }
+  }
+
   const handleMyLocation = useCallback(() => {
     if (!navigator.geolocation) {
       toast({
@@ -976,6 +1042,8 @@ export default function RotaPage() {
         hasCoordinates={hasCoordinates}
         onGoogleMapsPriority={handleOpenGoogleMapsPriority}
         onGoogleMapsSuggested={handleOpenGoogleMapsSuggested}
+        totalDebito={totalDebito}
+        onVerificarDiferencas={handleVerificarDiferencas}
       />
 
       <RotaFilters
@@ -1032,6 +1100,69 @@ export default function RotaPage() {
         diasPrimeiroAcerto={diasPrimeiroAcerto}
         setDiasPrimeiroAcerto={setDiasPrimeiroAcerto}
       />
+
+      <Dialog open={isDiferencasOpen} onOpenChange={setIsDiferencasOpen}>
+        <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Diferenças de Débito</DialogTitle>
+            <DialogDescription>
+              Clientes com Valor a Pagar na Rota maior que a soma dos débitos na
+              Cobrança.
+            </DialogDescription>
+          </DialogHeader>
+
+          {verificandoDiferencas ? (
+            <div className="flex justify-center p-8 flex-1 items-center">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          ) : (
+            <div className="overflow-y-auto flex-1 border rounded-md mt-4">
+              <Table>
+                <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
+                  <TableRow>
+                    <TableHead>Código Cliente</TableHead>
+                    <TableHead>Nome Cliente</TableHead>
+                    <TableHead className="text-right">Valor a Pagar</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {diferencasData.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={3}
+                        className="text-center text-muted-foreground py-8"
+                      >
+                        Nenhuma diferença encontrada.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    diferencasData.map((d, i) => (
+                      <TableRow key={i}>
+                        <TableCell>{d.codigo}</TableCell>
+                        <TableCell>{d.nome}</TableCell>
+                        <TableCell className="text-right font-mono text-red-600 font-medium">
+                          {new Intl.NumberFormat('pt-BR', {
+                            style: 'currency',
+                            currency: 'BRL',
+                          }).format(d.valorPagar)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+          <DialogFooter className="mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setIsDiferencasOpen(false)}
+            >
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={googleMapsDialog.open}

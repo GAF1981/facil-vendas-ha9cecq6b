@@ -138,9 +138,13 @@ export function EstoqueCarroMovementDetailsDialog({
       case 'SAIDAS_carro_cliente':
         return { label: 'Consignado (Cliente)', color: 'text-red-600' }
       case 'ENTRADAS_estoque_carro':
-        return { label: 'Entrada Estoque', color: 'text-blue-600' }
+      case 'reposicao':
+      case 'reposição':
+        return { label: 'Reposição', color: 'text-blue-600' }
       case 'SAIDAS_carro_estoque':
-        return { label: 'Devolução Estoque', color: 'text-orange-600' }
+      case 'devolucao':
+      case 'devolução':
+        return { label: 'Devolução', color: 'text-orange-600' }
       case 'contagem':
         return { label: 'Contagem', color: 'text-purple-600 font-semibold' }
       default:
@@ -191,11 +195,16 @@ export function EstoqueCarroMovementDetailsDialog({
                     const typeStr = String(
                       mov.raw_type || mov.movement_type,
                     ).toLowerCase()
+
                     const isEditableType =
                       [
                         'entradas_estoque_carro',
                         'saidas_carro_estoque',
                         'contagem',
+                        'reposicao',
+                        'reposição',
+                        'devolucao',
+                        'devolução',
                       ].includes(typeStr) ||
                       ['compra', 'brinde', 'perda'].includes(typeStr)
 

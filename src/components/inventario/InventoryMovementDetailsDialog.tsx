@@ -197,6 +197,9 @@ export function InventoryMovementDetailsDialog({
         </DialogHeader>
 
         <div className="bg-muted/30 p-4 rounded-lg border my-4">
+          <h4 className="text-sm font-semibold mb-3 flex items-center gap-2 text-muted-foreground">
+            Filtros
+          </h4>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <Label className="text-xs mb-1 block text-muted-foreground">

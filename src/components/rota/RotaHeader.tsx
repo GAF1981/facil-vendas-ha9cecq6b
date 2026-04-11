@@ -55,6 +55,8 @@ interface RotaHeaderProps {
   hasCoordinates?: boolean
   onGoogleMapsPriority?: () => void
   onGoogleMapsSuggested?: () => void
+  totalDebito?: number
+  onVerificarDiferencas?: () => void
 }
 
 export function RotaHeader({
@@ -74,6 +76,8 @@ export function RotaHeader({
   hasCoordinates,
   onGoogleMapsPriority,
   onGoogleMapsSuggested,
+  totalDebito,
+  onVerificarDiferencas,
 }: RotaHeaderProps) {
   const displayRota = activeRota || lastRota
   const { canAccess } = usePermissions()
@@ -213,9 +217,37 @@ export function RotaHeader({
               Nenhuma rota ativa ou recente.
             </p>
           )}
+
+          {totalDebito !== undefined && (
+            <Card className="bg-background shadow-sm border-muted ml-0 sm:ml-4">
+              <CardContent className="p-2 sm:p-3 flex items-center gap-3">
+                <div>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold tracking-wider">
+                    Débito Total
+                  </p>
+                  <p className="text-sm sm:text-base font-bold text-red-600">
+                    {new Intl.NumberFormat('pt-BR', {
+                      style: 'currency',
+                      currency: 'BRL',
+                    }).format(totalDebito)}
+                  </p>
+                </div>
+                {onVerificarDiferencas && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onVerificarDiferencas}
+                    className="text-xs h-8 whitespace-nowrap"
+                  >
+                    Verificar diferenças
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
-        <div className="flex flex-wrap gap-2 shrink-0 w-full sm:w-auto items-start">
+        <div className="flex flex-wrap gap-2 shrink-0 w-full sm:w-auto items-start mt-2 sm:mt-0">
           {hasPendingUpdates && (
             <div className="flex items-center gap-2 text-xs text-orange-600 font-medium animate-pulse mr-2 mt-2">
               <Save className="h-3 w-3" />
