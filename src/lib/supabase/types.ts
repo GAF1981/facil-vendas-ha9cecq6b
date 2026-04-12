@@ -4645,8 +4645,8 @@ export const Constants = {
 //     WITH CHECK: true
 
 // --- DATABASE FUNCTIONS ---
-// FUNCTION auto_conferir_boletos_divida()
-//   CREATE OR REPLACE FUNCTION public.auto_conferir_boletos_divida()
+// FUNCTION auto_conferir_boletos()
+//   CREATE OR REPLACE FUNCTION public.auto_conferir_boletos()
 //    RETURNS trigger
 //    LANGUAGE plpgsql
 //   AS $function$
@@ -4654,14 +4654,28 @@ export const Constants = {
 //       -- If inserting/updating a boleto
 //       IF TG_TABLE_NAME = 'boletos' THEN
 //           IF NEW.conferido = false THEN
+//               -- Check in dividas_manuais (Dívidas)
 //               IF EXISTS (
 //                   SELECT 1 FROM public.dividas_manuais d 
-//                   WHERE d.cliente_id = NEW.cliente_codigo 
-//                     AND d.vencimento = NEW.vencimento 
+//                   WHERE (d.cliente_id = NEW.cliente_codigo OR d.cliente_id IN (SELECT "CODIGO" FROM public."CLIENTES" WHERE "NOME CLIENTE" = NEW.cliente_nome))
+//                     AND d.vencimento IS NOT NULL
+//                     AND ABS(d.vencimento - NEW.vencimento) <= 10
+//                     AND ABS(d.valor_parcela - NEW.valor) <= 0.99
 //                     AND d.forma_pagamento ILIKE '%boleto%'
 //               ) THEN
 //                   NEW.conferido := true;
 //                   NEW.is_divida_manual := true;
+//               -- Check in recebimentos (Cobranças)
+//               ELSIF EXISTS (
+//                   SELECT 1 FROM public."RECEBIMENTOS" r
+//                   WHERE (r.cliente_id = NEW.cliente_codigo OR r.cliente_id IN (SELECT "CODIGO" FROM public."CLIENTES" WHERE "NOME CLIENTE" = NEW.cliente_nome))
+//                     AND r.vencimento IS NOT NULL
+//                     AND ABS((r.vencimento AT TIME ZONE 'America/Sao_Paulo')::date - NEW.vencimento) <= 10
+//                     AND ABS(r.valor_pago - NEW.valor) <= 0.99
+//                     AND r.forma_pagamento ILIKE '%boleto%'
+//               ) THEN
+//                   NEW.conferido := true;
+//                   NEW.is_divida_manual := false;
 //               END IF;
 //           END IF;
 //           RETURN NEW;
@@ -4669,12 +4683,26 @@ export const Constants = {
 //   
 //       -- If inserting/updating a divida_manual
 //       IF TG_TABLE_NAME = 'dividas_manuais' THEN
-//           IF NEW.forma_pagamento ILIKE '%boleto%' THEN
-//               UPDATE public.boletos
+//           IF NEW.forma_pagamento ILIKE '%boleto%' AND NEW.vencimento IS NOT NULL THEN
+//               UPDATE public.boletos b
 //               SET conferido = true, is_divida_manual = true
-//               WHERE cliente_codigo = NEW.cliente_id
-//                 AND vencimento = NEW.vencimento
-//                 AND conferido = false;
+//               WHERE (b.cliente_codigo = NEW.cliente_id OR b.cliente_nome = (SELECT "NOME CLIENTE" FROM public."CLIENTES" WHERE "CODIGO" = NEW.cliente_id))
+//                 AND ABS(b.vencimento - NEW.vencimento) <= 10
+//                 AND ABS(b.valor - NEW.valor_parcela) <= 0.99
+//                 AND b.conferido = false;
+//           END IF;
+//           RETURN NEW;
+//       END IF;
+//   
+//       -- If inserting/updating a recebimento (Cobrança)
+//       IF TG_TABLE_NAME = 'RECEBIMENTOS' THEN
+//           IF NEW.forma_pagamento ILIKE '%boleto%' AND NEW.vencimento IS NOT NULL THEN
+//               UPDATE public.boletos b
+//               SET conferido = true, is_divida_manual = false
+//               WHERE (b.cliente_codigo = NEW.cliente_id OR b.cliente_nome = (SELECT "NOME CLIENTE" FROM public."CLIENTES" WHERE "CODIGO" = NEW.cliente_id))
+//                 AND ABS(b.vencimento - (NEW.vencimento AT TIME ZONE 'America/Sao_Paulo')::date) <= 10
+//                 AND ABS(b.valor - NEW.valor_pago) <= 0.99
+//                 AND b.conferido = false;
 //           END IF;
 //           RETURN NEW;
 //       END IF;
@@ -5701,8 +5729,8 @@ export const Constants = {
 //   END;
 //   $function$
 //   
-// FUNCTION parse_currency_sql(character varying)
-//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str character varying)
+// FUNCTION parse_currency_sql(text)
+//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str text)
 //    RETURNS numeric
 //    LANGUAGE plpgsql
 //   AS $function$
@@ -5730,8 +5758,8 @@ export const Constants = {
 //   END;
 //   $function$
 //   
-// FUNCTION parse_currency_sql(text)
-//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str text)
+// FUNCTION parse_currency_sql(character varying)
+//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str character varying)
 //    RETURNS numeric
 //    LANGUAGE plpgsql
 //   AS $function$
@@ -6788,6 +6816,7 @@ export const Constants = {
 //   trg_fix_id_estoque_carro_reposicao: CREATE TRIGGER trg_fix_id_estoque_carro_reposicao BEFORE INSERT ON public."ESTOQUE CARRO: ESTOQUE PARA O CARRO" FOR EACH ROW EXECUTE FUNCTION fix_id_estoque_carro_on_reposicao()
 //   trg_sync_funcionario_estoque_carro: CREATE TRIGGER trg_sync_funcionario_estoque_carro BEFORE INSERT OR UPDATE ON public."ESTOQUE CARRO: ESTOQUE PARA O CARRO" FOR EACH ROW EXECUTE FUNCTION sync_funcionario_fields()
 // Table: RECEBIMENTOS
+//   trg_auto_conferir_boletos_cobranca: CREATE TRIGGER trg_auto_conferir_boletos_cobranca AFTER INSERT OR UPDATE ON public."RECEBIMENTOS" FOR EACH ROW EXECUTE FUNCTION auto_conferir_boletos()
 //   trg_reset_x_na_rota_rec: CREATE TRIGGER trg_reset_x_na_rota_rec AFTER INSERT ON public."RECEBIMENTOS" FOR EACH ROW EXECUTE FUNCTION reset_x_na_rota_on_activity()
 //   trg_sync_pix_receipt: CREATE TRIGGER trg_sync_pix_receipt AFTER INSERT OR UPDATE OF forma_pagamento ON public."RECEBIMENTOS" FOR EACH ROW EXECUTE FUNCTION sync_pix_receipt_on_insert()
 //   trg_update_debito_historico_recebimentos: CREATE TRIGGER trg_update_debito_historico_recebimentos AFTER INSERT OR DELETE OR UPDATE ON public."RECEBIMENTOS" FOR EACH ROW EXECUTE FUNCTION trigger_update_debito_historico()
@@ -6800,11 +6829,11 @@ export const Constants = {
 //   tr_update_x_na_rota: CREATE TRIGGER tr_update_x_na_rota BEFORE UPDATE ON public."ROTA_ITEMS" FOR EACH ROW EXECUTE FUNCTION update_x_na_rota()
 //   trg_update_x_na_rota: CREATE TRIGGER trg_update_x_na_rota BEFORE INSERT OR UPDATE ON public."ROTA_ITEMS" FOR EACH ROW EXECUTE FUNCTION update_x_na_rota()
 // Table: boletos
-//   trg_auto_conferir_boletos: CREATE TRIGGER trg_auto_conferir_boletos BEFORE INSERT OR UPDATE ON public.boletos FOR EACH ROW EXECUTE FUNCTION auto_conferir_boletos_divida()
+//   trg_auto_conferir_boletos: CREATE TRIGGER trg_auto_conferir_boletos BEFORE INSERT OR UPDATE ON public.boletos FOR EACH ROW EXECUTE FUNCTION auto_conferir_boletos()
 // Table: debitos_historico
 //   trg_sync_inativo_cobranca_debito: CREATE TRIGGER trg_sync_inativo_cobranca_debito AFTER INSERT OR DELETE OR UPDATE OF debito ON public.debitos_historico FOR EACH ROW EXECUTE FUNCTION sync_inativo_cobranca_from_debito()
 // Table: dividas_manuais
-//   trg_auto_conferir_boletos_divida: CREATE TRIGGER trg_auto_conferir_boletos_divida AFTER INSERT OR UPDATE ON public.dividas_manuais FOR EACH ROW EXECUTE FUNCTION auto_conferir_boletos_divida()
+//   trg_auto_conferir_boletos_divida: CREATE TRIGGER trg_auto_conferir_boletos_divida AFTER INSERT OR UPDATE ON public.dividas_manuais FOR EACH ROW EXECUTE FUNCTION auto_conferir_boletos()
 
 // --- INDEXES ---
 // Table: BANCO_DE_DADOS
