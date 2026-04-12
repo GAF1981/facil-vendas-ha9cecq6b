@@ -17,6 +17,7 @@ import { safeFormatDate } from '@/lib/formatters'
 import { Loader2, Edit2, Trash2, Check, X, History } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/lib/supabase/client'
 import { estoqueCarroService } from '@/services/estoqueCarroService'
@@ -38,6 +39,7 @@ export function EstoqueCarroGlobalHistoryDialog({
   const [movements, setMovements] = useState<any[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState<string>('')
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
   const { toast } = useToast()
 
   useEffect(() => {
@@ -123,6 +125,7 @@ export function EstoqueCarroGlobalHistoryDialog({
       )
 
       setMovements(all)
+      setSelectedIds([])
     } catch (error) {
       console.error('Failed to load details', error)
       toast({
@@ -200,6 +203,77 @@ export function EstoqueCarroGlobalHistoryDialog({
     }
   }
 
+  const editableMovements = movements.filter((mov) =>
+    ['contagem', 'ENTRADAS_estoque_carro', 'SAIDAS_carro_estoque'].includes(
+      mov.raw_type,
+    ),
+  )
+  const allEditableSelected =
+    editableMovements.length > 0 &&
+    editableMovements.every((mov) => selectedIds.includes(mov.uniqueId))
+
+  const toggleSelectAll = () => {
+    if (allEditableSelected) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(editableMovements.map((m) => m.uniqueId))
+    }
+  }
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    )
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return
+    if (
+      !confirm(
+        `Tem certeza que deseja remover ${selectedIds.length} registro(s)?`,
+      )
+    )
+      return
+
+    setLoading(true)
+    try {
+      const itemsToDelete = movements.filter((m) =>
+        selectedIds.includes(m.uniqueId),
+      )
+
+      for (const mov of itemsToDelete) {
+        if (mov.raw_type === 'contagem') {
+          await estoqueCarroService.deleteCount(
+            mov.id,
+            sessionId,
+            mov.produto_id,
+          )
+        } else {
+          await estoqueCarroService.deleteMovementRecord(
+            mov.id,
+            mov.raw_type,
+            sessionId,
+            mov.produto_id,
+          )
+        }
+      }
+
+      toast({ title: 'Registros removidos com sucesso' })
+      setSelectedIds([])
+      loadMovements()
+      if (onRefresh) onRefresh()
+    } catch (error: any) {
+      toast({
+        title: 'Erro na exclusão em lote',
+        description: error.message,
+        variant: 'destructive',
+      })
+      loadMovements()
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const getTypeLabel = (type: string) => {
     switch (type) {
       case 'ENTRADAS_cliente_carro':
@@ -221,9 +295,18 @@ export function EstoqueCarroGlobalHistoryDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <History className="w-5 h-5" /> Últimos Lançamentos (Estoque Carro)
-          </DialogTitle>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <DialogTitle className="flex items-center gap-2">
+              <History className="w-5 h-5" /> Últimos Lançamentos (Estoque
+              Carro)
+            </DialogTitle>
+            {selectedIds.length > 0 && (
+              <Button variant="destructive" onClick={handleBulkDelete}>
+                <Trash2 className="w-4 h-4 mr-2" />
+                Excluir Selecionados ({selectedIds.length})
+              </Button>
+            )}
+          </div>
         </DialogHeader>
 
         {loading ? (
@@ -234,6 +317,13 @@ export function EstoqueCarroGlobalHistoryDialog({
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[50px]">
+                  <Checkbox
+                    checked={allEditableSelected}
+                    onCheckedChange={toggleSelectAll}
+                    disabled={editableMovements.length === 0}
+                  />
+                </TableHead>
                 <TableHead>Data/Hora</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Produto</TableHead>
@@ -245,7 +335,7 @@ export function EstoqueCarroGlobalHistoryDialog({
               {movements.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={5}
+                    colSpan={6}
                     className="text-center text-muted-foreground"
                   >
                     Nenhum lançamento encontrado.
@@ -262,6 +352,14 @@ export function EstoqueCarroGlobalHistoryDialog({
 
                   return (
                     <TableRow key={mov.uniqueId}>
+                      <TableCell>
+                        {canEditDelete && (
+                          <Checkbox
+                            checked={selectedIds.includes(mov.uniqueId)}
+                            onCheckedChange={() => toggleSelect(mov.uniqueId)}
+                          />
+                        )}
+                      </TableCell>
                       <TableCell>
                         {safeFormatDate(mov.data_horario, 'dd/MM/yyyy HH:mm')}
                       </TableCell>
