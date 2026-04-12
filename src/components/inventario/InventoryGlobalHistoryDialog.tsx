@@ -14,8 +14,15 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { safeFormatDate } from '@/lib/formatters'
-import { Loader2, Edit2, Trash2, Check, X, History } from 'lucide-react'
+import { Loader2, Edit2, Trash2, Check, X, History, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/lib/supabase/client'
@@ -38,6 +45,10 @@ export function InventoryGlobalHistoryDialog({
   const [movements, setMovements] = useState<any[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState<string>('')
+  const [dateFilter, setDateFilter] = useState('')
+  const [typeFilter, setTypeFilter] = useState('todos')
+  const [idFilter, setIdFilter] = useState('')
+  const [productFilter, setProductFilter] = useState('')
   const { toast } = useToast()
 
   useEffect(() => {
@@ -225,117 +236,197 @@ export function InventoryGlobalHistoryDialog({
     }
   }
 
+  const filteredMovements = movements.filter((mov) => {
+    if (dateFilter) {
+      const movDate = mov.data_horario ? mov.data_horario.split('T')[0] : ''
+      if (movDate !== dateFilter) return false
+    }
+    if (typeFilter !== 'todos' && mov.movement_type !== typeFilter) return false
+    if (
+      idFilter &&
+      !String(mov.id_estoque_carro)
+        .toLowerCase()
+        .includes(idFilter.toLowerCase())
+    )
+      return false
+    if (
+      productFilter &&
+      !mov.produto_nome.toLowerCase().includes(productFilter.toLowerCase())
+    )
+      return false
+    return true
+  })
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <History className="w-5 h-5" /> Últimos Lançamentos (Inventário)
           </DialogTitle>
         </DialogHeader>
 
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 py-4 shrink-0">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium">Data</label>
+            <Input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="h-9"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium">Tipo</label>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                <SelectItem value="compra">Compra</SelectItem>
+                <SelectItem value="devolucao_carro">
+                  Devolução (Carro)
+                </SelectItem>
+                <SelectItem value="reposicao_carro">
+                  Reposição (Carro)
+                </SelectItem>
+                <SelectItem value="perda">Perda/Quebra</SelectItem>
+                <SelectItem value="contagem">Contagem</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium">ID Estoque Carro</label>
+            <Input
+              placeholder="Ex: 123"
+              value={idFilter}
+              onChange={(e) => setIdFilter(e.target.value)}
+              className="h-9"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium">Produto</label>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar produto..."
+                value={productFilter}
+                onChange={(e) => setProductFilter(e.target.value)}
+                className="h-9 pl-8"
+              />
+            </div>
+          </div>
+        </div>
+
         {loading ? (
-          <div className="flex justify-center p-8">
+          <div className="flex justify-center p-8 flex-1 items-center">
             <Loader2 className="h-8 w-8 animate-spin" />
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Data/Hora</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>ID Estoque Carro</TableHead>
-                <TableHead>Produto</TableHead>
-                <TableHead className="text-right">Qtd</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {movements.length === 0 ? (
+          <div className="overflow-y-auto flex-1 border rounded-md min-h-[300px]">
+            <Table>
+              <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
                 <TableRow>
-                  <TableCell
-                    colSpan={5}
-                    className="text-center text-muted-foreground py-8"
-                  >
-                    Nenhum lançamento encontrado.
-                  </TableCell>
+                  <TableHead>Data/Hora</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>ID Estoque Carro</TableHead>
+                  <TableHead>Produto</TableHead>
+                  <TableHead className="text-right">Qtd</TableHead>
                 </TableRow>
-              ) : (
-                movements.map((mov) => {
-                  const { label, color } = getTypeLabel(mov.movement_type)
-                  return (
-                    <TableRow key={mov.uniqueId}>
-                      <TableCell>
-                        {safeFormatDate(mov.data_horario, 'dd/MM/yyyy HH:mm')}
-                      </TableCell>
-                      <TableCell className={color}>{label}</TableCell>
-                      <TableCell className="font-mono text-muted-foreground">
-                        {mov.id_estoque_carro}
-                      </TableCell>
-                      <TableCell>{mov.produto_nome}</TableCell>
-                      <TableCell className="text-right font-mono font-bold">
-                        {editingId === mov.uniqueId ? (
-                          <div className="flex items-center justify-end gap-2">
-                            <Input
-                              type="number"
-                              min="0"
-                              step="1"
-                              value={editValue}
-                              onChange={(e) =>
-                                setEditValue(e.target.value.replace(/\D/g, ''))
-                              }
-                              onKeyDown={(e) => {
-                                if (
-                                  ['.', ',', 'e', 'E', '+', '-'].includes(e.key)
-                                )
-                                  e.preventDefault()
-                              }}
-                              className="w-20 h-8 text-right"
-                            />
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleEditSave(mov)}
-                              className="h-6 w-6 text-green-600"
-                            >
-                              <Check className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setEditingId(null)}
-                              className="h-6 w-6 text-red-600"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-end gap-2">
-                            <span>{mov.quantidade}</span>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleEditStart(mov)}
-                              className="h-6 w-6 ml-2"
-                            >
-                              <Edit2 className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDelete(mov)}
-                              className="h-6 w-6 text-red-600"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredMovements.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={5}
+                      className="text-center text-muted-foreground py-8"
+                    >
+                      Nenhum lançamento encontrado para os filtros selecionados.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredMovements.map((mov) => {
+                    const { label, color } = getTypeLabel(mov.movement_type)
+                    return (
+                      <TableRow key={mov.uniqueId}>
+                        <TableCell>
+                          {safeFormatDate(mov.data_horario, 'dd/MM/yyyy HH:mm')}
+                        </TableCell>
+                        <TableCell className={color}>{label}</TableCell>
+                        <TableCell className="font-mono text-muted-foreground">
+                          {mov.id_estoque_carro}
+                        </TableCell>
+                        <TableCell>{mov.produto_nome}</TableCell>
+                        <TableCell className="text-right font-mono font-bold">
+                          {editingId === mov.uniqueId ? (
+                            <div className="flex items-center justify-end gap-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={editValue}
+                                onChange={(e) =>
+                                  setEditValue(
+                                    e.target.value.replace(/\D/g, ''),
+                                  )
+                                }
+                                onKeyDown={(e) => {
+                                  if (
+                                    ['.', ',', 'e', 'E', '+', '-'].includes(
+                                      e.key,
+                                    )
+                                  )
+                                    e.preventDefault()
+                                }}
+                                className="w-20 h-8 text-right"
+                              />
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEditSave(mov)}
+                                className="h-6 w-6 text-green-600"
+                              >
+                                <Check className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setEditingId(null)}
+                                className="h-6 w-6 text-red-600"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-end gap-2">
+                              <span>{mov.quantidade}</span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEditStart(mov)}
+                                className="h-6 w-6 ml-2"
+                              >
+                                <Edit2 className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDelete(mov)}
+                                className="h-6 w-6 text-red-600"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </DialogContent>
     </Dialog>

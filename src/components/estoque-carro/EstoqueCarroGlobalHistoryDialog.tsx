@@ -144,13 +144,25 @@ export function EstoqueCarroGlobalHistoryDialog({
     try {
       const newQtd = parseInt(editValue.replace(/\D/g, '')) || 0
       if (newQtd < 0) return
-      await estoqueCarroService.updateCount(
-        mov.id,
-        newQtd,
-        sessionId,
-        mov.produto_id,
-      )
-      toast({ title: 'Contagem atualizada' })
+
+      if (mov.raw_type === 'contagem') {
+        await estoqueCarroService.updateCount(
+          mov.id,
+          newQtd,
+          sessionId,
+          mov.produto_id,
+        )
+      } else {
+        await estoqueCarroService.updateMovementRecord(
+          mov.id,
+          mov.raw_type,
+          newQtd,
+          sessionId,
+          mov.produto_id,
+        )
+      }
+
+      toast({ title: 'Registro atualizado' })
       setEditingId(null)
       loadMovements()
       if (onRefresh) onRefresh()
@@ -164,10 +176,19 @@ export function EstoqueCarroGlobalHistoryDialog({
   }
 
   const handleDelete = async (mov: any) => {
-    if (!confirm('Tem certeza que deseja remover esta contagem?')) return
+    if (!confirm('Tem certeza que deseja remover este registro?')) return
     try {
-      await estoqueCarroService.deleteCount(mov.id, sessionId, mov.produto_id)
-      toast({ title: 'Contagem removida' })
+      if (mov.raw_type === 'contagem') {
+        await estoqueCarroService.deleteCount(mov.id, sessionId, mov.produto_id)
+      } else {
+        await estoqueCarroService.deleteMovementRecord(
+          mov.id,
+          mov.raw_type,
+          sessionId,
+          mov.produto_id,
+        )
+      }
+      toast({ title: 'Registro removido' })
       loadMovements()
       if (onRefresh) onRefresh()
     } catch (error: any) {
@@ -233,7 +254,11 @@ export function EstoqueCarroGlobalHistoryDialog({
               ) : (
                 movements.map((mov) => {
                   const { label, color } = getTypeLabel(mov.movement_type)
-                  const isContagem = mov.raw_type === 'contagem'
+                  const canEditDelete = [
+                    'contagem',
+                    'ENTRADAS_estoque_carro',
+                    'SAIDAS_carro_estoque',
+                  ].includes(mov.raw_type)
 
                   return (
                     <TableRow key={mov.uniqueId}>
@@ -244,7 +269,7 @@ export function EstoqueCarroGlobalHistoryDialog({
                       <TableCell>{mov.produto_nome}</TableCell>
                       <TableCell>{mov.pedido}</TableCell>
                       <TableCell className="text-right font-mono font-bold">
-                        {editingId === mov.uniqueId && isContagem ? (
+                        {editingId === mov.uniqueId && canEditDelete ? (
                           <div className="flex items-center justify-end gap-2">
                             <Input
                               type="number"
@@ -282,7 +307,7 @@ export function EstoqueCarroGlobalHistoryDialog({
                         ) : (
                           <div className="flex items-center justify-end gap-2">
                             <span>{mov.quantidade}</span>
-                            {isContagem && (
+                            {canEditDelete && (
                               <>
                                 <Button
                                   variant="ghost"

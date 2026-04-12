@@ -1122,14 +1122,18 @@ export default function RotaPage() {
                   <TableRow>
                     <TableHead>Código Cliente</TableHead>
                     <TableHead>Nome Cliente</TableHead>
-                    <TableHead className="text-right">Valor a Pagar</TableHead>
+                    <TableHead className="text-right">Valor na Rota</TableHead>
+                    <TableHead className="text-right">
+                      Cobrança Registrada
+                    </TableHead>
+                    <TableHead className="text-right">Diferença</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {diferencasData.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={3}
+                        colSpan={5}
                         className="text-center text-muted-foreground py-8"
                       >
                         Nenhuma diferença encontrada.
@@ -1145,6 +1149,18 @@ export default function RotaPage() {
                             style: 'currency',
                             currency: 'BRL',
                           }).format(d.valorPagar)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-blue-600 font-medium">
+                          {new Intl.NumberFormat('pt-BR', {
+                            style: 'currency',
+                            currency: 'BRL',
+                          }).format(d.cobranca)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-bold">
+                          {new Intl.NumberFormat('pt-BR', {
+                            style: 'currency',
+                            currency: 'BRL',
+                          }).format(d.valorPagar - d.cobranca)}
                         </TableCell>
                       </TableRow>
                     ))
