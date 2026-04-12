@@ -291,7 +291,7 @@ export function DividasManuaisTable({
                           b.vencimento === row.vencimento,
                       )
                     : null
-                  const boletoStatus = matchingBoleto?.conferido
+                  const boletoStatus = matchingBoleto
                     ? 'Boleto conferido'
                     : 'Boleto a conferir'
 
@@ -380,13 +380,11 @@ export function DividasManuaisTable({
                           {isBoleto && (
                             <Badge
                               variant={
-                                matchingBoleto?.conferido
-                                  ? 'default'
-                                  : 'destructive'
+                                matchingBoleto ? 'default' : 'destructive'
                               }
                               className={cn(
                                 'text-[9px] px-1 py-0 uppercase max-w-max border-transparent',
-                                matchingBoleto?.conferido
+                                matchingBoleto
                                   ? 'bg-green-600 hover:bg-green-700 text-white'
                                   : 'bg-red-600 hover:bg-red-700 text-white',
                               )}

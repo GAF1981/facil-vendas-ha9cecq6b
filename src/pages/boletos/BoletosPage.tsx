@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { boletoService } from '@/services/boletoService'
+import { cobrancaService } from '@/services/cobrancaService'
+import { useDividasManuaisStore } from '@/stores/useDividasManuaisStore'
 import { Boleto } from '@/types/boleto'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -50,8 +52,66 @@ export default function BoletosPage() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const data = await boletoService.getAll()
-      setBoletos(data)
+      const [data, debtsData] = await Promise.all([
+        boletoService.getAll(),
+        cobrancaService.getDebts(),
+      ])
+
+      await useDividasManuaisStore.getState().fetchDividas()
+      const dividasData = useDividasManuaisStore.getState().dividas
+
+      const mappedBoletos = data.map((b) => {
+        const bDate = b.vencimento ? b.vencimento.substring(0, 10) : null
+        const bValor = Number(b.valor)
+
+        let matchedCobranca = false
+        for (const client of debtsData) {
+          if (client.clientId === b.cliente_codigo) {
+            for (const order of client.orders) {
+              for (const inst of order.installments) {
+                const instDate = inst.vencimento
+                  ? inst.vencimento.substring(0, 10)
+                  : null
+                const currentDebt = Number(
+                  Math.max(0, inst.valorRegistrado - inst.valorPago).toFixed(2),
+                )
+                if (
+                  instDate === bDate &&
+                  Math.abs(currentDebt - bValor) < 0.01
+                ) {
+                  matchedCobranca = true
+                  break
+                }
+              }
+              if (matchedCobranca) break
+            }
+          }
+          if (matchedCobranca) break
+        }
+
+        if (matchedCobranca) {
+          return { ...b, conferido: true, is_divida_manual: false }
+        }
+
+        let matchedDivida = false
+        for (const d of dividasData) {
+          if (d.cliente_id === b.cliente_codigo) {
+            const dDate = d.vencimento ? d.vencimento.substring(0, 10) : null
+            if (dDate === bDate) {
+              matchedDivida = true
+              break
+            }
+          }
+        }
+
+        if (matchedDivida) {
+          return { ...b, conferido: true, is_divida_manual: true }
+        }
+
+        return { ...b, conferido: false, is_divida_manual: false }
+      })
+
+      setBoletos(mappedBoletos)
     } catch (e) {
       toast({
         title: 'Erro',
