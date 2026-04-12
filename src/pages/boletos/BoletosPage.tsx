@@ -15,7 +15,17 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency, safeFormatDate } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
-import { Upload, RotateCcw, Download, Search, Eraser } from 'lucide-react'
+import {
+  Upload,
+  RotateCcw,
+  Download,
+  Search,
+  Eraser,
+  Plus,
+  Pencil,
+  Trash2,
+} from 'lucide-react'
+import { BoletoFormDialog } from '@/components/boletos/BoletoFormDialog'
 import {
   Select,
   SelectContent,
@@ -27,6 +37,8 @@ import {
 export default function BoletosPage() {
   const [boletos, setBoletos] = useState<Boleto[]>([])
   const [loading, setLoading] = useState(true)
+  const [isFormOpen, setIsFormOpen] = useState(false)
+  const [editingBoleto, setEditingBoleto] = useState<Boleto | null>(null)
 
   const [filterConferido, setFilterConferido] = useState<string>('nao')
   const [filterValor, setFilterValor] = useState<string>('todos')
@@ -120,6 +132,36 @@ export default function BoletosPage() {
     setFilterNome('')
   }
 
+  const handleEdit = (boleto: Boleto) => {
+    setEditingBoleto(boleto)
+    setIsFormOpen(true)
+  }
+
+  const handleDelete = async (id: number) => {
+    if (!window.confirm('Tem certeza que deseja excluir este boleto?')) return
+    setLoading(true)
+    try {
+      await boletoService.delete(id)
+      toast({
+        title: 'Sucesso',
+        description: 'Boleto excluído com sucesso.',
+      })
+      await loadData()
+    } catch (e) {
+      toast({
+        title: 'Erro',
+        description: 'Falha ao excluir o boleto.',
+        variant: 'destructive',
+      })
+      setLoading(false)
+    }
+  }
+
+  const handleCreateNew = () => {
+    setEditingBoleto(null)
+    setIsFormOpen(true)
+  }
+
   const handleExport = () => {
     if (filteredBoletos.length === 0) return
     boletoService.generateCSV(
@@ -167,6 +209,9 @@ export default function BoletosPage() {
               className={cn('mr-2 h-4 w-4', loading && 'animate-spin')}
             />
             Atualizar
+          </Button>
+          <Button onClick={handleCreateNew} disabled={loading}>
+            <Plus className="mr-2 h-4 w-4" /> Novo Boleto Manual
           </Button>
         </div>
       </div>
@@ -239,18 +284,19 @@ export default function BoletosPage() {
                 <TableHead className="text-right">Valor</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-center">Conferido</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading && filteredBoletos.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                  <TableCell colSpan={7} className="h-24 text-center">
                     Carregando...
                   </TableCell>
                 </TableRow>
               ) : filteredBoletos.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                  <TableCell colSpan={7} className="h-24 text-center">
                     Nenhum boleto encontrado para os filtros atuais.
                   </TableCell>
                 </TableRow>
@@ -298,6 +344,27 @@ export default function BoletosPage() {
                         {b.conferido ? 'SIM' : 'NÃO'}
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEdit(b)}
+                          title="Editar"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(b.id)}
+                          title="Excluir"
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -305,6 +372,16 @@ export default function BoletosPage() {
           </Table>
         </div>
       </div>
+
+      <BoletoFormDialog
+        isOpen={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        onSuccess={() => {
+          setIsFormOpen(false)
+          loadData()
+        }}
+        initialData={editingBoleto}
+      />
     </div>
   )
 }
