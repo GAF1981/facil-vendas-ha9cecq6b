@@ -30,6 +30,7 @@ import { clientsService } from '@/services/clientsService'
 import { estoqueCarroService } from '@/services/estoqueCarroService'
 import { useToast } from '@/hooks/use-toast'
 import { useUserStore } from '@/stores/useUserStore'
+import { usePermissions } from '@/hooks/use-permissions'
 import {
   Select,
   SelectContent,
@@ -137,6 +138,7 @@ export default function AcertoPage() {
   const { toast } = useToast()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const { canAccess } = usePermissions()
 
   const mounted = useRef(true)
   const loadedClientIdRef = useRef<number | null>(null)
@@ -209,11 +211,20 @@ export default function AcertoPage() {
       .catch((err) => console.error('Failed to fetch employees', err))
   }, [])
 
-  const canEditEmployee =
+  const isManagerOrAdmin =
     loggedInUser &&
     (Array.isArray(loggedInUser.setor)
       ? loggedInUser.setor.some((s) => ['Administrador', 'Gerente'].includes(s))
       : ['Administrador', 'Gerente'].includes(loggedInUser.setor || ''))
+
+  const canEditEmployee = isManagerOrAdmin
+  const canEditOrder =
+    isManagerOrAdmin ||
+    canAccess('Ícone editar acerto') ||
+    canAccess('Ícone Editar Acerto') ||
+    canAccess('Editar Acerto') ||
+    canAccess('Botão Editar Acerto') ||
+    canAccess('Edição de Acerto')
 
   useEffect(() => {
     if (loggedInUser && mounted.current) {
@@ -228,7 +239,7 @@ export default function AcertoPage() {
     const cid = searchParams.get('clientId')
 
     if (eid && !isEditMode && loggedInUser) {
-      if (!canEditEmployee) {
+      if (!canEditOrder) {
         toast({
           title: 'Acesso Negado',
           description: 'Você não tem permissão para editar pedidos.',
@@ -335,6 +346,7 @@ export default function AcertoPage() {
     searchParams,
     isEditMode,
     loggedInUser,
+    canEditOrder,
     canEditEmployee,
     client,
     navigate,
@@ -989,7 +1001,7 @@ export default function AcertoPage() {
           : 'Acerto'
 
       if (isEditMode && editOrderId) {
-        if (!canEditEmployee) {
+        if (!canEditOrder) {
           toast({
             title: 'Acesso Negado',
             description: 'Você não tem permissão para editar pedidos.',

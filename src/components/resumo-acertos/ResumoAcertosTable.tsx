@@ -47,7 +47,12 @@ export function ResumoAcertosTable({
   const { canAccess } = usePermissions()
 
   const canDelete = canAccess('Ícone excluir pedido')
-  const canEditAcerto = canAccess('Ícone editar acerto')
+  const canEditAcerto =
+    canAccess('Ícone editar acerto') ||
+    canAccess('Ícone Editar Acerto') ||
+    canAccess('Editar Acerto') ||
+    canAccess('Botão Editar Acerto') ||
+    canAccess('Edição de Acerto')
   const canEditPagamento = canAccess('Ícone editar pagamento')
 
   return (
