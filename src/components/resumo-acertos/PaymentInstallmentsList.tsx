@@ -10,18 +10,20 @@ import {
 } from '@/components/ui/select'
 import { CalendarDays, Plus, Trash2 } from 'lucide-react'
 import { PAYMENT_METHODS } from '@/types/payment'
+import { Checkbox } from '@/components/ui/checkbox'
 
 interface Installment {
   id: string
   method: string
   value: string
   dueDate: string
+  isEntrada?: boolean
 }
 
 interface PaymentInstallmentsListProps {
   installments: Installment[]
   addInstallment: () => void
-  updateInstallment: (index: number, field: string, value: string) => void
+  updateInstallment: (index: number, field: string, value: any) => void
   removeInstallment: (index: number) => void
 }
 
@@ -52,60 +54,79 @@ export function PaymentInstallmentsList({
       {installments.map((inst, idx) => (
         <div
           key={inst.id}
-          className="flex items-end gap-3 p-3 rounded-md border bg-card relative"
+          className="flex flex-col gap-3 p-3 rounded-md border bg-card relative"
         >
           <div className="absolute -left-2 -top-2 bg-primary text-primary-foreground text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold">
             {idx + 1}
           </div>
-          <div className="flex-1 space-y-1.5">
-            <Label className="text-xs">Forma</Label>
-            <Select
-              value={inst.method}
-              onValueChange={(val) => updateInstallment(idx, 'method', val)}
+          <div className="flex items-end gap-3">
+            <div className="flex-1 space-y-1.5">
+              <Label className="text-xs">Forma</Label>
+              <Select
+                value={inst.method}
+                onValueChange={(val) => updateInstallment(idx, 'method', val)}
+              >
+                <SelectTrigger className="h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAYMENT_METHODS.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {m}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-1 space-y-1.5">
+              <Label className="text-xs">Vencimento</Label>
+              <Input
+                type="date"
+                value={inst.dueDate}
+                onChange={(e) =>
+                  updateInstallment(idx, 'dueDate', e.target.value)
+                }
+                className="h-8"
+              />
+            </div>
+            <div className="flex-1 space-y-1.5">
+              <Label className="text-xs">Valor (R$)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={inst.value}
+                onChange={(e) =>
+                  updateInstallment(idx, 'value', e.target.value)
+                }
+                className="h-8 text-right font-medium"
+                placeholder="0.00"
+              />
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => removeInstallment(idx)}
+              className="h-8 w-8 text-muted-foreground hover:text-red-600 mb-[1px]"
+              disabled={installments.length === 1}
             >
-              <SelectTrigger className="h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PAYMENT_METHODS.map((m) => (
-                  <SelectItem key={m} value={m}>
-                    {m}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
-          <div className="flex-1 space-y-1.5">
-            <Label className="text-xs">Vencimento</Label>
-            <Input
-              type="date"
-              value={inst.dueDate}
-              onChange={(e) =>
-                updateInstallment(idx, 'dueDate', e.target.value)
+          <div className="flex items-center gap-2 pl-1">
+            <Checkbox
+              id={`isEntrada-${inst.id}`}
+              checked={!!inst.isEntrada}
+              onCheckedChange={(checked) =>
+                updateInstallment(idx, 'isEntrada', !!checked)
               }
-              className="h-8"
             />
+            <Label
+              htmlFor={`isEntrada-${inst.id}`}
+              className="text-xs text-muted-foreground cursor-pointer"
+            >
+              Marcar como entrada (pagamento já recebido no caixa)
+            </Label>
           </div>
-          <div className="flex-1 space-y-1.5">
-            <Label className="text-xs">Valor (R$)</Label>
-            <Input
-              type="number"
-              step="0.01"
-              value={inst.value}
-              onChange={(e) => updateInstallment(idx, 'value', e.target.value)}
-              className="h-8 text-right font-medium"
-              placeholder="0.00"
-            />
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => removeInstallment(idx)}
-            className="h-8 w-8 text-muted-foreground hover:text-red-600 mb-[1px]"
-            disabled={installments.length === 1}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
         </div>
       ))}
     </div>

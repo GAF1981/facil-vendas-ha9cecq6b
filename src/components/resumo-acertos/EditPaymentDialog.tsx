@@ -44,7 +44,13 @@ export function EditPaymentDialog({
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [installments, setInstallments] = useState<
-    { id: string; method: string; value: string; dueDate: string }[]
+    {
+      id: string
+      method: string
+      value: string
+      dueDate: string
+      isEntrada?: boolean
+    }[]
   >([])
   const [splitCount, setSplitCount] = useState<string>('1')
 
@@ -61,6 +67,7 @@ export function EditPaymentDialog({
           method: 'Dinheiro',
           value: netValue.toFixed(2),
           dueDate: format(new Date(), 'yyyy-MM-dd'),
+          isEntrada: false,
         },
       ])
       setSplitCount('1')
@@ -93,6 +100,7 @@ export function EditPaymentDialog({
       method: count > 1 ? 'Boleto' : 'Dinheiro',
       value: splitValue.toFixed(2),
       dueDate: format(addDays(new Date(), (i + 1) * 30), 'yyyy-MM-dd'),
+      isEntrada: false,
     }))
 
     const sum = newInsts.reduce((a, b) => a + parseFloat(b.value), 0)
@@ -162,7 +170,7 @@ export function EditPaymentDialog({
           method: i.method,
           value: parseFloat(i.value) || 0,
           dueDate: i.dueDate,
-          paidValue: 0,
+          paidValue: i.isEntrada ? parseFloat(i.value) || 0 : 0,
         })
       })
 
@@ -263,6 +271,7 @@ export function EditPaymentDialog({
                   method: 'Boleto',
                   value: '0.00',
                   dueDate: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
+                  isEntrada: false,
                 },
               ])
             }
