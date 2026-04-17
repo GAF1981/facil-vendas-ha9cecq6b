@@ -95,10 +95,21 @@ export default function LoginPage() {
       }
     } catch (error: any) {
       console.error(error)
-      const message = error.message || 'Erro de conexão com o servidor.'
+      let message = error.message || 'Erro de conexão com o servidor.'
+      let title = 'Erro no sistema'
+
+      if (
+        message.toLowerCase().includes('failed to fetch') ||
+        message.toLowerCase().includes('network error')
+      ) {
+        title = 'Erro de Conexão'
+        message =
+          'Não foi possível conectar ao servidor. Verifique sua conexão de internet (Wi-Fi ou 4G/5G). Se o problema persistir, desative VPNs/Bloqueadores de Anúncios, ou tente acessar usando uma aba anônima.'
+      }
+
       setErrorMsg(message)
       toast({
-        title: 'Erro no sistema',
+        title,
         description: message,
         variant: 'destructive',
       })
