@@ -20,7 +20,14 @@ import {
   FileText,
   Banknote,
   Eraser,
+  Filter,
 } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 export default function DividasManuaisPage() {
   const { dividas, fetchDividas } = useDividasManuaisStore()
@@ -30,8 +37,20 @@ export default function DividasManuaisPage() {
   const [valorParcFilter, setValorParcFilter] = useState('todos')
   const [formaCobrancaFilter, setFormaCobrancaFilter] = useState('todos')
   const [dataCombinadaFilter, setDataCombinadaFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string[]>([
+    'a vencer',
+    'vencido',
+  ])
 
   const [isModalOpen, setIsModalOpen] = useState(false)
+
+  const toggleStatus = (status: string) => {
+    setStatusFilter((prev) =>
+      prev.includes(status)
+        ? prev.filter((s) => s !== status)
+        : [...prev, status],
+    )
+  }
 
   useEffect(() => {
     fetchDividas()
@@ -85,12 +104,22 @@ export default function DividasManuaisPage() {
       const matchesDataComb =
         dataCombinadaFilter === '' || d.data_combinada === dataCombinadaFilter
 
+      const isPaid = d.valor_pago >= d.valor_parcela
+      const isOverdue =
+        !isPaid &&
+        new Date(d.vencimento) < new Date(new Date().setHours(0, 0, 0, 0))
+      const status = isPaid ? 'pago' : isOverdue ? 'vencido' : 'a vencer'
+
+      const matchesStatus =
+        statusFilter.length === 0 || statusFilter.includes(status)
+
       return (
         matchesSearch &&
         matchesTipo &&
         matchesValor &&
         matchesForma &&
-        matchesDataComb
+        matchesDataComb &&
+        matchesStatus
       )
     })
   }, [
@@ -100,6 +129,7 @@ export default function DividasManuaisPage() {
     valorParcFilter,
     formaCobrancaFilter,
     dataCombinadaFilter,
+    statusFilter,
   ])
 
   const { saldoTotal, valorPagoTotal } = useMemo(() => {
@@ -118,6 +148,7 @@ export default function DividasManuaisPage() {
     setValorParcFilter('todos')
     setFormaCobrancaFilter('todos')
     setDataCombinadaFilter('')
+    setStatusFilter(['a vencer', 'vencido'])
   }
 
   const openNew = () => {
@@ -240,6 +271,41 @@ export default function DividasManuaisPage() {
                 title="Filtro Data Combinada"
               />
             </div>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-[160px] justify-between font-normal"
+                >
+                  <span className="truncate">
+                    Status{' '}
+                    {statusFilter.length > 0 ? `(${statusFilter.length})` : ''}
+                  </span>
+                  <Filter className="h-4 w-4 opacity-50 shrink-0" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-[160px]">
+                <DropdownMenuCheckboxItem
+                  checked={statusFilter.includes('a vencer')}
+                  onCheckedChange={() => toggleStatus('a vencer')}
+                >
+                  A Vencer
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem
+                  checked={statusFilter.includes('vencido')}
+                  onCheckedChange={() => toggleStatus('vencido')}
+                >
+                  Vencido
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem
+                  checked={statusFilter.includes('pago')}
+                  onCheckedChange={() => toggleStatus('pago')}
+                >
+                  Pago
+                </DropdownMenuCheckboxItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             <Button
               variant="outline"
