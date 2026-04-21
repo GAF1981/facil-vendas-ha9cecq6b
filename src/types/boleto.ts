@@ -9,17 +9,18 @@ export interface Boleto {
   created_at?: string
   conferido: boolean
   is_divida_manual?: boolean
+  estado_conferido?: 'SIM' | 'NÃO' | 'PAGO'
 }
 
 export type BoletoInsert = Omit<
   Boleto,
-  'id' | 'created_at' | 'conferido' | 'is_divida_manual'
+  'id' | 'created_at' | 'conferido' | 'is_divida_manual' | 'estado_conferido'
 > & {
   conferido?: boolean
 }
 export type BoletoUpdate = Partial<BoletoInsert>
 
 export interface BoletoWithConferido extends Omit<Boleto, 'conferido'> {
-  conferido: 'SIM' | 'NÃO'
+  conferido: string
   originalConferido: boolean
 }

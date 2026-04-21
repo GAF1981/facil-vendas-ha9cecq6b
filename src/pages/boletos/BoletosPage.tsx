@@ -64,7 +64,10 @@ export default function BoletosPage() {
         const bDate = b.vencimento ? b.vencimento.substring(0, 10) : null
         const bValor = Number(b.valor)
 
-        let matchedCobranca = false
+        let isMatched = false
+        let isPaid = false
+        let isDividaManual = false
+
         for (const client of debtsData) {
           if (client.clientId === b.cliente_codigo) {
             for (const order of client.orders) {
@@ -75,40 +78,62 @@ export default function BoletosPage() {
                 const currentDebt = Number(
                   Math.max(0, inst.valorRegistrado - inst.valorPago).toFixed(2),
                 )
+
                 if (
                   instDate === bDate &&
-                  Math.abs(currentDebt - bValor) < 0.01
+                  (Math.abs(inst.valorRegistrado - bValor) < 0.01 ||
+                    Math.abs(currentDebt - bValor) < 0.01)
                 ) {
-                  matchedCobranca = true
+                  isMatched = true
+                  if (inst.valorPago >= inst.valorRegistrado - 0.01) {
+                    isPaid = true
+                  }
                   break
                 }
               }
-              if (matchedCobranca) break
+              if (isMatched) break
             }
           }
-          if (matchedCobranca) break
+          if (isMatched) break
         }
 
-        if (matchedCobranca) {
-          return { ...b, conferido: true, is_divida_manual: false }
-        }
+        if (!isMatched) {
+          for (const d of dividasData) {
+            if (d.cliente_id === b.cliente_codigo) {
+              const dDate = d.vencimento ? d.vencimento.substring(0, 10) : null
+              const currentDebt = Number(
+                Math.max(0, d.valor_parcela - d.valor_pago).toFixed(2),
+              )
 
-        let matchedDivida = false
-        for (const d of dividasData) {
-          if (d.cliente_id === b.cliente_codigo) {
-            const dDate = d.vencimento ? d.vencimento.substring(0, 10) : null
-            if (dDate === bDate) {
-              matchedDivida = true
-              break
+              if (
+                dDate === bDate &&
+                (Math.abs(d.valor_parcela - bValor) < 0.01 ||
+                  Math.abs(currentDebt - bValor) < 0.01)
+              ) {
+                isMatched = true
+                isDividaManual = true
+                if (d.valor_pago >= d.valor_parcela - 0.01) {
+                  isPaid = true
+                }
+                break
+              }
             }
           }
         }
 
-        if (matchedDivida) {
-          return { ...b, conferido: true, is_divida_manual: true }
+        let estadoConferido: 'SIM' | 'NÃO' | 'PAGO' = 'NÃO'
+
+        if (isPaid) {
+          estadoConferido = 'PAGO'
+        } else if (b.conferido || isMatched) {
+          estadoConferido = 'SIM'
         }
 
-        return { ...b, conferido: false, is_divida_manual: false }
+        return {
+          ...b,
+          estado_conferido: estadoConferido,
+          is_divida_manual: isDividaManual,
+        }
       })
 
       setBoletos(mappedBoletos)
@@ -166,8 +191,12 @@ export default function BoletosPage() {
 
   const filteredBoletos = boletos.filter((b) => {
     if (filterConferido !== 'todos') {
-      if (filterConferido === 'sim' && !b.conferido) return false
-      if (filterConferido === 'nao' && b.conferido) return false
+      if (filterConferido === 'sim' && b.estado_conferido !== 'SIM')
+        return false
+      if (filterConferido === 'nao' && b.estado_conferido !== 'NÃO')
+        return false
+      if (filterConferido === 'pago' && b.estado_conferido !== 'PAGO')
+        return false
     }
 
     if (filterValor !== 'todos' && b.valor.toString() !== filterValor)
@@ -227,7 +256,7 @@ export default function BoletosPage() {
     boletoService.generateCSV(
       filteredBoletos.map((b) => ({
         ...b,
-        conferido: b.conferido ? 'SIM' : 'NÃO',
+        conferido: b.estado_conferido || (b.conferido ? 'SIM' : 'NÃO'),
         originalConferido: b.conferido,
       })),
     )
@@ -319,6 +348,7 @@ export default function BoletosPage() {
               <SelectItem value="todos">Todos Status</SelectItem>
               <SelectItem value="sim">Conferido: SIM</SelectItem>
               <SelectItem value="nao">Conferido: NÃO</SelectItem>
+              <SelectItem value="pago">Conferido: PAGO</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -395,13 +425,19 @@ export default function BoletosPage() {
                     <TableCell>{b.status}</TableCell>
                     <TableCell className="text-center">
                       <Badge
-                        variant={b.conferido ? 'default' : 'destructive'}
+                        variant={
+                          b.estado_conferido === 'NÃO'
+                            ? 'destructive'
+                            : 'default'
+                        }
                         className={cn(
-                          b.conferido &&
+                          b.estado_conferido === 'SIM' &&
                             'bg-green-600 hover:bg-green-700 text-white',
+                          b.estado_conferido === 'PAGO' &&
+                            'bg-blue-600 hover:bg-blue-700 text-white',
                         )}
                       >
-                        {b.conferido ? 'SIM' : 'NÃO'}
+                        {b.estado_conferido}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
