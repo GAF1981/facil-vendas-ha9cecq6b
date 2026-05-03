@@ -890,6 +890,20 @@ export const rotaService = {
     // Logic handled by DB triggers/transfers
   },
 
+  async saveRouteClientsBackup(rotaId: number) {
+    const { error } = await supabase.rpc('save_route_clients_backup', {
+      p_rota_id: rotaId,
+    })
+    if (error) throw error
+  },
+
+  async restoreRouteClientsBackup(rotaId: number) {
+    const { error } = await supabase.rpc('restore_route_clients_backup', {
+      p_rota_id: rotaId,
+    })
+    if (error) throw error
+  },
+
   async importSellerAssignments(
     rotaId: number,
     assignments: { clientId: number; sellerId: number }[],

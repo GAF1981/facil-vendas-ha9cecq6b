@@ -613,6 +613,52 @@ export default function RotaPage() {
     }
   }
 
+  const handleSaveRouteClients = async () => {
+    if (!activeRota) return
+    setLoading(true)
+    try {
+      await rotaService.saveRouteClientsBackup(activeRota.id)
+      toast({
+        title: 'Sucesso',
+        description: 'Clientes da rota salvos com sucesso.',
+        className: 'bg-green-600 text-white',
+      })
+    } catch (error) {
+      console.error('Save route clients error:', error)
+      toast({
+        title: 'Erro',
+        description: 'Falha ao salvar clientes da rota.',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleRestoreRouteClients = async () => {
+    if (!activeRota) return
+    if (!confirm('Deseja realmente reestabelecer os vendedores salvos?')) return
+    setLoading(true)
+    try {
+      await rotaService.restoreRouteClientsBackup(activeRota.id)
+      toast({
+        title: 'Sucesso',
+        description: 'Vendedores restaurados com sucesso.',
+        className: 'bg-green-600 text-white',
+      })
+      loadData()
+    } catch (error) {
+      console.error('Restore route clients error:', error)
+      toast({
+        title: 'Erro',
+        description: 'Falha ao restaurar vendedores.',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleBulkTransfer = async () => {
     if (!activeRota) return
     if (
@@ -1063,6 +1109,10 @@ export default function RotaPage() {
         onOpenParametrosModal={() => setIsParametrosModalOpen(true)}
         activeRotaId={activeRota?.id}
         onDataChange={loadData}
+        onSaveRouteClients={activeRota ? handleSaveRouteClients : undefined}
+        onRestoreRouteClients={
+          activeRota ? handleRestoreRouteClients : undefined
+        }
       />
 
       {isMapView ? (

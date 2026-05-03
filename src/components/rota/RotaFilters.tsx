@@ -48,6 +48,8 @@ interface RotaFiltersProps {
   onOpenParametrosModal?: () => void
   activeRotaId?: number
   onDataChange?: () => void
+  onSaveRouteClients?: () => void
+  onRestoreRouteClients?: () => void
 }
 
 export function RotaFilters({
@@ -65,6 +67,8 @@ export function RotaFilters({
   isParametrosActive,
   toggleParametros,
   onOpenParametrosModal,
+  onSaveRouteClients,
+  onRestoreRouteClients,
 }: RotaFiltersProps) {
   const handleChange = (key: keyof RotaFilterState, value: any) => {
     setFilters({ ...filters, [key]: value })
@@ -270,6 +274,29 @@ export function RotaFilters({
                 )}
               </div>
             )}
+
+            {!isGerencialActive &&
+              onSaveRouteClients &&
+              onRestoreRouteClients && (
+                <div className="flex items-center space-x-2 border-l pl-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onSaveRouteClients}
+                    className="h-6 text-[10px] px-2 border-blue-300 text-blue-700 hover:bg-blue-50"
+                  >
+                    Salvar Clientes da Rota
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onRestoreRouteClients}
+                    className="h-6 text-[10px] px-2 border-orange-300 text-orange-700 hover:bg-orange-50"
+                  >
+                    Restabelecer Vendedores
+                  </Button>
+                </div>
+              )}
           </div>
 
           {/* Filters Row */}

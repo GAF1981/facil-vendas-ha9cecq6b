@@ -3140,6 +3140,7 @@ export type Database = {
         Returns: undefined
       }
       refresh_debitos_historico: { Args: never; Returns: undefined }
+      restore_route_clients_backup: { Args: { p_rota_id: number }; Returns: undefined }
       safe_cast_timestamp: {
         Args: { p_date: string; p_time: string }
         Returns: string
@@ -3148,6 +3149,7 @@ export type Database = {
         Args: { p_date: string; p_time: string }
         Returns: string
       }
+      save_route_clients_backup: { Args: { p_rota_id: number }; Returns: undefined }
       start_new_inventory_session: { Args: never; Returns: Json }
       transfer_unattended_items: {
         Args: { p_new_rota_id: number; p_old_rota_id: number }
