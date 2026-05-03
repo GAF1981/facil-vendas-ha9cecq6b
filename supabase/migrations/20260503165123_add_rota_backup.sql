@@ -21,7 +21,7 @@ BEGIN
   SET vendedor_id_backup = vendedor_id
   WHERE rota_id = p_rota_id;
 END;
-$;
+$$;
 
 CREATE OR REPLACE FUNCTION public.restore_route_clients_backup(p_rota_id integer)
 RETURNS void
@@ -33,4 +33,4 @@ BEGIN
   SET vendedor_id = vendedor_id_backup
   WHERE rota_id = p_rota_id;
 END;
-$;
+$$;
