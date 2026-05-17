@@ -121,13 +121,6 @@ export default function RotaPage() {
   const loadData = async () => {
     setLoading(true)
     try {
-      // Safely auto finalize overdue routes first
-      try {
-        await rotaService.autoFinalizeRota()
-      } catch (autoFinalizeError) {
-        console.error('Auto finalize error:', autoFinalizeError)
-      }
-
       const [active, last, sellersData] = await Promise.all([
         rotaService.getActiveRota(),
         rotaService.getLastRota(),
