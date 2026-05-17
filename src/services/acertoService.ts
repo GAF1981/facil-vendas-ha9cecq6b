@@ -6,6 +6,54 @@ import { parseCurrency } from '@/lib/formatters'
 import { cobrancaService } from './cobrancaService'
 
 export const acertoService = {
+  async checkRecentIdenticalOrder(
+    clientId: number,
+    totalVendido: number,
+    minutes: number = 10,
+  ) {
+    const timeLimit = new Date(Date.now() - minutes * 60000).toISOString()
+
+    const { data, error } = await supabase
+      .from('BANCO_DE_DADOS')
+      .select('"NÚMERO DO PEDIDO", "DATA E HORA"')
+      .eq('CÓDIGO DO CLIENTE', clientId)
+      .gte('DATA E HORA', timeLimit)
+      .not('NÚMERO DO PEDIDO', 'is', null)
+      .order('DATA E HORA', { ascending: false })
+
+    if (error) {
+      console.error('Error checking recent orders', error)
+      return null
+    }
+
+    if (!data || data.length === 0) return null
+
+    const orderIds = [...new Set(data.map((d) => d['NÚMERO DO PEDIDO']))]
+
+    for (const oid of orderIds) {
+      if (!oid) continue
+      const { data: items, error: itemsError } = await supabase
+        .from('BANCO_DE_DADOS')
+        .select('"VALOR VENDIDO"')
+        .eq('NÚMERO DO PEDIDO', oid)
+
+      if (!itemsError && items) {
+        const orderTotal = items.reduce(
+          (acc, item) => acc + parseCurrency(item['VALOR VENDIDO'] || '0'),
+          0,
+        )
+        if (Math.abs(orderTotal - totalVendido) < 0.01) {
+          const orderDate = data.find((d) => d['NÚMERO DO PEDIDO'] === oid)?.[
+            'DATA E HORA'
+          ]
+          return { id: oid, date: orderDate || new Date().toISOString() }
+        }
+      }
+    }
+
+    return null
+  },
+
   async getInitialItemsForClient(clientId: number, isAtivoCompra?: boolean) {
     const { data: dbItems, error: dbError } = await supabase
       .from('BANCO_DE_DADOS')

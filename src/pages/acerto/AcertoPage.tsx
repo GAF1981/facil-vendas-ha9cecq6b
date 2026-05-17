@@ -43,6 +43,16 @@ import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Switch } from '@/components/ui/switch'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
   Save,
   Printer,
   Loader2,
@@ -168,6 +178,12 @@ export default function AcertoPage() {
   const [collectionDialogOpen, setCollectionDialogOpen] = useState(false)
   const [isVendaMercadoria, setIsVendaMercadoria] = useState(false)
   const [isAtivoCompra, setIsAtivoCompra] = useState(false)
+
+  const [duplicateWarningOpen, setDuplicateWarningOpen] = useState(false)
+  const [duplicateOrderInfo, setDuplicateOrderInfo] = useState<{
+    id: number
+    date: string
+  } | null>(null)
 
   const [hideContagem, setHideContagem] = useState(false)
   const [hideSaldoFinal, setHideSaldoFinal] = useState(false)
@@ -958,16 +974,48 @@ export default function AcertoPage() {
         })
         return
       }
+    }
 
+    if (!isEditMode && !isCaptacao) {
+      try {
+        const recentOrder = await acertoService.checkRecentIdenticalOrder(
+          client.CODIGO,
+          totalSalesValue,
+        )
+        if (recentOrder) {
+          setDuplicateOrderInfo(recentOrder)
+          setDuplicateWarningOpen(true)
+          return
+        }
+      } catch (e) {
+        console.error('Failed to check recent order', e)
+      }
+    }
+
+    proceedToZeroStockOrSave()
+  }
+
+  const proceedToZeroStockOrSave = () => {
+    if (isVendaMercadoria) {
       executeSave(false)
       return
     }
+
+    const totalStock = effectiveItems.reduce(
+      (acc, item) => acc + (item.saldoFinal || 0),
+      0,
+    )
 
     if (totalStock === 0) {
       setZeroStockDialogOpen(true)
     } else {
       executeSave()
     }
+  }
+
+  const handleDuplicateWarningConfirm = () => {
+    setDuplicateWarningOpen(false)
+    proceedToZeroStockOrSave()
   }
 
   const handleZeroStockConfirm = () => {
@@ -1553,6 +1601,48 @@ export default function AcertoPage() {
         onConfirm={handleZeroStockConfirm}
         onCancel={() => setZeroStockDialogOpen(false)}
       />
+
+      <AlertDialog
+        open={duplicateWarningOpen}
+        onOpenChange={setDuplicateWarningOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
+              <AlertCircle className="h-5 w-5" />
+              Possível Duplicidade Detectada
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                Identificamos que foi feito um pedido (
+                <strong>#{duplicateOrderInfo?.id}</strong>) para este mesmo
+                cliente nos últimos 10 minutos com o mesmo valor total.
+              </p>
+              <p>
+                Data/Hora do pedido anterior:{' '}
+                <strong>
+                  {duplicateOrderInfo?.date
+                    ? new Date(duplicateOrderInfo.date).toLocaleString('pt-BR')
+                    : ''}
+                </strong>
+              </p>
+              <p className="font-semibold text-foreground">
+                Tem certeza que deseja processar e gerar um NOVO pedido
+                idêntico?
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Não, Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDuplicateWarningConfirm}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              Sim, Gerar Novo Pedido
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {client && (
         <ClientDebtSelectorDialog
