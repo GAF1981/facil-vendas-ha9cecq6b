@@ -2630,6 +2630,7 @@ export type Database = {
           rota_id: number | null
           tarefas: string | null
           vendedor_id: number | null
+          vendedor_id_backup: number | null
           vendedor_proximo_id: number | null
           x_na_rota: number | null
         }
@@ -2641,6 +2642,7 @@ export type Database = {
           rota_id?: number | null
           tarefas?: string | null
           vendedor_id?: number | null
+          vendedor_id_backup?: number | null
           vendedor_proximo_id?: number | null
           x_na_rota?: number | null
         }
@@ -2652,6 +2654,7 @@ export type Database = {
           rota_id?: number | null
           tarefas?: string | null
           vendedor_id?: number | null
+          vendedor_id_backup?: number | null
           vendedor_proximo_id?: number | null
           x_na_rota?: number | null
         }
@@ -2668,6 +2671,13 @@ export type Database = {
             columns: ["rota_id"]
             isOneToOne: false
             referencedRelation: "ROTA"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ROTA_ITEMS_vendedor_id_backup_fkey"
+            columns: ["vendedor_id_backup"]
+            isOneToOne: false
+            referencedRelation: "FUNCIONARIOS"
             referencedColumns: ["id"]
           },
           {
@@ -3140,7 +3150,10 @@ export type Database = {
         Returns: undefined
       }
       refresh_debitos_historico: { Args: never; Returns: undefined }
-      restore_route_clients_backup: { Args: { p_rota_id: number }; Returns: undefined }
+      restore_route_clients_backup: {
+        Args: { p_rota_id: number }
+        Returns: undefined
+      }
       safe_cast_timestamp: {
         Args: { p_date: string; p_time: string }
         Returns: string
@@ -3149,7 +3162,10 @@ export type Database = {
         Args: { p_date: string; p_time: string }
         Returns: string
       }
-      save_route_clients_backup: { Args: { p_rota_id: number }; Returns: undefined }
+      save_route_clients_backup: {
+        Args: { p_rota_id: number }
+        Returns: undefined
+      }
       start_new_inventory_session: { Args: never; Returns: Json }
       transfer_unattended_items: {
         Args: { p_new_rota_id: number; p_old_rota_id: number }
@@ -3735,6 +3751,7 @@ export const Constants = {
 //   vendedor_id: integer (nullable)
 //   tarefas: text (nullable, default: ''::text)
 //   vendedor_proximo_id: integer (nullable)
+//   vendedor_id_backup: integer (nullable)
 // Table: VEICULOS
 //   id: integer (not null, default: nextval('"VEICULOS_id_seq"'::regclass))
 //   placa: text (not null)
@@ -4136,6 +4153,7 @@ export const Constants = {
 //   PRIMARY KEY ROTA_ITEMS_pkey: PRIMARY KEY (id)
 //   UNIQUE ROTA_ITEMS_rota_id_cliente_id_key: UNIQUE (rota_id, cliente_id)
 //   FOREIGN KEY ROTA_ITEMS_rota_id_fkey: FOREIGN KEY (rota_id) REFERENCES "ROTA"(id)
+//   FOREIGN KEY ROTA_ITEMS_vendedor_id_backup_fkey: FOREIGN KEY (vendedor_id_backup) REFERENCES "FUNCIONARIOS"(id) ON DELETE SET NULL
 //   FOREIGN KEY ROTA_ITEMS_vendedor_id_fkey: FOREIGN KEY (vendedor_id) REFERENCES "FUNCIONARIOS"(id)
 //   FOREIGN KEY ROTA_ITEMS_vendedor_proximo_id_fkey: FOREIGN KEY (vendedor_proximo_id) REFERENCES "FUNCIONARIOS"(id)
 // Table: VEICULOS
@@ -6131,6 +6149,19 @@ export const Constants = {
 //   END;
 //   $function$
 //   
+// FUNCTION restore_route_clients_backup(integer)
+//   CREATE OR REPLACE FUNCTION public.restore_route_clients_backup(p_rota_id integer)
+//    RETURNS void
+//    LANGUAGE plpgsql
+//    SECURITY DEFINER
+//   AS $function$
+//   BEGIN
+//     UPDATE public."ROTA_ITEMS"
+//     SET vendedor_id = vendedor_id_backup
+//     WHERE rota_id = p_rota_id;
+//   END;
+//   $function$
+//   
 // FUNCTION safe_cast_timestamp(text, text)
 //   CREATE OR REPLACE FUNCTION public.safe_cast_timestamp(p_date text, p_time text)
 //    RETURNS timestamp without time zone
@@ -6174,6 +6205,19 @@ export const Constants = {
 //     EXCEPTION WHEN OTHERS THEN
 //       RETURN NULL; -- Gracefully handle malformed dates by returning NULL
 //     END;
+//   END;
+//   $function$
+//   
+// FUNCTION save_route_clients_backup(integer)
+//   CREATE OR REPLACE FUNCTION public.save_route_clients_backup(p_rota_id integer)
+//    RETURNS void
+//    LANGUAGE plpgsql
+//    SECURITY DEFINER
+//   AS $function$
+//   BEGIN
+//     UPDATE public."ROTA_ITEMS"
+//     SET vendedor_id_backup = vendedor_id
+//     WHERE rota_id = p_rota_id;
 //   END;
 //   $function$
 //   
