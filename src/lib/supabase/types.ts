@@ -2914,7 +2914,6 @@ export type Database = {
       }
     }
     Functions: {
-      auto_finalize_overdue_routes: { Args: never; Returns: Json }
       btrim:
         | { Args: { d: string }; Returns: string }
         | { Args: { t: string }; Returns: string }
@@ -2922,6 +2921,7 @@ export type Database = {
       cleanup_route_duplicates: { Args: { p_rota_id: number }; Returns: Json }
       cleanup_selected_duplicates: { Args: { p_ids: string[] }; Returns: Json }
       delete_full_order: { Args: { p_order_id: number }; Returns: undefined }
+      finalize_route_atomic: { Args: { p_old_rota_id: number }; Returns: Json }
       get_client_projections: {
         Args: never
         Returns: {
@@ -4749,47 +4749,6 @@ export const Constants = {
 //   END;
 //   $function$
 //   
-// FUNCTION auto_finalize_overdue_routes()
-//   CREATE OR REPLACE FUNCTION public.auto_finalize_overdue_routes()
-//    RETURNS jsonb
-//    LANGUAGE plpgsql
-//    SECURITY DEFINER
-//   AS $function$
-//   DECLARE
-//     r RECORD;
-//     processed_count INTEGER := 0;
-//     rota_ids INTEGER[] := ARRAY[]::INTEGER[];
-//   BEGIN
-//     -- Iterate over open routes that are older than 6 days
-//     -- Logic: data_fim IS NULL AND data_inicio < (NOW - 6 days)
-//     -- This identifies routes that have been open for strictly more than 6 days
-//     FOR r IN
-//       SELECT * FROM "ROTA"
-//       WHERE data_fim IS NULL
-//       AND data_inicio < (NOW() - INTERVAL '6 days')
-//     LOOP
-//       -- 1. Update the route to close it by setting data_fim to current timestamp
-//       UPDATE "ROTA"
-//       SET data_fim = NOW()
-//       WHERE id = r.id;
-//   
-//       -- 2. Execute the stock/item increment logic using the existing RPC
-//       -- Using PERFORM to discard the result as we just need the side effect
-//       PERFORM public.increment_rota_items_on_finalize(r.id);
-//       
-//       -- Track processed IDs for reporting/logging
-//       rota_ids := array_append(rota_ids, r.id);
-//       processed_count := processed_count + 1;
-//     END LOOP;
-//   
-//     RETURN jsonb_build_object(
-//       'success', true,
-//       'processed_count', processed_count,
-//       'finalized_rota_ids', rota_ids
-//     );
-//   END;
-//   $function$
-//   
 // FUNCTION btrim(date)
 //   CREATE OR REPLACE FUNCTION public.btrim(d date)
 //    RETURNS text
@@ -5030,6 +4989,50 @@ export const Constants = {
 //     DELETE FROM "acoes_cobranca" WHERE pedido_id = p_order_id;
 //     DELETE FROM "ESTOQUE CARRO: CARRO PARA O CLIENTE" WHERE pedido = p_order_id;
 //     DELETE FROM "ESTOQUE CARRO: CLIENTE PARA O CARRO" WHERE pedido = p_order_id;
+//   END;
+//   $function$
+//   
+// FUNCTION finalize_route_atomic(integer)
+//   CREATE OR REPLACE FUNCTION public.finalize_route_atomic(p_old_rota_id integer)
+//    RETURNS jsonb
+//    LANGUAGE plpgsql
+//    SECURITY DEFINER
+//   AS $function$
+//   DECLARE
+//       v_new_rota_id integer;
+//       v_next_id integer;
+//   BEGIN
+//       -- 1. Verify if the route is still active
+//       IF EXISTS (SELECT 1 FROM public."ROTA" WHERE id = p_old_rota_id AND data_fim IS NOT NULL) THEN
+//           RAISE EXCEPTION 'Route % is already finalized', p_old_rota_id;
+//       END IF;
+//   
+//       -- 2. Backup sellers safely
+//       UPDATE public."ROTA_ITEMS"
+//       SET vendedor_id_backup = vendedor_id
+//       WHERE rota_id = p_old_rota_id;
+//   
+//       -- 3. Finalize old route
+//       UPDATE public."ROTA"
+//       SET data_fim = NOW()
+//       WHERE id = p_old_rota_id;
+//   
+//       -- 4. Get next route ID safely
+//       SELECT COALESCE(MAX(id), p_old_rota_id) + 1 INTO v_next_id FROM public."ROTA";
+//   
+//       -- 5. Create new route
+//       INSERT INTO public."ROTA" (id, data_inicio)
+//       VALUES (v_next_id, NOW())
+//       RETURNING id INTO v_new_rota_id;
+//   
+//       -- 6. Transfer unattended items preserving logic
+//       PERFORM public.transfer_unattended_items_v3(p_old_rota_id, v_new_rota_id);
+//   
+//       RETURN jsonb_build_object(
+//           'old_rota_id', p_old_rota_id,
+//           'new_rota_id', v_new_rota_id,
+//           'status', 'success'
+//       );
 //   END;
 //   $function$
 //   
@@ -5749,8 +5752,8 @@ export const Constants = {
 //   END;
 //   $function$
 //   
-// FUNCTION parse_currency_sql(text)
-//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str text)
+// FUNCTION parse_currency_sql(character varying)
+//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str character varying)
 //    RETURNS numeric
 //    LANGUAGE plpgsql
 //   AS $function$
@@ -5778,8 +5781,8 @@ export const Constants = {
 //   END;
 //   $function$
 //   
-// FUNCTION parse_currency_sql(character varying)
-//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str character varying)
+// FUNCTION parse_currency_sql(text)
+//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str text)
 //    RETURNS numeric
 //    LANGUAGE plpgsql
 //   AS $function$
