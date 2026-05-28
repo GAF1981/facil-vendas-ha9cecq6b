@@ -28,7 +28,7 @@ import { Button } from '@/components/ui/button'
 import { Download, Loader2, Target } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
-export default function ProjectionsPage() {
+export function ProjectionsTab() {
   const [data, setData] = useState<ProjectionReportRow[]>([])
   const [loading, setLoading] = useState(true)
   const [clientTypes, setClientTypes] = useState<string[]>([])
@@ -128,14 +128,14 @@ export default function ProjectionsPage() {
   }, [filteredData])
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-7xl animate-fade-in-up">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+    <div className="space-y-6 animate-fade-in-up">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Target className="h-8 w-8 text-primary" />
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <Target className="h-6 w-6 text-primary" />
             Projeções e Metas
-          </h1>
-          <p className="text-muted-foreground mt-1">
+          </h2>
+          <p className="text-muted-foreground mt-1 text-sm">
             Análise de projeções de vendas e metas por tipo de cliente.
           </p>
         </div>

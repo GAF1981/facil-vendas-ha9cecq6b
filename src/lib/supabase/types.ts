@@ -5752,8 +5752,8 @@ export const Constants = {
 //   END;
 //   $function$
 //   
-// FUNCTION parse_currency_sql(character varying)
-//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str character varying)
+// FUNCTION parse_currency_sql(text)
+//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str text)
 //    RETURNS numeric
 //    LANGUAGE plpgsql
 //   AS $function$
@@ -5781,8 +5781,8 @@ export const Constants = {
 //   END;
 //   $function$
 //   
-// FUNCTION parse_currency_sql(text)
-//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str text)
+// FUNCTION parse_currency_sql(character varying)
+//   CREATE OR REPLACE FUNCTION public.parse_currency_sql(val_str character varying)
 //    RETURNS numeric
 //    LANGUAGE plpgsql
 //   AS $function$
@@ -6605,12 +6605,12 @@ export const Constants = {
 //       FROM "ROTA"
 //       WHERE id = p_old_rota_id;
 //   
-//       -- Insert into new route items based on logic
+//       -- Insert into new route items based on logic, applying next seller if present
 //       INSERT INTO "ROTA_ITEMS" (rota_id, cliente_id, vendedor_id, x_na_rota, boleto, agregado)
 //       SELECT 
 //           p_new_rota_id,
 //           ri.cliente_id,
-//           ri.vendedor_id,
+//           COALESCE(ri.vendedor_proximo_id, ri.vendedor_id),
 //           COALESCE(ri.x_na_rota, 0) + 1,
 //           ri.boleto,
 //           ri.agregado
@@ -6925,6 +6925,7 @@ export const Constants = {
 //   CREATE UNIQUE INDEX "ROTA_ITEMS_rota_id_cliente_id_key" ON public."ROTA_ITEMS" USING btree (rota_id, cliente_id)
 //   CREATE INDEX idx_rota_items_cliente_id ON public."ROTA_ITEMS" USING btree (cliente_id)
 //   CREATE INDEX idx_rota_items_rota_id ON public."ROTA_ITEMS" USING btree (rota_id)
+//   CREATE INDEX idx_rota_items_vendedor_id ON public."ROTA_ITEMS" USING btree (vendedor_id)
 //   CREATE INDEX idx_rota_items_vendedor_proximo_id ON public."ROTA_ITEMS" USING btree (vendedor_proximo_id)
 // Table: VEICULOS
 //   CREATE UNIQUE INDEX "VEICULOS_placa_key" ON public."VEICULOS" USING btree (placa)

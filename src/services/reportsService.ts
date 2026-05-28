@@ -8,6 +8,7 @@ export interface ProjectionReportRow {
   orderId: number
   clientCode: number
   clientName: string
+  clientType?: string
   orderDate: string
   totalValue: number
   daysBetweenOrders: number | null
@@ -206,6 +207,26 @@ export const reportsService = {
     const result: ProjectionReportRow[] = []
     const today = startOfDay(new Date())
 
+    const clientIdsToFetch = Array.from(clientOrdersMap.keys())
+    const clientTypesMap = new Map<number, string>()
+
+    if (clientIdsToFetch.length > 0) {
+      const chunkSize = 1000
+      for (let i = 0; i < clientIdsToFetch.length; i += chunkSize) {
+        const chunk = clientIdsToFetch.slice(i, i + chunkSize)
+        const { data: clientsData } = await supabase
+          .from('CLIENTES')
+          .select('CODIGO, "TIPO DE CLIENTE"')
+          .in('CODIGO', chunk)
+
+        clientsData?.forEach((c) => {
+          if (c.CODIGO) {
+            clientTypesMap.set(c.CODIGO, c['TIPO DE CLIENTE'])
+          }
+        })
+      }
+    }
+
     clientOrdersMap.forEach((orders) => {
       orders.sort((a, b) => {
         const dateA = new Date(a.orderDate).getTime()
@@ -254,6 +275,9 @@ export const reportsService = {
           currentOrder.daysSinceLastOrder = null
           currentOrder.projection = null
         }
+
+        currentOrder.clientType =
+          clientTypesMap.get(currentOrder.clientCode) || 'N/D'
 
         result.push(currentOrder)
       })
