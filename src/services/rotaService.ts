@@ -5,6 +5,30 @@ import { reportsService } from './reportsService'
 import { parseISO, isBefore, startOfDay } from 'date-fns'
 
 export const rotaService = {
+  async autoFinalizeRota() {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+
+      const { data, error } = await supabase.functions.invoke(
+        'auto-finalize-rota',
+        {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        },
+      )
+
+      if (error) {
+        console.warn('Edge function auto-finalize-rota error:', error)
+        return { success: false, error }
+      }
+
+      return { success: true, data }
+    } catch (error) {
+      console.warn('Error invoking auto-finalize-rota:', error)
+      return { success: false, error }
+    }
+  },
+
   async getActiveRota() {
     const { data, error } = await supabase
       .from('ROTA')
@@ -882,7 +906,11 @@ export const rotaService = {
 
   async importSellerAssignments(
     rotaId: number,
-    assignments: { clientId: number; sellerId: number }[],
+    assignments: {
+      clientId: number
+      sellerId?: number | null
+      nextSellerId?: number | null
+    }[],
   ) {
     const clientIds = assignments.map((a) => a.clientId)
     const chunkSize = 1000
@@ -910,21 +938,29 @@ export const rotaService = {
           // Merge existing item with new seller to ensure other fields are preserved
           // Exclude 'id' to prevent null constraint violations in batch upserts
           const { id, ...itemWithoutId } = item
-          rowsToUpsert.push({
-            ...itemWithoutId,
-            vendedor_id: assignment.sellerId,
-          })
+          const updatedItem: any = { ...itemWithoutId }
+          if (assignment.sellerId !== undefined) {
+            updatedItem.vendedor_id = assignment.sellerId
+          }
+          if (assignment.nextSellerId !== undefined) {
+            updatedItem.vendedor_proximo_id = assignment.nextSellerId
+          }
+          rowsToUpsert.push(updatedItem)
         } else {
           // Insert new row with default values for clients not yet in route
           rowsToUpsert.push({
             rota_id: rotaId,
             cliente_id: assignment.clientId,
-            vendedor_id: assignment.sellerId,
+            vendedor_id:
+              assignment.sellerId !== undefined ? assignment.sellerId : null,
             x_na_rota: 0,
             boleto: false,
             agregado: false,
             tarefas: null,
-            vendedor_proximo_id: null,
+            vendedor_proximo_id:
+              assignment.nextSellerId !== undefined
+                ? assignment.nextSellerId
+                : null,
           })
         }
       }
